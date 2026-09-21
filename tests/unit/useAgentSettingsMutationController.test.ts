@@ -318,14 +318,23 @@ describe("useAgentSettingsMutationController", () => {
   });
 
   it("cron_delete_is_denied_while_run_busy_without_changing_error_state", async () => {
+    // The run is held open with an explicit gate rather than a timer. A timer
+    // left the run in flight after the test ended: it resolved during a later
+    // test and updated React state belonging to this one, which is why this
+    // file failed intermittently in full runs and never in isolation.
+    let releaseRun: () => void = () => {};
+    const runGate = new Promise<void>((resolve) => {
+      releaseRun = resolve;
+    });
     mockedRunCronJobNow.mockImplementation(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await runGate;
       return { ok: true, ran: true } satisfies CronRunResult;
     });
     const ctx = renderController();
 
+    let runInFlight: Promise<unknown> = Promise.resolve();
     await act(async () => {
-      void ctx.getValue().handleRunCronJob("agent-1", "job-running");
+      runInFlight = ctx.getValue().handleRunCronJob("agent-1", "job-running");
     });
     await waitFor(() => {
       expect(ctx.getValue().cronRunBusyJobId).toBe("job-running");
@@ -337,6 +346,15 @@ describe("useAgentSettingsMutationController", () => {
 
     expect(mockedRemoveCronJob).not.toHaveBeenCalled();
     expect(ctx.getValue().settingsCronError).toBeNull();
+
+    // Settle the held run so its state update lands inside this test.
+    await act(async () => {
+      releaseRun();
+      await runInFlight;
+    });
+    await waitFor(() => {
+      expect(ctx.getValue().cronRunBusyJobId).toBeNull();
+    });
   });
 
   it("allowed_rename_and_delete_delegate_to_lifecycle_runner", async () => {
