@@ -1,12 +1,19 @@
-name: Docker Publish
+name: CI
 
 on:
   push:
     branches:
-      - "**"
+      - main
     tags:
       - "v*"
+  pull_request:
   workflow_dispatch:
+
+# A newer push supersedes an in-flight run for the same ref. Tag runs are never
+# cancelled, since they publish release images.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   REGISTRY: ghcr.io
@@ -14,9 +21,43 @@ env:
   # GHCR requires a lowercase namespace, `github.repository_owner` preserves the
   # owner's original casing, and `env:` cannot lowercase a value.
   IMAGE_BASENAME: office3d
+  NODE_VERSION: "22"
 
 jobs:
+  verify:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test -- --run
+
   publish:
+    name: Build and publish image
+    # Gated on verify so a red suite never reaches the registry. Pull requests
+    # are verified but not published: the image would be unused and the
+    # GITHUB_TOKEN of a fork PR cannot write packages anyway.
+    needs: verify
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,7 +106,10 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: arm64 needs QEMU emulation here and roughly doubles the
+          # billed minutes, which a private repository pays for. Add
+          # linux/arm64 back if a deployment target needs it.
+          platforms: linux/amd64
           tags: ${{ steps.tags.outputs.value }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

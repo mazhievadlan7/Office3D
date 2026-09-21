@@ -1,0 +1,59 @@
+# Office3D — single-host deployment.
+#
+#   cp .env.example .env     # then set STUDIO_ACCESS_TOKEN
+#   docker compose up -d
+#
+# See docs/deployment.md for the full walkthrough, including pulling the image
+# from a private GHCR and putting TLS in front of it.
+
+services:
+  office3d:
+    # Build locally by default. To run the image published by CI instead,
+    # comment out `build` and uncomment `image`.
+    build: .
+    # image: ghcr.io/mazhievadlan7/office3d:main
+    container_name: office3d
+    restart: unless-stopped
+
+    environment:
+      # The server refuses to bind a public host without this token, so there
+      # is no way to start it unauthenticated by accident. No default here on
+      # purpose: compose fails fast if it is unset.
+      STUDIO_ACCESS_TOKEN: ${STUDIO_ACCESS_TOKEN:?set STUDIO_ACCESS_TOKEN in .env}
+      HOST: 0.0.0.0
+      PORT: "3000"
+      OPENCLAW_STATE_DIR: /data
+      # Runtime gateway. Takes effect on restart, no rebuild needed.
+      OFFICE3D_GATEWAY_URL: ${OFFICE3D_GATEWAY_URL:-}
+      OFFICE3D_GATEWAY_TOKEN: ${OFFICE3D_GATEWAY_TOKEN:-}
+      OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}
+
+    # Published on loopback only. Put a reverse proxy in front for TLS rather
+    # than exposing the app port to the internet directly; change to
+    # "3000:3000" only if the host firewall already restricts access.
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    volumes:
+      - office3d-state:/data
+
+    # The image declares its own HEALTHCHECK; this only shortens the grace
+    # period used while the container is starting.
+    healthcheck:
+      start_period: 20s
+
+    # The app is a single Node process serving HTTP and proxying WebSockets;
+    # these are ceilings, not reservations.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  office3d-state:

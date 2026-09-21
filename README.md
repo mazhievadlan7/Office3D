@@ -21,7 +21,7 @@ If you want a personal, self-hosted workspace that turns your AI workforce into 
 
 Supported runtimes include: OpenClaw Gateway, Hermes, a direct HTTP `custom` runtime provider for orchestrator-backed stacks, and a built-in demo gateway for office exploration without a real agent framework.
 
-[Vision](VISION.md) · [Architecture](ARCHITECTURE.md) · [Tutorial](TUTORIAL.md) · [Getting Started](#quick-start) · [Runtime Profiles](docs/runtime-profiles.md) · [Multi-Agent Beta](docs/multi-agent-beta.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Vision](VISION.md) · [Architecture](ARCHITECTURE.md) · [Tutorial](TUTORIAL.md) · [Getting Started](#quick-start) · [Deployment](docs/deployment.md) · [Runtime Profiles](docs/runtime-profiles.md) · [Multi-Agent Beta](docs/multi-agent-beta.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 > **Unofficial project.** Office3D is an independent, community-driven project and is not affiliated with, endorsed by, or maintained by the OpenClaw team. OpenClaw is a separate project, and this repository is not the official OpenClaw repository.
 
