@@ -67,6 +67,22 @@ const AGENT_ID = "hermes";
 const MAIN_KEY = "main";
 const MAIN_SESSION_KEY = `agent:${AGENT_ID}:${MAIN_KEY}`;
 const CONFIG_PATH = `${HOME}/.hermes/config.json`;
+
+// Installed skills. Hermes has no skill scanner of its own, so Office3D writes
+// AgentSkills directories here and this adapter reads them on every run and
+// folds them into the system prompt — the only thing a Hermes agent actually
+// sees. Reading per run means a newly installed skill takes effect without
+// restarting the adapter.
+const SKILLS_DIR = (() => {
+  const configured = process.env.HERMES_SKILLS_DIR?.trim();
+  if (!configured) return path.join(HOME, ".hermes", "skills");
+  return configured.startsWith("~")
+    ? path.join(HOME, configured.slice(1))
+    : path.resolve(configured);
+})();
+
+/** Total skill text folded into a prompt, so a large library cannot blow up a request. */
+const MAX_SKILLS_PROMPT_CHARS = 60000;
 const MAX_TOOL_ROUNDS = 8;
 
 // ---------------------------------------------------------------------------
@@ -615,7 +631,8 @@ async function execDelegateTask(args) {
   const model = agent.settings.model || HERMES_MODEL;
 
   // Build messages for sub-agent
-  const systemMsg = agent.systemPrompt ? [{ role: "system", content: agent.systemPrompt }] : [];
+  const combinedPrompt = buildSystemPrompt(agent);
+  const systemMsg = combinedPrompt ? [{ role: "system", content: combinedPrompt }] : [];
   const contextHistory = agent.settings.wipe ? [] : [...history];
   const messages = [...systemMsg, ...contextHistory, { role: "user", content: message }];
 
@@ -758,7 +775,8 @@ async function executeToolCall(tc, sendEvent) {
 
 async function runAgenticLoop({ sessionKey, agentId, userMessage, model, tools, emitDelta, abortCheck, sendEvent }) {
   const agent = agentRegistry.get(agentId);
-  const systemMsg = agent?.systemPrompt ? [{ role: "system", content: agent.systemPrompt }] : [];
+  const combinedPrompt = buildSystemPrompt(agent);
+  const systemMsg = combinedPrompt ? [{ role: "system", content: combinedPrompt }] : [];
   const history = getHistory(sessionKey);
   const contextHistory = (agent?.settings?.wipe) ? [] : [...history];
   let messages = [...systemMsg, ...contextHistory, { role: "user", content: userMessage }];
@@ -820,6 +838,104 @@ async function runAgenticLoop({ sessionKey, agentId, userMessage, model, tools, 
 
 function resOk(id, payload) { return { type: "res", id, ok: true, payload: payload ?? {} }; }
 function resErr(id, code, message) { return { type: "res", id, ok: false, error: { code, message } }; }
+
+// ---------------------------------------------------------------------------
+// Installed skills
+// ---------------------------------------------------------------------------
+
+function parseSkillFrontmatter(contents) {
+  const match = contents.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const block = match ? match[1] : "";
+  const read = (field) => {
+    const found = block.match(new RegExp(`^${field}:\\s*(.+)$`, "m"));
+    return found ? found[1].trim().replace(/^["']|["']$/g, "") : "";
+  };
+  return { name: read("name"), description: read("description") };
+}
+
+/** Reads every <SKILLS_DIR>/<name>/SKILL.md. Never throws: a bad skill is skipped. */
+function loadInstalledSkills() {
+  let entries;
+  try {
+    entries = fs.readdirSync(SKILLS_DIR, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const skills = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const baseDir = path.join(SKILLS_DIR, entry.name);
+    const filePath = path.join(baseDir, "SKILL.md");
+    let contents;
+    try {
+      contents = fs.readFileSync(filePath, "utf8");
+    } catch {
+      continue;
+    }
+    const meta = parseSkillFrontmatter(contents);
+    skills.push({
+      skillKey: entry.name,
+      name: meta.name || entry.name,
+      description: meta.description,
+      baseDir,
+      filePath,
+      contents,
+    });
+  }
+  return skills.sort((a, b) => a.skillKey.localeCompare(b.skillKey));
+}
+
+function buildSkillsPromptBlock(skills) {
+  if (skills.length === 0) return "";
+  const parts = ["", "# Installed skills", "", "You have these skills available. Follow a skill's instructions when the task matches it."];
+  let budget = MAX_SKILLS_PROMPT_CHARS;
+  for (const skill of skills) {
+    const section = `\n## ${skill.name}\n\n${skill.contents.trim()}\n`;
+    if (section.length > budget) {
+      parts.push(`\n(${skills.length - (parts.length - 4)} more skills omitted: prompt size limit.)`);
+      break;
+    }
+    budget -= section.length;
+    parts.push(section);
+  }
+  return parts.join("\n");
+}
+
+/** The agent's stored prompt plus whatever skills are installed right now. */
+function buildSystemPrompt(agent) {
+  const base = agent?.systemPrompt ?? "";
+  const block = buildSkillsPromptBlock(loadInstalledSkills());
+  const combined = `${base}${block}`;
+  return combined.trim() ? combined : "";
+}
+
+/** Maps installed skills onto the SkillStatusEntry shape Studio renders. */
+function buildSkillStatusReport() {
+  return {
+    workspaceDir: `${HOME}/.hermes/workspace-hermes`,
+    managedSkillsDir: SKILLS_DIR,
+    skills: loadInstalledSkills().map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      source: "hermes-managed",
+      bundled: false,
+      filePath: skill.filePath,
+      baseDir: skill.baseDir,
+      skillKey: skill.skillKey,
+      always: false,
+      disabled: false,
+      blockedByAllowlist: false,
+      // Skills here are prompt text, so there is nothing to gate on: no binary
+      // to probe, no environment variable to require.
+      eligible: true,
+      requirements: { bins: [], anyBins: [], env: [], config: [] },
+      missing: { bins: [], anyBins: [], env: [], config: [] },
+      configChecks: [],
+      install: [],
+    })),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Method handlers
@@ -1087,7 +1203,7 @@ async function handleMethod(method, params, id, sendEvent) {
     // --- Skills & models ----------------------------------------------------
 
     case "skills.status":
-      return resOk(id, { skills: [] });
+      return resOk(id, buildSkillStatusReport());
 
     case "models.list":
       try {

@@ -144,7 +144,7 @@ Studio calls these, and the adapter rejects them with the error code
 | Method | Effect in the UI |
 | --- | --- |
 | `tasks.create`, `tasks.update`, `tasks.delete` | The Kanban board reads tasks (`tasks.list` works) but cannot write them. |
-| `skills.install`, `skills.update` | The marketplace lists skills and their status, but cannot install or update one. |
+| `skills.install`, `skills.update` | The marketplace lists installed skills, but the gateway cannot install or configure one. Installation goes through Office3D's own installer, which writes to the directory below. |
 | `sessions.usage`, `usage.cost` | Usage analytics have no figures to show. |
 
 Until this changed, the adapter answered every unimplemented method with
@@ -153,10 +153,31 @@ successful: Kanban edits looked saved but were discarded, analytics rendered
 zeros as if they were real, and installing a skill reported success without
 installing anything. They now fail visibly instead.
 
-The runtime capability set in `src/lib/runtime/hermes/provider.ts` still
-advertises `skills`, deliberately: the read side works, and hiding the
-marketplace entirely would remove working functionality to conceal a partial
-gap. Installing surfaces the error above.
+The runtime capability set in `src/lib/runtime/hermes/provider.ts` advertises
+`skills`, and the read side now genuinely works — see below.
+
+### Skills
+
+Hermes has no skill scanner. The adapter reads AgentSkills directories from
+
+```text
+~/.hermes/skills/<skill-name>/SKILL.md
+```
+
+(override with `HERMES_SKILLS_DIR`) and folds their contents into the system
+prompt it builds, which is the only thing a Hermes agent actually sees. The
+directory is read on every run, so a newly installed skill takes effect without
+restarting the adapter. Skill text folded into one prompt is capped at 60,000
+characters; beyond that the remaining skills are omitted and the prompt says so.
+
+`skills.status` reports what is installed there, with source `hermes-managed`.
+Every skill is reported eligible: these are prompt text, so there is no binary
+to probe or environment variable to require, unlike OpenClaw's gating model.
+
+Skills are written to that directory by Office3D's installer
+(`src/lib/skills/install/`), which fetches them from ClawHub or GitHub. That
+path does not go through the gateway, which is why `skills.install` above stays
+unimplemented here.
 
 ### Architecture
 
