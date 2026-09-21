@@ -9,7 +9,7 @@ const VALID_ADAPTER_TYPES = new Set([
   "hermes",
   "demo",
   "local",
-  "claw3d",
+  "office3d",
   "custom",
 ]);
 const TUNNEL_HOST_PATTERN =
@@ -19,7 +19,7 @@ const DEFAULT_GATEWAY_URL_BY_ADAPTER = {
   hermes: "ws://localhost:18789",
   demo: "ws://localhost:18789",
   local: "http://localhost:7770",
-  claw3d: "http://localhost:3000/api/runtime/custom",
+  office3d: "http://localhost:3000/api/runtime/custom",
   custom: "http://localhost:7770",
 };
 
@@ -61,7 +61,7 @@ export const isCustomRuntimeAdapter = (adapterType) => {
   return (
     normalized === "custom" ||
     normalized === "local" ||
-    normalized === "claw3d"
+    normalized === "office3d"
   );
 };
 
@@ -74,7 +74,7 @@ export const resolveRuntimeContext = ({
   const adapterType = normalizeAdapterType(
     gateway?.adapterType ??
       upstreamGateway?.adapterType ??
-      env.CLAW3D_GATEWAY_ADAPTER_TYPE,
+      env.OFFICE3D_GATEWAY_ADAPTER_TYPE,
     "openclaw",
   );
   const rawProfiles = isRecord(gateway?.profiles) ? gateway.profiles : null;
@@ -295,7 +295,7 @@ export const buildGatewayFailureActions = ({
 
   if (normalized.includes("econnrefused") || normalized.includes("timed out")) {
     actions.push(
-      "Verify the backend is actually listening on the configured host and port before retrying from Claw3D.",
+      "Verify the backend is actually listening on the configured host and port before retrying from Office3D.",
     );
   }
 
@@ -477,7 +477,7 @@ export const formatDoctorReport = ({
   }
   const lines = [];
   lines.push("==================================================");
-  lines.push(`Claw3Doctor ${formatStatusBadge(summary)}`);
+  lines.push(`Office3Doctor ${formatStatusBadge(summary)}`);
   lines.push("==================================================");
   lines.push("");
   lines.push(`Runtime provider: ${runtimeContext.adapterType}`);
@@ -526,7 +526,7 @@ export const buildDoctorJsonReport = ({
   paths,
   checks,
 }) => ({
-  doctor: "claw3doctor",
+  doctor: "office3doctor",
   summary,
   runtimeContext,
   paths,

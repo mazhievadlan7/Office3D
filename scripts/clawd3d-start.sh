@@ -2,7 +2,7 @@
 # clawd3d-start — Start all Clawd3D services, auto-resolving port conflicts.
 #
 # Setup (once):
-#   echo 'alias clawd3d="/absolute/path/to/Claw3D/scripts/clawd3d-start.sh"' >> ~/.zshrc
+#   echo 'alias clawd3d="/absolute/path/to/Office3D/scripts/clawd3d-start.sh"' >> ~/.zshrc
 #   source ~/.zshrc
 #
 # Then just run:  clawd3d

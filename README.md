@@ -1,7 +1,7 @@
-# Claw3D — A 3D Workspace for AI Agents
+# Office3D — A 3D Workspace for AI Agents
 
 <p align="center">
-    <img src="assets/branding/claw3d-hero.png" alt="Claw3D" width="700">
+    <img src="assets/branding/office3d-hero.png" alt="Office3D" width="700">
 </p>
 
 <p align="center">
@@ -9,27 +9,25 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iamlukethedev/Claw3D/actions/workflows/docker-publish.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/iamlukethedev/Claw3D/docker-publish.yml?branch=main&style=for-the-badge" alt="CI status"></a>
-  <a href="https://github.com/iamlukethedev/Claw3D/releases"><img src="https://img.shields.io/github/v/release/iamlukethedev/Claw3D?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="https://discord.gg/UzwNn5Zkhr"><img src="https://img.shields.io/discord/1456350064065904867?label=Discord&logo=discord&logoColor=white&color=5865F2&style=for-the-badge" alt="Discord"></a>
-  <a href="https://x.com/iamlukethedev"><img src="https://img.shields.io/badge/Follow-%40iamlukethedev-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow on X"></a>
+  <a href="https://github.com/mazhievadlan7/Office3D/actions/workflows/docker-publish.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/mazhievadlan7/Office3D/docker-publish.yml?branch=main&style=for-the-badge" alt="CI status"></a>
+  <a href="https://github.com/mazhievadlan7/Office3D/releases"><img src="https://img.shields.io/github/v/release/mazhievadlan7/Office3D?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-**Claw3D** is a _3D virtual office for AI agents_ you run on your own infrastructure.
+**Office3D** is a _3D virtual office for AI agents_ you run on your own infrastructure.
 Instead of watching automation through dashboards and logs, you walk through a live 3D office where your agents collaborate, review code, run standups, ship pull requests, and execute tasks side by side. The Gateway is just the control plane — the product is the office.
 
 If you want a personal, self-hosted workspace that turns your AI workforce into something you can actually _see_, this is it.
 
 Supported runtimes include: OpenClaw Gateway, Hermes, a direct HTTP `custom` runtime provider for orchestrator-backed stacks, and a built-in demo gateway for office exploration without a real agent framework.
 
-[Website](https://www.claw3d.ai/) · [Vision](VISION.md) · [Architecture](ARCHITECTURE.md) · [Tutorial](TUTORIAL.md) · [Getting Started](#quick-start) · [Runtime Profiles](docs/runtime-profiles.md) · [Multi-Agent Beta](docs/multi-agent-beta.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Discord](https://discord.gg/UzwNn5Zkhr)
+[Vision](VISION.md) · [Architecture](ARCHITECTURE.md) · [Tutorial](TUTORIAL.md) · [Getting Started](#quick-start) · [Runtime Profiles](docs/runtime-profiles.md) · [Multi-Agent Beta](docs/multi-agent-beta.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
-> **Unofficial project.** Claw3D is an independent, community-driven project and is not affiliated with, endorsed by, or maintained by the OpenClaw team. OpenClaw is a separate project, and this repository is not the official OpenClaw repository.
+> **Unofficial project.** Office3D is an independent, community-driven project and is not affiliated with, endorsed by, or maintained by the OpenClaw team. OpenClaw is a separate project, and this repository is not the official OpenClaw repository.
 
-Built and maintained by **LukeTheDev**. Follow on X: [@iamlukethedev](https://x.com/iamlukethedev).
+Office3D is a private fork of [Claw3D](https://github.com/iamlukethedev/Claw3D), originally created by **LukeTheDev** and released under the MIT License. It is maintained independently by [@mazhievadlan7](https://github.com/mazhievadlan7) and is not affiliated with the upstream project.
 
-## What you can do with Claw3D
+## What you can do with Office3D
 
 - **Watch your AI agents work in real time** inside a shared 3D office.
 - **Run standups** with agents connected to GitHub and Jira.
@@ -38,9 +36,9 @@ Built and maintained by **LukeTheDev**. Follow on X: [@iamlukethedev](https://x.
 - **Train agents in the gym** to develop new skills.
 - **Reset sessions and clean context** with the janitor system.
 
-## What Claw3D Is
+## What Office3D Is
 
-Claw3D is the visualization and interaction layer.
+Office3D is the visualization and interaction layer.
 
 Today it can sit on top of:
 
@@ -56,13 +54,13 @@ In practical terms, this app gives you:
 - a gateway-first architecture that keeps runtime state in the connected backend while Studio stores local UI preferences
 - a backend-neutral runtime seam inside Studio so additional providers can be integrated without rewriting the whole UI
 
-This repository does not build the upstream runtimes themselves. It is the frontend, Studio, and adapter/proxy layer that connects to a runtime speaking the Claw3D gateway protocol.
+This repository does not build the upstream runtimes themselves. It is the frontend, Studio, and adapter/proxy layer that connects to a runtime speaking the Office3D gateway protocol.
 
 ## Why It Exists
 
 AI systems are becoming more capable, but their work is still usually hidden behind logs, terminal output, and dashboards.
 
-Claw3D exists to make agent systems visible:
+Office3D exists to make agent systems visible:
 
 - inspect what agents are doing in real time
 - monitor runs, approvals, history, and activity from one place
@@ -73,7 +71,7 @@ For the broader direction of the project, see [`VISION.md`](VISION.md).
 
 ## What Exists Today
 
-The current app already includes a substantial Claw3D surface:
+The current app already includes a substantial Office3D surface:
 
 - Fleet management and agent chat with runtime updates streamed from the gateway.
 - Agent creation, settings, session controls, approvals, and gateway-backed configuration editing.
@@ -95,35 +93,35 @@ Requirements:
 
 Prerequisite:
 
-- Claw3D does not install or build OpenClaw or Hermes for you.
-- Before starting Claw3D against a real backend, make sure your chosen runtime is already running and that you know the gateway URL and token Studio should use.
+- Office3D does not install or build OpenClaw or Hermes for you.
+- Before starting Office3D against a real backend, make sure your chosen runtime is already running and that you know the gateway URL and token Studio should use.
 - For a no-framework local office demo, run the bundled demo gateway instead.
-- If you need a full cross-machine setup guide (OpenClaw + Tailscale + Claw3D), follow [`TUTORIAL.md`](TUTORIAL.md).
+- If you need a full cross-machine setup guide (OpenClaw + Tailscale + Office3D), follow [`TUTORIAL.md`](TUTORIAL.md).
 
 Run from source:
 
 ```bash
-git clone <your-public-repo-url> claw3d
-cd claw3d
+git clone <your-public-repo-url> office3d
+cd office3d
 npm install
 cp .env.example .env
 npm run dev
 ```
 
 Then open `http://localhost:3000` and configure the gateway URL and token in Studio.
-Studio now also persists the selected backend mode (`OpenClaw`, `Hermes`, `Demo`, `Local`, `Claw3D`, or `Custom`) and
+Studio now also persists the selected backend mode (`OpenClaw`, `Hermes`, `Demo`, `Local`, `Office3D`, or `Custom`) and
 shows the active backend reported by the connected gateway.
 
 ### Runtime profiles
 
 If you are integrating an orchestrator-backed runtime through the direct
-HTTP runtime seam, start your runtime first, then start Claw3D:
+HTTP runtime seam, start your runtime first, then start Office3D:
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000`, choose `Local runtime`, `Claw3D runtime`,
+Then open `http://localhost:3000`, choose `Local runtime`, `Office3D runtime`,
 or `Custom backend`, and point the upstream URL at your runtime boundary.
 Typical examples:
 
@@ -142,7 +140,7 @@ Current direct-runtime expectations:
 - `GET /registry`
 - `POST /v1/chat/completions`
 
-The browser does not call that runtime directly. Claw3D proxies the
+The browser does not call that runtime directly. Office3D proxies the
 `custom` provider through its own same-origin route at
 `/api/runtime/custom`, which avoids browser-side CORS problems and keeps
 the provider transport separate from the OpenClaw/Hermes gateway path.
@@ -186,7 +184,7 @@ In the connect screen, choose `Hermes backend`, then connect.
 
 ## How It Connects
 
-Claw3D uses two separate network hops:
+Office3D uses two separate network hops:
 
 1. Browser -> Studio over HTTP and a same-origin WebSocket at `/api/gateway/ws`.
 2. Studio -> OpenClaw Gateway over a second WebSocket opened by the Studio server.
@@ -228,7 +226,7 @@ Alternative with SSH:
 
 1. Start Studio with `HOST=0.0.0.0` (or a specific LAN/Tailscale host).
 2. Set `STUDIO_ACCESS_TOKEN` before exposing Studio beyond localhost.
-3. Open Claw3D from the LAN/Tailscale address instead of `localhost`.
+3. Open Office3D from the LAN/Tailscale address instead of `localhost`.
 4. If you are connecting to a remote OpenClaw gateway, remember device approval is per browser/device. A new browser may still require:
 
 ```bash
@@ -248,7 +246,7 @@ openclaw devices approve --latest
 Important runtime paths:
 
 - OpenClaw config: `~/.openclaw/openclaw.json`
-- Studio settings: `~/.openclaw/claw3d/settings.json`
+- Studio settings: `~/.openclaw/office3d/settings.json`
 
 Common environment variables:
 
@@ -257,9 +255,9 @@ Common environment variables:
 - `UPSTREAM_ALLOWLIST` restricts which upstream gateway hosts Studio may proxy to. Set this in production.
 - `CUSTOM_RUNTIME_ALLOWLIST` restricts which hosts `/api/runtime/custom` may fetch. If unset, it falls back to `UPSTREAM_ALLOWLIST`.
 - `NEXT_PUBLIC_GATEWAY_URL` provides the default upstream gateway URL when Studio settings are empty. **Note:** this is a build-time variable — changes require `npm run build` to take effect.
-- `CLAW3D_GATEWAY_URL` and `CLAW3D_GATEWAY_TOKEN` provide a runtime alternative to `NEXT_PUBLIC_GATEWAY_URL` that takes effect on server restart without a rebuild.
-- `CLAW3D_GATEWAY_ADAPTER_TYPE` can pair with `CLAW3D_GATEWAY_URL` to mark those runtime defaults as `openclaw`, `hermes`, `demo`, `local`, `claw3d`, or `custom`.
-- If `CLAW3D_GATEWAY_URL` is not set, Studio can still surface local Hermes or demo adapter defaults from `HERMES_ADAPTER_PORT` / `DEMO_ADAPTER_PORT`.
+- `OFFICE3D_GATEWAY_URL` and `OFFICE3D_GATEWAY_TOKEN` provide a runtime alternative to `NEXT_PUBLIC_GATEWAY_URL` that takes effect on server restart without a rebuild.
+- `OFFICE3D_GATEWAY_ADAPTER_TYPE` can pair with `OFFICE3D_GATEWAY_URL` to mark those runtime defaults as `openclaw`, `hermes`, `demo`, `local`, `office3d`, or `custom`.
+- If `OFFICE3D_GATEWAY_URL` is not set, Studio can still surface local Hermes or demo adapter defaults from `HERMES_ADAPTER_PORT` / `DEMO_ADAPTER_PORT`.
 - OpenClaw file defaults still come from `~/.openclaw/openclaw.json` when present.
 - `OPENCLAW_STATE_DIR` and `OPENCLAW_CONFIG_PATH` override the default OpenClaw paths.
 - `OPENCLAW_GATEWAY_SSH_TARGET`, `OPENCLAW_GATEWAY_SSH_USER`, `OPENCLAW_GATEWAY_SSH_PORT`, and `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING` support advanced gateway-host operations over SSH when needed.
@@ -285,7 +283,7 @@ See [`.env.example`](.env.example) for the full local development template.
 
 - [`VISION.md`](VISION.md): project direction and long-term guardrails.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries, data flow, and major trade-offs.
-- [`TUTORIAL.md`](TUTORIAL.md): detailed step-by-step setup for OpenClaw + Tailscale + Claw3D.
+- [`TUTORIAL.md`](TUTORIAL.md): detailed step-by-step setup for OpenClaw + Tailscale + Office3D.
 - [`docs/multi-agent-beta.md`](docs/multi-agent-beta.md): remote office beta setup, connection modes, and limitations.
 - [`docs/runtime-profiles.md`](docs/runtime-profiles.md): saved backend/runtime profiles and the current HTTP runtime seam.
 - [`CODE_DOCUMENTATION.md`](CODE_DOCUMENTATION.md): practical code map, extension points, and contributor onboarding order.
@@ -308,7 +306,7 @@ If the UI loads but Connect fails, the problem is usually on the Studio -> Gatew
 
 - Confirm the upstream URL and token in Studio settings.
 - `EPROTO` or `wrong version number` usually means `wss://` was used against a non-TLS endpoint.
-- `INVALID_REQUEST` errors mentioning `minProtocol` or `maxProtocol` usually mean the gateway is too old for Claw3D protocol v3. Upgrade OpenClaw, use the Hermes adapter, or run `npm run demo-gateway`.
+- `INVALID_REQUEST` errors mentioning `minProtocol` or `maxProtocol` usually mean the gateway is too old for Office3D protocol v3. Upgrade OpenClaw, use the Hermes adapter, or run `npm run demo-gateway`.
 - `401 Studio access token required` usually means `STUDIO_ACCESS_TOKEN` is enabled and the request is missing the expected `studio_access` cookie.
 - If `/api/runtime/custom` returns a blocked-host error in production, set `CUSTOM_RUNTIME_ALLOWLIST` or include the runtime host in `UPSTREAM_ALLOWLIST`.
 - Helpful proxy error codes include `studio.gateway_url_missing`, `studio.gateway_token_missing`, `studio.upstream_error`, and `studio.upstream_closed`.
@@ -319,7 +317,7 @@ Marketplace skill installs now use a gateway-native workspace flow and do not re
 
 If you are testing the `SOUNDCLAW` jukebox locally and Spotify OAuth does not accept your `localhost` callback, use an `ngrok` callback bridge:
 
-1. Keep Claw3D running locally on `http://localhost:3000`.
+1. Keep Office3D running locally on `http://localhost:3000`.
 2. Start `ngrok` for the local Studio server, for example `ngrok http 3000`.
 3. In the jukebox setup UI, paste your public `ngrok` URL into the `ngrok Public URL` field.
 4. In the Spotify developer dashboard, register `https://<your-ngrok-host>/spotify/callback` as the redirect URI.
@@ -327,9 +325,9 @@ If you are testing the `SOUNDCLAW` jukebox locally and Spotify OAuth does not ac
 
 How it works:
 
-- The main Claw3D app stays on `localhost`, so your normal local office state and agent state remain intact.
+- The main Office3D app stays on `localhost`, so your normal local office state and agent state remain intact.
 - Spotify redirects to the `ngrok` callback URL.
-- The callback page passes the auth code back to the open local Claw3D window.
+- The callback page passes the auth code back to the open local Office3D window.
 
 Current local limitation:
 
@@ -341,7 +339,7 @@ If you use other advanced gateway-host operations over SSH:
 - Windows: enable the `OpenSSH Server` optional feature, start the `sshd` service, and allow it through the firewall.
 - Linux: make sure `sshd` is installed, running, and reachable from the Studio machine.
 
-For first-time SSH connections, Claw3D uses `StrictHostKeyChecking=accept-new` by default so a new host key can be trusted automatically. If you need stricter behavior, set `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING=yes`, or set it to `no` only if you explicitly want to skip host key checks.
+For first-time SSH connections, Office3D uses `StrictHostKeyChecking=accept-new` by default so a new host key can be trusted automatically. If you need stricter behavior, set `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING=yes`, or set it to `no` only if you explicitly want to skip host key checks.
 
 ## Contributing
 
@@ -349,8 +347,8 @@ Keep pull requests focused, run `npm run lint`, `npm run typecheck`, and `npm ru
 
 ## AI Editing Guardrails
 
-If you use Cursor or another AI-assisted workflow, review the committed project guardrails in [`.cursor/rules/claw3d-project-guardrails.mdc`](.cursor/rules/claw3d-project-guardrails.mdc).
+If you use Cursor or another AI-assisted workflow, review the committed project guardrails in [`.cursor/rules/office3d-project-guardrails.mdc`](.cursor/rules/office3d-project-guardrails.mdc).
 
-That rule file captures the shared editing expectations for this repository, including the Claw3D-vs-OpenClaw boundary, code placement conventions, office-stack distinctions, and documentation/test update expectations.
+That rule file captures the shared editing expectations for this repository, including the Office3D-vs-OpenClaw boundary, code placement conventions, office-stack distinctions, and documentation/test update expectations.
 
 Community expectations live in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Security reporting instructions live in [`SECURITY.md`](SECURITY.md).

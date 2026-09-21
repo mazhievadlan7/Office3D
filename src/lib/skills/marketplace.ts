@@ -10,7 +10,7 @@ import { getPackagedSkillBySkillKey } from "@/lib/skills/catalog";
 import type { SkillStatusEntry } from "@/lib/skills/types";
 
 export type SkillMarketplaceCollectionId =
-  | "claw3d"
+  | "office3d"
   | "featured"
   | "installed"
   | "setup-required"
@@ -99,13 +99,13 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
       "Shared workspace state",
     ],
     featured: true,
-    editorBadge: "Claw3D test",
+    editorBadge: "Office3D test",
     hideStats: true,
   },
   "task-manager": {
     category: "Productivity",
     tagline:
-      "Turns actionable requests into persistent shared tasks that power the Claw3D Kanban board.",
+      "Turns actionable requests into persistent shared tasks that power the Office3D Kanban board.",
     capabilities: [
       "Automatic task capture",
       "Task lifecycle tracking",
@@ -230,7 +230,7 @@ export const buildSkillMarketplaceEntry = (
   const missingDetails = buildSkillMissingDetails(skill);
   if (packagedSkill && !skill.baseDir.trim()) {
     missingDetails.unshift(
-      "Install this packaged Claw3D skill to make it available on the gateway.",
+      "Install this packaged Office3D skill to make it available on the gateway.",
     );
   }
   return {
@@ -265,11 +265,11 @@ export const buildSkillMarketplaceCollections = (
     collections.push({ id: "featured", label: "Featured", entries: featured });
   }
 
-  const claw3d = entries.filter((entry) =>
+  const office3d = entries.filter((entry) =>
     getPackagedSkillBySkillKey(entry.skill.skillKey),
   );
-  if (claw3d.length > 0) {
-    collections.push({ id: "claw3d", label: "Claw3D", entries: claw3d });
+  if (office3d.length > 0) {
+    collections.push({ id: "office3d", label: "Office3D", entries: office3d });
   }
 
   const installed = entries.filter(

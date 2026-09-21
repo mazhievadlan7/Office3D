@@ -179,8 +179,8 @@ Also use this skill even when those exact phrases are absent if the latest user 
 
 The authoritative task file is:
 
-- \`\${OPENCLAW_STATE_DIR}/claw3d/task-manager/tasks.json\` when \`OPENCLAW_STATE_DIR\` is set.
-- \`~/.openclaw/claw3d/task-manager/tasks.json\` otherwise.
+- \`\${OPENCLAW_STATE_DIR}/office3d/task-manager/tasks.json\` when \`OPENCLAW_STATE_DIR\` is set.
+- \`~/.openclaw/office3d/task-manager/tasks.json\` otherwise.
 
 Always treat that file as the shared source of truth for the Kanban board.
 
@@ -244,7 +244,7 @@ Each task must include:
       "title": "Research mtulsa.com",
       "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
       "status": "in_progress",
-      "source": "claw3d_manual",
+      "source": "office3d_manual",
       "sourceEventId": null,
       "assignedAgentId": "main",
       "createdAt": "2026-03-30T00:00:00.000Z",
@@ -295,7 +295,7 @@ const TASK_MANAGER_EXAMPLE_JSON = `{
       "title": "Research mtulsa.com",
       "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
       "status": "in_progress",
-      "source": "claw3d_manual",
+      "source": "office3d_manual",
       "sourceEventId": null,
       "assignedAgentId": "main",
       "createdAt": "2026-03-30T00:00:00.000Z",
@@ -380,7 +380,7 @@ When this skill is activated, the agent should walk to the office jukebox before
 ## OpenClaw Gateway Skill Contract
 
 > This section is for developers implementing the backend skill handler in OpenClaw.
-> The Claw3D UI handles authentication via Spotify PKCE OAuth in the browser.
+> The Office3D UI handles authentication via Spotify PKCE OAuth in the browser.
 > The gateway skill handles agent-driven requests via the \`soundclaw.*\` RPC namespace.
 
 ### Authentication model

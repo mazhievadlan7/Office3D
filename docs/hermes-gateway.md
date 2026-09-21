@@ -1,12 +1,12 @@
 # Hermes Gateway Adapter
 
-Claw3D can run against Hermes by using the bundled adapter in
+Office3D can run against Hermes by using the bundled adapter in
 [`server/hermes-gateway-adapter.js`](../server/hermes-gateway-adapter.js).
 
 This is the current production-ready Hermes path in this repository.
 It is not yet a fully native Studio-side Hermes provider. Instead, it
 uses the runtime seam in Studio while Hermes is exposed through a
-Claw3D-compatible WebSocket adapter.
+Office3D-compatible WebSocket adapter.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Claw3D-compatible WebSocket adapter.
 Browser UI <-> Studio runtime/client <-> Hermes gateway adapter <-> Hermes HTTP API
 ```
 
-The frontend keeps using the Claw3D gateway protocol. The Hermes adapter
+The frontend keeps using the Office3D gateway protocol. The Hermes adapter
 translates that protocol into Hermes HTTP calls and streams the results
 back as gateway events.
 
@@ -42,7 +42,7 @@ HERMES_MODEL=hermes
 HERMES_AGENT_NAME=Hermes
 ```
 
-### 3. Start Claw3D and the adapter
+### 3. Start Office3D and the adapter
 
 In separate terminals:
 
@@ -57,7 +57,7 @@ Then open `http://localhost:3000` and connect to:
 ws://localhost:18789
 ```
 
-In the connect screen, select `Hermes backend`. Claw3D will persist that
+In the connect screen, select `Hermes backend`. Office3D will persist that
 selection in Studio settings and show `Hermes` as the active backend once
 the adapter hello response is received.
 
@@ -74,7 +74,7 @@ location instead of assuming a machine-specific checkout path.
 
 ## What this adapter supports
 
-The adapter currently supports the Claw3D surfaces needed for normal
+The adapter currently supports the Office3D surfaces needed for normal
 office use:
 
 - Agent listing, creation, update, and deletion
@@ -119,7 +119,7 @@ integration direction.
 
 This branch does not replace the adapter with ACP yet. The current
 production-ready path uses the adapter because it works with the existing
-Claw3D gateway contract today and is ready for upstream testing now.
+Office3D gateway contract today and is ready for upstream testing now.
 
 The runtime seam added in Studio is what makes an ACP-backed Hermes
 provider feasible as a follow-up without reworking the whole UI again.
@@ -153,9 +153,9 @@ npm run demo-gateway
 npm run dev
 ```
 
-That starts a bundled mock gateway for a no-framework Claw3D demo.
+That starts a bundled mock gateway for a no-framework Office3D demo.
 
 ## Using OpenClaw instead
 
 If you want the OpenClaw path, do not run the Hermes adapter. Start
-OpenClaw and point Claw3D at that gateway instead.
+OpenClaw and point Office3D at that gateway instead.

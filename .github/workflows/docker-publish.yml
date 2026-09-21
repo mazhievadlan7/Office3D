@@ -13,7 +13,7 @@ env:
   # IMAGE_NAME is assembled in the "Prepare Docker tags" step rather than here:
   # GHCR requires a lowercase namespace, `github.repository_owner` preserves the
   # owner's original casing, and `env:` cannot lowercase a value.
-  IMAGE_BASENAME: claw3d
+  IMAGE_BASENAME: office3d
 
 jobs:
   publish:
