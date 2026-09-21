@@ -3,29 +3,8 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveUserPath } from "@/lib/clawdbot/paths";
+import { isPathInside, resolveComparablePath } from "@/lib/skills/fs-guards";
 import type { RemovableSkillSource, SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
-
-const resolveComparablePath = (input: string): string => {
-  const resolved = path.resolve(input);
-  if (!fs.existsSync(resolved)) {
-    return resolved;
-  }
-  try {
-    return fs.realpathSync(resolved);
-  } catch {
-    return resolved;
-  }
-};
-
-const isPathInside = (root: string, candidate: string): boolean => {
-  const resolvedRoot = resolveComparablePath(root);
-  const resolvedCandidate = resolveComparablePath(candidate);
-  if (resolvedCandidate === resolvedRoot) {
-    return true;
-  }
-  const rootPrefix = resolvedRoot.endsWith(path.sep) ? resolvedRoot : `${resolvedRoot}${path.sep}`;
-  return resolvedCandidate.startsWith(rootPrefix);
-};
 
 const normalizeRequiredPath = (value: string, field: string): string => {
   const trimmed = value.trim();
