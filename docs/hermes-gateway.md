@@ -129,12 +129,36 @@ provider feasible as a follow-up without reworking the whole UI again.
 Conversation history is stored at:
 
 ```text
-~/.hermes/clawd3d-history.json
+~/.hermes/office3d-history.json
 ```
 
 It is loaded on startup and updated when conversations change.
 
 ## Current limitations
+
+### Methods the adapter does not implement
+
+Studio calls these, and the adapter rejects them with the error code
+`unsupported_method`:
+
+| Method | Effect in the UI |
+| --- | --- |
+| `tasks.create`, `tasks.update`, `tasks.delete` | The Kanban board reads tasks (`tasks.list` works) but cannot write them. |
+| `skills.install`, `skills.update` | The marketplace lists skills and their status, but cannot install or update one. |
+| `sessions.usage`, `usage.cost` | Usage analytics have no figures to show. |
+
+Until this changed, the adapter answered every unimplemented method with
+`ok: true` and an empty payload, so Studio treated all of the above as
+successful: Kanban edits looked saved but were discarded, analytics rendered
+zeros as if they were real, and installing a skill reported success without
+installing anything. They now fail visibly instead.
+
+The runtime capability set in `src/lib/runtime/hermes/provider.ts` still
+advertises `skills`, deliberately: the read side works, and hiding the
+marketplace entirely would remove working functionality to conceal a partial
+gap. Installing surfaces the error above.
+
+### Architecture
 
 - Hermes is integrated through the adapter path today, not yet through a
   dedicated native Studio provider implementation

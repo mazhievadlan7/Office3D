@@ -240,7 +240,7 @@ const activeSendEventFns = new Set();
 // Disk persistence for conversation history
 // ---------------------------------------------------------------------------
 
-const HISTORY_FILE = path.join(HOME, ".hermes", "clawd3d-history.json");
+const HISTORY_FILE = path.join(HOME, ".hermes", "office3d-history.json");
 let persistDebounceTimer = null;
 
 function loadHistoryFromDisk() {
@@ -1164,8 +1164,18 @@ async function handleMethod(method, params, id, sendEvent) {
     }
 
     default:
-      console.warn(`[hermes-adapter] Unhandled method: ${method}`);
-      return resOk(id, {});
+      // Reporting success for a method this adapter never implemented is the
+      // worst available failure mode: Studio treats the empty payload as a
+      // completed operation. Kanban edits (tasks.create/update/delete) looked
+      // saved but were discarded, usage analytics rendered zeros as if they
+      // were real, and skills.install reported a skill it never installed.
+      // Fail loudly instead, so the caller can surface it.
+      console.warn(`[hermes-adapter] Unsupported method: ${method}`);
+      return resErr(
+        id,
+        "unsupported_method",
+        `"${method}" is not supported by the Hermes gateway adapter.`,
+      );
   }
 }
 
@@ -1275,5 +1285,14 @@ function startAdapter() {
   });
 }
 
-loadHistoryFromDisk();
-startAdapter();
+// Only run the server when invoked directly, so the module can be imported by
+// tests without opening a port — matching server/demo-gateway-adapter.js.
+if (require.main === module) {
+  loadHistoryFromDisk();
+  startAdapter();
+}
+
+module.exports = {
+  handleMethod,
+  startAdapter,
+};
