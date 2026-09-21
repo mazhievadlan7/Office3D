@@ -56,8 +56,6 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
     ],
     featured: true,
     editorBadge: "Popular",
-    rating: 4.9,
-    installs: 18240,
   },
   figma: {
     category: "Design",
@@ -65,8 +63,6 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
     capabilities: ["Design context", "Asset lookup", "Spec handoff"],
     featured: true,
     editorBadge: "Editor pick",
-    rating: 4.8,
-    installs: 9640,
   },
   slack: {
     category: "Communication",
@@ -77,8 +73,6 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
       "Notification routing",
     ],
     featured: true,
-    rating: 4.7,
-    installs: 14110,
   },
   linear: {
     category: "Planning",
@@ -86,8 +80,6 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
       "Brings issue tracking and execution loops directly into agent workflows.",
     capabilities: ["Issue lookup", "Status updates", "Planning workflows"],
     featured: true,
-    rating: 4.7,
-    installs: 11980,
   },
   "todo-board": {
     category: "Productivity",
@@ -126,14 +118,6 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
   },
 };
 
-const hashString = (value: string): number => {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = value.charCodeAt(index) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-};
-
 const titleCaseWords = (value: string): string =>
   value
     .split(/[\s_-]+/)
@@ -164,9 +148,7 @@ const buildFallbackCapabilities = (skill: SkillStatusEntry): string[] => {
 const buildFallbackMetadata = (
   skill: SkillStatusEntry,
 ): SkillMarketplaceMetadata => {
-  const normalizedKey = skill.skillKey.trim().toLowerCase();
   const source = skill.source.trim();
-  const seed = hashString(`${normalizedKey}:${source}`);
   const category =
     skill.bundled || source === "openclaw-bundled"
       ? "Built-in"
@@ -193,10 +175,23 @@ const buildFallbackMetadata = (
     trustLabel,
     capabilities: buildFallbackCapabilities(skill),
     featured: skill.bundled || source === "openclaw-managed",
-    rating: 4.2 + (seed % 7) / 10,
-    installs: 400 + (seed % 9500),
+    // No rating or installs: these used to be derived from a hash of the skill
+    // name and rendered as though they were real figures. A registry that
+    // publishes actual download and star counts can populate them.
   };
 };
+
+/**
+ * Ratings and install counts are shown only when a source actually supplied
+ * them. Nothing does today — they used to be invented from a hash of the skill
+ * name and rendered as real figures — so this is false until a registry that
+ * publishes them is wired in.
+ */
+export const hasSkillMarketplaceStats = (
+  metadata: SkillMarketplaceMetadata,
+): boolean =>
+  !metadata.hideStats &&
+  (typeof metadata.rating === "number" || typeof metadata.installs === "number");
 
 export const resolveSkillMarketplaceMetadata = (
   skill: SkillStatusEntry,

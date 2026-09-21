@@ -16,7 +16,10 @@ import {
 
 import type { OfficeSkillsMarketplaceController } from "@/features/office/hooks/useOfficeSkillsMarketplace";
 import type { SkillMarketplaceCollectionId, SkillMarketplaceEntry } from "@/lib/skills/marketplace";
-import { buildSkillMarketplaceCollections } from "@/lib/skills/marketplace";
+import {
+  buildSkillMarketplaceCollections,
+  hasSkillMarketplaceStats,
+} from "@/lib/skills/marketplace";
 import { buildAgentSkillsAllowlistSet, deriveAgentSkillsAccessMode } from "@/lib/skills/presentation";
 
 type MarketplaceFilter = "all" | SkillMarketplaceCollectionId;
@@ -338,7 +341,7 @@ export function SkillsMarketplacePanel({
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-[10px] text-white/55">
-                    {!entry.metadata.hideStats ? (
+                    {hasSkillMarketplaceStats(entry.metadata) ? (
                       <>
                         <span className="inline-flex items-center gap-1">
                           <Star className="h-3 w-3 text-amber-300" />
@@ -447,7 +450,7 @@ export function SkillsMarketplacePanel({
                               <Shield className="h-3 w-3 text-cyan-300" />
                               {entry.metadata.trustLabel}
                             </span>
-                            {!entry.metadata.hideStats ? (
+                            {hasSkillMarketplaceStats(entry.metadata) ? (
                               <>
                                 <span className="inline-flex items-center gap-1">
                                   <Star className="h-3 w-3 text-amber-300" />
@@ -607,10 +610,10 @@ export function SkillsMarketplacePanel({
               ) : null}
               <div
                 className={`mt-3 grid gap-2 font-mono text-[10px] text-white/55 ${
-                  detailEntry.metadata.hideStats ? "grid-cols-1" : "grid-cols-3"
+                  hasSkillMarketplaceStats(detailEntry.metadata) ? "grid-cols-3" : "grid-cols-1"
                 }`}
               >
-                {!detailEntry.metadata.hideStats ? (
+                {hasSkillMarketplaceStats(detailEntry.metadata) ? (
                   <>
                     <div className="rounded border border-white/8 bg-black/30 px-2 py-2">
                       <div className="text-white/35">Rating</div>

@@ -29,7 +29,7 @@ const DEMO_DIAL_NUMBER = "973-619-4672";
 const resolveDialNumber = (): string => DEMO_DIAL_NUMBER;
 
 const buildSpokenText = (message: string): string =>
-  `Hi, this is Luke assistant. He told me to tell you ${message}. Thank you.`;
+  `Hi, this is an AI assistant calling on behalf of my user. They asked me to tell you ${message}. Thank you.`;
 
 const buildRecipientReply = (message: string): string => {
   const normalized = normalizeWhitespace(message).toLowerCase();
