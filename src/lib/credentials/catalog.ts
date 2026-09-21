@@ -85,6 +85,16 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     docsUrl: "https://docs.github.com/en/rest",
   },
   {
+    id: "elevenlabs-agent-id",
+    label: "ElevenLabs agent ID",
+    envVar: "ELEVENLABS_AGENT_ID",
+    consumedBy: "office3d",
+    purpose:
+      "The conversational agent, created in the ElevenLabs dashboard, that speaks on phone calls. Paired with ELEVENLABS_API_KEY.",
+    requiredFor: "Voice agent phone calls.",
+    docsUrl: "https://elevenlabs.io/docs/eleven-agents",
+  },
+  {
     id: "twilio-account-sid",
     label: "Twilio account SID",
     envVar: "TWILIO_ACCOUNT_SID",
