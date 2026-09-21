@@ -21,11 +21,14 @@ import {
   hasSkillMarketplaceStats,
 } from "@/lib/skills/marketplace";
 import { buildAgentSkillsAllowlistSet, deriveAgentSkillsAccessMode } from "@/lib/skills/presentation";
+import { SkillRegistryBrowser } from "./SkillRegistryBrowser";
 
-type MarketplaceFilter = "all" | SkillMarketplaceCollectionId;
+/** "registry" is not a local collection — it browses the remote sources. */
+type MarketplaceFilter = "all" | SkillMarketplaceCollectionId | "registry";
 
 const FILTER_LABELS: Record<MarketplaceFilter, string> = {
   office3d: "Office3D",
+  registry: "Browse",
   all: "All",
   featured: "Featured",
   installed: "Installed",
@@ -121,6 +124,9 @@ export function SkillsMarketplacePanel({
   );
 
   const filteredCollections = useMemo(() => {
+    // The registry tab browses remote sources, so there are no local
+    // collections to filter for it.
+    if (activeFilter === "registry") return [];
     const normalizedQuery = query.trim().toLowerCase();
     const visibleCollectionIds: SkillMarketplaceCollectionId[] =
       activeFilter === "all"
@@ -167,6 +173,7 @@ export function SkillsMarketplacePanel({
       workspace: 0,
       extra: 0,
       other: 0,
+      registry: 0,
     };
     for (const collection of collections) {
       counts[collection.id] = collection.entries.length;
@@ -285,7 +292,8 @@ export function SkillsMarketplacePanel({
                   : "border-white/10 bg-white/[0.03] text-white/45 hover:text-white/80"
               }`}
             >
-              {FILTER_LABELS[filterId]} ({filterCounts[filterId]})
+              {FILTER_LABELS[filterId]}
+              {filterId === "registry" ? "" : ` (${filterCounts[filterId]})`}
             </button>
           ))}
         </div>
@@ -313,7 +321,13 @@ export function SkillsMarketplacePanel({
           </div>
         ) : null}
 
-        {marketplace.loading ? (
+        {activeFilter === "registry" ? (
+          <div className="mt-4">
+            <SkillRegistryBrowser />
+          </div>
+        ) : null}
+
+        {activeFilter !== "registry" && marketplace.loading ? (
           <div className="mt-4 font-mono text-[11px] text-white/45">Loading marketplace inventory...</div>
         ) : null}
 
@@ -372,7 +386,7 @@ export function SkillsMarketplacePanel({
           </div>
         ) : null}
 
-        {!marketplace.loading && filteredCollections.length === 0 ? (
+        {activeFilter !== "registry" && !marketplace.loading && filteredCollections.length === 0 ? (
           <div className="mt-4 rounded border border-white/10 bg-white/[0.03] px-3 py-4 font-mono text-[11px] text-white/45">
             No matching skills found for this gateway.
           </div>
