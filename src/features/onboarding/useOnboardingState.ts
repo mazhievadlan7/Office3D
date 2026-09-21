@@ -4,7 +4,7 @@
  * Uses localStorage so the wizard only shows once per browser.
  * The key is scoped to the Office3D app to avoid collisions.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "office3d:onboarding:completed";
 
@@ -39,21 +39,48 @@ export type OnboardingStateReturn = {
   resetOnboarding: () => void;
 };
 
-export const useOnboardingState = (): OnboardingStateReturn => {
-  const [completed, setCompleted] = useState<boolean | null>(null);
+/**
+ * localStorage is external state, so it is read through useSyncExternalStore
+ * rather than mirrored into useState from an effect. `storage` only fires in
+ * other tabs, so writes from this one notify subscribers explicitly.
+ */
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    setCompleted(readCompleted());
-  }, []);
+const emitChange = (): void => {
+  for (const listener of listeners) listener();
+};
+
+const subscribe = (onStoreChange: () => void): (() => void) => {
+  listeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+};
+
+/**
+ * The server cannot know the answer, so it reports "not known yet" and the
+ * wizard stays hidden until the client snapshot arrives. This keeps the
+ * hydrated markup identical to the server's and avoids a flash of the wizard.
+ */
+const getServerSnapshot = (): boolean | null => null;
+
+export const useOnboardingState = (): OnboardingStateReturn => {
+  const completed = useSyncExternalStore<boolean | null>(
+    subscribe,
+    readCompleted,
+    getServerSnapshot
+  );
 
   const completeOnboarding = useCallback(() => {
-    setCompleted(true);
     writeCompleted(true);
+    emitChange();
   }, []);
 
   const resetOnboarding = useCallback(() => {
-    setCompleted(false);
     writeCompleted(false);
+    emitChange();
   }, []);
 
   return {

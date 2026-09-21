@@ -228,9 +228,14 @@ export async function hydrateAgentFleetFromGateway(params: {
           if (!recoveredName || isTemporarySkillAgentName(recoveredName)) {
             return agent;
           }
+          // The recovered name is the persona's, which belongs on the identity.
+          // Keep the runtime's own listed name so runtimeName stays distinct
+          // from identityName downstream; only replace it when it is missing or
+          // a temporary skill-agent name that carries no meaning.
+          const shouldReplaceListedName = !listedName || isTemporarySkillAgentName(listedName);
           return {
             ...agent,
-            name: recoveredName,
+            name: shouldReplaceListedName ? recoveredName : agent.name,
             identity: {
               ...(agent.identity ?? {}),
               name: recoveredName,

@@ -288,7 +288,7 @@ describe("useGatewayConnection", () => {
     expect(captured.clientName).toBe("openclaw-control-ui");
   });
 
-  it("does_not_auto_connect_without_a_last_known_good_state", async () => {
+  it("auto_connects_an_auto_managed_adapter_without_a_last_known_good_state", async () => {
     const { useGatewayConnection, captured } = await setupAndImportHook(null);
     const coordinator = {
       loadSettingsEnvelope: async () => ({
@@ -334,8 +334,12 @@ describe("useGatewayConnection", () => {
     await waitFor(() => {
       expect(screen.getByTestId("gatewayUrl")).toHaveTextContent("ws://localhost:18789");
     });
-    expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("yes");
-    expect(captured.url).toBeNull();
+    // No lastKnownGood, but hermes is auto-managed and a URL is persisted, so
+    // the connect prompt is skipped. See isAutoManagedAdapter in
+    // GatewayClient.ts.
+    expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("no");
+    // The prompt being skipped means the adapter connects on its own.
+    await waitFor(() => expect(captured.url).not.toBeNull());
   });
 
   it("uses_a_small_initial_auto_connect_delay_for_hermes_and_demo_only", async () => {
@@ -606,8 +610,12 @@ describe("useGatewayConnection", () => {
       expect(screen.getByTestId("gatewayUrl")).toHaveTextContent("ws://localhost:18789");
     });
     expect(screen.getByTestId("selectedAdapterType")).toHaveTextContent("hermes");
-    expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("yes");
-    expect(captured.url).toBeNull();
+    // Hermes is auto-managed, so a persisted URL is enough to auto-connect even
+    // though lastKnownGood still names openclaw. See isAutoManagedAdapter in
+    // GatewayClient.ts.
+    expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("no");
+    // The prompt being skipped means the adapter connects on its own.
+    await waitFor(() => expect(captured.url).not.toBeNull());
   });
 
   it("loads_custom_adapter_type_without_requiring_a_token", async () => {

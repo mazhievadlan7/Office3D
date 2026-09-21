@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import {
@@ -14,6 +14,59 @@ import {
 import type { FloorRosterState } from "@/lib/office/floorRoster";
 
 const DIRECTORY_COLLAPSED_STORAGE_KEY = "office3d.officeFloorNav.directoryCollapsed";
+
+/**
+ * The collapsed flag lives in localStorage, so it is read through
+ * useSyncExternalStore instead of being copied into state from an effect.
+ *
+ * `memoryValue` mirrors the last toggle so the control keeps working for the
+ * session even when localStorage is unavailable (private mode), which a plain
+ * read-through store would not do. A `storage` event from another tab clears
+ * the mirror so that tab's value wins.
+ */
+let memoryValue: boolean | null = null;
+
+const directoryListeners = new Set<() => void>();
+
+const emitDirectoryChange = (): void => {
+  for (const listener of directoryListeners) listener();
+};
+
+const readDirectoryCollapsed = (): boolean => {
+  if (memoryValue !== null) return memoryValue;
+  try {
+    return window.localStorage.getItem(DIRECTORY_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const writeDirectoryCollapsed = (next: boolean): void => {
+  memoryValue = next;
+  try {
+    window.localStorage.setItem(DIRECTORY_COLLAPSED_STORAGE_KEY, String(next));
+  } catch {
+    // Persist is best-effort; collapsed state still works for the session.
+  }
+  emitDirectoryChange();
+};
+
+const subscribeDirectoryCollapsed = (onStoreChange: () => void): (() => void) => {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== DIRECTORY_COLLAPSED_STORAGE_KEY) return;
+    memoryValue = null;
+    onStoreChange();
+  };
+  directoryListeners.add(onStoreChange);
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    directoryListeners.delete(onStoreChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+};
+
+/** The server has no localStorage; the directory renders expanded there. */
+const getDirectoryServerSnapshot = (): boolean => false;
 
 type OfficeFloorNavProps = {
   activeFloorId: FloorId;
@@ -111,30 +164,14 @@ export function OfficeFloorNav({
     OFFICE_FLOORS.find((floor) => floor.id === displayActiveFloorId) ?? OFFICE_FLOORS[0];
   const activeRoster = floorRosterCache[activeFloor.id];
 
-  const [directoryCollapsed, setDirectoryCollapsed] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem(DIRECTORY_COLLAPSED_STORAGE_KEY);
-      if (stored === "true") setDirectoryCollapsed(true);
-    } catch {
-      // localStorage may be unavailable (private mode, SSR, etc.); ignore.
-    }
-  }, []);
+  const directoryCollapsed = useSyncExternalStore(
+    subscribeDirectoryCollapsed,
+    readDirectoryCollapsed,
+    getDirectoryServerSnapshot
+  );
 
   const toggleDirectoryCollapsed = () => {
-    setDirectoryCollapsed((current) => {
-      const next = !current;
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(DIRECTORY_COLLAPSED_STORAGE_KEY, String(next));
-        } catch {
-          // Persist is best-effort; collapsed state still works for the session.
-        }
-      }
-      return next;
-    });
+    writeDirectoryCollapsed(!directoryCollapsed);
   };
 
   return (
