@@ -134,6 +134,34 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     requiredFor: "Sending an agent instructions during a live call.",
     docsUrl: null,
   },
+  {
+    id: "elevenlabs-whatsapp-phone-number-id",
+    label: "WhatsApp number ID",
+    envVar: "ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID",
+    consumedBy: "office3d",
+    purpose: "The WhatsApp Business number, registered with ElevenLabs, that agents message from.",
+    requiredFor: "Agent messages.",
+    docsUrl: null,
+  },
+  {
+    id: "elevenlabs-whatsapp-template",
+    label: "WhatsApp template",
+    envVar: "ELEVENLABS_WHATSAPP_TEMPLATE",
+    consumedBy: "office3d",
+    purpose:
+      "The approved WhatsApp template agents send. WhatsApp does not carry free-form text to someone who has not messaged you recently, so a template is the only option the API offers.",
+    requiredFor: "Agent messages.",
+    docsUrl: null,
+  },
+  {
+    id: "elevenlabs-whatsapp-template-language",
+    label: "WhatsApp template language",
+    envVar: "ELEVENLABS_WHATSAPP_TEMPLATE_LANGUAGE",
+    consumedBy: "office3d",
+    purpose: "The template's language code, such as en. It must match an approved template.",
+    requiredFor: "Agent messages.",
+    docsUrl: null,
+  },
   // Below: keys a skill or agent may use. Office3D never calls these APIs
   // itself, so a missing one costs nothing here — it is listed so a
   // deployment can confirm at a glance what the host has.

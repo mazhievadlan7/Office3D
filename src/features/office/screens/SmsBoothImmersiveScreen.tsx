@@ -1,44 +1,55 @@
 "use client";
 
 import { CheckCheck, MessageSquareText, Send, Smartphone } from "lucide-react";
-import type { MockTextMessageScenario } from "@/lib/office/text/types";
+
+import type { MessageStatus } from "@/lib/messaging/types";
+
+/**
+ * The messaging booth, showing a message that was actually sent.
+ *
+ * The booth used to invent the recipient's reply and report "Delivered" for
+ * something that never left the building. It now shows what the office sent
+ * and what the provider said about it, and nothing else — the office has no
+ * inbound channel, so there are no replies to show.
+ */
 
 export type TextMessageStep =
-  | "selecting_contact"
   | "composing"
   | "sending"
-  | "delivered"
-  | "reply"
-  | "complete";
+  | "sent"
+  | "failed";
+
+export type BoothMessageView = {
+  /** Who it went to, as it was addressed. */
+  recipient: string;
+  /** What the office sent. */
+  text: string;
+  status: MessageStatus | null;
+  errorMessage: string | null;
+};
 
 export function SmsBoothImmersiveScreen({
-  scenario,
+  message,
   step,
   typedMessage,
   activeKey,
-  contacts,
-  activeContactIndex,
 }: {
-  scenario: MockTextMessageScenario;
+  message: BoothMessageView;
   step: TextMessageStep;
   typedMessage: string;
   activeKey: string | null;
-  contacts: string[];
-  activeContactIndex: number | null;
 }) {
   const statusLabel =
-    step === "selecting_contact"
-      ? "Selecting contact"
-      : step === "composing"
+    step === "composing"
       ? "Composing"
       : step === "sending"
         ? "Sending"
-        : step === "delivered"
-          ? "Delivered"
-          : step === "reply"
-            ? "Reply received"
-            : "Message complete";
-  const messageBody = typedMessage || scenario.messageText || "";
+        : step === "sent"
+            // "Sent", not "Delivered": the provider accepted it, and only a
+            // delivery receipt would say it reached a handset.
+            ? "Sent"
+            : "Not sent";
+  const messageBody = typedMessage || message.text || "";
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_top,#0f172a_0%,#050816_48%,#02030a_100%)] text-white">
@@ -51,7 +62,7 @@ export function SmsBoothImmersiveScreen({
               Messaging Booth
             </div>
             <div className="mt-4 text-4xl font-semibold tracking-[0.08em] text-sky-50">
-              {scenario.recipient}
+              {message.recipient}
             </div>
             <div className="mt-2 text-sm uppercase tracking-[0.24em] text-sky-200/55">
               {statusLabel}
@@ -91,16 +102,10 @@ export function SmsBoothImmersiveScreen({
                     {statusLabel}
                   </div>
                   <div className="mt-2 text-2xl font-semibold text-sky-50">
-                    {scenario.recipient}
+                    {message.recipient}
                   </div>
                 </div>
                 <div className="mt-6 flex-1">
-                  {step === "selecting_contact" ? (
-                    <ContactList
-                      contacts={contacts}
-                      activeContactIndex={activeContactIndex}
-                    />
-                  ) : (
                     <div className="space-y-4">
                       <Bubble
                         align="right"
@@ -108,75 +113,28 @@ export function SmsBoothImmersiveScreen({
                         text={messageBody || "Starting draft."}
                         tone="primary"
                       />
-                      {step === "delivered" || step === "reply" || step === "complete" ? (
+                      {step === "sent" ? (
                         <div className="text-right text-[11px] uppercase tracking-[0.2em] text-sky-200/45">
-                          Delivered
+                          Sent
                         </div>
                       ) : null}
-                      {step === "reply" || step === "complete" ? (
-                        <Bubble
-                          align="left"
-                          label={scenario.recipient}
-                          text={scenario.confirmationText ?? "Delivered."}
-                          tone="secondary"
-                        />
+                      {step === "failed" ? (
+                        <div className="rounded-[20px] border border-rose-400/40 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+                          {message.errorMessage ?? "The message was not sent."}
+                        </div>
                       ) : null}
-                    </div>
-                  )}
+                  </div>
                 </div>
                 <div className="mt-4 rounded-[24px] border border-sky-300/14 bg-slate-950/75 p-3">
                   <PhoneKeyboard activeKey={activeKey} />
                 </div>
                 <div className="rounded-[24px] border border-sky-300/14 bg-slate-950/70 px-4 py-3 text-sm text-sky-100/78">
-                  {scenario.statusLine}
+                  {statusLabel}
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ContactList({
-  contacts,
-  activeContactIndex,
-}: {
-  contacts: string[];
-  activeContactIndex: number | null;
-}) {
-  const selectedIndex = activeContactIndex ?? 0;
-  const windowStart = Math.max(
-    0,
-    Math.min(selectedIndex - 2, Math.max(contacts.length - 5, 0)),
-  );
-  const visibleContacts = contacts.slice(windowStart, windowStart + 5);
-
-  return (
-    <div className="relative h-full overflow-hidden rounded-[24px] border border-sky-300/14 bg-slate-950/55 px-3 py-3">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-[linear-gradient(180deg,rgba(2,6,23,0.94),rgba(2,6,23,0))]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-[linear-gradient(0deg,rgba(2,6,23,0.94),rgba(2,6,23,0))]" />
-      <div className="space-y-2 pt-3">
-        {visibleContacts.map((contact, index) => {
-          const absoluteIndex = windowStart + index;
-          const active = absoluteIndex === selectedIndex;
-          return (
-            <div
-              key={`${contact}-${absoluteIndex}`}
-              className={`rounded-[22px] border px-4 py-3 transition-all duration-150 ${
-                active
-                  ? "scale-[0.98] border-sky-200/70 bg-sky-300/20 text-sky-50 shadow-[0_0_20px_rgba(56,189,248,0.2)]"
-                  : "border-slate-700/80 bg-slate-900/80 text-slate-200"
-              }`}
-            >
-              <div className="text-sm font-medium">{contact}</div>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.18em] opacity-60">
-                {active ? "Opening conversation" : "Recent thread"}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

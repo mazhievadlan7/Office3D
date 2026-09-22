@@ -164,6 +164,11 @@ import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPan
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
 import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
+import { useOfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
+import {
+  MessagingModal,
+  type MessageRequestDraft,
+} from "@/features/office/components/panels/MessagingPanel";
 import { isTerminalCallStatus } from "@/lib/telephony/types";
 import { JukeboxPanel } from "@/features/spotify-jukebox/components/JukeboxPanel";
 import { JukeboxDisabledPanel } from "@/features/spotify-jukebox/components/JukeboxDisabledPanel";
@@ -202,7 +207,6 @@ import {
   type OfficeTextMessageRequest,
 } from "@/lib/office/eventTriggers";
 import { buildOfficeSkillTriggerHoldMaps } from "@/lib/office/places";
-import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
   buildOfficeDeskMonitor,
   type OfficeDeskMonitor,
@@ -306,11 +310,6 @@ type OpenClawLogEntry = {
   streamText: string | null;
   toolText: string | null;
   payloadText: string;
-};
-
-type PreparedTextMessageEntry = {
-  requestKey: string;
-  scenario: MockTextMessageScenario;
 };
 
 type OfficeDeleteMutationBlockState = {
@@ -1091,9 +1090,6 @@ export function OfficeScreen({
     useState<CreateAgentBlockState | null>(null);
   const [deleteAgentBlock, setDeleteAgentBlock] =
     useState<OfficeDeleteMutationBlockState | null>(null);
-  const [preparedTextMessagesByAgentId, setPreparedTextMessagesByAgentId] = useState<
-    Record<string, PreparedTextMessageEntry>
-  >({});
   const promptedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const preparedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const promptedTextMessageKeysRef = useRef<Set<string>>(new Set());
@@ -1117,6 +1113,9 @@ export function OfficeScreen({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [callFeedOpen, setCallFeedOpen] = useState(false);
+  const [messagingOpen, setMessagingOpen] = useState(false);
+  const [messagingDraft, setMessagingDraft] =
+    useState<MessageRequestDraft | null>(null);
   const [callFeedDraft, setCallFeedDraft] = useState<{
     agentId: string;
     callee: string;
@@ -2073,12 +2072,7 @@ export function OfficeScreen({
     setGithubReviewAgentId((current) => (current === agentId ? null : current));
     setQaTestingAgentId((current) => (current === agentId ? null : current));
     setCallFeedDraft((current) => (current?.agentId === agentId ? null : current));
-    setPreparedTextMessagesByAgentId((current) => {
-      if (!(agentId in current)) return current;
-      const next = { ...current };
-      delete next[agentId];
-      return next;
-    });
+    setMessagingDraft((current) => (current?.agentId === agentId ? null : current));
   }, []);
   const handleCreateCompanyFromPlan = useCallback(
     async (params: { input: CompanyBuilderInput; plan: CompanyBuilderPlan }) => {
@@ -3168,6 +3162,9 @@ export function OfficeScreen({
   // seconds when nothing is live, and reaches the provider only for calls
   // that actually are.
   const callFeed = useOfficeCallFeed();
+  // Read when the panel is open, and after each send. A sent message does not
+  // change on its own, and there is no inbound channel for a reply.
+  const messaging = useOfficeMessaging({ enabled: messagingOpen });
   const callFeedAgents = useMemo(
     () =>
       state.agents.map((agent) => ({
@@ -3445,87 +3442,39 @@ export function OfficeScreen({
     preparedTextMessageKeysRef.current = new Set(
       [...preparedTextMessageKeysRef.current].filter((key) => activeKeys.has(key)),
     );
-    setPreparedTextMessagesByAgentId((previous) => {
-      const next = Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => activeKeys.has(entry.requestKey)),
-      );
-      if (
-        Object.keys(previous).length === Object.keys(next).length &&
-        Object.keys(previous).every((agentId) => previous[agentId] === next[agentId])
-      ) {
-        return previous;
-      }
-      return next;
-    });
   }, [textMessageByAgentId]);
 
   useEffect(() => {
     const requests = Object.entries(textMessageByAgentId);
     if (requests.length === 0) return;
 
-    const appendPromptForAgent = (agentId: string, request: OfficeTextMessageRequest) => {
-      const agent = state.agents.find((entry) => entry.agentId === agentId);
-      if (!agent) return;
+    // Same rule as calls: a name is not a number, and a message costs money
+    // and reaches a stranger. The request opens the messaging panel and a
+    // human sends it.
+    const askForText = (agentId: string, request: OfficeTextMessageRequest) => {
+      if (!state.agents.some((entry) => entry.agentId === agentId)) return;
       promptedTextMessageKeysRef.current.add(request.key);
-      void fetch("/api/office/text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: request.recipient,
-          message: null,
-        }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as {
-            scenario?: MockTextMessageScenario;
-          } | null;
-          const promptText = body?.scenario?.promptText?.trim();
-          if (!response.ok || !promptText) {
-            promptedTextMessageKeysRef.current.delete(request.key);
-            return;
-          }
-          focusLocalAgent(agentId);
-          dispatch({
-            type: "appendOutput",
-            agentId,
-            line: buildTextMessageOutputLine(promptText),
-          });
-        })
-        .catch(() => {
-          promptedTextMessageKeysRef.current.delete(request.key);
-        });
+      focusLocalAgent(agentId);
+      dispatch({
+        type: "appendOutput",
+        agentId,
+        line: buildTextMessageOutputLine(
+          `What should I message ${request.recipient}?`,
+        ),
+      });
     };
 
-    const prepareScenarioForAgent = (agentId: string, request: OfficeTextMessageRequest) => {
+    const openMessagingForRequest = (
+      agentId: string,
+      request: OfficeTextMessageRequest,
+    ) => {
       preparedTextMessageKeysRef.current.add(request.key);
-      void fetch("/api/office/text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: request.recipient,
-          message: request.message,
-        }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as {
-            scenario?: MockTextMessageScenario;
-          } | null;
-          const scenario = body?.scenario;
-          if (!response.ok || !scenario) {
-            preparedTextMessageKeysRef.current.delete(request.key);
-            return;
-          }
-          setPreparedTextMessagesByAgentId((previous) => ({
-            ...previous,
-            [agentId]: {
-              requestKey: request.key,
-              scenario,
-            },
-          }));
-        })
-        .catch(() => {
-          preparedTextMessageKeysRef.current.delete(request.key);
-        });
+      setMessagingDraft({
+        agentId,
+        recipient: request.recipient,
+        message: request.message,
+      });
+      setMessagingOpen(true);
     };
 
     for (const [agentId, request] of requests) {
@@ -3533,40 +3482,42 @@ export function OfficeScreen({
         request.phase === "needs_message" &&
         !promptedTextMessageKeysRef.current.has(request.key)
       ) {
-        appendPromptForAgent(agentId, request);
+        askForText(agentId, request);
       }
       if (
         request.phase === "ready_to_send" &&
         !preparedTextMessageKeysRef.current.has(request.key)
       ) {
-        prepareScenarioForAgent(agentId, request);
+        openMessagingForRequest(agentId, request);
       }
     }
   }, [dispatch, focusLocalAgent, state.agents, textMessageByAgentId]);
 
-  const activeSmsBoothAgentId = useMemo(
-    () =>
-      state.agents.find((agent) => {
-        if (!smsBoothHoldByAgentId[agent.agentId]) return false;
-        const prepared = preparedTextMessagesByAgentId[agent.agentId];
-        const request = textMessageByAgentId[agent.agentId];
-        return Boolean(prepared && request && prepared.requestKey === request.key);
-      })?.agentId ?? null,
-    [preparedTextMessagesByAgentId, smsBoothHoldByAgentId, state.agents, textMessageByAgentId],
-  );
+  const activeBoothMessage = useMemo(() => {
+    // The booth shows a message this office actually sent, for the agent
+    // standing in it. With none, there is nothing to show.
+    for (const agent of state.agents) {
+      if (!smsBoothHoldByAgentId[agent.agentId]) continue;
+      const sent = messaging.messages.find((entry) => entry.agentId === agent.agentId);
+      if (sent) {
+        return {
+          agentId: agent.agentId,
+          view: {
+            recipient: `+${sent.to}`,
+            text: sent.text,
+            status: sent.status,
+            errorMessage: sent.errorMessage,
+          },
+        };
+      }
+    }
+    return null;
+  }, [messaging.messages, smsBoothHoldByAgentId, state.agents]);
 
-  const activeTextMessageScenario = useMemo(() => {
-    if (!activeSmsBoothAgentId) return null;
-    return preparedTextMessagesByAgentId[activeSmsBoothAgentId]?.scenario ?? null;
-  }, [activeSmsBoothAgentId, preparedTextMessagesByAgentId]);
+  const activeSmsBoothAgentId = activeBoothMessage?.agentId ?? null;
 
   const handleTextMessageComplete = useCallback(
     (agentId: string) => {
-      setPreparedTextMessagesByAgentId((previous) => {
-        const next = { ...previous };
-        delete next[agentId];
-        return next;
-      });
       const request = textMessageByAgentId[agentId];
       if (request) {
         dispatch({
@@ -4719,7 +4670,10 @@ export function OfficeScreen({
           phoneBoothAgentId={activePhoneBoothAgentId}
           phoneBoothCall={activePhoneBoothCall?.view ?? null}
           smsBoothAgentId={activeSmsBoothAgentId}
-          textMessageScenario={activeTextMessageScenario}
+          boothMessage={activeBoothMessage?.view ?? null}
+          onMessagingInteract={() => {
+            setMessagingOpen(true);
+          }}
           monitorAgentId={monitorAgentId}
           monitorByAgentId={monitorByAgentId}
           githubSkill={githubSkill}
@@ -5080,6 +5034,17 @@ export function OfficeScreen({
           }
         />
       ) : null}
+
+      <MessagingModal
+        open={messagingOpen}
+        messaging={messaging}
+        agents={callFeedAgents}
+        draft={messagingDraft}
+        onClose={() => {
+          setMessagingOpen(false);
+          setMessagingDraft(null);
+        }}
+      />
 
       <CallFeedModal
         open={callFeedOpen}

@@ -37,14 +37,13 @@ import {
 } from "@/features/office/screens/PhoneBoothImmersiveScreen";
 import {
   SmsBoothImmersiveScreen,
+  type BoothMessageView,
   type TextMessageStep,
 } from "@/features/office/screens/SmsBoothImmersiveScreen";
 import { StandupImmersiveScreen } from "@/features/office/screens/StandupImmersiveScreen";
 import type { OfficeUsageAnalyticsParams } from "@/features/office/hooks/useOfficeUsageAnalyticsViewModel";
 import type { AgentState } from "@/features/agents/state/store";
 import type { CronJobSummary } from "@/lib/cron/types";
-import { buildMockTextMessageScenario } from "@/lib/office/text/mock";
-import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import type { OfficeDeskMonitor } from "@/lib/office/deskMonitor";
 import type { OfficeAnimationState } from "@/lib/office/eventTriggers";
 import type { StandupMeeting } from "@/lib/office/standup/types";
@@ -245,51 +244,6 @@ type DragState =
   | { kind: "idle" }
   | { kind: "moving"; uid: string }
   | { kind: "placing"; itemType: string };
-
-const SMS_CONTACT_SEED_NAMES = [
-  "Avery",
-  "Maya",
-  "Theo",
-  "Lena",
-  "Miles",
-  "Nina",
-  "Owen",
-  "Priya",
-  "Marco",
-  "Sofia",
-  "Daniel",
-  "Chloe",
-  "Gabriel",
-  "Zoe",
-] as const;
-
-const normalizeSmsContactName = (value: string): string =>
-  value.replace(/\s+/g, " ").trim() || "Joseph";
-
-const buildSmsContactList = (
-  recipient: string,
-): { contacts: string[]; targetIndex: number } => {
-  const normalizedRecipient = normalizeSmsContactName(recipient);
-  const availableNames = SMS_CONTACT_SEED_NAMES.filter(
-    (name) => name.toLowerCase() !== normalizedRecipient.toLowerCase(),
-  );
-  const recipientHash = [...normalizedRecipient].reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-  const beforeCount = 2 + (recipientHash % 3);
-  const afterCount = 4;
-  const contacts = [
-    ...availableNames.slice(0, beforeCount),
-    normalizedRecipient,
-    ...availableNames.slice(beforeCount, beforeCount + afterCount),
-  ];
-
-  return {
-    contacts,
-    targetIndex: beforeCount,
-  };
-};
 
 type PaletteEntry = {
   type: string;
@@ -2245,7 +2199,7 @@ export function RetroOffice3D({
   phoneBoothAgentId = null,
   phoneBoothCall = null,
   smsBoothAgentId = null,
-  textMessageScenario = null,
+  boothMessage = null,
   qaHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   qaTestingAgentId = null,
   standupMeeting = null,
@@ -2313,6 +2267,7 @@ export function RetroOffice3D({
   onJukeboxInteract,
   onKanbanInteract,
   onPhoneBoothInteract,
+  onMessagingInteract,
   taskBoardAgents = [],
   taskBoardCardsByStatus = {
     todo: [],
@@ -2360,7 +2315,8 @@ export function RetroOffice3D({
   /** The call the booth is showing, as it actually stands. */
   phoneBoothCall?: PhoneBoothCallView | null;
   smsBoothAgentId?: string | null;
-  textMessageScenario?: MockTextMessageScenario | null;
+  /** The message the booth is showing, as it actually went out. */
+  boothMessage?: BoothMessageView | null;
   qaHoldByAgentId?: Record<string, boolean>;
   qaTestingAgentId?: string | null;
   standupMeeting?: StandupMeeting | null;
@@ -2431,6 +2387,8 @@ export function RetroOffice3D({
   onKanbanInteract?: () => void;
   /** Clicking the phone booth opens the office phone. */
   onPhoneBoothInteract?: () => void;
+  /** Clicking the messaging booth opens the office messaging panel. */
+  onMessagingInteract?: () => void;
   taskBoardAgents?: AgentState[];
   taskBoardCardsByStatus?: Record<TaskBoardStatus, TaskBoardCard[]>;
   taskBoardSelectedCard?: TaskBoardCard | null;
@@ -2678,19 +2636,13 @@ export function RetroOffice3D({
   const [smsBoothImmersiveReady, setSmsBoothImmersiveReady] = useState(false);
   const [smsBoothDoorOpen, setSmsBoothDoorOpen] = useState(false);
   const [textMessageStep, setTextMessageStep] =
-    useState<TextMessageStep>("selecting_contact");
+    useState<TextMessageStep>("composing");
   const [typedMessageText, setTypedMessageText] = useState("");
   const [activeTextKey, setActiveTextKey] = useState<string | null>(null);
-  const [textContacts, setTextContacts] = useState<string[]>([]);
-  const [activeTextContactIndex, setActiveTextContactIndex] = useState<
-    number | null
-  >(null);
   const [manualPhoneBoothOpen, setManualPhoneBoothOpen] = useState(false);
   const [manualSmsBoothOpen, setManualSmsBoothOpen] = useState(false);
-  const [manualTextMessageScenario, setManualTextMessageScenario] =
-    useState<MockTextMessageScenario | null>(null);
 
-  const activeTextMessageFlowKeyRef = useRef<string | null>(null);
+  const typedMessageKeyRef = useRef<string | null>(null);
   const boothAudioCtxRef = useRef<AudioContext | null>(null);
   const effectivePhoneBoothAgentIdRef = useRef<string | null>(null);
   const effectivePhoneBoothCallRef = useRef<PhoneBoothCallView | null>(
@@ -2702,8 +2654,7 @@ export function RetroOffice3D({
   const onStandupArrivalsChangeRef = useRef(onStandupArrivalsChange);
   const lastStandupArrivalKeyRef = useRef<string | null>(null);
   const effectiveSmsBoothAgentIdRef = useRef<string | null>(null);
-  const effectiveTextMessageScenarioRef =
-    useRef<MockTextMessageScenario | null>(null);
+  const effectiveBoothMessageRef = useRef<BoothMessageView | null>(null);
   const smsBoothAgentIdRef = useRef<string | null>(null);
   const onTextMessageCompleteRef = useRef(onTextMessageComplete);
   const [activeGithubTerminalUid, setActiveGithubTerminalUid] = useState<
@@ -2992,26 +2943,15 @@ export function RetroOffice3D({
     phoneBoothViewActive &&
     phoneBoothImmersiveReady,
   );
-  const effectiveTextMessageScenario =
-    textMessageScenario ??
-    (manualSmsBoothOpen ? manualTextMessageScenario : null);
+  const effectiveBoothMessage = boothMessage;
   const effectiveSmsBoothAgentId =
     smsBoothAgentId ?? (manualSmsBoothOpen ? "__manual_sms_booth__" : null);
   const smsBoothViewActive =
     manualSmsBoothOpen || Boolean(smsBoothAgentId && smsBoothCommandArrived);
-  const activeTextMessageFlowKey = useMemo(() => {
-    if (!effectiveSmsBoothAgentId || !effectiveTextMessageScenario) return null;
-    return [
-      effectiveSmsBoothAgentId,
-      effectiveTextMessageScenario.recipient,
-      effectiveTextMessageScenario.messageText ?? "",
-      effectiveTextMessageScenario.confirmationText ?? "",
-    ].join("|");
-  }, [effectiveSmsBoothAgentId, effectiveTextMessageScenario]);
   const smsBoothImmersive = Boolean(
     activeSmsBooth &&
     effectiveSmsBoothAgentId &&
-    effectiveTextMessageScenario &&
+    effectiveBoothMessage &&
     smsBoothViewActive &&
     smsBoothImmersiveReady,
   );
@@ -3211,7 +3151,6 @@ export function RetroOffice3D({
     if (manualSmsBoothOpen && smsBoothAgentId) {
       const timer = window.setTimeout(() => {
         setManualSmsBoothOpen(false);
-        setManualTextMessageScenario(null);
       }, 0);
       return () => {
         window.clearTimeout(timer);
@@ -3232,7 +3171,7 @@ export function RetroOffice3D({
 
   useEffect(() => {
     effectiveSmsBoothAgentIdRef.current = effectiveSmsBoothAgentId;
-    effectiveTextMessageScenarioRef.current = effectiveTextMessageScenario;
+    effectiveBoothMessageRef.current = effectiveBoothMessage;
     smsBoothAgentIdRef.current = smsBoothAgentId;
     onTextMessageCompleteRef.current = onTextMessageComplete;
     effectivePhoneBoothAgentIdRef.current = effectivePhoneBoothAgentId;
@@ -3242,7 +3181,7 @@ export function RetroOffice3D({
     onStandupArrivalsChangeRef.current = onStandupArrivalsChange;
   }, [
     effectiveSmsBoothAgentId,
-    effectiveTextMessageScenario,
+    effectiveBoothMessage,
     onTextMessageComplete,
     smsBoothAgentId,
     effectivePhoneBoothAgentId,
@@ -3278,17 +3217,13 @@ export function RetroOffice3D({
   ]);
 
   const closeManualSmsBoothView = useCallback(() => {
-    activeTextMessageFlowKeyRef.current = null;
     setManualSmsBoothOpen(false);
-    setManualTextMessageScenario(null);
     setSmsBoothImmersiveReady(false);
     setSmsBoothDoorOpen(false);
     setSmsBoothCommandArrived(false);
-    setTextMessageStep("selecting_contact");
+    setTextMessageStep("composing");
     setTypedMessageText("");
     setActiveTextKey(null);
-    setTextContacts([]);
-    setActiveTextContactIndex(null);
     if (
       !followAgentId &&
       !monitorAgentId &&
@@ -3678,7 +3613,7 @@ export function RetroOffice3D({
     const resetTimer = window.setTimeout(() => {
       setSmsBoothImmersiveReady(false);
     }, 0);
-    if (!smsBoothViewActive || !effectiveTextMessageScenario) {
+    if (!smsBoothViewActive || !effectiveBoothMessage) {
       return () => {
         window.clearTimeout(resetTimer);
       };
@@ -3690,178 +3625,55 @@ export function RetroOffice3D({
       window.clearTimeout(resetTimer);
       window.clearTimeout(timer);
     };
-  }, [effectiveTextMessageScenario, smsBoothViewActive]);
+  }, [effectiveBoothMessage, smsBoothViewActive]);
 
   useEffect(() => {
-    if (!smsBoothImmersive || !activeTextMessageFlowKey) {
-      activeTextMessageFlowKeyRef.current = null;
+    // The booth types the message the office actually sent and then stops.
+    // Whether it was accepted is the provider's answer, and there is no reply
+    // to show at all — the office has no inbound channel, and the booth used
+    // to invent one.
+    const text = effectiveBoothMessage?.text ?? "";
+    if (!smsBoothImmersive || !text) {
       const timer = window.setTimeout(() => {
-        setTextMessageStep("selecting_contact");
         setTypedMessageText("");
-        setActiveTextKey(null);
-        setTextContacts([]);
-        setActiveTextContactIndex(null);
+        setTextMessageStep("composing");
       }, 0);
-      return () => {
-        window.clearTimeout(timer);
-      };
+      return () => window.clearTimeout(timer);
     }
-    if (activeTextMessageFlowKeyRef.current === activeTextMessageFlowKey) {
+    if (typedMessageKeyRef.current === text) {
       return;
     }
-    activeTextMessageFlowKeyRef.current = activeTextMessageFlowKey;
-    const scenario = effectiveTextMessageScenarioRef.current;
-    if (!scenario?.messageText?.trim()) {
-      return;
-    }
-    const { contacts, targetIndex } = buildSmsContactList(scenario.recipient);
-    const initTimer = window.setTimeout(() => {
-      setTextMessageStep("selecting_contact");
-      setTypedMessageText("");
-      setActiveTextKey(null);
-      setTextContacts(contacts);
-      setActiveTextContactIndex(0);
-    }, 0);
+    typedMessageKeyRef.current = text;
+
     let index = 0;
-    let contactIndex = 0;
-    let contactTimer: number | null = null;
-    let typingTimer: number | null = null;
-    let stageTimer: number | null = null;
-    let keyResetTimer: number | null = null;
-
-    const resolveKeyboardKey = (character: string): string | null => {
-      if (!character) return null;
-      if (character === " ") return "space";
-      if (character === "\n") return "return";
-      const normalized = character.toLowerCase();
-      if (/^[a-z]$/.test(normalized)) return normalized;
-      if ([",", ".", "?", "!"].includes(normalized)) return normalized;
-      if (normalized === "'") return "'";
-      return null;
-    };
-
-    const clearActiveKey = () => {
-      if (keyResetTimer !== null) {
-        window.clearTimeout(keyResetTimer);
-        keyResetTimer = null;
-      }
-      setActiveTextKey(null);
-    };
-
-    const pulseKeyboardKey = (
-      key: string,
-      options?: { frequency?: number; durationMs?: number; gain?: number },
-    ) => {
-      setActiveTextKey(key);
-      void playTextKeyTone(options);
-      if (keyResetTimer !== null) {
-        window.clearTimeout(keyResetTimer);
-      }
-      keyResetTimer = window.setTimeout(() => {
-        setActiveTextKey(null);
-        keyResetTimer = null;
-      }, 110);
-    };
-
-    const finishTextFlow = () => {
-      stageTimer = window.setTimeout(() => {
-        setTextMessageStep("delivered");
-        stageTimer = window.setTimeout(() => {
-          setTextMessageStep("reply");
-          stageTimer = window.setTimeout(() => {
-            setTextMessageStep("complete");
-            stageTimer = window.setTimeout(() => {
-              if (smsBoothAgentIdRef.current) {
-                onTextMessageCompleteRef.current?.(smsBoothAgentIdRef.current);
-              } else {
-                closeManualSmsBoothView();
-              }
-            }, 1800);
-          }, 1400);
-        }, 1200);
-      }, 700);
-    };
-
-    const startTyping = () => {
+    let typeTimer: number | null = null;
+    const initTimer = window.setTimeout(() => {
+      setTypedMessageText("");
       setTextMessageStep("composing");
-      typingTimer = window.setInterval(() => {
-        index += 1;
-        const nextChunk = scenario.messageText?.slice(0, index) ?? "";
-        const typedCharacter = scenario.messageText?.charAt(index - 1) ?? "";
-        setTypedMessageText(nextChunk);
-        const pressedKey = resolveKeyboardKey(typedCharacter);
-        if (pressedKey) {
-          pulseKeyboardKey(pressedKey);
-        }
-        if (
-          index >= (scenario.messageText?.length ?? 0) &&
-          typingTimer !== null
-        ) {
-          window.clearInterval(typingTimer);
-          typingTimer = null;
-          clearActiveKey();
-          pulseKeyboardKey("return", {
-            frequency: 760,
-            durationMs: 84,
-            gain: 0.022,
-          });
-          setTextMessageStep("sending");
-          finishTextFlow();
-        }
-      }, 80);
-    };
+    }, 0);
 
-    const openConversation = () => {
-      void playTextKeyTone({
-        frequency: 1020,
-        durationMs: 70,
-        gain: 0.02,
-      });
-      stageTimer = window.setTimeout(() => {
-        startTyping();
-      }, 280);
-    };
-
-    if (targetIndex <= 0) {
-      openConversation();
-    } else {
-      contactTimer = window.setInterval(() => {
-        contactIndex = Math.min(contactIndex + 1, targetIndex);
-        setActiveTextContactIndex(contactIndex);
-        void playTextKeyTone({
-          frequency: 840,
-          durationMs: 42,
-          gain: 0.012,
-        });
-        if (contactIndex >= targetIndex && contactTimer !== null) {
-          window.clearInterval(contactTimer);
-          contactTimer = null;
-          stageTimer = window.setTimeout(() => {
-            openConversation();
-          }, 260);
-        }
-      }, 180);
-    }
+    typeTimer = window.setInterval(() => {
+      index += 1;
+      setTypedMessageText(text.slice(0, index));
+      setActiveTextKey(text[index - 1] ?? null);
+      void playTextKeyTone();
+      if (index >= text.length && typeTimer !== null) {
+        window.clearInterval(typeTimer);
+        typeTimer = null;
+        setActiveTextKey(null);
+        setTextMessageStep(
+          effectiveBoothMessage?.status === "failed" ? "failed" : "sent",
+        );
+      }
+    }, 45);
 
     return () => {
       window.clearTimeout(initTimer);
-      if (contactTimer !== null) {
-        window.clearInterval(contactTimer);
-      }
-      if (typingTimer !== null) {
-        window.clearInterval(typingTimer);
-      }
-      clearActiveKey();
-      if (stageTimer !== null) {
-        window.clearTimeout(stageTimer);
+      if (typeTimer !== null) {
+        window.clearInterval(typeTimer);
       }
     };
-  }, [
-    activeTextMessageFlowKey,
-    closeManualSmsBoothView,
-    playTextKeyTone,
-    smsBoothImmersive,
-  ]);
+  }, [effectiveBoothMessage, playTextKeyTone, smsBoothImmersive]);
 
   useEffect(() => {
     const activeViewKey = manualSmsBoothOpen
@@ -4459,15 +4271,10 @@ export function RetroOffice3D({
         setActiveGithubTerminalUid(null);
         setActiveQaTerminalUid(null);
         onMonitorSelect?.(null);
-        setSmsBoothCommandArrived(true);
         setSmsBoothDoorOpen(true);
-        setManualTextMessageScenario(
-          buildMockTextMessageScenario({
-            recipient: "Joseph",
-            message: "I will be late for the soccer game.",
-          }),
-        );
-        setManualSmsBoothOpen(true);
+        // Opens the real messaging panel rather than a demo script: the booth
+        // used to show a message to a made-up contact and a reply nobody sent.
+        onMessagingInteract?.();
         return;
       }
       if (item.type === "phone_booth") {
@@ -4561,6 +4368,7 @@ export function RetroOffice3D({
       renderAgentsRef,
       serverTerminal,
       onPhoneBoothInteract,
+      onMessagingInteract,
     ],
   );
 
@@ -6572,7 +6380,7 @@ export function RetroOffice3D({
       ) : null}
 
       {smsBoothImmersive &&
-      effectiveTextMessageScenario &&
+      effectiveBoothMessage &&
       effectiveSmsBoothAgentId ? (
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
           <div className="absolute inset-0 bg-black/45" />
@@ -6584,12 +6392,10 @@ export function RetroOffice3D({
           <div className="absolute inset-[7.8vh_8.8vw_10.8vh_8.8vw] rounded-[24px] border border-sky-200/14 bg-[#020817] shadow-[inset_0_0_0_1px_rgba(125,211,252,0.04)]" />
           <div className="pointer-events-auto absolute inset-[8vh_9vw_11vh_9vw] overflow-hidden rounded-[22px] bg-[#020617]">
             <SmsBoothImmersiveScreen
-              scenario={effectiveTextMessageScenario}
+              message={effectiveBoothMessage}
               step={textMessageStep}
               typedMessage={typedMessageText}
               activeKey={activeTextKey}
-              contacts={textContacts}
-              activeContactIndex={activeTextContactIndex}
             />
           </div>
           <div className="absolute bottom-[4vh] left-1/2 h-[1.6vh] w-[16vw] -translate-x-1/2 rounded-full bg-[#07111f] shadow-[0_0_0_1px_rgba(56,189,248,0.22)]" />
