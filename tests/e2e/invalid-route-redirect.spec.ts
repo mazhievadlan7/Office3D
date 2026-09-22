@@ -12,5 +12,5 @@ test("redirects unknown app routes to office", async ({ page }) => {
       message: "Expected invalid route to redirect to office path.",
     })
     .toBe("/office");
-  await expect(page.getByRole("button", { name: "Open headquarters sidebar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
 });

@@ -5,8 +5,8 @@ test("voice reply settings persist to the studio settings API", async ({ page })
   await stubStudioRoute(page);
 
   await page.goto("/");
-  await page.getByTitle("Voice reply settings").click();
-  await expect(page.getByRole("switch", { name: "Voice replies" })).toBeVisible();
+  await page.getByTitle("Настройки голосовых ответов").click();
+  await expect(page.getByRole("switch", { name: "Голосовые ответы" })).toBeVisible();
   await page.waitForFunction(() => {
     const element = document.querySelector('[aria-label="Voice replies"]');
     return element instanceof HTMLButtonElement && !element.disabled;
@@ -20,7 +20,7 @@ test("voice reply settings persist to the studio settings API", async ({ page })
     const voiceReplies = (payload.voiceReplies ?? {}) as Record<string, { enabled?: boolean }>;
     return Object.values(voiceReplies).some((entry) => entry.enabled === true);
   });
-  await page.getByRole("switch", { name: "Voice replies" }).click();
+  await page.getByRole("switch", { name: "Голосовые ответы" }).click();
   const request = await requestPromise;
 
   const payload = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;

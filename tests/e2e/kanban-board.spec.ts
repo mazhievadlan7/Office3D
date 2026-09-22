@@ -13,15 +13,15 @@ test.beforeEach(async ({ page }) => {
 test("creates and edits a kanban card from HQ", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Open headquarters sidebar" }).click();
-  await page.getByRole("tab", { name: "Kanban" }).click();
-  await page.getByRole("button", { name: "New Task" }).click();
+  await page.getByRole("button", { name: "Открыть боковую панель штаба" }).click();
+  await page.getByRole("tab", { name: "Канбан" }).click();
+  await page.getByRole("button", { name: "Новая задача" }).click();
 
-  const titleInput = page.getByLabel("Title");
+  const titleInput = page.getByLabel("Заголовок");
   await expect(titleInput).toHaveValue("New task");
   await titleInput.fill("Create marketing website");
-  await page.getByLabel("Description").fill("Landing page for the spring campaign.");
-  await page.getByLabel("Status").selectOption("in_progress");
+  await page.getByLabel("Описание").fill("Landing page for the spring campaign.");
+  await page.getByLabel("Статус").selectOption("in_progress");
 
   await expect(page.getByText("Create marketing website")).toBeVisible();
   await expect(titleInput).toHaveValue("Create marketing website");
@@ -30,10 +30,10 @@ test("creates and edits a kanban card from HQ", async ({ page }) => {
 test("persists kanban cards to studio settings", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Open headquarters sidebar" }).click();
-  await page.getByRole("tab", { name: "Kanban" }).click();
-  await page.getByRole("button", { name: "New Task" }).click();
-  await page.getByLabel("Title").fill("Persistent task card");
+  await page.getByRole("button", { name: "Открыть боковую панель штаба" }).click();
+  await page.getByRole("tab", { name: "Канбан" }).click();
+  await page.getByRole("button", { name: "Новая задача" }).click();
+  await page.getByLabel("Заголовок").fill("Persistent task card");
 
   const request = await page.waitForRequest((req) => {
     if (!req.url().includes("/api/studio") || req.method() !== "PUT") {

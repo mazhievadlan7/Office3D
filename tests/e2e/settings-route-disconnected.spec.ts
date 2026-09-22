@@ -13,5 +13,5 @@ test("settings route redirects to office", async ({ page }) => {
       message: "Expected settings route to redirect to office.",
     })
     .toBe("/office");
-  await expect(page.getByRole("button", { name: "Open headquarters sidebar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
 });

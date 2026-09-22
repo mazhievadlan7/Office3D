@@ -11,15 +11,15 @@ test("shows_office_shell_from_root_redirect", async ({ page }) => {
   await expect
     .poll(() => new URL(page.url()).pathname)
     .toBe("/office");
-  await expect(page.getByRole("button", { name: "Open headquarters sidebar" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "CHAT" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
 });
 
 test("persists_gateway_fields_to_studio_settings", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByLabel("Upstream URL").fill("ws://gateway.example:18789");
-  await page.getByLabel("Upstream token").fill("token-123");
+  await page.getByLabel("Адрес шлюза").fill("ws://gateway.example:18789");
+  await page.getByLabel("Токен шлюза").fill("token-123");
 
   const request = await page.waitForRequest((req) => {
     if (!req.url().includes("/api/studio") || req.method() !== "PUT") {
@@ -38,20 +38,20 @@ test("persists_gateway_fields_to_studio_settings", async ({ page }) => {
 test("focused_preferences_persist_across_reload", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: "Open headquarters sidebar" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "CHAT" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
 
   await page.reload();
 
   await expect
     .poll(() => new URL(page.url()).pathname)
     .toBe("/office");
-  await expect(page.getByRole("button", { name: "Open headquarters sidebar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
 });
 
 test("shows_chat_entrypoint_in_office_shell", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: "CHAT" })).toBeVisible();
-  await expect(page.getByTitle("Voice reply settings")).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
+  await expect(page.getByTitle("Настройки голосовых ответов")).toBeVisible();
 });
