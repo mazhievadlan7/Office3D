@@ -1,5 +1,7 @@
 "use client";
 
+import { t } from "@/lib/i18n";
+
 type KanbanDisabledPanelProps = {
   onClose: () => void;
   onInstall: () => void;
@@ -25,19 +27,18 @@ export function KanbanDisabledPanel({
         </div>
 
         <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">
-          Task Manager
+          {t("kanban.taskManager")}
         </div>
-        <h2 className="mt-1 text-xl font-semibold text-white">Kanban Skill Not Installed</h2>
+        <h2 className="mt-1 text-xl font-semibold text-white">{t("kanban.notInstalled")}</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-400">
-          Install the <span className="text-cyan-400">TASK-MANAGER</span> skill to let your
-          agents capture work as tasks and open the Kanban desk.
+          {t("kanban.lead")}
         </p>
 
         {installing ? (
           <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-left">
             <div className="flex items-center justify-between gap-3">
               <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">
-                Installing
+                {t("kanban.installingLabel")}
               </span>
               <span className="font-mono text-[10px] text-cyan-100/70">
                 {Math.max(0, Math.min(100, Math.round(progressPercent)))}%
@@ -50,10 +51,10 @@ export function KanbanDisabledPanel({
               />
             </div>
             <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              {progressMessage?.trim() || "Installing the task-manager skill."}
+              {progressMessage?.trim() || t("kanban.installingSkill")}
             </p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              Once it&apos;s installed, Office3D will refresh the task-manager state.
+              {t("kanban.refreshNote")}
             </p>
           </div>
         ) : null}
@@ -71,7 +72,7 @@ export function KanbanDisabledPanel({
             onClick={onInstall}
             disabled={installing}
           >
-            {installing ? "Installing TASK-MANAGER skill..." : "Install TASK-MANAGER skill"}
+            {installing ? t("kanban.installing") : t("kanban.install")}
           </button>
           <button
             type="button"
@@ -79,7 +80,7 @@ export function KanbanDisabledPanel({
             onClick={onClose}
             disabled={installing}
           >
-            Dismiss
+            {t("kanban.dismiss")}
           </button>
         </div>
       </div>

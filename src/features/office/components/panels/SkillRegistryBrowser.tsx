@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, ExternalLink, Loader2, Star } from "lucide-react";
 
 import { fetchJson } from "@/lib/http";
+import { plural, t } from "@/lib/i18n";
 import type { SkillRuntimeId } from "@/lib/skills/install/types";
 import type {
   RegistrySkillSummary,
@@ -120,8 +121,8 @@ export function SkillRegistryBrowser() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search ClawHub and GitHub, or leave empty to browse"
-          aria-label="Search skill registries"
+          placeholder={t("registry.searchPlaceholder")}
+          aria-label={t("registry.searchLabel")}
           className="flex-1 rounded border border-white/10 bg-black/40 px-3 py-2 font-mono text-[11px] text-white/85 outline-none transition focus:border-cyan-400/35"
         />
         <button
@@ -129,12 +130,12 @@ export function SkillRegistryBrowser() {
           disabled={loading}
           className="rounded border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Searching" : "Search"}
+          {loading ? t("registry.searching") : t("registry.search")}
         </button>
       </form>
 
       <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
-        <span>Install into</span>
+        <span>{t("registry.installInto")}</span>
         {RUNTIMES.map((candidate) => (
           <button
             key={candidate}
@@ -164,20 +165,25 @@ export function SkillRegistryBrowser() {
             key={`error-${source.registry}`}
             className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 font-mono text-[11px] text-amber-100"
           >
-            {REGISTRY_LABELS[source.registry]} is unavailable: {source.error}
+            {t("registry.unavailable", {
+              registry: REGISTRY_LABELS[source.registry],
+              reason: source.error ?? "",
+            })}
           </div>
         ))}
 
       {loading ? (
         <div className="flex items-center gap-2 font-mono text-[11px] text-white/45">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          Searching registries…
+          {t("registry.searchingRegistries")}
         </div>
       ) : null}
 
       {!loading && !anyResults ? (
         <div className="rounded border border-white/8 bg-black/30 px-3 py-4 text-center font-mono text-[11px] text-white/45">
-          {submitted ? `Nothing found for "${submitted}".` : "No skills returned."}
+          {submitted
+            ? t("registry.nothingFound", { query: submitted })
+            : t("registry.noSkills")}
         </div>
       ) : null}
 
@@ -216,7 +222,7 @@ export function SkillRegistryBrowser() {
                       ) : (
                         <Download className="h-3 w-3" aria-hidden="true" />
                       )}
-                      Install
+                      {t("registry.install")}
                     </button>
                   </div>
 
@@ -229,7 +235,10 @@ export function SkillRegistryBrowser() {
                   <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-[10px] text-white/45">
                     {/* Only shown when the registry actually published them. */}
                     {entry.downloads !== null ? (
-                      <span>{formatCount(entry.downloads)} downloads</span>
+                      <span>
+                        {formatCount(entry.downloads)}{" "}
+                        {plural(entry.downloads, ["загрузка", "загрузки", "загрузок"])}
+                      </span>
                     ) : null}
                     {entry.stars !== null ? (
                       <span className="inline-flex items-center gap-1">
@@ -245,14 +254,17 @@ export function SkillRegistryBrowser() {
                         className="inline-flex items-center gap-1 text-cyan-200/80 hover:text-cyan-100"
                       >
                         <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                        Source
+                        {t("registry.source")}
                       </a>
                     ) : null}
                   </div>
 
                   {state.kind === "installed" ? (
                     <div className="mt-2 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-100">
-                      Installed as {state.skillName} for {RUNTIME_LABELS[runtime]}.
+                      {t("registry.installedAs", {
+                        name: state.skillName,
+                        runtime: RUNTIME_LABELS[runtime],
+                      })}
                     </div>
                   ) : null}
                   {state.kind === "failed" ? (

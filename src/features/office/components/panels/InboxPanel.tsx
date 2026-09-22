@@ -3,14 +3,19 @@
 import { useMemo } from "react";
 
 import type { AgentState } from "@/features/agents/state/store";
+import { t } from "@/lib/i18n";
 
 const formatRelativeTime = (timestampMs: number | null) => {
-  if (!timestampMs) return "No output yet";
+  if (!timestampMs) return t("inbox.noOutput");
   const deltaMs = Date.now() - timestampMs;
-  if (deltaMs < 60_000) return "Just now";
-  if (deltaMs < 3_600_000) return `${Math.max(1, Math.floor(deltaMs / 60_000))}m ago`;
-  if (deltaMs < 86_400_000) return `${Math.max(1, Math.floor(deltaMs / 3_600_000))}h ago`;
-  return `${Math.max(1, Math.floor(deltaMs / 86_400_000))}d ago`;
+  if (deltaMs < 60_000) return t("inbox.justNow");
+  if (deltaMs < 3_600_000) {
+    return t("inbox.minutesAgo", { count: Math.max(1, Math.floor(deltaMs / 60_000)) });
+  }
+  if (deltaMs < 86_400_000) {
+    return t("inbox.hoursAgo", { count: Math.max(1, Math.floor(deltaMs / 3_600_000)) });
+  }
+  return t("inbox.daysAgo", { count: Math.max(1, Math.floor(deltaMs / 86_400_000)) });
 };
 
 export function InboxPanel({
@@ -48,7 +53,7 @@ export function InboxPanel({
           </div>
         ) : (
           sortedAgents.map((agent) => {
-            const preview = agent.latestPreview?.trim() || "No completed assistant output yet.";
+            const preview = agent.latestPreview?.trim() || t("inbox.empty");
             const isRunning = agent.status === "running";
             return (
               <button

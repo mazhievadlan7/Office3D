@@ -5,6 +5,7 @@ import type { AgentState } from "@/features/agents/state/store";
 import { TaskBoardView } from "@/features/office/tasks/TaskBoardView";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
 import type { CronJobSummary } from "@/lib/cron/types";
+import { t } from "@/lib/i18n";
 
 export function TaskBoardPanel({
   agents,
@@ -39,8 +40,8 @@ export function TaskBoardPanel({
 }) {
   return (
     <TaskBoardView
-      title="Kanban"
-      subtitle="Manual tasks, inferred requests, and scheduled playbooks."
+      title={t("taskboard.title")}
+      subtitle={t("taskboard.subtitle")}
       agents={agents}
       cardsByStatus={cardsByStatus}
       selectedCard={selectedCard}

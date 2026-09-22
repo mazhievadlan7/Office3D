@@ -4,6 +4,7 @@ import { AlertTriangle, Phone, PhoneCall, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { CallFeed } from "@/features/office/hooks/useOfficeCallFeed";
+import { plural, t } from "@/lib/i18n";
 import { isTerminalCallStatus, type CallRecord, type CallStatus } from "@/lib/telephony/types";
 
 /**
@@ -15,15 +16,15 @@ import { isTerminalCallStatus, type CallRecord, type CallStatus } from "@/lib/te
  */
 
 const STATUS_LABEL: Record<CallStatus, string> = {
-  queued: "Queued",
-  ringing: "Ringing",
-  "in-progress": "On the line",
-  processing: "Wrapping up",
-  completed: "Ended",
-  busy: "Busy",
-  "no-answer": "No answer",
-  canceled: "Canceled",
-  failed: "Failed",
+  queued: t("phone.statusQueued"),
+  ringing: t("phone.statusRinging"),
+  "in-progress": t("phone.statusInProgress"),
+  processing: t("phone.statusProcessing"),
+  completed: t("phone.statusCompleted"),
+  busy: t("phone.statusBusy"),
+  "no-answer": t("phone.statusNoAnswer"),
+  canceled: t("phone.statusCanceled"),
+  failed: t("phone.statusFailed"),
 };
 
 const STATUS_TONE: Record<CallStatus, string> = {
@@ -39,10 +40,10 @@ const STATUS_TONE: Record<CallStatus, string> = {
 };
 
 const SPEAKER_LABEL = {
-  agent: "Agent",
-  callee: "Caller",
-  operator: "You",
-  system: "System",
+  agent: t("phone.agentLabel"),
+  callee: t("phone.calleeLabel"),
+  operator: t("phone.operatorLabel"),
+  system: t("phone.systemLabel"),
 } as const;
 
 const formatTime = (iso: string): string => {
@@ -126,7 +127,7 @@ export function CallFeedPanel({
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
           <PhoneCall className="h-4 w-4" />
-          Office phone
+          {t("phone.title")}
         </div>
         <button
           type="button"
@@ -134,13 +135,13 @@ export function CallFeedPanel({
           className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500 hover:text-slate-100"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${feed.loading ? "animate-spin" : ""}`} />
-          Refresh
+          {t("common.refresh")}
         </button>
       </header>
 
       {!feed.ready && feed.voiceAgent ? (
         <NoticeBox tone="warn">
-          Calling is off until this deployment is configured. Missing:{" "}
+          {t("phone.notReady")}
           <span className="font-mono">{feed.voiceAgent.missing.join(", ")}</span>.
         </NoticeBox>
       ) : null}
@@ -149,15 +150,15 @@ export function CallFeedPanel({
       {draft ? (
         <div className="rounded-xl border border-sky-300/25 bg-sky-400/8 px-3 py-2.5 text-xs text-sky-100/85">
           <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200/60">
-            Requested
+            {t("request.requested")}
           </div>
           <div className="mt-1">
-            Call <span className="font-medium">{draft.callee}</span>
-            {draft.message ? <> — “{draft.message}”</> : null}
+            {t("request.callVerb")} <span className="font-medium">{draft.callee}</span>
+            {draft.message ? <> — «{draft.message}»</> : null}
           </div>
           {/* The number is the operator's to supply: a name is not a number,
               and a real call costs money and rings a stranger. */}
-          <div className="mt-1 text-sky-200/60">Enter the number to dial.</div>
+          <div className="mt-1 text-sky-200/60">{t("request.enterNumberCall")}</div>
         </div>
       ) : null}
 
@@ -166,7 +167,7 @@ export function CallFeedPanel({
         className="grid gap-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-4 sm:grid-cols-[1fr_1fr_auto]"
       >
         <label className="flex flex-col gap-1.5 text-xs text-slate-400">
-          Number to call
+          {t("phone.numberLabel")}
           <input
             value={toNumber}
             onChange={(event) => setToNumber(event.target.value)}
@@ -176,13 +177,13 @@ export function CallFeedPanel({
           />
         </label>
         <label className="flex flex-col gap-1.5 text-xs text-slate-400">
-          Calling as
+          {t("phone.callingAs")}
           <select
             value={agentId}
             onChange={(event) => setPickedAgentId(event.target.value)}
             className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 focus:border-sky-400/60 focus:outline-none"
           >
-            {agents.length === 0 ? <option value="">No agents available</option> : null}
+            {agents.length === 0 ? <option value="">{t("phone.noAgents")}</option> : null}
             {agents.map((agent) => (
               <option key={agent.agentId} value={agent.agentId}>
                 {agent.name}
@@ -196,7 +197,7 @@ export function CallFeedPanel({
           className="mt-auto inline-flex h-[38px] items-center justify-center gap-2 rounded-lg border border-emerald-300/45 bg-emerald-400/18 px-4 text-sm font-medium text-emerald-50 transition hover:bg-emerald-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
         >
           <Phone className="h-4 w-4" />
-          {feed.dialing ? "Dialing…" : "Call"}
+          {feed.dialing ? t("phone.dialing") : t("phone.call")}
         </button>
         {feed.dialError ? (
           <div className="sm:col-span-3">
@@ -209,7 +210,7 @@ export function CallFeedPanel({
         <ul className="min-h-0 space-y-2 overflow-y-auto pr-1">
           {feed.calls.length === 0 ? (
             <li className="rounded-xl border border-dashed border-slate-700 px-3 py-6 text-center text-xs text-slate-500">
-              No calls yet.
+              {t("phone.noCalls")}
             </li>
           ) : null}
           {feed.calls.map((call) => (
@@ -230,14 +231,17 @@ export function CallFeedPanel({
                 <div className="mt-1 truncate text-[11px] text-slate-400">
                   {agents.find((agent) => agent.agentId === call.agentId)?.name ?? call.agentId}
                   {" · "}
-                  {call.transcript.length} turn{call.transcript.length === 1 ? "" : "s"}
+                  {call.transcript.length}{" "}
+                  {plural(call.transcript.length, ["реплика", "реплики", "реплик"])}
                 </div>
                 {feed.syncErrors[call.sid] ? (
                   <div className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-200/80">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                     {/* Last known state, not live: saying so beats a stale
                         transcript that looks current. */}
-                    <span className="truncate">Not updating: {feed.syncErrors[call.sid]}</span>
+                    <span className="truncate">
+                      {t("phone.notUpdating", { reason: feed.syncErrors[call.sid] })}
+                    </span>
                   </div>
                 ) : null}
               </button>
@@ -272,7 +276,7 @@ function StatusChip({ status }: { status: CallStatus }) {
 function EmptyTranscript() {
   return (
     <div className="flex min-h-0 items-center justify-center rounded-2xl border border-dashed border-slate-700 text-sm text-slate-500">
-      Place a call to watch the conversation here.
+      {t("phone.emptyTranscript")}
     </div>
   );
 }
@@ -307,9 +311,11 @@ function Transcript({
         <div>
           <div className="font-mono text-sm text-slate-100">{call.to}</div>
           <div className="text-[11px] text-slate-500">
-            {call.from ? `from ${call.from} · ` : ""}
-            started {formatTime(call.startedAt)}
-            {call.endedAt ? ` · ended ${formatTime(call.endedAt)}` : ""}
+            {call.from ? `${t("phone.from", { number: call.from })} · ` : ""}
+            {t("phone.startedAt", { time: formatTime(call.startedAt) })}
+            {call.endedAt
+              ? ` · ${t("phone.endedAt", { time: formatTime(call.endedAt) }).replace(/^, /, "")}`
+              : ""}
           </div>
         </div>
         <StatusChip status={call.status} />
@@ -324,7 +330,7 @@ function Transcript({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {call.transcript.length === 0 ? (
           <div className="text-sm text-slate-500">
-            {live ? "Waiting for the first words…" : "Nothing was said on this call."}
+            {live ? t("phone.waitingFirstWords") : t("phone.nothingSaid")}
           </div>
         ) : null}
         {call.transcript.map((turn) => (
@@ -398,9 +404,9 @@ function InstructionComposer({
     return (
       <div className="border-t border-slate-800 px-4 py-3">
         <NoticeBox tone="warn">
-          Notes to the agent are off. Missing:{" "}
+          {t("phone.noteOff")}
           <span className="font-mono">
-            {operatorChannel?.missing.join(", ") ?? "configuration"}
+            {operatorChannel?.missing.join(", ") ?? t("common.notConfigured")}
           </span>
           .
         </NoticeBox>
@@ -423,7 +429,7 @@ function InstructionComposer({
             }
           }}
           rows={2}
-          placeholder="Tell the agent what to say next…"
+          placeholder={t("phone.notePlaceholder")}
           className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-400/60 focus:outline-none"
         />
         <button
@@ -432,13 +438,11 @@ function InstructionComposer({
           className="inline-flex h-[44px] items-center gap-2 rounded-lg border border-sky-300/45 bg-sky-400/18 px-4 text-sm text-sky-50 transition hover:bg-sky-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
         >
           <Send className="h-4 w-4" />
-          {sending ? "Sending…" : "Send to agent"}
+          {sending ? t("phone.noteSending") : t("phone.noteSend")}
         </button>
       </div>
       <div className="mt-1.5 text-[11px] text-slate-500">
-        {call.pendingSay
-          ? "A note is waiting; sending another replaces it."
-          : "The agent picks this up on its next turn, so it is not said instantly."}
+        {call.pendingSay ? t("phone.notePending") : t("phone.nextTurnNotice")}
       </div>
       {error ? (
         <div className="mt-2">
@@ -460,7 +464,7 @@ function Recording({ sid }: { sid: string }) {
   return (
     <div className="border-t border-slate-800 px-4 py-3">
       <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-        Recording
+        {t("phone.recordingTitle")}
       </div>
       <audio
         controls
@@ -469,8 +473,7 @@ function Recording({ sid }: { sid: string }) {
         className="w-full"
       />
       <div className="mt-1.5 text-[11px] text-slate-500">
-        Available once ElevenLabs has finished writing it, which can take a
-        moment after the call ends.
+        {t("phone.recordingHint")}
       </div>
     </div>
   );

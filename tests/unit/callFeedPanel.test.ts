@@ -57,7 +57,7 @@ describe("CallFeedPanel", () => {
       target: { value: " +447700900123 " },
     });
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "agent-2" } });
-    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    fireEvent.click(screen.getByRole("button", { name: /позвонить/i }));
 
     await waitFor(() => {
       // One number serves the whole office, so which agent is speaking has to
@@ -93,7 +93,7 @@ describe("CallFeedPanel", () => {
 
     // Naming the variable beats a bare "not configured": it says where to look.
     expect(screen.getByText("ELEVENLABS_AGENT_ID")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    fireEvent.click(screen.getByRole("button", { name: /позвонить/i }));
     expect(placeCall).not.toHaveBeenCalled();
   });
 
@@ -128,7 +128,7 @@ describe("CallFeedPanel", () => {
 
     expect(screen.getByText("Good morning, calling about the invoice.")).toBeTruthy();
     expect(screen.getByText("Go ahead.")).toBeTruthy();
-    expect(screen.getAllByText("On the line").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("На линии").length).toBeGreaterThan(0);
   });
 
   it("says_when_a_call_stopped_updating_rather_than_showing_it_as_live", () => {
@@ -144,7 +144,7 @@ describe("CallFeedPanel", () => {
 
     // A transcript that has silently stopped moving looks identical to a quiet
     // call; the operator has to be told the difference.
-    expect(screen.getByText(/Not updating: ElevenLabs: Not found/)).toBeTruthy();
+    expect(screen.getByText(/Не обновляется: ElevenLabs: Not found/)).toBeTruthy();
   });
 
   it("reports_why_a_failed_call_failed", () => {
@@ -164,7 +164,7 @@ describe("CallFeedPanel", () => {
     );
 
     expect(screen.getByText("The number was unreachable.")).toBeTruthy();
-    expect(screen.getAllByText("Failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Не удался").length).toBeGreaterThan(0);
   });
 
   it("sends_a_note_to_the_agent_on_a_live_call", async () => {
@@ -176,10 +176,10 @@ describe("CallFeedPanel", () => {
       }),
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Tell the agent what to say next…"), {
+    fireEvent.change(screen.getByPlaceholderText("Напишите агенту, что сказать дальше…"), {
       target: { value: "  Ask when they can pay.  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: /send to agent/i }));
+    fireEvent.click(screen.getByRole("button", { name: /отправить агенту/i }));
 
     await waitFor(() => {
       expect(sendInstruction).toHaveBeenCalledWith("conv_1", "Ask when they can pay.");
@@ -192,7 +192,7 @@ describe("CallFeedPanel", () => {
     render(
       createElement(CallFeedPanel, { feed: feed({ calls: [call()] }), agents: AGENTS }),
     );
-    expect(screen.getByText(/picks this up on its next turn/)).toBeTruthy();
+    expect(screen.getByText(/на следующем ходу/)).toBeTruthy();
   });
 
   it("warns_that_a_waiting_note_will_be_replaced", () => {
@@ -202,7 +202,7 @@ describe("CallFeedPanel", () => {
         agents: AGENTS,
       }),
     );
-    expect(screen.getByText(/sending another replaces it/)).toBeTruthy();
+    expect(screen.getByText(/следующая заменит/)).toBeTruthy();
   });
 
   it("names_what_is_missing_rather_than_offering_a_note_it_cannot_deliver", () => {
@@ -219,7 +219,7 @@ describe("CallFeedPanel", () => {
     );
 
     expect(screen.getByText("OFFICE3D_PUBLIC_URL")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /send to agent/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /отправить агенту/i })).toBeNull();
     expect(sendInstruction).not.toHaveBeenCalled();
   });
 
@@ -244,9 +244,9 @@ describe("CallFeedPanel", () => {
 
   it("survives_an_office_with_no_agents_yet", () => {
     render(createElement(CallFeedPanel, { feed: feed(), agents: [] }));
-    expect(screen.getByText("No agents available")).toBeTruthy();
+    expect(screen.getByText("Нет доступных агентов")).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: /call/i }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: /позвонить/i }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 });

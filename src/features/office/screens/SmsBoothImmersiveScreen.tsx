@@ -3,6 +3,7 @@
 import { CheckCheck, MessageSquareText, Send, Smartphone } from "lucide-react";
 
 import type { MessageStatus } from "@/lib/messaging/types";
+import { t } from "@/lib/i18n";
 
 /**
  * The messaging booth, showing a message that was actually sent.
@@ -41,14 +42,14 @@ export function SmsBoothImmersiveScreen({
 }) {
   const statusLabel =
     step === "composing"
-      ? "Composing"
+      ? t("smsBooth.composing")
       : step === "sending"
-        ? "Sending"
+        ? t("smsBooth.sending")
         : step === "sent"
-            // "Sent", not "Delivered": the provider accepted it, and only a
+            // t("smsBooth.sent"), not "Delivered": the provider accepted it, and only a
             // delivery receipt would say it reached a handset.
-            ? "Sent"
-            : "Not sent";
+            ? t("smsBooth.sent")
+            : t("smsBooth.notSent");
   const messageBody = typedMessage || message.text || "";
 
   return (
@@ -69,11 +70,11 @@ export function SmsBoothImmersiveScreen({
             </div>
             <div className="mt-8 rounded-[28px] border border-sky-300/16 bg-slate-900/90 p-6">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/60">
-                <span>Typing from booth</span>
+                <span>{t("smsBooth.typingFromBooth")}</span>
                 <span>iPhone relay</span>
               </div>
               <div className="mt-5 rounded-[24px] border border-slate-700 bg-slate-950/80 px-5 py-4 text-base leading-7 text-sky-50">
-                {messageBody || "Waiting for the first characters."}
+                {messageBody || t("smsBooth.waitingChars")}
                 {step === "composing" ? <span className="ml-1 inline-block animate-pulse">|</span> : null}
               </div>
               <div className="mt-5 flex items-center justify-end gap-3 text-sm uppercase tracking-[0.22em]">
@@ -83,7 +84,7 @@ export function SmsBoothImmersiveScreen({
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/24 bg-emerald-400/10 px-4 py-2 text-emerald-100/80">
                   {step === "sending" ? <Send className="h-4 w-4" /> : <CheckCheck className="h-4 w-4" />}
-                  {step === "composing" ? "Drafting" : statusLabel}
+                  {step === "composing" ? t("smsBooth.drafting") : statusLabel}
                 </div>
               </div>
             </div>
@@ -94,7 +95,7 @@ export function SmsBoothImmersiveScreen({
               <div className="absolute left-1/2 top-3 h-1.5 w-28 -translate-x-1/2 rounded-full bg-slate-700" />
               <div className="relative flex h-full flex-col overflow-hidden rounded-[34px] border border-sky-300/12 bg-[linear-gradient(180deg,#081225_0%,#020617_100%)] px-5 py-6">
                 <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/65">
-                  <span>Messages</span>
+                  <span>{t("smsBooth.messages")}</span>
                   <Smartphone className="h-4 w-4" />
                 </div>
                 <div className="mt-5 text-center">
@@ -109,8 +110,8 @@ export function SmsBoothImmersiveScreen({
                     <div className="space-y-4">
                       <Bubble
                         align="right"
-                        label="Agent"
-                        text={messageBody || "Starting draft."}
+                        label={t("smsBooth.agent")}
+                        text={messageBody || t("smsBooth.startingDraft")}
                         tone="primary"
                       />
                       {step === "sent" ? (
@@ -120,7 +121,7 @@ export function SmsBoothImmersiveScreen({
                       ) : null}
                       {step === "failed" ? (
                         <div className="rounded-[20px] border border-rose-400/40 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
-                          {message.errorMessage ?? "The message was not sent."}
+                          {message.errorMessage ?? t("smsBooth.notSentBody")}
                         </div>
                       ) : null}
                   </div>

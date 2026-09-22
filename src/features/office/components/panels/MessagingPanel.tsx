@@ -4,6 +4,7 @@ import { AlertTriangle, MessageSquareText, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { OfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
+import { t } from "@/lib/i18n";
 import type { MessageRecord } from "@/lib/messaging/types";
 
 /**
@@ -78,12 +79,12 @@ export function MessagingPanel({
     <div className="flex h-full min-h-0 flex-col gap-4 text-slate-100">
       <header className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
         <MessageSquareText className="h-4 w-4" />
-        Office messaging
+        {t("messaging.title")}
       </header>
 
       {!messaging.ready && messaging.messaging ? (
         <Notice tone="warn">
-          Messaging is off until this deployment is configured. Missing:{" "}
+          {t("messaging.notReady")}
           <span className="font-mono">{messaging.messaging.missing.join(", ")}</span>.
         </Notice>
       ) : null}
@@ -92,14 +93,14 @@ export function MessagingPanel({
       {draft ? (
         <div className="rounded-xl border border-sky-300/25 bg-sky-400/8 px-3 py-2.5 text-xs text-sky-100/85">
           <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200/60">
-            Requested
+            {t("request.requested")}
           </div>
           <div className="mt-1">
-            Message <span className="font-medium">{draft.recipient}</span>
+            {t("request.messageVerb")} <span className="font-medium">{draft.recipient}</span>
           </div>
           {/* A name is not a number, and a message costs money and reaches a
               stranger; the operator supplies the number. */}
-          <div className="mt-1 text-sky-200/60">Enter the number to message.</div>
+          <div className="mt-1 text-sky-200/60">{t("request.enterNumberMessage")}</div>
         </div>
       ) : null}
 
@@ -109,7 +110,7 @@ export function MessagingPanel({
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-xs text-slate-400">
-            WhatsApp number
+            {t("messaging.numberLabel")}
             <input
               value={to}
               onChange={(event) => setTo(event.target.value)}
@@ -119,13 +120,13 @@ export function MessagingPanel({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-xs text-slate-400">
-            Sending as
+            {t("messaging.sendingAs")}
             <select
               value={agentId}
               onChange={(event) => setPickedAgentId(event.target.value)}
               className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 focus:border-sky-400/60 focus:outline-none"
             >
-              {agents.length === 0 ? <option value="">No agents available</option> : null}
+              {agents.length === 0 ? <option value="">{t("phone.noAgents")}</option> : null}
               {agents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.name}
@@ -135,20 +136,19 @@ export function MessagingPanel({
           </label>
         </div>
         <label className="flex flex-col gap-1.5 text-xs text-slate-400">
-          Message
+          {t("messaging.messageLabel")}
           <textarea
             value={text}
             onChange={(event) => setText(event.target.value)}
             rows={3}
-            placeholder="What the agent wants to say"
+            placeholder={t("messaging.messagePlaceholder")}
             className="resize-none rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-400/60 focus:outline-none"
           />
         </label>
         <div className="flex items-center gap-2 rounded-lg border border-amber-300/25 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100/85">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           {/* Said plainly, because it changes what the recipient sees. */}
-          This goes out inside an approved WhatsApp template, not as a plain
-          message. The recipient sees the template with this text in it.
+          {t("messaging.templateNotice")}
         </div>
         <button
           type="submit"
@@ -156,7 +156,7 @@ export function MessagingPanel({
           className="inline-flex h-[38px] items-center justify-center gap-2 self-start rounded-lg border border-emerald-300/45 bg-emerald-400/18 px-4 text-sm font-medium text-emerald-50 transition hover:bg-emerald-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
         >
           <Send className="h-4 w-4" />
-          {messaging.sending ? "Sending…" : "Send"}
+          {messaging.sending ? t("messaging.sending") : t("common.send")}
         </button>
         {sendError ? <Notice tone="error">{sendError}</Notice> : null}
       </form>
@@ -164,7 +164,7 @@ export function MessagingPanel({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {messaging.messages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-700 px-3 py-6 text-center text-xs text-slate-500">
-            Nothing sent yet.
+            {t("messaging.nothingSent")}
           </div>
         ) : null}
         {messaging.messages.map((message) => (
@@ -189,13 +189,13 @@ function Sent({ message }: { message: MessageRecord }) {
         >
           {/* "Sent", never "Delivered": the provider accepted it, and only a
               delivery receipt would say it reached a handset. */}
-          {message.status === "failed" ? "Not sent" : "Sent"}
+          {message.status === "failed" ? t("messaging.statusFailed") : t("messaging.statusSent")}
         </span>
       </div>
       <div className="mt-1.5 text-sm text-slate-100">{message.text}</div>
       <div className="mt-1 text-[11px] text-slate-500">
         {message.agentName} · {formatTime(message.sentAt)}
-        {message.template ? ` · template ${message.template}` : ""}
+        {message.template ? ` · ${t("messaging.templateOf", { name: message.template })}` : ""}
       </div>
       {message.errorMessage ? (
         <div className="mt-1.5 text-[11px] text-rose-200/85">{message.errorMessage}</div>
@@ -255,7 +255,7 @@ export function MessagingModal({
       className="fixed inset-0 z-[125] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Office messaging"
+      aria-label={t("messaging.title")}
       onClick={onClose}
     >
       <div
@@ -265,10 +265,10 @@ export function MessagingModal({
         <div className="flex items-start justify-between gap-4 border-b border-cyan-500/10 px-5 py-4">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300/80">
-              Messaging Booth
+              {t("messaging.boothTitle")}
             </div>
             <div className="mt-1 font-mono text-[11px] text-white/45">
-              Send a WhatsApp message as an office agent.
+              {t("messaging.boothLead")}
             </div>
           </div>
           <button
@@ -277,7 +277,7 @@ export function MessagingModal({
             className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
           >
             <X className="h-3.5 w-3.5" />
-            Close
+            {t("common.close")}
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden p-5">

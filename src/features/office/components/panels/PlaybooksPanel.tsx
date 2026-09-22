@@ -16,6 +16,7 @@ import {
 } from "@/lib/cron/types";
 import type { GatewayClient, GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { isGatewayDisconnectLikeError } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 type TemplateDefinition = {
   id: string;
@@ -27,10 +28,10 @@ type TemplateDefinition = {
 const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
   {
     id: "daily-briefing",
-    name: "Daily Morning Briefing",
-    description: "Every day at 9am. Summarize priorities, blockers, and what changed overnight.",
+    name: t("playbookTemplate.briefingName"),
+    description: t("playbookTemplate.briefingDescription"),
     buildInput: (agent, customName) => ({
-      name: customName || "Daily Morning Briefing",
+      name: customName || t("playbookTemplate.briefingName"),
       agentId: agent.agentId,
       sessionKey: agent.sessionKey,
       enabled: true,
@@ -40,17 +41,17 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
       payload: {
         kind: "agentTurn",
         message:
-          "Create a concise morning briefing for headquarters. Summarize current priorities, blocked work, recent notable changes, and the next recommended actions.",
+          t("playbookTemplate.briefingPrompt"),
         thinking: "high",
       },
     }),
   },
   {
     id: "nightly-code-review",
-    name: "Nightly Code Review Digest",
-    description: "Every night at midnight. Review the day and summarize risky changes or regressions.",
+    name: t("playbookTemplate.reviewName"),
+    description: t("playbookTemplate.reviewDescription"),
     buildInput: (agent, customName) => ({
-      name: customName || "Nightly Code Review Digest",
+      name: customName || t("playbookTemplate.reviewName"),
       agentId: agent.agentId,
       sessionKey: agent.sessionKey,
       enabled: true,
@@ -60,17 +61,17 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
       payload: {
         kind: "agentTurn",
         message:
-          "Review the latest work available to you and produce a digest of risky changes, unresolved questions, and follow-up recommendations for the team.",
+          t("playbookTemplate.reviewPrompt"),
         thinking: "high",
       },
     }),
   },
   {
     id: "hourly-health-check",
-    name: "Hourly Health Check",
-    description: "Every 60 minutes. Report runtime health, failures, and anything that needs intervention.",
+    name: t("playbookTemplate.healthName"),
+    description: t("playbookTemplate.healthDescription"),
     buildInput: (agent, customName) => ({
-      name: customName || "Hourly Health Check",
+      name: customName || t("playbookTemplate.healthName"),
       agentId: agent.agentId,
       sessionKey: agent.sessionKey,
       enabled: true,
@@ -80,17 +81,17 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
       payload: {
         kind: "agentTurn",
         message:
-          "Run a health check. Summarize your current status, errors, blocked tasks, pending approvals, and whether a human needs to step in.",
+          t("playbookTemplate.healthPrompt"),
         thinking: "medium",
       },
     }),
   },
   {
     id: "weekly-progress-report",
-    name: "Weekly Progress Report",
-    description: "Every Monday at 8am. Roll up wins, unfinished work, and next steps.",
+    name: t("playbookTemplate.weeklyName"),
+    description: t("playbookTemplate.weeklyDescription"),
     buildInput: (agent, customName) => ({
-      name: customName || "Weekly Progress Report",
+      name: customName || t("playbookTemplate.weeklyName"),
       agentId: agent.agentId,
       sessionKey: agent.sessionKey,
       enabled: true,
@@ -100,17 +101,17 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
       payload: {
         kind: "agentTurn",
         message:
-          "Write a weekly progress report for headquarters. Include completed work, unfinished work, risks, and the most important next steps.",
+          t("playbookTemplate.weeklyPrompt"),
         thinking: "high",
       },
     }),
   },
   {
     id: "continuous-monitor",
-    name: "Continuous Monitor",
-    description: "Every 15 minutes. Watch for drift, silent failures, or anything unusual.",
+    name: t("playbookTemplate.monitorName"),
+    description: t("playbookTemplate.monitorDescription"),
     buildInput: (agent, customName) => ({
-      name: customName || "Continuous Monitor",
+      name: customName || t("playbookTemplate.monitorName"),
       agentId: agent.agentId,
       sessionKey: agent.sessionKey,
       enabled: true,
@@ -120,7 +121,7 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
       payload: {
         kind: "agentTurn",
         message:
-          "Monitor your current context and report only if you detect unusual behavior, blocked progress, repeated failures, or opportunities that need attention.",
+          t("playbookTemplate.monitorPrompt"),
         thinking: "medium",
       },
     }),
@@ -128,7 +129,7 @@ const PLAYBOOK_TEMPLATES: TemplateDefinition[] = [
 ];
 
 const formatRelativeDateTime = (timestampMs?: number) => {
-  if (!timestampMs || !Number.isFinite(timestampMs)) return "Unknown";
+  if (!timestampMs || !Number.isFinite(timestampMs)) return t("playbooks.unknown");
   return new Date(timestampMs).toLocaleString([], {
     month: "short",
     day: "numeric",
@@ -231,7 +232,7 @@ export function PlaybooksPanel({
       const result = await listCronJobs(client, { includeDisabled: true });
       setJobs(sortCronJobsByUpdatedAt(result.jobs));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load playbooks.";
+      const message = err instanceof Error ? err.message : t("playbooks.loadFailed");
       setError(message);
       if (!isGatewayDisconnectLikeError(err)) {
         console.error(message);
@@ -247,13 +248,13 @@ export function PlaybooksPanel({
 
   const handleCreate = useCallback(async () => {
     if (!cronEnabled) {
-      setError("This runtime does not expose scheduled playbooks.");
+      setError(t("playbooks.unsupported"));
       return;
     }
     if (!activeTemplate) return;
     const agent = agentById.get(selectedAgentId);
     if (!agent) {
-      setError("Pick an agent before launching a playbook.");
+      setError(t("playbooks.pickAgentRun"));
       return;
     }
 
@@ -268,7 +269,7 @@ export function PlaybooksPanel({
       setNameOverride("");
       await loadJobs();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create playbook.";
+      const message = err instanceof Error ? err.message : t("playbooks.createFailed");
       setError(message);
     } finally {
       setCreateBusy(false);
@@ -278,7 +279,7 @@ export function PlaybooksPanel({
   const handleRunNow = useCallback(
     async (jobId: string) => {
       if (!cronEnabled) {
-        setError("This runtime does not expose scheduled playbooks.");
+        setError(t("playbooks.unsupported"));
         return;
       }
       setRunBusyJobId(jobId);
@@ -286,10 +287,10 @@ export function PlaybooksPanel({
       setActionMessage(null);
       try {
         const result = await runCronJobNow(client, jobId);
-        setActionMessage(result.ok ? "Playbook triggered." : "Playbook trigger failed.");
+        setActionMessage(result.ok ? t("playbooks.triggered") : t("playbooks.triggerFailed"));
         await loadJobs();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to run playbook.");
+        setError(err instanceof Error ? err.message : t("playbooks.runFailed"));
       } finally {
         setRunBusyJobId(null);
       }
@@ -300,7 +301,7 @@ export function PlaybooksPanel({
   const handleDelete = useCallback(
     async (jobId: string) => {
       if (!cronEnabled) {
-        setError("This runtime does not expose scheduled playbooks.");
+        setError(t("playbooks.unsupported"));
         return;
       }
       setDeleteBusyJobId(jobId);
@@ -308,10 +309,10 @@ export function PlaybooksPanel({
       setActionMessage(null);
       try {
         const result = await removeCronJob(client, jobId);
-        setActionMessage(result.ok && result.removed ? "Playbook removed." : "Playbook was not removed.");
+        setActionMessage(result.ok && result.removed ? t("playbooks.removed") : t("playbooks.notRemoved"));
         await loadJobs();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete playbook.");
+        setError(err instanceof Error ? err.message : t("playbooks.deleteFailed"));
       } finally {
         setDeleteBusyJobId(null);
       }
@@ -340,9 +341,9 @@ export function PlaybooksPanel({
           jql: jiraJql.trim(),
         },
       });
-      setActionMessage("Standup settings saved.");
+      setActionMessage(t("playbooks.standupSaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save standup settings.");
+      setError(err instanceof Error ? err.message : t("playbooks.standupSaveFailed"));
     }
   }, [
     jiraApiToken,
@@ -361,7 +362,7 @@ export function PlaybooksPanel({
 
   const handleSaveManualNotes = useCallback(async () => {
     if (!standupAgentId) {
-      setError("Pick an agent before saving standup notes.");
+      setError(t("playbooks.pickAgentNotes"));
       return;
     }
     setError(null);
@@ -373,9 +374,9 @@ export function PlaybooksPanel({
         blockers: manualBlockers.trim(),
         note: manualNote.trim(),
       });
-      setActionMessage("Standup notes saved.");
+      setActionMessage(t("playbooks.standupNotesSaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save standup notes.");
+      setError(err instanceof Error ? err.message : t("playbooks.standupNotesFailed"));
     }
   }, [
     manualBlockers,
@@ -404,7 +405,7 @@ export function PlaybooksPanel({
             disabled={!cronEnabled}
             className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
           >
-            Refresh
+            {t("common.refresh")}
           </button>
         </div>
         {!cronEnabled ? (
@@ -421,16 +422,16 @@ export function PlaybooksPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="border-b border-cyan-500/10 px-4 py-3">
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            Active Jobs
+            {t("playbooks.activeJobs")}
           </div>
           <div className="mt-3 space-y-2">
             {loading ? (
-              <div className="font-mono text-[11px] text-white/40">Loading scheduled jobs.</div>
+              <div className="font-mono text-[11px] text-white/40">{t("playbooks.loadingJobs")}</div>
             ) : jobs.length === 0 ? (
-              <div className="font-mono text-[11px] text-white/35">No active playbooks yet.</div>
+              <div className="font-mono text-[11px] text-white/35">{t("playbooks.noJobs")}</div>
             ) : (
               jobs.map((job) => {
-                const agentName = agentById.get(job.agentId ?? "")?.name || job.agentId || "Unknown";
+                const agentName = agentById.get(job.agentId ?? "")?.name || job.agentId || t("playbooks.unknown");
                 return (
                   <div
                     key={job.id}
@@ -450,8 +451,8 @@ export function PlaybooksPanel({
 
                     <div className="mt-3 space-y-1 font-mono text-[11px] text-white/65">
                       <div>{formatCronSchedule(job.schedule)}</div>
-                      <div>Next run: {formatRelativeDateTime(job.state.nextRunAtMs)}</div>
-                      <div>Last run: {formatRelativeDateTime(job.state.lastRunAtMs)}</div>
+                      <div>{t("playbooks.nextRun", { when: formatRelativeDateTime(job.state.nextRunAtMs) })}</div>
+                      <div>{t("playbooks.lastRun", { when: formatRelativeDateTime(job.state.lastRunAtMs) })}</div>
                     </div>
 
                     <div className="mt-3 flex gap-2">
@@ -461,7 +462,7 @@ export function PlaybooksPanel({
                         disabled={runBusyJobId === job.id || deleteBusyJobId === job.id}
                         className="rounded border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200 transition-colors hover:border-amber-400/50 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {runBusyJobId === job.id ? "Running" : "Run now"}
+                        {runBusyJobId === job.id ? t("playbooks.running") : t("playbooks.run")}
                       </button>
                       <button
                         type="button"
@@ -469,7 +470,7 @@ export function PlaybooksPanel({
                         disabled={deleteBusyJobId === job.id || runBusyJobId === job.id}
                         className="rounded border border-rose-500/25 bg-rose-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-rose-200 transition-colors hover:border-rose-400/50 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {deleteBusyJobId === job.id ? "Deleting" : "Delete"}
+                        {deleteBusyJobId === job.id ? t("playbooks.deleting") : t("playbooks.delete")}
                       </button>
                     </div>
                   </div>
@@ -595,7 +596,7 @@ export function PlaybooksPanel({
                     setJiraApiTokenConfigured(event.target.value.trim().length > 0);
                   }}
                   placeholder={
-                    jiraApiTokenConfigured ? "Stored on Studio host. Enter to replace." : ""
+                    jiraApiTokenConfigured ? t("playbooks.jiraTokenHint") : ""
                   }
                   className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
                 />
@@ -635,7 +636,7 @@ export function PlaybooksPanel({
                 disabled={standup.saving}
                 className="rounded border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-100 transition-colors hover:border-emerald-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {standup.saving ? "Saving standup settings" : "Save standup settings"}
+                {standup.saving ? t("playbooks.savingStandup") : t("playbooks.saveStandup")}
               </button>
             </div>
 
@@ -653,7 +654,7 @@ export function PlaybooksPanel({
                     onChange={(event) => setStandupAgentId(event.target.value)}
                     className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
                   >
-                    <option value="">Select an agent</option>
+                    <option value="">{t("playbooks.selectAgent")}</option>
                     {agents.map((agent) => (
                       <option key={agent.agentId} value={agent.agentId}>
                         {agent.name || agent.agentId}
@@ -723,7 +724,7 @@ export function PlaybooksPanel({
                 <div>Meeting phase: {standup.meeting.phase}</div>
                 <div>Participants: {standup.meeting.participantOrder.length}</div>
                 <div>
-                  Current speaker: {standup.meeting.currentSpeakerAgentId ?? "Waiting"}
+                  Current speaker: {standup.meeting.currentSpeakerAgentId ?? t("playbooks.waiting")}
                 </div>
               </div>
             ) : null}
@@ -774,7 +775,7 @@ export function PlaybooksPanel({
                           onChange={(event) => setSelectedAgentId(event.target.value)}
                           className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
                         >
-                          <option value="">Select an agent</option>
+                          <option value="">{t("playbooks.selectAgent")}</option>
                           {agents.map((agent) => (
                             <option key={agent.agentId} value={agent.agentId}>
                               {agent.name || agent.agentId}
@@ -801,7 +802,7 @@ export function PlaybooksPanel({
                         disabled={createBusy}
                         className="w-full rounded border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:border-cyan-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {createBusy ? "Creating playbook" : "Launch playbook"}
+                        {createBusy ? t("playbooks.creating") : t("playbooks.launch")}
                       </button>
                     </div>
                   ) : null}

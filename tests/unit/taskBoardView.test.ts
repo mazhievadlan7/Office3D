@@ -112,19 +112,23 @@ describe("TaskBoardView", () => {
       })
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: /new task/i })[0]!);
-    fireEvent.click(screen.getByRole("button", { name: /refresh/i }));
-    fireEvent.click(screen.getAllByRole("button", { name: /new task/i })[1]!);
-    fireEvent.change(screen.getByLabelText("Title"), {
+    // Addressed separately rather than by index: the toolbar button and the
+    // card happened to share a name only because the fixture card is called
+    // "New task", which made the test read as though it clicked the same
+    // control twice.
+    fireEvent.click(screen.getByRole("button", { name: /новая задача/i }));
+    fireEvent.click(screen.getByRole("button", { name: /обновить/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^New task —/ }));
+    fireEvent.change(screen.getByLabelText("Заголовок"), {
       target: { value: "Create marketing website" },
     });
-    fireEvent.change(screen.getByLabelText("Status"), {
+    fireEvent.change(screen.getByLabelText("Статус"), {
       target: { value: "in_progress" },
     });
-    fireEvent.change(screen.getByLabelText("Assigned agent"), {
+    fireEvent.change(screen.getByLabelText("Назначенный агент"), {
       target: { value: "agent-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /delete task/i }));
+    fireEvent.click(screen.getByRole("button", { name: /удалить задачу/i }));
 
     expect(onCreateCard).toHaveBeenCalledTimes(1);
     expect(onRefreshCronJobs).toHaveBeenCalledTimes(1);

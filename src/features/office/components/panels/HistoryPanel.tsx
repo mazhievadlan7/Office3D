@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { AgentState } from "@/features/agents/state/store";
 import type { RunRecord, RunTriggerKind } from "@/features/office/hooks/useRunLog";
+import { t } from "@/lib/i18n";
 
 const formatClockTime = (timestampMs: number) =>
   new Date(timestampMs).toLocaleTimeString([], {
@@ -25,9 +26,9 @@ const formatDuration = (startedAt: number, endedAt: number | null) => {
 };
 
 const TRIGGER_LABELS: Record<RunTriggerKind, string> = {
-  user: "USER",
-  heartbeat: "HEARTBEAT",
-  cron: "CRON",
+  user: t("history.triggerUser"),
+  heartbeat: t("history.triggerHeartbeat"),
+  cron: t("history.triggerCron"),
 };
 
 export function HistoryPanel({
@@ -71,7 +72,7 @@ export function HistoryPanel({
             onChange={(event) => setAgentFilter(event.target.value)}
             className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
           >
-            <option value="all">All agents</option>
+            <option value="all">{t("history.allAgents")}</option>
             {agents.map((agent) => (
               <option key={agent.agentId} value={agent.agentId}>
                 {agent.name || agent.agentId}
@@ -89,10 +90,10 @@ export function HistoryPanel({
             onChange={(event) => setTriggerFilter(event.target.value as "all" | RunTriggerKind)}
             className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
           >
-            <option value="all">All triggers</option>
-            <option value="user">User</option>
-            <option value="heartbeat">Heartbeat</option>
-            <option value="cron">Cron</option>
+            <option value="all">{t("history.allTriggers")}</option>
+            <option value="user">{t("history.triggerUser")}</option>
+            <option value="heartbeat">{t("history.triggerHeartbeat")}</option>
+            <option value="cron">{t("history.triggerCron")}</option>
           </select>
         </label>
       </div>
@@ -132,19 +133,23 @@ export function HistoryPanel({
 
                 <div className="mt-3 grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/38">
                   <div>
-                    <div>Started</div>
+                    <div>{t("history.started")}</div>
                     <div className="mt-1 text-[11px] text-white/75">{formatClockTime(run.startedAt)}</div>
                   </div>
                   <div>
-                    <div>Duration</div>
+                    <div>{t("history.duration")}</div>
                     <div className="mt-1 text-[11px] text-white/75">
                       {formatDuration(run.startedAt, run.endedAt)}
                     </div>
                   </div>
                   <div>
-                    <div>Outcome</div>
+                    <div>{t("history.outcome")}</div>
                     <div className="mt-1 text-[11px] text-white/75">
-                      {isRunning ? "Running" : run.outcome === "error" ? "Error" : "Completed"}
+                      {isRunning
+                        ? t("history.outcomeRunning")
+                        : run.outcome === "error"
+                          ? t("history.outcomeError")
+                          : t("history.outcomeCompleted")}
                     </div>
                   </div>
                 </div>

@@ -7,6 +7,7 @@ import type { AgentState } from "@/features/agents/state/store";
 import { TaskBoardView } from "@/features/office/tasks/TaskBoardView";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
 import type { CronJobSummary } from "@/lib/cron/types";
+import { t } from "@/lib/i18n";
 
 export function KanbanImmersiveScreen({
   agents,
@@ -83,7 +84,7 @@ export function KanbanImmersiveScreen({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Kanban Board"
+      aria-label={t("kanbanScreen.title")}
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -93,7 +94,7 @@ export function KanbanImmersiveScreen({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close Kanban Board"
+          aria-label={t("kanbanScreen.close")}
           className="absolute -right-5 -top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-amber-400/20 bg-[#0e0b07]/90 text-amber-200/70 backdrop-blur-sm transition-colors hover:border-amber-400/40 hover:text-white"
         >
           <X className="h-4 w-4" />
@@ -106,8 +107,8 @@ export function KanbanImmersiveScreen({
         >
           <div className="min-h-0 flex-1">
           <TaskBoardView
-            title="Kanban Board"
-            subtitle="Headquarters task routing, scheduling, and review."
+            title={t("kanbanScreen.title")}
+            subtitle={t("kanbanScreen.subtitle")}
             agents={agents}
             cardsByStatus={cardsByStatus}
             selectedCard={selectedCard}

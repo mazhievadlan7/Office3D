@@ -3,6 +3,7 @@
 import { ExternalLink, X } from "lucide-react";
 
 import type { StandupMeeting } from "@/lib/office/standup/types";
+import { t } from "@/lib/i18n";
 
 const sourceTone = (ready: boolean, stale: boolean) => {
   if (!ready) return stale ? "text-amber-200 border-amber-400/25" : "text-rose-200 border-rose-400/25";
@@ -22,14 +23,14 @@ export function StandupImmersiveScreen({
         <div className="flex items-center justify-between border-b border-cyan-500/15 px-6 py-4">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.28em] text-cyan-200/85">
-              Standup Board
+              {t("standup.title")}
             </div>
             <div className="mt-1 font-mono text-[12px] text-white/50">
               {meeting.phase === "gathering"
-                ? "Everyone is walking to the meeting room."
+                ? t("standup.gathering")
                 : meeting.phase === "in_progress"
-                  ? "Team updates are being presented."
-                  : "Last standup snapshot."}
+                  ? t("standup.inProgress")
+                  : t("standup.lastSnapshot")}
             </div>
           </div>
           <button
@@ -38,15 +39,22 @@ export function StandupImmersiveScreen({
             className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/70 transition-colors hover:border-white/20 hover:text-white"
           >
             <X className="h-4 w-4" />
-            Close
+            {t("common.close")}
           </button>
         </div>
 
         <div className="grid gap-4 border-b border-cyan-500/10 px-6 py-4 font-mono text-[11px] text-white/60 md:grid-cols-3">
-          <div>Phase: {meeting.phase}</div>
-          <div>Speaker: {meeting.currentSpeakerAgentId ?? "Waiting"}</div>
+          <div>{t("standup.phase", { value: meeting.phase })}</div>
           <div>
-            Progress: {meeting.arrivedAgentIds.length}/{meeting.participantOrder.length} arrived
+            {t("standup.speaker", {
+              name: meeting.currentSpeakerAgentId ?? t("standup.waiting"),
+            })}
+          </div>
+          <div>
+            {t("standup.progress", {
+              arrived: meeting.arrivedAgentIds.length,
+              total: meeting.participantOrder.length,
+            })}
           </div>
         </div>
 
@@ -66,7 +74,7 @@ export function StandupImmersiveScreen({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
-                        Participant
+                        {t("standup.participant")}
                       </div>
                       <div className="mt-1 text-lg font-semibold text-white">
                         {card.agentName}
@@ -74,7 +82,7 @@ export function StandupImmersiveScreen({
                     </div>
                     {isSpeaking ? (
                       <div className="rounded border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-100">
-                        Speaking
+                        {t("standup.speaking")}
                       </div>
                     ) : null}
                   </div>
@@ -118,12 +126,12 @@ export function StandupImmersiveScreen({
 
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                        Active tickets
+                        {t("standup.activeTickets")}
                       </div>
                       <div className="mt-2 space-y-2">
                         {card.activeTickets.length === 0 ? (
                           <div className="font-mono text-[11px] text-white/35">
-                            No active Jira tickets.
+                            {t("standup.noTickets")}
                           </div>
                         ) : (
                           card.activeTickets.map((ticket) => (

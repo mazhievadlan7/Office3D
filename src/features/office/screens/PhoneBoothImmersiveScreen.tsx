@@ -3,6 +3,7 @@
 import { AudioLines, PhoneCall, Smartphone } from "lucide-react";
 
 import type { CallStatus, TranscriptSpeaker } from "@/lib/telephony/types";
+import { plural, t } from "@/lib/i18n";
 
 /**
  * The phone booth, showing a call that is actually happening.
@@ -35,22 +36,22 @@ export type PhoneBoothCallView = {
 };
 
 const STATUS_LABEL: Record<CallStatus, string> = {
-  queued: "Dialing",
-  ringing: "Waiting for answer",
-  "in-progress": "Connected",
-  processing: "Wrapping up",
-  completed: "Call complete",
-  busy: "Line busy",
-  "no-answer": "No answer",
-  canceled: "Call canceled",
-  failed: "Call failed",
+  queued: t("phoneBooth.dialing"),
+  ringing: t("phoneBooth.waitingAnswer"),
+  "in-progress": t("phoneBooth.connected"),
+  processing: t("phoneBooth.wrappingUp"),
+  completed: t("phoneBooth.complete"),
+  busy: t("phoneBooth.busy"),
+  "no-answer": t("phone.statusNoAnswer"),
+  canceled: t("phoneBooth.canceled"),
+  failed: t("phoneBooth.failed"),
 };
 
 const SPEAKER_LABEL: Record<TranscriptSpeaker, string> = {
-  agent: "Agent",
-  callee: "Caller",
-  operator: "You",
-  system: "System",
+  agent: t("phone.agentLabel"),
+  callee: t("phone.calleeLabel"),
+  operator: t("phone.operatorLabel"),
+  system: t("phone.systemLabel"),
 };
 
 /** The booth's animation stage, taken from the call rather than a timer. */
@@ -89,7 +90,7 @@ export function PhoneBoothImmersiveScreen({
           <div className="rounded-[32px] border border-sky-300/18 bg-slate-950/65 p-8 shadow-[0_24px_90px_rgba(2,8,23,0.75)]">
             <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
               <PhoneCall className="h-4 w-4" />
-              Phone Booth Call
+              {t("phoneBooth.title")}
             </div>
             <div className="mt-4 font-mono text-4xl font-semibold tracking-[0.08em] text-sky-50">
               {call.dialNumber}
@@ -99,7 +100,7 @@ export function PhoneBoothImmersiveScreen({
             </div>
             <div className="mt-8 rounded-[28px] border border-sky-300/16 bg-slate-900/90 p-6">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/60">
-                <span>Calling as</span>
+                <span>{t("phone.callingAs")}</span>
                 <span>{call.agentName}</span>
               </div>
               <div className="mt-5 font-mono text-3xl font-medium tracking-[0.24em] text-sky-50">
@@ -139,7 +140,7 @@ export function PhoneBoothImmersiveScreen({
               <div className="absolute left-1/2 top-3 h-1.5 w-28 -translate-x-1/2 rounded-full bg-slate-700" />
               <div className="relative flex h-full flex-col overflow-hidden rounded-[34px] border border-sky-300/12 bg-[linear-gradient(180deg,#081225_0%,#020617_100%)] px-6 py-8">
                 <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/65">
-                  <span>Cellular relay</span>
+                  <span>{t("phoneBooth.cellularRelay")}</span>
                   <Smartphone className="h-4 w-4" />
                 </div>
                 <div className="mt-8 flex h-28 w-28 items-center justify-center self-center rounded-full border border-sky-300/22 bg-sky-400/10 text-sky-100">
@@ -163,14 +164,14 @@ export function PhoneBoothImmersiveScreen({
                 <div className="mt-8 flex-1 space-y-4 overflow-hidden">
                   {recentTurns.length === 0 ? (
                     <Bubble
-                      label="Line"
+                      label={t("phoneBooth.line")}
                       // Said, not guessed: before anyone speaks there is
                       // nothing to show, and inventing an opening line would
                       // put words in the agent's mouth.
                       text={
                         step === "complete"
-                          ? "Nothing was said on this call."
-                          : "Waiting for the first words…"
+                          ? t("phone.nothingSaid")
+                          : t("phone.waitingFirstWords")
                       }
                       tone="secondary"
                     />
@@ -187,7 +188,11 @@ export function PhoneBoothImmersiveScreen({
                 <div className="rounded-[24px] border border-sky-300/14 bg-slate-950/70 px-4 py-3 text-sm text-sky-100/78">
                   {statusLabel}
                   {call.turns.length > recentTurns.length
-                    ? ` · ${call.turns.length} turns so far`
+                    ? ` · ${call.turns.length} ${plural(call.turns.length, [
+                        "реплика",
+                        "реплики",
+                        "реплик",
+                      ])}`
                     : ""}
                 </div>
               </div>

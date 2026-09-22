@@ -9,6 +9,7 @@ import {
   type OfficeCallAgent,
 } from "@/features/office/components/panels/CallFeedPanel";
 import type { CallFeed } from "@/features/office/hooks/useOfficeCallFeed";
+import { t } from "@/lib/i18n";
 
 /**
  * The phone booth, opened from the office floor.
@@ -48,7 +49,7 @@ export function CallFeedModal({
       className="fixed inset-0 z-[125] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Office phone"
+      aria-label={t("phone.title")}
       onClick={onClose}
     >
       <div
@@ -58,10 +59,10 @@ export function CallFeedModal({
         <div className="flex items-start justify-between gap-4 border-b border-cyan-500/10 px-5 py-4">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300/80">
-              Phone Booth
+              {t("phone.boothTitle")}
             </div>
             <div className="mt-1 font-mono text-[11px] text-white/45">
-              One number for the whole office. Pick who is calling and watch the line.
+              {t("phone.boothLead")}
             </div>
           </div>
           <button
@@ -70,7 +71,7 @@ export function CallFeedModal({
             className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
           >
             <X className="h-3.5 w-3.5" />
-            Close
+            {t("common.close")}
           </button>
         </div>
 

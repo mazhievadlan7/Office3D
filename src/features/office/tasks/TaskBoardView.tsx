@@ -6,13 +6,14 @@ import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { AgentState } from "@/features/agents/state/store";
 import type { CronJobSummary } from "@/lib/cron/types";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
+import { t } from "@/lib/i18n";
 
 const STATUS_LABELS: Record<TaskBoardStatus, string> = {
-  todo: "Todo",
-  in_progress: "In Progress",
-  blocked: "Blocked",
-  review: "Review",
-  done: "Done",
+  todo: t("taskboard.statusTodo"),
+  in_progress: t("taskboard.statusInProgress"),
+  blocked: t("taskboard.statusBlocked"),
+  review: t("taskboard.statusReview"),
+  done: t("taskboard.statusDone"),
 };
 
 const STATUS_ORDER: TaskBoardStatus[] = [
@@ -24,14 +25,18 @@ const STATUS_ORDER: TaskBoardStatus[] = [
 ];
 
 const formatRelativeTime = (value: string | null) => {
-  if (!value) return "No activity";
+  if (!value) return t("taskboard.noActivity");
   const at = Date.parse(value);
-  if (!Number.isFinite(at)) return "No activity";
+  if (!Number.isFinite(at)) return t("taskboard.noActivity");
   const delta = Math.max(0, Date.now() - at);
-  if (delta < 60_000) return "Just now";
-  if (delta < 3_600_000) return `${Math.max(1, Math.floor(delta / 60_000))}m ago`;
-  if (delta < 86_400_000) return `${Math.max(1, Math.floor(delta / 3_600_000))}h ago`;
-  return `${Math.max(1, Math.floor(delta / 86_400_000))}d ago`;
+  if (delta < 60_000) return t("taskboard.justNow");
+  if (delta < 3_600_000) {
+    return t("inbox.minutesAgo", { count: Math.max(1, Math.floor(delta / 60_000)) });
+  }
+  if (delta < 86_400_000) {
+    return t("inbox.hoursAgo", { count: Math.max(1, Math.floor(delta / 3_600_000)) });
+  }
+  return t("inbox.daysAgo", { count: Math.max(1, Math.floor(delta / 86_400_000)) });
 };
 
 const stopAndGetCardId = (event: DragEvent<HTMLElement>) => {
@@ -104,7 +109,7 @@ export function TaskBoardView({
               onClick={onRefreshCronJobs}
               className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/70 transition-colors hover:border-white/20 hover:text-white"
             >
-              {cronLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
+              {cronLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : t("common.refresh")}
             </button>
             <button
               type="button"
@@ -112,7 +117,7 @@ export function TaskBoardView({
               className="inline-flex items-center gap-1 rounded border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/50 hover:text-white"
             >
               <Plus className="h-3.5 w-3.5" />
-              New Task
+              {t("taskboard.newTask")}
             </button>
           </div>
         </div>
@@ -125,16 +130,18 @@ export function TaskBoardView({
           <details className="mt-2 rounded border border-amber-400/20 bg-amber-400/5 px-3 py-2 font-mono text-[11px] text-amber-50">
             <summary className="cursor-pointer list-none select-none">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.14em] text-amber-100/75">
-                <span>Capture debug</span>
-                <span>Status: {taskCaptureDebug.lastStatus}</span>
-                <span>Visible cards: {taskCaptureDebug.visibleCardCount}</span>
-                <span>Tracked cards: {taskCaptureDebug.totalCardCount}</span>
-                <span>Detected: {taskCaptureDebug.detectedCount}</span>
+                <span>{t("taskboard.captureDebug")}</span>
+                <span>{t("taskboard.statusValue", { value: taskCaptureDebug.lastStatus })}</span>
+                <span>{t("taskboard.visibleCards", { count: taskCaptureDebug.visibleCardCount })}</span>
+                <span>{t("taskboard.trackedCards", { count: taskCaptureDebug.totalCardCount })}</span>
+                <span>{t("taskboard.detected", { count: taskCaptureDebug.detectedCount })}</span>
               </div>
             </summary>
             <div className="mt-2 grid gap-1 text-white/80">
               <div>
-                Last request: {taskCaptureDebug.lastTitle ?? "None yet."}
+                {t("taskboard.lastRequest", {
+                  title: taskCaptureDebug.lastTitle ?? t("taskboard.none"),
+                })}
               </div>
               <div>
                 Last task id: {taskCaptureDebug.lastTaskId ?? "-"}
@@ -143,18 +150,22 @@ export function TaskBoardView({
                 Session/thread: {taskCaptureDebug.lastSessionKey ?? "-"}
               </div>
               <div>
-                Last update: {formatRelativeTime(taskCaptureDebug.lastUpdatedAt)}
+                {t("taskboard.lastUpdate", {
+                  when: formatRelativeTime(taskCaptureDebug.lastUpdatedAt),
+                })}
               </div>
               <div>
-                Shared store:{" "}
+                {t("taskboard.sharedStore")}
                 {taskCaptureDebug.sharedTasksSupported
                   ? taskCaptureDebug.sharedTasksLoading
-                    ? "Syncing."
-                    : "Available."
-                  : "Unavailable."}
+                    ? t("taskboard.syncing")
+                    : t("taskboard.available")
+                  : t("taskboard.unavailable")}
               </div>
               <div>
-                Note: {taskCaptureDebug.lastMessage ?? "Waiting for inbound request detection."}
+                {t("taskboard.note", {
+                  text: taskCaptureDebug.lastMessage ?? t("taskboard.waitingDetection"),
+                })}
               </div>
               {taskCaptureDebug.sharedTasksError ? (
                 <div className="text-rose-200">
@@ -197,7 +208,7 @@ export function TaskBoardView({
                   <div className="flex-1 space-y-2 overflow-y-auto p-3">
                     {cards.length === 0 ? (
                       <div className="rounded border border-dashed border-white/10 px-3 py-4 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/25">
-                        Drop a card here.
+                        {t("taskboard.dropHere")}
                       </div>
                     ) : (
                       cards.map((card) => (
@@ -205,7 +216,10 @@ export function TaskBoardView({
                           key={card.id}
                           type="button"
                           draggable
-                          aria-label={`${card.title} — ${STATUS_LABELS[card.status]}. Arrow keys to move between columns.`}
+                          aria-label={t("taskboard.arrowHint", {
+                            title: card.title,
+                            status: STATUS_LABELS[card.status],
+                          })}
                           onDragStart={(event) => {
                             event.dataTransfer.setData("text/task-card-id", card.id);
                             event.dataTransfer.effectAllowed = "move";
@@ -241,9 +255,9 @@ export function TaskBoardView({
                             </div>
                           ) : null}
                           <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-white/38">
-                            <span>{card.assignedAgentId ?? "Unassigned"}</span>
-                            {card.runId ? <span>Run linked.</span> : null}
-                            {card.playbookJobId ? <span>Playbook linked.</span> : null}
+                            <span>{card.assignedAgentId ?? t("taskboard.unassigned")}</span>
+                            {card.runId ? <span>{t("taskboard.runLinked")}</span> : null}
+                            {card.playbookJobId ? <span>{t("taskboard.playbookLinked")}</span> : null}
                           </div>
                           <div className="mt-2 font-mono text-[10px] text-white/32">
                             {formatRelativeTime(card.lastActivityAt ?? card.updatedAt)}
@@ -269,13 +283,13 @@ export function TaskBoardView({
                 onClick={() => onSelectCard(null)}
                 className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40 hover:text-white/70"
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Title
+                  {t("taskboard.title2")}
                 </span>
                 <input
                   value={selectedCard.title}
@@ -288,7 +302,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Description
+                  {t("taskboard.description")}
                 </span>
                 <textarea
                   rows={4}
@@ -302,7 +316,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Status
+                  {t("taskboard.statusLabel")}
                 </span>
                 <select
                   value={selectedCard.status}
@@ -321,7 +335,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Assigned agent
+                  {t("taskboard.assignedAgent")}
                 </span>
                 <select
                   value={selectedCard.assignedAgentId ?? ""}
@@ -332,7 +346,7 @@ export function TaskBoardView({
                   }
                   className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t("taskboard.unassigned")}</option>
                   {agents.map((agent) => (
                     <option key={agent.agentId} value={agent.agentId}>
                       {agent.name || agent.agentId}
@@ -343,7 +357,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Linked active run
+                  {t("taskboard.linkedRun")}
                 </span>
                 <select
                   value={selectedCard.runId ?? ""}
@@ -352,7 +366,7 @@ export function TaskBoardView({
                   }
                   className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
                 >
-                  <option value="">No linked run</option>
+                  <option value="">{t("taskboard.noLinkedRun")}</option>
                   {activeRuns.map((run) => (
                     <option key={run.runId} value={run.runId}>
                       {run.label}
@@ -363,7 +377,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Linked playbook
+                  {t("taskboard.linkedPlaybook")}
                 </span>
                 <select
                   value={selectedCard.playbookJobId ?? ""}
@@ -374,7 +388,7 @@ export function TaskBoardView({
                   }
                   className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
                 >
-                  <option value="">No linked playbook</option>
+                  <option value="">{t("taskboard.noLinkedPlaybook")}</option>
                   {cronJobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.name}
@@ -418,9 +432,9 @@ export function TaskBoardView({
               </label>
 
               <div className="space-y-2 rounded border border-white/8 bg-white/[0.03] px-3 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">
-                <div>Source: {selectedCard.source.replaceAll("_", " ")}.</div>
-                <div>Created: {new Date(selectedCard.createdAt).toLocaleString()}.</div>
-                <div>Updated: {new Date(selectedCard.updatedAt).toLocaleString()}.</div>
+                <div>{t("taskboard.source", { value: selectedCard.source.replaceAll("_", " ") })}</div>
+                <div>{t("taskboard.created", { value: new Date(selectedCard.createdAt).toLocaleString() })}</div>
+                <div>{t("taskboard.updated", { value: new Date(selectedCard.updatedAt).toLocaleString() })}</div>
               </div>
 
               <button
@@ -429,7 +443,7 @@ export function TaskBoardView({
                 className="inline-flex items-center gap-2 rounded border border-rose-500/25 bg-rose-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rose-100 transition-colors hover:border-rose-400/50 hover:text-white"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Delete Task
+                {t("taskboard.delete")}
               </button>
             </div>
           </aside>

@@ -12,6 +12,7 @@ import {
   type FloorProvider,
 } from "@/lib/office/floors";
 import type { FloorRosterState } from "@/lib/office/floorRoster";
+import { t } from "@/lib/i18n";
 
 const DIRECTORY_COLLAPSED_STORAGE_KEY = "office3d.officeFloorNav.directoryCollapsed";
 
@@ -112,12 +113,12 @@ const renderFloorButton = (params: {
         floor.enabled ? "cursor-pointer" : "cursor-not-allowed opacity-45",
       ].join(" ")}
       aria-pressed={active}
-      aria-label={`Select ${floor.label}`}
+      aria-label={t("floors.select", { label: floor.label })}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
-            {floor.zone === "outside" ? "Destination" : "Floor"}
+            {floor.zone === "outside" ? t("floors.destination") : t("floors.floor")}
           </div>
           <div className="truncate text-sm font-semibold text-white">{floor.label}</div>
         </div>
@@ -139,7 +140,7 @@ const renderFloorButton = (params: {
             roster {rosterCount} | {rosterStatus}
           </span>
         ) : (
-          <span>Locked</span>
+          <span>{t("floors.locked")}</span>
         )}
       </div>
     </button>
@@ -184,10 +185,12 @@ export function OfficeFloorNav({
           aria-expanded={!directoryCollapsed}
           aria-controls="office-floor-directory-body"
           aria-label={
-            directoryCollapsed ? "Expand building directory" : "Collapse building directory"
+            directoryCollapsed
+              ? t("floors.expandDirectory")
+              : t("floors.collapseDirectory")
           }
         >
-          <span>Building Directory</span>
+          <span>{t("floors.directory")}</span>
           {directoryCollapsed ? (
             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           ) : (
@@ -201,17 +204,17 @@ export function OfficeFloorNav({
                 type="button"
                 className="rounded border border-amber-500/20 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-100/80 transition-colors hover:border-amber-400/45 hover:text-amber-50"
                 onClick={() => onSelectFloor(getAdjacentEnabledOfficeFloorId(activeFloor.id, -1))}
-                aria-label="Switch to previous enabled floor"
+                aria-label={t("floors.prevFloor")}
               >
-                Prev
+                {t("floors.prev")}
               </button>
               <button
                 type="button"
                 className="rounded border border-amber-500/20 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-100/80 transition-colors hover:border-amber-400/45 hover:text-amber-50"
                 onClick={() => onSelectFloor(getAdjacentEnabledOfficeFloorId(activeFloor.id, 1))}
-                aria-label="Switch to next enabled floor"
+                aria-label={t("floors.nextFloor")}
               >
-                Next
+                {t("floors.next")}
               </button>
             </div>
             <div className="mt-3 flex flex-col gap-2">

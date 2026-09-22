@@ -62,7 +62,7 @@ describe("PhoneBoothImmersiveScreen", () => {
     // speaks there is nothing to show, and guessing would put words in the
     // agent's mouth.
     render(createElement(PhoneBoothImmersiveScreen, { call: view(), typedDigits: "" }));
-    expect(screen.getByText("Waiting for the first words…")).toBeTruthy();
+    expect(screen.getByText("Ждём первых слов…")).toBeTruthy();
   });
 
   it("says_nothing_was_said_when_a_finished_call_had_no_words", () => {
@@ -72,8 +72,8 @@ describe("PhoneBoothImmersiveScreen", () => {
         typedDigits: "",
       }),
     );
-    expect(screen.getByText("Nothing was said on this call.")).toBeTruthy();
-    expect(screen.getAllByText("No answer").length).toBeGreaterThan(0);
+    expect(screen.getByText("На этом звонке ничего не прозвучало.")).toBeTruthy();
+    expect(screen.getAllByText("Нет ответа").length).toBeGreaterThan(0);
   });
 
   it("reports_a_failed_call_as_failed", () => {
@@ -83,6 +83,6 @@ describe("PhoneBoothImmersiveScreen", () => {
         typedDigits: "",
       }),
     );
-    expect(screen.getAllByText("Call failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Звонок не удался").length).toBeGreaterThan(0);
   });
 });
