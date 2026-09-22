@@ -1,131 +1,131 @@
-# Office3Doctor Spec
+# Спецификация Office3Doctor
 
-> First-pass diagnostics plan for Office3D deployments so users stop chasing the same setup failures manually.
+> Первоначальный план диагностики для развёртываний Office3D, чтобы пользователям не приходилось вручную раз за разом разбираться с одними и теми же ошибками настройки.
 
-## Goal
+## Цель
 
-Provide a single diagnostics surface for the common "Office3D cannot connect"
-or "runtime support looks broken" cases.
+Дать единое средство диагностики для типичных случаев «Office3D не может подключиться»
+или «поддержка среды выполнения выглядит сломанной».
 
-The intent is similar to:
+Задумка похожа на:
 
 - `openclaw doctor`
 - `hermes doctor`
 
-but focused on Office3D's integration points across providers.
+но с упором на точки интеграции Office3D со всеми поставщиками.
 
-## Primary Outcomes
+## Основные результаты
 
-`office3doctor` should:
+`office3doctor` должен:
 
-- identify the selected runtime profile/provider
-- verify the gateway is reachable
-- identify common auth/config mistakes
-- surface provider-specific hints without making the whole app provider-specific
-- reduce issue-thread back-and-forth
+- определять выбранный профиль среды выполнения / поставщика;
+- проверять доступность шлюза;
+- выявлять типичные ошибки аутентификации и конфигурации;
+- выдавать подсказки для конкретного поставщика, не превращая всё приложение в зависимое от поставщика;
+- сокращать переписку туда-обратно в обсуждениях issue.
 
-## First-Pass Scope
+## Объём первой версии
 
-### Office3D Settings / Environment
+### Настройки и окружение Office3D
 
-Checks:
+Проверки:
 
-- current runtime profile selection
-- gateway URL presence
-- token presence when required
-- adapter/provider selection
-- obvious `.env` misconfiguration
+- текущий выбранный профиль среды выполнения;
+- наличие URL шлюза;
+- наличие токена, если он нужен;
+- выбор адаптера / поставщика;
+- очевидные ошибки в `.env`.
 
-Outputs:
+Результаты:
 
-- selected provider/profile
-- missing env or token warnings
-- suspicious profile precedence warnings
+- выбранный поставщик / профиль;
+- предупреждения об отсутствующих переменных окружения или токене;
+- предупреждения о подозрительном порядке приоритета профилей.
 
-### Gateway Reachability
+### Доступность шлюза
 
-Checks:
+Проверки:
 
-- can the configured gateway URL be reached?
-- can Studio proxy the selected gateway?
-- does the endpoint respond like a Office3D-compatible gateway?
+- доступен ли настроенный URL шлюза?
+- может ли Studio проксировать выбранный шлюз?
+- отвечает ли эндпоинт как шлюз, совместимый с Office3D?
 
-Outputs:
+Результаты:
 
-- reachable / unreachable
-- timeout / refused / bad handshake
-- wrong backend contract warning
+- доступен / недоступен;
+- тайм-аут / соединение отклонено / ошибка рукопожатия;
+- предупреждение о неверном контракте бэкенда.
 
-### OpenClaw Checks
+### Проверки OpenClaw
 
-Checks:
+Проверки:
 
-- OpenClaw version
-- pairing/device-approval state hints
-- common remote secure-context failures
-- common `1008`, `1011`, `1012` patterns
+- версия OpenClaw;
+- подсказки о состоянии сопряжения / одобрения устройства;
+- типичные ошибки secure context при удалённом доступе;
+- типичные ситуации с кодами `1008`, `1011`, `1012`.
 
-Outputs:
+Результаты:
 
-- version found / not found
-- device approval guidance
-- remote/Tailscale/public tunnel guidance
+- версия найдена / не найдена;
+- инструкции по одобрению устройства;
+- инструкции для удалённого доступа, Tailscale и публичных туннелей.
 
-### Hermes Checks
+### Проверки Hermes
 
-Checks:
+Проверки:
 
-- Hermes adapter running
-- Hermes API reachable
-- Hermes model present
-- auth key configured if required
-- adapter env loaded correctly
+- запущен ли адаптер Hermes;
+- доступен ли API Hermes;
+- есть ли модель Hermes;
+- настроен ли ключ аутентификации, если он требуется;
+- правильно ли загружено окружение адаптера.
 
-Outputs:
+Результаты:
 
-- adapter found / missing
-- API reachable / unreachable
-- `401` / bad model / bad URL hints
+- адаптер найден / отсутствует;
+- API доступен / недоступен;
+- подсказки при `401`, неверной модели или неверном URL.
 
-### Auth / Token Checks
+### Проверки аутентификации и токенов
 
-Checks:
+Проверки:
 
-- missing Studio access token
-- gateway token missing
-- invalid API key patterns
-- profile says tokened backend but token is absent
+- отсутствует токен доступа к Studio;
+- отсутствует токен шлюза;
+- ключ API похож на недействительный;
+- профиль указывает бэкенд с токеном, но токена нет.
 
-Outputs:
+Результаты:
 
-- precise missing-token messages
-- auth mismatch guidance
+- точные сообщения об отсутствующем токене;
+- инструкции при несоответствии аутентификации.
 
-### WebSocket / Origin / Secure-Context Checks
+### Проверки WebSocket, origin и secure context
 
-Checks:
+Проверки:
 
-- localhost vs remote
-- secure-context expectations
-- browser/origin hints for public/tunneled deployments
-- Cloudflare/ngrok/reverse-proxy warning patterns
+- localhost или удалённый доступ;
+- ожидания относительно secure context;
+- подсказки по браузеру / origin для публичных развёртываний и развёртываний через туннель;
+- типичные признаки проблем с Cloudflare, ngrok и обратным прокси.
 
-Outputs:
+Результаты:
 
-- websocket handshake guidance
-- origin/secure-context notes
-- public tunnel caution notes
+- инструкции по WebSocket-рукопожатию;
+- заметки об origin и secure context;
+- предостережения о публичных туннелях.
 
-## Recommended Output Shape
+## Рекомендуемый формат вывода
 
-`office3doctor` should produce:
+`office3doctor` должен выводить:
 
-- short headline result
-- categorized checks
-- pass / warn / fail per item
-- copy-pasteable next actions
+- краткий итоговый результат;
+- проверки, сгруппированные по категориям;
+- pass / warn / fail для каждого пункта;
+- следующие шаги, которые можно скопировать и выполнить.
 
-Example:
+Пример:
 
 ```text
 Office3Doctor: WARN
@@ -142,152 +142,150 @@ Suggested next actions:
 3. if using a public tunnel, test local/LAN direct first
 ```
 
-## Runtime-Profile Awareness
+## Учёт профилей среды выполнения
 
-`office3doctor` should be designed against the runtime-profile model:
+`office3doctor` должен проектироваться с учётом модели профилей среды выполнения:
 
-- provider
-- runtime profile
-- floor binding
+- поставщик;
+- профиль среды выполнения;
+- привязка к этажу.
 
-That means the doctor should never assume:
+Это значит, что диагностика никогда не должна предполагать:
 
-- one backend
-- one port
-- one global runtime mode
+- один бэкенд;
+- один порт;
+- один глобальный режим среды выполнения.
 
-Instead it should inspect the currently selected profile and run the
-appropriate checks for that provider.
+Вместо этого она должна изучать выбранный сейчас профиль и выполнять
+подходящие для этого поставщика проверки.
 
-## Provider-Specific Guidance Rules
+## Правила подсказок для конкретных поставщиков
 
 ### OpenClaw
 
-Focus on:
+Основное внимание:
 
-- pairing
-- device identity
-- remote websocket setup
-- public/tunnel secure-context issues
+- сопряжение;
+- идентичность устройства;
+- настройка удалённого WebSocket;
+- проблемы secure context при публичном доступе / через туннель.
 
 ### Hermes
 
-Focus on:
+Основное внимание:
 
-- adapter process
-- Hermes API reachability
-- model/config correctness
-- auth key presence
+- процесс адаптера;
+- доступность API Hermes;
+- правильность модели и конфигурации;
+- наличие ключа аутентификации.
 
-### Custom Runtime
+### Пользовательская среда выполнения
 
-Focus on:
+Основное внимание:
 
-- gateway contract compatibility
-- reachability
-- auth
-- profile configuration
+- совместимость с контрактом шлюза;
+- доступность;
+- аутентификация;
+- конфигурация профиля.
 
-## Suggested Implementation Order
+## Предлагаемый порядок реализации
 
-### PR 1: CLI / Script Scaffold
+### PR 1: каркас CLI / скрипта
 
-Add:
+Добавить:
 
-- doctor command entrypoint or script
-- report formatter
-- shared result types
+- точку входа команды doctor или скрипт;
+- форматирование отчёта;
+- общие типы результатов.
 
-### PR 2: Runtime Profile Checks
+### PR 2: проверки профиля среды выполнения
 
-Add:
+Добавить:
 
-- selected profile inspection
-- settings/env parsing
-- gateway URL/token checks
+- анализ выбранного профиля;
+- разбор настроек и окружения;
+- проверки URL и токена шлюза.
 
-### PR 3: Provider Checks
+### PR 3: проверки поставщиков
 
-Add:
+Добавить:
 
-- OpenClaw checks
-- Hermes checks
-- custom runtime checks
+- проверки OpenClaw;
+- проверки Hermes;
+- проверки пользовательской среды выполнения.
 
-### PR 4: Common Failure Classifiers
+### PR 4: классификаторы типичных сбоев
 
-Add:
+Добавить:
 
-- websocket close-code guidance
-- secure-context/origin hints
-- reverse-proxy/tunnel notes
+- инструкции по кодам закрытия WebSocket;
+- подсказки по secure context / origin;
+- заметки об обратном прокси и туннелях.
 
-## Relationship To Office Systems
+## Связь с Office Systems
 
-`office3doctor` should land before more runtime complexity because it will
-make debugging:
+`office3doctor` должен появиться раньше, чем среда выполнения станет сложнее, потому что он
+заметно облегчит отладку:
 
-- multi-runtime support
-- floor-to-profile binding
-- public remote deployment
+- поддержки нескольких сред выполнения;
+- привязки этажей к профилям;
+- публичного удалённого развёртывания.
 
-much less painful.
+Поэтому он запланирован раньше более глубокой работы над функциями Office Systems.
 
-This is why it is sequenced ahead of deeper Office Systems feature work.
+## Границы поставки V1
 
-## V1 Delivery Boundary
+`office3doctor` v1 можно считать завершённым, когда он обеспечивает:
 
-`office3doctor` v1 should be considered complete when it provides:
+- диагностику выбранного профиля с необязательной проверкой каждого профиля;
+- сгруппированный вывод в терминал с понятными результатами pass / warn / fail;
+- вывод в JSON для автоматизации и отчётов об ошибках;
+- проверки с учётом поставщика для OpenClaw, Hermes, демо- и пользовательских сред выполнения;
+- классификацию типичных сбоев транспорта и аутентификации;
+- конкретные шаги по исправлению для локальных, удалённых, туннелированных конфигураций и конфигураций с адаптером.
 
-- selected-profile diagnostics with optional per-profile probing
-- grouped terminal output with clear pass / warn / fail results
-- JSON output for automation and issue reporting
-- provider-aware checks for OpenClaw, Hermes, demo, and custom runtimes
-- common failure classification for transport and auth problems
-- concrete remediation for local, remote, tunneled, and adapter-backed setups
+Так v1 остаётся обозримой для ревью диагностикой развёртывания и не
+разрастается в полноценный проект оркестрации сред выполнения.
 
-This keeps v1 reviewable as deployment diagnostics rather than letting it
-turn into a full runtime orchestration project.
+## Бэклог расширения V2
 
-## V2 Expansion Backlog
+После выхода v1 дальнейшее развитие диагностики должно быть направлено на
+более глубокий анализ и удобство для оператора, а не на расширение охвата.
 
-After v1 lands, the next doctor-specific expansion should focus on better
-diagnosis depth and better operator ergonomics rather than broader scope.
+### Более точные эвристики среды выполнения
 
-### Higher-Signal Runtime Heuristics
+- более глубокое обнаружение проблем сопряжения и одобрения устройств в OpenClaw;
+- более точная интерпретация кодов закрытия на основе реальных сбоев;
+- проверка контракта для демо- и пользовательских сред выполнения с учётом поставщика;
+- лучшее обнаружение несоответствий модели или адаптера.
 
-- deeper OpenClaw pairing and device-approval detection
-- stronger close-code interpretation from real-world failures
-- provider-specific contract validation for demo and custom runtimes
-- better wrong-model / wrong-adapter mismatch detection
+### Рекомендации по туннелям и прокси
 
-### Tunnel / Proxy Guidance
+- исправления WebSocket и origin, специфичные для Cloudflare;
+- рекомендации по удалённому развёртыванию, специфичные для Tailscale;
+- распознавание обратного прокси и подсказки о вероятных ошибках конфигурации;
+- проверки публичного хоста при отсутствии аутентификации или несоблюдении ожиданий secure context.
 
-- Cloudflare-specific websocket and origin remediation
-- Tailscale-specific remote deployment guidance
-- reverse-proxy fingerprinting and likely-misconfiguration hints
-- public-host checks when auth or secure-context expectations are missing
+### Улучшения вывода и рабочего процесса
 
-### Output / Workflow Improvements
+- более богатое оформление в терминале;
+- экспорт, удобный для шаблонов issue или сборки пакета диагностики;
+- позже — панель диагностики в приложении, использующая тот же JSON-отчёт;
+- необязательное автоисправление безопасных ошибок конфигурации.
 
-- richer terminal presentation
-- issue-template or bundle-friendly export
-- in-app diagnostics panel later, reusing the same JSON report
-- optional doctor autofix for safe configuration repairs
+### Продолжение работы над профилями среды выполнения
 
-### Runtime-Profile Follow-Through
+`office3doctor` v2 также должен выиграть от отдельной работы над профилями среды выполнения:
 
-`office3doctor` v2 should also benefit from the separate runtime-profile work:
+- одновременная видимость нескольких профилей среды выполнения;
+- история состояния по каждому профилю;
+- диагностика привязки этажей к профилям, когда появится привязка Office Systems.
 
-- simultaneous runtime profile visibility
-- per-profile health history
-- floor-to-profile diagnosis once Office Systems binding is live
+## Следующие документы
 
-## Follow-Up Docs
+После этой спецификации следующим документом планирования должен стать:
 
-After this spec, the next planning doc should be:
+- план схемы этажей и конструктора.
 
-- floor schema and builder plan
-
-That doc should define the metadata model before any admin-side floor
-builder is implemented.
+Этот документ должен определить модель метаданных до того, как будет реализован
+конструктор этажей на стороне администратора.

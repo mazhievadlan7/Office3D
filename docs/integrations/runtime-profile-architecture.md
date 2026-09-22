@@ -1,75 +1,75 @@
-# Runtime Profile Architecture
+# Архитектура профилей среды выполнения
 
-> Forward-looking runtime model for Office3D after the OpenClaw + Hermes adapter work landed on `main`.
+> Перспективная модель среды выполнения для Office3D после того, как работа над адаптерами OpenClaw и Hermes попала в `main`.
 
-## Goal
+## Цель
 
-Office3D should treat runtime connection targets as profiles, not as ad hoc
-gateway URLs tied to one backend assumption.
+Office3D должен рассматривать цели подключения к среде выполнения как профили, а не как
+разрозненные URL шлюзов, завязанные на допущение об одном бэкенде.
 
-That means the app should model:
+Это значит, что приложение должно моделировать:
 
-- provider
-- runtime profile
-- floor binding
+- поставщика;
+- профиль среды выполнения;
+- привязку к этажу,
 
-instead of making the user think in terms of:
+а не заставлять пользователя мыслить категориями:
 
-- one hard-coded backend
-- one port
-- one global gateway selection
+- одного жёстко заданного бэкенда;
+- одного порта;
+- одного глобального выбора шлюза.
 
-## Recommendation
+## Рекомендация
 
-Use one gateway contract in the UI, with different backend providers
-behind it.
+Использовать в UI один контракт шлюза, за которым стоят разные
+поставщики бэкенда.
 
-Default path:
+Путь по умолчанию:
 
-- `OpenClaw` is the default runtime profile
+- `OpenClaw` — профиль среды выполнения по умолчанию
 
-Optional paths:
+Необязательные пути:
 
 - `Hermes Adapter`
 - `Custom Runtime(s)`
 
-The important rule is:
+Главное правило:
 
-- the UI keeps speaking one Office3D gateway contract
-- the backend behind that contract may be native OpenClaw, Hermes through
-  the adapter, or a custom runtime/provider
+- UI продолжает общаться по одному контракту шлюза Office3D;
+- за этим контрактом может стоять нативный OpenClaw, Hermes через
+  адаптер или пользовательская среда выполнения / поставщик.
 
-## Core Terms
+## Основные понятия
 
-### Provider
+### Поставщик
 
-A provider identifies the backend family behind a runtime profile.
+Поставщик определяет семейство бэкендов, стоящее за профилем среды выполнения.
 
-Initial provider set:
+Начальный набор поставщиков:
 
 - `openclaw`
 - `hermes`
 - `custom`
 - `demo`
 
-Provider answers questions like:
+Поставщик отвечает на вопросы:
 
-- what backend is this?
-- what capabilities should the UI expect?
-- which default labels or help copy apply?
+- что это за бэкенд?
+- каких возможностей должен ожидать UI?
+- какие метки и тексты справки по умолчанию применяются?
 
-### Runtime Profile
+### Профиль среды выполнения
 
-A runtime profile is a named connection target.
+Профиль среды выполнения — именованная цель подключения.
 
-Examples:
+Примеры:
 
 - `OpenClaw Default`
 - `Hermes Adapter`
 - `Custom Staging Runtime`
 - `Custom Prod Runtime`
 
-Suggested shape:
+Предлагаемая структура:
 
 ```ts
 export type RuntimeProfileId = string;
@@ -87,18 +87,18 @@ export type RuntimeProfile = {
 };
 ```
 
-Runtime profile answers:
+Профиль среды выполнения отвечает на вопросы:
 
-- where does Office3D connect?
-- what provider is behind this connection?
-- which auth/token should be used?
-- which profile should be the default?
+- куда подключается Office3D?
+- какой поставщик стоит за этим подключением?
+- какую аутентификацию / токен использовать?
+- какой профиль должен быть профилем по умолчанию?
 
-### Floor Binding
+### Привязка к этажу
 
-A floor binding maps an office floor to a runtime profile.
+Привязка к этажу сопоставляет этаж офиса с профилем среды выполнения.
 
-Examples:
+Примеры:
 
 - `OpenClaw Floor -> openclaw-default`
 - `Hermes Floor -> hermes-default`
@@ -106,7 +106,7 @@ Examples:
 - `Lobby -> null`
 - `Campus -> null`
 
-Suggested shape:
+Предлагаемая структура:
 
 ```ts
 export type FloorRuntimeBinding = {
@@ -115,174 +115,174 @@ export type FloorRuntimeBinding = {
 };
 ```
 
-Floor binding answers:
+Привязка к этажу отвечает на вопросы:
 
-- which runtime powers this floor?
-- is this floor provider-backed, function-backed, or a destination?
+- какая среда выполнения обслуживает этот этаж?
+- этаж работает на поставщике, на функции или это место назначения?
 
-## Runtime Model
+## Модель среды выполнения
 
-The recommended mental model is:
+Рекомендуемая мысленная модель:
 
 ```text
 Provider -> Runtime Profile -> Floor Binding
 ```
 
-Examples:
+Примеры:
 
-- provider: `openclaw`
-  - profile: `openclaw-default`
-  - bound floor: `openclaw-ground`
+- поставщик: `openclaw`
+  - профиль: `openclaw-default`
+  - привязанный этаж: `openclaw-ground`
 
-- provider: `hermes`
-  - profile: `hermes-default`
-  - bound floor: `hermes-first`
+- поставщик: `hermes`
+  - профиль: `hermes-default`
+  - привязанный этаж: `hermes-first`
 
-- provider: `custom`
-  - profiles:
+- поставщик: `custom`
+  - профили:
     - `custom-default`
     - `custom-staging`
     - `custom-prod`
-  - one or more custom floors may bind to them later
+  - позже к ним можно будет привязать один или несколько пользовательских этажей
 
-## Default Behavior
+## Поведение по умолчанию
 
-Initial default behavior should be:
+Начальное поведение по умолчанию должно быть таким:
 
-- if nothing else is configured, Office3D prefers `OpenClaw`
-- Hermes remains optional and adapter-backed
-- custom runtimes remain optional and profile-driven
+- если ничего другого не настроено, Office3D предпочитает `OpenClaw`;
+- Hermes остаётся необязательным и работает через адаптер;
+- пользовательские среды выполнения остаются необязательными и задаются профилями.
 
-That means:
+Это значит:
 
-- OpenClaw is the safe baseline
-- Hermes should not destabilize the default path
-- custom runtimes should not require special-case UI logic
+- OpenClaw — надёжная основа;
+- Hermes не должен дестабилизировать путь по умолчанию;
+- пользовательские среды выполнения не должны требовать особой логики в UI.
 
-## Hermes Adapter Position
+## Место адаптера Hermes
 
-Right now Hermes works through the adapter path, and that is acceptable as
-the near-term production path.
+Сейчас Hermes работает через адаптер, и это приемлемо как
+ближайший продакшен-путь.
 
-Architecture implication:
+Следствие для архитектуры:
 
-- Hermes should be represented as a provider/profile combination
-- not as a special global mode
+- Hermes должен быть представлен как сочетание поставщика и профиля,
+- а не как особый глобальный режим.
 
-So the app should think:
+То есть приложение должно рассуждать так:
 
-- provider: `hermes`
-- profile: `hermes-default`
-- gateway URL: adapter endpoint
+- поставщик: `hermes`
+- профиль: `hermes-default`
+- URL шлюза: эндпоинт адаптера
 
-This keeps the runtime selection model uniform even though Hermes is still
-adapter-backed today.
+Так модель выбора среды выполнения остаётся единообразной, хотя Hermes пока
+и работает через адаптер.
 
-## Custom Runtime Position
+## Место пользовательских сред выполнения
 
-Custom runtimes should fit the same profile model:
+Пользовательские среды выполнения должны вписываться в ту же модель профилей:
 
-- provider: `custom`
-- one or more named profiles
-- floor binding selects which profile powers which floor
+- поставщик: `custom`;
+- один или несколько именованных профилей;
+- привязка к этажу определяет, какой профиль обслуживает какой этаж.
 
-This avoids making the "Custom Floor" logic one-off and lets Office3D grow
-to multiple custom environments without another architecture pass.
+Так логика «Custom Floor» не становится разовым решением, и Office3D может расти
+до нескольких пользовательских окружений без очередного пересмотра архитектуры.
 
-## One Gateway Contract, Different Backends
+## Один контракт шлюза — разные бэкенды
 
-The UI should not branch everywhere on backend family.
+UI не должен повсюду ветвиться в зависимости от семейства бэкенда.
 
-Instead:
+Вместо этого:
 
-- the browser talks one Office3D gateway contract
-- Studio/settings select the runtime profile
-- profile/provider metadata informs capability checks and defaults
+- браузер общается по одному контракту шлюза Office3D;
+- Studio / настройки выбирают профиль среды выполнения;
+- метаданные профиля / поставщика определяют проверки возможностей и значения по умолчанию.
 
-This keeps the frontend stable while backends differ behind the scenes.
+Так фронтенд остаётся стабильным, хотя за кулисами бэкенды различаются.
 
-## Office Systems Implications
+## Следствия для Office Systems
 
-This model supports the current Office Systems direction cleanly.
+Эта модель чисто поддерживает текущее направление Office Systems.
 
-### Floor Zones
+### Зоны этажей
 
 - `Building`
 - `Outside`
 
-### Floor Types
+### Типы этажей
 
-- provider-backed
-- function-backed
-- destination/outside
+- на основе поставщика (provider-backed)
+- на основе функции (function-backed)
+- место назначения / вне здания
 
-### Examples
+### Примеры
 
 - `Lobby`
-  - function-backed
-  - no runtime binding required
+  - на основе функции
+  - привязка к среде выполнения не нужна
 
 - `OpenClaw Floor`
-  - provider-backed
-  - bound to `openclaw-default`
+  - на основе поставщика
+  - привязан к `openclaw-default`
 
 - `Hermes Floor`
-  - provider-backed
-  - bound to `hermes-default`
+  - на основе поставщика
+  - привязан к `hermes-default`
 
 - `Custom Floor`
-  - provider-backed
-  - bound to `custom-default`
+  - на основе поставщика
+  - привязан к `custom-default`
 
 - `Training Floor`
-  - function-backed
-  - may later bind to a chosen provider profile
+  - на основе функции
+  - позже может быть привязан к выбранному профилю поставщика
 
 - `Trader's Floor`
-  - function-backed
-  - may later bind to a chosen provider profile
+  - на основе функции
+  - позже может быть привязан к выбранному профилю поставщика
 
 - `Campus` / `Stadium`
-  - outside destinations
-  - not required to behave like numbered floors
+  - места назначения вне здания
+  - не обязаны вести себя как нумерованные этажи
 
-## Branch Sequence
+## Последовательность веток
 
-Recommended next branches:
+Рекомендуемые следующие ветки:
 
 - `docs/runtime-profiles`
 - `feat/office3doctor`
 - `refactor/office-shell`
-- later:
+- позже:
   - `docs/floor-builder-schema`
   - `feat/floor-builder`
 
-## Next Sequence
+## Дальнейшая последовательность
 
 ### 1. `docs: runtime profile architecture`
 
-Define:
+Определить:
 
-- provider vs profile vs floor binding
-- `OpenClaw` default
-- `Hermes Adapter` optional
-- `Custom Runtime(s)` optional
-- one gateway contract, different backends
+- разницу между поставщиком, профилем и привязкой к этажу;
+- `OpenClaw` по умолчанию;
+- необязательный `Hermes Adapter`;
+- необязательные `Custom Runtime(s)`;
+- один контракт шлюза, разные бэкенды.
 
 ### 2. `feat: office3doctor`
 
-First pass should check:
+Первая версия должна проверять:
 
-- Office3D settings/env
-- gateway reachability
-- OpenClaw version
-- Hermes adapter/API availability
-- auth/token issues
-- common websocket/origin/secure-context failures
+- настройки и окружение Office3D;
+- доступность шлюза;
+- версию OpenClaw;
+- доступность адаптера и API Hermes;
+- проблемы с аутентификацией и токенами;
+- типичные сбои WebSocket, origin и secure context.
 
 ### 3. `refactor: office shell modularization`
 
-Next extractions:
+Следующие выделения:
 
 - `OfficeShell`
 - `OfficeFloorController`
@@ -290,31 +290,31 @@ Next extractions:
 
 ### 4. `docs: floor schema and builder plan`
 
-Define the schema before building the editor.
+Определить схему до создания редактора.
 
 ### 5. `feat: admin floor builder`
 
-Only after floor metadata/schema stabilizes.
+Только после того, как метаданные и схема этажей стабилизируются.
 
-## Why This Comes First
+## Почему это идёт первым
 
-The runtime-profile document should land before more implementation work
-because it informs both:
+Документ о профилях среды выполнения должен появиться раньше дальнейшей реализации,
+потому что от него зависят:
 
-- multi-runtime support
-- `office3doctor`
+- поддержка нескольких сред выполнения;
+- `office3doctor`.
 
-Without this, diagnostics and floor binding will keep being designed
-against moving assumptions.
+Без него диагностику и привязку к этажам будут и дальше проектировать
+на основе меняющихся допущений.
 
-## Summary
+## Итоги
 
-Office3D should move to a runtime profile model where:
+Office3D должен перейти на модель профилей среды выполнения, в которой:
 
-- providers describe the backend family
-- profiles describe named connection targets
-- floors bind to profiles
+- поставщики описывают семейство бэкендов;
+- профили описывают именованные цели подключения;
+- этажи привязываются к профилям.
 
-OpenClaw remains the default.
-Hermes adapter remains optional.
-Custom runtimes become first-class without special-case UI debt.
+OpenClaw остаётся вариантом по умолчанию.
+Адаптер Hermes остаётся необязательным.
+Пользовательские среды выполнения становятся полноправными без технического долга в виде особых случаев в UI.

@@ -1,18 +1,18 @@
-# Agent Bus Integration
+# Интеграция с Agent Bus
 
-> Visualize AI coding sessions in Office3D's retro office — without OpenClaw.
+> Визуализация сессий ИИ-программирования в ретро-офисе Office3D — без OpenClaw.
 
-[Agent Bus](https://github.com/emiliovos/agent-bus) is an open-source event routing system that bridges AI coding agents (Claude Code, Gemini, Codex, etc.) to Office3D. Agents appear in the 3D office, animate when working, and go idle between tasks. Zero inference cost — pure data routing.
+[Agent Bus](https://github.com/emiliovos/agent-bus) — система маршрутизации событий с открытым исходным кодом, которая связывает ИИ-агентов для программирования (Claude Code, Gemini, Codex и др.) с Office3D. Агенты появляются в 3D-офисе, анимируются во время работы и простаивают между задачами. Никаких затрат на инференс — только маршрутизация данных.
 
-## How It Works
+## Как это работает
 
 ```
 AI coding session → hook fires → Agent Bus hub → gateway :18789 → Office3D renders in 3D
 ```
 
-Agent Bus includes an **OpenClaw-compatible gateway** that speaks the same WebSocket protocol Office3D already uses. No Office3D code changes needed — just point `GATEWAY_URL` to the Agent Bus gateway.
+В Agent Bus есть **шлюз, совместимый с OpenClaw**, который говорит на том же WebSocket-протоколе, что уже использует Office3D. Менять код Office3D не нужно — достаточно направить `GATEWAY_URL` на шлюз Agent Bus.
 
-### Architecture
+### Архитектура
 
 ```
 ┌───────────────────────────────────────────┐
@@ -45,71 +45,71 @@ Agent Bus includes an **OpenClaw-compatible gateway** that speaks the same WebSo
 └──────────────────────────────────────────┘
 ```
 
-## Quick Start
+## Быстрый старт
 
-### Prerequisites
+### Требования
 
 - Node.js 18+
-- Office3D running on `:3000`
+- Office3D, запущенный на `:3000`
 
-### Setup (5 minutes)
+### Установка (5 минут)
 
 ```bash
-# Clone Agent Bus
+# Клонируем Agent Bus
 git clone https://github.com/emiliovos/agent-bus.git
 cd agent-bus
 npm install
 
-# Start the hub and gateway
+# Запускаем хаб и шлюз
 npm run dev:all
 ```
 
-This starts:
-- Hub on `:4000` (event routing)
-- Gateway on `:18789` (OpenClaw protocol)
+Будут запущены:
+- хаб на `:4000` (маршрутизация событий);
+- шлюз на `:18789` (протокол OpenClaw).
 
-### Connect Office3D
+### Подключение Office3D
 
-Point Office3D's gateway URL to Agent Bus:
+Направьте URL шлюза Office3D на Agent Bus:
 
 ```bash
-# In your Office3D .env or environment:
+# В .env или окружении Office3D:
 GATEWAY_URL=ws://localhost:18789
 ```
 
-Restart Office3D. It will connect to the Agent Bus gateway instead of OpenClaw.
+Перезапустите Office3D. Он подключится к шлюзу Agent Bus вместо OpenClaw.
 
-### Send Your First Event
+### Отправка первого события
 
 ```bash
 curl -X POST http://localhost:4000/events \
   -H "Content-Type: application/json" \
   -d '{"agent":"my-agent","project":"demo","event":"session_start"}'
 
-# Agent appears in the 3D office!
+# Агент появляется в 3D-офисе!
 
 curl -X POST http://localhost:4000/events \
   -d '{"agent":"my-agent","project":"demo","event":"tool_use","tool":"Edit","file":"app.ts"}'
 
-# Agent animates "working" for 5 seconds
+# Агент 5 секунд показывает анимацию «работы»
 ```
 
-### Connect Claude Code Hooks
+### Подключение хуков Claude Code
 
-Agent Bus includes hook scripts that fire on every Claude Code tool use:
+В Agent Bus есть скрипты-хуки, которые срабатывают при каждом использовании инструмента в Claude Code:
 
 ```bash
-# Copy hooks
+# Копируем хуки
 cp agent-bus/scripts/hook-post-tool-use.sh ~/.agent-bus/
 cp agent-bus/scripts/hook-session-event.sh ~/.agent-bus/
 chmod +x ~/.agent-bus/*.sh
 
-# Set environment
+# Задаём окружение
 export AGENT_BUS_AGENT="my-name"
 export HUB_URL="http://localhost:4000"
 ```
 
-Add to `.claude/settings.json`:
+Добавьте в `.claude/settings.json`:
 ```json
 {
   "hooks": {
@@ -119,72 +119,72 @@ Add to `.claude/settings.json`:
 }
 ```
 
-Every tool use in Claude Code now appears as agent activity in Office3D.
+Теперь каждое использование инструмента в Claude Code отображается в Office3D как активность агента.
 
-## Gateway Protocol Compatibility
+## Совместимость с протоколом шлюза
 
-The Agent Bus gateway implements OpenClaw protocol v2:
+Шлюз Agent Bus реализует протокол OpenClaw v2:
 
-| RPC Method | Supported | Notes |
+| RPC-метод | Поддержка | Примечания |
 |-----------|-----------|-------|
-| `connect` | Yes | Returns `hello-ok` with agent snapshot |
-| `health` | Yes | `{ ok: true }` |
-| `agents.list` | Yes | Returns registered agents from hub events |
-| `config.get` | Yes | Agent identity and configuration |
-| `sessions.list` | Yes | Active sessions with message counts |
-| `sessions.preview` | Yes | Recent chat messages (ring buffer, last 100) |
-| `status` | Yes | Agent activity status |
-| `exec.approvals.get` | Yes | Returns empty (no exec approval system) |
-| `chat.send` | Partial | Logged, not delivered to agents (v1) |
-| `chat.abort` | Partial | Logged, not delivered (v1) |
+| `connect` | Да | Возвращает `hello-ok` со снимком агентов |
+| `health` | Да | `{ ok: true }` |
+| `agents.list` | Да | Возвращает агентов, зарегистрированных по событиям хаба |
+| `config.get` | Да | Идентичность и конфигурация агента |
+| `sessions.list` | Да | Активные сессии с количеством сообщений |
+| `sessions.preview` | Да | Последние сообщения чата (кольцевой буфер, последние 100) |
+| `status` | Да | Статус активности агента |
+| `exec.approvals.get` | Да | Возвращает пустой ответ (системы одобрения exec нет) |
+| `chat.send` | Частично | Записывается в лог, агентам не доставляется (v1) |
+| `chat.abort` | Частично | Записывается в лог, не доставляется (v1) |
 
-### Events Emitted
+### Отправляемые события
 
-| Event | When |
+| Событие | Когда |
 |-------|------|
-| `agent` (lifecycle) | Agent starts/stops working |
-| `chat` (activity) | Tool use, task completion |
-| `presence` | Agent registry changes |
-| `tick` | Keepalive every 30 seconds |
+| `agent` (жизненный цикл) | Агент начинает или заканчивает работу |
+| `chat` (активность) | Использование инструмента, завершение задачи |
+| `presence` | Изменения в реестре агентов |
+| `tick` | Keepalive каждые 30 секунд |
 
-## Remote Access
+## Удалённый доступ
 
-Agent Bus supports Cloudflare Tunnel for secure remote access:
+Agent Bus поддерживает Cloudflare Tunnel для безопасного удалённого доступа:
 
 ```bash
-# Automated setup
+# Автоматическая настройка
 bash scripts/setup-cloudflare-tunnel.sh
 ```
 
-This exposes the hub and Office3D via HTTPS with service token authentication. Agents on remote machines (VPS, other PCs) can send events through the tunnel.
+Хаб и Office3D становятся доступны по HTTPS с аутентификацией по сервисному токену. Агенты на удалённых машинах (VPS, других ПК) могут отправлять события через туннель.
 
-## Event Schema
+## Схема события
 
 ```typescript
 interface AgentEvent {
-  ts?: number;        // Unix timestamp ms (auto-added if missing)
-  agent: string;      // Agent identifier (e.g., "backend-dev")
-  project: string;    // Project namespace (e.g., "my-app")
+  ts?: number;        // Unix-время в мс (добавляется автоматически, если нет)
+  agent: string;      // Идентификатор агента (например, "backend-dev")
+  project: string;    // Пространство имён проекта (например, "my-app")
   event: string;      // "session_start" | "session_end" | "tool_use" | "task_complete" | "heartbeat"
-  tool?: string;      // Tool name for tool_use events
-  file?: string;      // File path for file operations
-  message?: string;   // Human-readable description
+  tool?: string;      // Имя инструмента для событий tool_use
+  file?: string;      // Путь к файлу для файловых операций
+  message?: string;   // Описание для человека
 }
 ```
 
-## Key Differences from OpenClaw
+## Основные отличия от OpenClaw
 
-| Feature | OpenClaw | Agent Bus |
+| Возможность | OpenClaw | Agent Bus |
 |---------|----------|-----------|
-| Cost | API tokens per inference | $0 (pure routing) |
-| Agents | LLM-powered | Event-driven (any source) |
-| Setup | Gateway + API keys | `npm install && npm run dev:all` |
-| Chat interaction | Bidirectional | View-only (v1) |
-| Agent sources | OpenClaw agents only | Any (Claude Code, Gemini, cron, etc.) |
+| Стоимость | API-токены за каждый инференс | $0 (только маршрутизация) |
+| Агенты | На основе LLM | Управляются событиями (любой источник) |
+| Установка | Шлюз + API-ключи | `npm install && npm run dev:all` |
+| Взаимодействие в чате | Двустороннее | Только просмотр (v1) |
+| Источники агентов | Только агенты OpenClaw | Любые (Claude Code, Gemini, cron и т. д.) |
 
-## Links
+## Ссылки
 
-- [Agent Bus Repository](https://github.com/emiliovos/agent-bus)
-- [Getting Started Guide](https://github.com/emiliovos/agent-bus/blob/main/docs/GETTING_STARTED.md)
-- [API Reference](https://github.com/emiliovos/agent-bus/blob/main/docs/api-reference.md)
-- [Hook Integration Guide](https://github.com/emiliovos/agent-bus/blob/main/docs/hook-integration-guide.md)
+- [Репозиторий Agent Bus](https://github.com/emiliovos/agent-bus)
+- [Руководство по началу работы](https://github.com/emiliovos/agent-bus/blob/main/docs/GETTING_STARTED.md)
+- [Справочник по API](https://github.com/emiliovos/agent-bus/blob/main/docs/api-reference.md)
+- [Руководство по интеграции хуков](https://github.com/emiliovos/agent-bus/blob/main/docs/hook-integration-guide.md)

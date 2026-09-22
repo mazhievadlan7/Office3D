@@ -1,48 +1,48 @@
-# Universal Backend Plan
+# План универсального бэкенда
 
-> Backend-neutral Office3D integration plan for OpenClaw, Hermes, Vera, and other runtimes.
+> План интеграции Office3D, не привязанной к конкретному бэкенду, для OpenClaw, Hermes, Vera и других сред выполнения.
 
-## Recommendation
+## Рекомендация
 
-Do not treat PR #70 as the long-term integration architecture.
+Не считайте PR #70 долгосрочной архитектурой интеграции.
 
-It is useful as a short-term compatibility shim and a source of a few good UX changes, but it does not make Office3D backend-neutral. It keeps Office3D OpenClaw-shaped and makes Hermes imitate OpenClaw.
+Он полезен как краткосрочная прослойка совместимости и как источник нескольких удачных UX-изменений, но не делает Office3D независимым от бэкенда. Office3D остаётся «заточенным» под OpenClaw, а Hermes вынужден имитировать OpenClaw.
 
-That matters because:
+Это важно, потому что:
 
-- Hermes already has real control surfaces: ACP and an OpenAI-compatible API server.
-- Vera already has a real orchestrator/gateway shape.
-- Every future backend would otherwise need to keep emulating the OpenClaw gateway protocol.
+- у Hermes уже есть настоящие интерфейсы управления: ACP и API-сервер, совместимый с OpenAI;
+- у Vera уже есть полноценная структура оркестратора/шлюза;
+- иначе каждому будущему бэкенду придётся и дальше эмулировать протокол шлюза OpenClaw.
 
-The better path is:
+Путь лучше:
 
-1. Keep OpenClaw support intact.
-2. Extract a backend-neutral runtime adapter inside Office3D.
-3. Add Hermes and Vera providers against their native surfaces where possible.
-4. Cherry-pick the high-value UI pieces from PR #70 into that new architecture.
+1. Сохранить поддержку OpenClaw без изменений.
+2. Выделить внутри Office3D адаптер среды выполнения, не зависящий от бэкенда.
+3. Добавить поставщиков для Hermes и Vera, по возможности работающих через их собственные интерфейсы.
+4. Перенести в новую архитектуру самые ценные UI-элементы из PR #70.
 
-## What To Reuse From PR #70
+## Что взять из PR #70
 
-These are worth keeping:
+Стоит сохранить:
 
-- Multi-agent UX concepts.
-- `read_agent_context` as a coordination primitive.
-- Agent `role` flowing into the 3D office nameplate.
-- Click-to-chat behavior.
-- Live speech bubble rendering for streaming text.
-- Hermes-specific env var documentation.
+- концепции мультиагентного UX;
+- `read_agent_context` как примитив координации;
+- передачу `role` агента на табличку с именем в 3D-офисе;
+- открытие чата по клику;
+- отрисовку «облачков» с репликами для потокового текста в реальном времени;
+- документацию по переменным окружения Hermes.
 
-These are not the right long-term seam:
+Не подходят как долгосрочная граница:
 
-- A full OpenClaw-protocol emulator as the primary Hermes integration.
-- Fake-success implementations for `config.*` and approvals.
-- Synthesizing runtime freshness from `Date.now()` instead of real event/message timestamps.
+- полноценный эмулятор протокола OpenClaw в роли основной интеграции Hermes;
+- реализации `config.*` и одобрений, которые имитируют успех;
+- вычисление свежести данных среды выполнения по `Date.now()` вместо реальных временных меток событий и сообщений.
 
-## Target Architecture
+## Целевая архитектура
 
-Office3D should stop treating the browser gateway client as the backend abstraction.
+Office3D должен перестать считать браузерный клиент шлюза абстракцией бэкенда.
 
-Instead, Studio should expose a backend-neutral runtime service with provider adapters:
+Вместо этого Studio должен предоставлять независимый от бэкенда сервис среды выполнения с адаптерами поставщиков:
 
 ```text
 Browser UI
@@ -52,11 +52,11 @@ Browser UI
     -> Vera provider
 ```
 
-The browser can still use WebSocket streaming from Studio, but the messages should be Office3D-native runtime events rather than implicitly OpenClaw events.
+Браузер по-прежнему может получать потоковые данные от Studio по WebSocket, но сообщения должны быть собственными событиями среды выполнения Office3D, а не неявно событиями OpenClaw.
 
-## Core Adapter Contract
+## Базовый контракт адаптера
 
-Suggested TypeScript shape:
+Предлагаемая структура на TypeScript:
 
 ```ts
 export type RuntimeCapability =
@@ -97,56 +97,56 @@ export interface RuntimeProvider {
 }
 ```
 
-Optional features such as config editing, approvals, files, skills, and cron should sit behind capability checks instead of being assumed to exist.
+Необязательные функции — редактирование конфигурации, одобрения, файлы, навыки и задачи по расписанию — должны быть скрыты за проверками возможностей, а не считаться доступными по умолчанию.
 
-## Capability Matrix
+## Матрица возможностей
 
-Initial expected support:
+Ожидаемая поддержка на старте:
 
-| Capability | OpenClaw | Hermes | Vera |
+| Возможность | OpenClaw | Hermes | Vera |
 |---|---|---|---|
-| Agents | Native | Native | Provider-defined |
-| Sessions | Native | Native | Provider-defined |
-| Chat send/abort/wait | Native | Native | Native via orchestrator |
-| Streaming | Native | Native | Native |
-| Agent roles | Native-ish | Native | Native |
-| Files | Native | Partial | Optional |
-| Skills | Native | Native | Optional |
-| Cron | Native | Native | Optional |
-| Approvals | Native | Partial | Optional |
-| Config mutation | Native | Limited | Limited |
+| Агенты | Нативно | Нативно | Определяется поставщиком |
+| Сессии | Нативно | Нативно | Определяется поставщиком |
+| Отправка/прерывание/ожидание чата | Нативно | Нативно | Нативно через оркестратор |
+| Потоковая передача | Нативно | Нативно | Нативно |
+| Роли агентов | Почти нативно | Нативно | Нативно |
+| Файлы | Нативно | Частично | Необязательно |
+| Навыки | Нативно | Нативно | Необязательно |
+| Задачи по расписанию | Нативно | Нативно | Необязательно |
+| Одобрения | Нативно | Частично | Необязательно |
+| Изменение конфигурации | Нативно | Ограниченно | Ограниченно |
 
-Important rule:
+Важное правило:
 
-If a provider does not support a surface, Office3D should disable or hide the UI for it. It should not fake a successful write.
+если поставщик не поддерживает какой-то интерфейс, Office3D должен отключить или скрыть соответствующий UI. Он не должен имитировать успешную запись.
 
-## Provider Strategy
+## Стратегия поставщиков
 
-### OpenClaw Provider
+### Поставщик OpenClaw
 
-Use the existing gateway client as the first provider implementation.
+Используйте существующий клиент шлюза как первую реализацию поставщика.
 
-This keeps current behavior working while the rest of the app migrates to the adapter contract.
+Так текущее поведение продолжит работать, пока остальное приложение переходит на контракт адаптера.
 
-### Hermes Provider
+### Поставщик Hermes
 
-Preferred order:
+Порядок предпочтения:
 
-1. ACP for session-aware agent orchestration.
-2. Hermes API server for OpenAI-compatible chat and streaming.
-3. OpenClaw-protocol shim only as a temporary bridge.
+1. ACP — для оркестрации агентов с учётом сессий.
+2. API-сервер Hermes — для чата и потоковой передачи в формате, совместимом с OpenAI.
+3. Прослойка протокола OpenClaw — только как временный мост.
 
-Rationale:
+Обоснование:
 
-- ACP is a better semantic fit for sessions, cancellation, fork/resume, approvals, and editor-style state.
-- The Hermes API server is already stable and useful for chat, tool calling, and cron-backed service behavior.
-- The OpenClaw shim should be treated as transitional compatibility, not the permanent contract.
+- ACP семантически лучше подходит для сессий, отмены, форка/возобновления, одобрений и состояния в стиле редактора.
+- API-сервер Hermes уже стабилен и полезен для чата, вызова инструментов и работы сервисов на основе задач по расписанию.
+- Прослойку OpenClaw следует считать переходной мерой совместимости, а не постоянным контрактом.
 
-### Vera Provider
+### Поставщик Vera
 
-Target the Vera orchestrator, not individual `vera-torch` workers.
+Ориентируйтесь на оркестратор Vera, а не на отдельные воркеры `vera-torch`.
 
-Use:
+Используйте:
 
 - `POST /v1/chat/completions`
 - `POST /v1/completions`
@@ -155,13 +155,13 @@ Use:
 - `GET /state`
 - `GET /registry`
 
-The Vera provider should map Office3D agent identities to routed roles or lanes rather than pretending Vera is an OpenClaw gateway.
+Поставщик Vera должен сопоставлять идентичности агентов Office3D с маршрутизируемыми ролями или линиями (lanes), а не притворяться, что Vera — шлюз OpenClaw.
 
-## Event Model
+## Модель событий
 
-Current Office3D expects OpenClaw-flavored `chat`, `agent`, and `presence` events.
+Сейчас Office3D ожидает события `chat`, `agent` и `presence` в стиле OpenClaw.
 
-That is too narrow for universal providers. Studio should normalize provider-native updates into a Office3D event model with explicit semantics:
+Для универсальных поставщиков этого слишком мало. Studio должен нормализовать собственные обновления поставщиков в модель событий Office3D с явной семантикой:
 
 - `presence.changed`
 - `session.activity`
@@ -171,94 +171,94 @@ That is too narrow for universal providers. Studio should normalize provider-nat
 - `run.lifecycle`
 - `tool.progress`
 
-Then the browser UI can consume one stable event shape no matter what backend is in use.
+Тогда браузерный UI сможет работать с одной стабильной структурой событий независимо от используемого бэкенда.
 
-## High-Value PR Split
+## Разбиение на самые ценные PR
 
-Recommended implementation order:
+Рекомендуемый порядок реализации:
 
-### PR 1: Runtime Abstraction
+### PR 1: абстракция среды выполнения
 
-Scope:
+Объём:
 
-- Introduce the provider interface.
-- Wrap current OpenClaw behavior in an `openclaw` provider.
-- Move capability checks into the UI state layer.
-- Add a Studio-level runtime event normalization layer.
+- Ввести интерфейс поставщика.
+- Обернуть текущее поведение OpenClaw в поставщика `openclaw`.
+- Перенести проверки возможностей в слой состояния UI.
+- Добавить на уровне Studio слой нормализации событий среды выполнения.
 
-This is the most important PR.
+Это самый важный PR.
 
-### PR 2: Safe UX Cherry-Picks From PR #70
+### PR 2: безопасный перенос UX-улучшений из PR #70
 
-Scope:
+Объём:
 
-- Agent `role` in store and office UI.
-- Click-to-chat.
-- Streaming speech bubbles.
+- `role` агента в хранилище и UI офиса.
+- Открытие чата по клику.
+- Потоковые «облачка» с репликами.
 
-These are good product improvements and do not require committing to the Hermes shim architecture.
+Это хорошие продуктовые улучшения, и они не требуют привязываться к архитектуре с прослойкой для Hermes.
 
-### PR 3: Hermes Native Provider
+### PR 3: нативный поставщик Hermes
 
-Scope:
+Объём:
 
-- Add a `hermes` provider using ACP where possible.
-- Use Hermes API server for chat/streaming surfaces.
-- Expose capabilities honestly.
-- Persist and surface real timestamps from Hermes session/message state.
+- Добавить поставщика `hermes`, по возможности использующего ACP.
+- Использовать API-сервер Hermes для чата и потоковой передачи.
+- Честно сообщать о возможностях.
+- Сохранять и показывать реальные временные метки из состояния сессий и сообщений Hermes.
 
-Keep the shim optional for compatibility, not required.
+Прослойку оставить необязательной — для совместимости, а не как требование.
 
-### PR 4: Vera Provider
+### PR 4: поставщик Vera
 
-Scope:
+Объём:
 
-- Add a `vera` provider against the Vera orchestrator.
-- Map Office3D agents to Vera roles or lanes.
-- Surface orchestrator state and routed worker identity.
+- Добавить поставщика `vera`, работающего с оркестратором Vera.
+- Сопоставить агентов Office3D с ролями или линиями Vera.
+- Показывать состояние оркестратора и идентичность воркера, на который направлен запрос.
 
-### PR 5: Optional Compatibility Layer Cleanup
+### PR 5: необязательная чистка слоя совместимости
 
-Scope:
+Объём:
 
-- Retire or reduce the Hermes OpenClaw shim.
-- Convert shim-only routes into provider-native routes where possible.
+- Убрать или сократить прослойку OpenClaw для Hermes.
+- По возможности перевести маршруты, существующие только в прослойке, на собственные маршруты поставщика.
 
-## Near-Term Guidance For Luke
+## Ближайшие рекомендации для Luke
 
-If Luke wants "drop-in Hermes support right now", PR #70 is directionally useful.
+Если Luke нужна «поддержка Hermes из коробки прямо сейчас», PR #70 полезен как направление.
 
-If Luke wants "Office3D should support any backend cleanly", PR #70 should not be the mainline architecture.
+Если Luke нужно, чтобы «Office3D чисто поддерживал любой бэкенд», PR #70 не должен становиться основной архитектурой.
 
-Best compromise:
+Лучший компромисс:
 
-- Do not merge PR #70 as the final backend architecture.
-- Split out the UI improvements and any safe Hermes-specific pieces.
-- Open a new architecture PR for the runtime provider seam.
-- Rebase Hermes integration on top of that seam.
+- Не сливать PR #70 как окончательную архитектуру бэкенда.
+- Выделить UI-улучшения и безопасные части, специфичные для Hermes.
+- Открыть новый архитектурный PR для границы поставщиков среды выполнения.
+- Перебазировать интеграцию Hermes поверх этой границы.
 
-## Why This Also Helps Vera
+## Почему это помогает и Vera
 
-This path avoids making Vera imitate OpenClaw.
+Этот путь избавляет Vera от необходимости имитировать OpenClaw.
 
-Instead, Vera can appear as:
+Вместо этого Vera может выступать как:
 
-- a routed multi-role intelligence backend,
-- with Office3D visualizing agents, runs, status, and streamed text,
-- while preserving Vera-specific routing, lane, and model identity.
+- маршрутизирующий многоролевой интеллектуальный бэкенд,
+- при этом Office3D визуализирует агентов, запуски, статус и потоковый текст,
+- сохраняя специфичные для Vera маршрутизацию, линии и идентичность моделей.
 
-That gives Office3D a broader identity:
+Это даёт Office3D более широкую идентичность:
 
-- similar to the OpenClaw ecosystem,
-- but not subordinate to OpenClaw's protocol and assumptions.
+- близкую к экосистеме OpenClaw,
+- но не подчинённую протоколу и допущениям OpenClaw.
 
-## Proposed First Deliverable
+## Предлагаемый первый результат
 
-The first concrete deliverable should be a new PR that does only this:
+Первым конкретным результатом должен стать новый PR, который делает только следующее:
 
-- add the provider interface,
-- wrap existing OpenClaw integration behind it,
-- add capability flags,
-- make the UI stop assuming config/approval/file support from every backend.
+- добавляет интерфейс поставщика,
+- переносит существующую интеграцию с OpenClaw за этот интерфейс,
+- добавляет флаги возможностей,
+- заставляет UI перестать предполагать поддержку конфигурации, одобрений и файлов у каждого бэкенда.
 
-That PR creates the seam both Hermes and Vera need.
+Этот PR создаёт границу, которая нужна и Hermes, и Vera.

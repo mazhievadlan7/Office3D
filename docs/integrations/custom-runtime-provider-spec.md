@@ -1,114 +1,114 @@
-# Custom Runtime Provider Spec
+# Спецификация пользовательского поставщика среды выполнения
 
-> Generic extension seam for non-OpenClaw, non-Hermes stacks.
+> Универсальная точка расширения для стеков, отличных от OpenClaw и Hermes.
 
-## Goal
+## Цель
 
-Define a clean `custom` runtime provider class for Office3D.
+Определить в Office3D чистый класс поставщика среды выполнения `custom`.
 
-This provider should let external orchestration stacks integrate with Office3D through a stable seam without requiring:
+Этот поставщик должен позволять внешним стекам оркестрации интегрироваться с Office3D через стабильную границу, не требуя:
 
-- OpenClaw emulation
-- Hermes-specific semantics
-- named first-class core support for every stack
+- эмуляции OpenClaw;
+- семантики, специфичной для Hermes;
+- отдельной именованной поддержки каждого стека в ядре.
 
-The idea is:
+Идея такова:
 
-- upstream concept: `custom` provider
-- downstream implementations provide their own runtime behavior against that seam
+- концепция в основном репозитории (upstream): поставщик `custom`;
+- производные реализации (downstream) обеспечивают собственное поведение среды выполнения поверх этой границы.
 
-## Current Branch Status
+## Текущее состояние ветки
 
-On `dev/vera_lane`, the `custom` provider is no longer just a design
-placeholder.
+В ветке `dev/vera_lane` поставщик `custom` — уже не просто заготовка
+в дизайне.
 
-Current implemented behavior:
+Уже реализовано:
 
-- `custom` is a first-class provider ID in the runtime seam
-- Studio persists the selected backend mode as `custom`
-- the provider exposes runtime metadata such as `runtimeName`, `vendor`,
-  `runtimeVersion`, and `routeProfile` when available
-- Office3D probes `GET /health`, `GET /state`, and `GET /registry`
-- chat uses a direct HTTP path to `POST /v1/chat/completions`
-- browser traffic is proxied through Office3D's same-origin
-  `/api/runtime/custom` route instead of calling the runtime directly
+- `custom` — полноценный идентификатор поставщика в границе среды выполнения;
+- Studio сохраняет выбранный режим бэкенда как `custom`;
+- поставщик предоставляет метаданные среды выполнения, такие как `runtimeName`, `vendor`,
+  `runtimeVersion` и `routeProfile`, если они доступны;
+- Office3D опрашивает `GET /health`, `GET /state` и `GET /registry`;
+- чат использует прямой HTTP-путь к `POST /v1/chat/completions`;
+- трафик браузера проксируется через маршрут Office3D `/api/runtime/custom`
+  с тем же origin, а не идёт напрямую в среду выполнения.
 
-Still intentionally missing in this branch:
+В этой ветке намеренно пока нет:
 
-- normalized streaming event support
-- richer session persistence beyond the synthetic provider session layer
-- direct approvals/files/cron surfaces
-- process auto-launch from Studio
+- поддержки нормализованных потоковых событий;
+- более полноценного хранения сессий, чем синтетический слой сессий поставщика;
+- прямых интерфейсов для одобрений, файлов и задач по расписанию;
+- автозапуска процесса из Studio.
 
-## Why This Matters
+## Почему это важно
 
-Not every useful runtime should have to become a named built-in provider in upstream Office3D.
+Не каждая полезная среда выполнения должна становиться именованным встроенным поставщиком в основном Office3D.
 
-A clean custom provider seam gives:
+Чистая граница пользовательского поставщика даёт:
 
-- extensibility
-- lower upstream friction
-- room for proprietary or stack-specific orchestration
-- a path for advanced internal systems without polluting core abstractions
+- расширяемость;
+- меньше трений с основным репозиторием;
+- пространство для проприетарной или специфичной для стека оркестрации;
+- путь для продвинутых внутренних систем без засорения базовых абстракций.
 
-This is especially important when a stack is:
+Это особенно важно, если стек:
 
-- internal
-- organization-specific
-- experimental
-- orchestration-heavy
+- внутренний;
+- специфичный для организации;
+- экспериментальный;
+- насыщен оркестрацией.
 
-## Product Position
+## Позиционирование в продукте
 
-The `custom` provider should be treated as:
+Поставщик `custom` следует рассматривать как:
 
-- a first-class extension seam
-- not a hack
-- not a vendor-specific side path
+- полноценную точку расширения;
+- не хак;
+- не обходной путь для конкретного вендора.
 
-This is the upstream-safe abstraction.
+Это абстракция, безопасная для основного репозитория.
 
-## Relationship To Existing Provider Work
+## Связь с существующей работой над поставщиками
 
-Office3D’s runtime abstraction already points toward multiple providers:
+Абстракция среды выполнения в Office3D уже рассчитана на несколько поставщиков:
 
 - `openclaw`
 - `hermes`
-- future providers
+- будущие поставщики
 
-The `custom` provider should sit alongside those as a generic lane for:
+Поставщик `custom` должен стоять рядом с ними как универсальный канал для:
 
-- external orchestrators
-- private agent stacks
-- organization-specific routing systems
+- внешних оркестраторов;
+- частных стеков агентов;
+- систем маршрутизации, специфичных для организации.
 
-## Core Principle
+## Основной принцип
 
-Do not leak implementation-specific internal logic into the generic provider contract.
+Не допускайте утечки внутренней логики конкретной реализации в универсальный контракт поставщика.
 
-The provider should expose:
+Поставщик должен предоставлять:
 
-- common runtime behaviors
-- provider capabilities
-- normalized events
-- optional metadata
+- общее поведение среды выполнения;
+- возможности поставщика;
+- нормализованные события;
+- необязательные метаданные.
 
-It should not require upstream Office3D to know:
+Он не должен требовать, чтобы основной Office3D знал:
 
-- runtime-specific routing internals
-- proprietary state logic
-- private planning models
-- stack-specific heuristics
+- внутреннее устройство маршрутизации конкретной среды выполнения;
+- проприетарную логику состояния;
+- частные модели планирования;
+- эвристики, специфичные для стека.
 
-## Provider Identity
+## Идентичность поставщика
 
-Suggested provider IDs:
+Предлагаемые идентификаторы поставщиков:
 
 - `openclaw`
 - `hermes`
 - `custom`
 
-Then allow custom metadata such as:
+И допускать пользовательские метаданные, например:
 
 ```ts
 type CustomRuntimeDescriptor = {
@@ -120,27 +120,27 @@ type CustomRuntimeDescriptor = {
 };
 ```
 
-This gives Office3D enough identity for UI without hardcoding a brand into the provider class.
+Этого Office3D достаточно для идентификации в UI без жёсткой привязки бренда к классу поставщика.
 
-## Reference Implementation Strategy
+## Стратегия эталонной реализации
 
-The `custom` provider should exist as a generic extension seam.
+Поставщик `custom` должен существовать как универсальная точка расширения.
 
-That means:
+Это значит:
 
-- upstream Office3D gets `custom`
-- downstream stacks supply their own behavior
-- others can later implement their own custom providers against the same seam
+- основной Office3D получает `custom`;
+- производные стеки обеспечивают собственное поведение;
+- другие позже смогут реализовать своих пользовательских поставщиков поверх той же границы.
 
-That is much easier to justify upstream than:
+Такое гораздо проще обосновать для основного репозитория, чем:
 
-- adding a deeply stack-specific built-in provider before the generic extension seam exists
+- добавление глубоко специфичного для стека встроенного поставщика до того, как появится универсальная точка расширения.
 
-## Suggested Contract Shape
+## Предлагаемая структура контракта
 
-This should align with the existing runtime abstraction, but allow custom metadata.
+Контракт должен согласовываться с существующей абстракцией среды выполнения, но допускать пользовательские метаданные.
 
-Example:
+Пример:
 
 ```ts
 type RuntimeProviderId = "openclaw" | "hermes" | "custom";
@@ -154,38 +154,38 @@ type RuntimeProviderMetadata = {
 };
 ```
 
-The `custom` provider should still implement the same base runtime methods:
+Поставщик `custom` всё равно должен реализовывать те же базовые методы среды выполнения:
 
-- list agents
-- list sessions
-- send chat
-- abort run
-- wait for run
-- stream normalized events
-- expose capabilities honestly
+- список агентов;
+- список сессий;
+- отправка сообщения в чат;
+- прерывание запуска;
+- ожидание запуска;
+- поток нормализованных событий;
+- честное объявление возможностей.
 
-## Capability Philosophy
+## Философия возможностей
 
-The custom provider should be capability-driven, not assumption-driven.
+Пользовательский поставщик должен опираться на объявленные возможности, а не на допущения.
 
-That means if a custom stack supports:
+Это значит, что если пользовательский стек поддерживает:
 
-- roles
-- approvals
-- files
-- cron
-- whiteboard integration
-- meeting signals
+- роли;
+- одобрения;
+- файлы;
+- задачи по расписанию;
+- интеграцию с доской;
+- сигналы совещаний,
 
-it should declare those clearly.
+он должен явно это объявить.
 
-If it does not, the UI should degrade honestly.
+Если не поддерживает, UI должен честно деградировать.
 
-## Event Model
+## Модель событий
 
-The custom provider should emit the same normalized event categories as other providers.
+Пользовательский поставщик должен отправлять те же категории нормализованных событий, что и другие поставщики.
 
-Examples:
+Примеры:
 
 - `presence.changed`
 - `session.activity`
@@ -195,106 +195,106 @@ Examples:
 - `run.lifecycle`
 - `tool.progress`
 
-This keeps Office3D stable even if the custom stack has richer private event semantics internally.
+Так Office3D остаётся стабильным, даже если внутри пользовательского стека более богатая частная семантика событий.
 
-## Custom Metadata Surface
+## Пользовательские метаданные
 
-The custom provider may optionally expose richer metadata for display.
+Пользовательский поставщик может по желанию предоставлять более богатые метаданные для отображения.
 
-Examples:
+Примеры:
 
-- routed lane
-- active model id
-- strategy label
-- execution mode
-- custom stack status
+- линия маршрутизации (lane);
+- идентификатор активной модели;
+- название стратегии;
+- режим выполнения;
+- статус пользовательского стека.
 
-Important:
+Важно:
 
-This metadata should be additive and optional.
+эти метаданные должны быть дополнительными и необязательными.
 
-It should not change the core runtime contract.
+Они не должны менять базовый контракт среды выполнения.
 
-## Reference Implementation Model
+## Модель эталонной реализации
 
-A custom provider can reasonably map:
+Пользовательский поставщик вполне может сопоставлять:
 
-- agents -> routed roles / lanes
-- sessions -> runtime conversations
-- streaming -> orchestrator or gateway output streams
-- provider metadata -> runtime name, lane, model, or route state
+- агентов -> маршрутизируемые роли / линии;
+- сессии -> диалоги среды выполнения;
+- потоковую передачу -> выходные потоки оркестратора или шлюза;
+- метаданные поставщика -> имя среды выполнения, линию, модель или состояние маршрута.
 
-The public upstream concept remains `custom`.
+Публичной концепцией в основном репозитории остаётся `custom`.
 
-Implementation-specific mapping stays in the runtime layer.
+Сопоставление, специфичное для реализации, остаётся в слое среды выполнения.
 
-## Relationship To Agent State Model
+## Связь с моделью состояния агентов
 
-The custom provider is the right place for richer internal state to enter Office3D.
+Пользовательский поставщик — правильное место, через которое в Office3D попадает более богатое внутреннее состояние.
 
-For example:
+Например:
 
-- a custom runtime computes deeper control or state signals
-- the provider maps them into public office states
+- пользовательская среда выполнения вычисляет более глубокие сигналы управления или состояния;
+- поставщик сопоставляет их с публичными состояниями офиса.
 
-This keeps:
+Так:
 
-- internal intelligence private
-- public office state understandable
+- внутренняя логика остаётся закрытой;
+- публичное состояние офиса остаётся понятным.
 
-## Relationship To Office Systems
+## Связь с Office Systems
 
-The custom provider should be able to support office systems without Office3D needing to know the backend’s internals.
+Пользовательский поставщик должен поддерживать офисные системы так, чтобы Office3D не нужно было знать внутреннее устройство бэкенда.
 
-Examples:
+Примеры:
 
-- bulletin board gets agent/session/task context
-- whiteboard gets planning-session context
-- meetings get coordination state
-- QA gets review or readiness metadata
+- доска объявлений получает контекст агентов, сессий и задач;
+- доска для рисования получает контекст сессии планирования;
+- совещания получают состояние координации;
+- QA получает метаданные ревью или готовности.
 
-Again, the custom provider should expose only what the office needs.
+И снова: пользовательский поставщик должен предоставлять только то, что нужно офису.
 
-## V1 Scope
+## Объём V1
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- define `custom` provider identity
-- allow custom provider metadata
-- ensure capability-driven UI behavior
-- make no runtime-specific assumptions in core Office3D
+- определить идентичность поставщика `custom`;
+- разрешить пользовательские метаданные поставщика;
+- обеспечить поведение UI, основанное на возможностях;
+- не делать в ядре Office3D никаких допущений, специфичных для среды выполнения.
 
-Actual runtime adapters can be implemented separately against that seam.
+Собственно адаптеры сред выполнения можно реализовать отдельно поверх этой границы.
 
-## Out of Scope For V1
+## Вне объёма V1
 
-- embedding proprietary internal orchestration logic in Office3D core
-- hardcoding any one runtime as upstream architecture
-- requiring all custom providers to support advanced signals
+- встраивание проприетарной внутренней логики оркестрации в ядро Office3D;
+- жёсткое закрепление какой-либо одной среды выполнения в архитектуре основного репозитория;
+- требование, чтобы все пользовательские поставщики поддерживали продвинутые сигналы.
 
-The point is generic extensibility first.
+Главное — сначала универсальная расширяемость.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Add `custom` as a first-class runtime provider identity.
-2. Add a metadata surface for runtime name/vendor/version.
-3. Ensure the provider factory supports `custom`.
-4. Keep the runtime event and capability model normalized.
-5. Implement Vera as the first reference adapter outside the generic contract.
+1. Добавить `custom` как полноценную идентичность поставщика среды выполнения.
+2. Добавить метаданные для имени, вендора и версии среды выполнения.
+3. Убедиться, что фабрика поставщиков поддерживает `custom`.
+4. Сохранять нормализованными модель событий и модель возможностей среды выполнения.
+5. Реализовать Vera как первый эталонный адаптер вне универсального контракта.
 
-## Success Criteria
+## Критерии успеха
 
-This spec is successful if:
+Эта спецификация успешна, если:
 
-- upstream Office3D gains a clean extension seam
-- Vera can integrate without bloating core architecture
-- future stacks can follow the same pattern
-- the office systems continue to work against normalized runtime behavior
+- основной Office3D получает чистую точку расширения;
+- Vera может интегрироваться, не раздувая базовую архитектуру;
+- будущие стеки могут следовать тому же шаблону;
+- офисные системы продолжают работать поверх нормализованного поведения среды выполнения.
 
-## Summary
+## Итоги
 
-The `custom` runtime provider is the right upstream abstraction for stack-specific orchestrators.
+Поставщик среды выполнения `custom` — правильная абстракция в основном репозитории для оркестраторов, специфичных для стека.
 
-It gives Office3D extensibility, gives Vera a clean path in, and avoids hardwiring a personal stack directly into the core product model.
+Он даёт Office3D расширяемость, открывает Vera чистый путь для интеграции и не позволяет жёстко вшить чей-то личный стек прямо в модель продукта.
