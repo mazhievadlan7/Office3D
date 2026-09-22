@@ -1,12 +1,14 @@
 ---
 name: todo
-description: Maintain a shared workspace TODO list with blocked tasks.
+description: Ведёт общий список дел рабочего пространства, включая заблокированные задачи.
 metadata: {"openclaw":{"skillKey":"todo-board"}}
 ---
 
-# TODO Board
+# Список дел
 
-Use this skill when the user wants to manage a shared task list for the current workspace.
+Всегда отвечай пользователю на русском языке, даже если файлы, поля и команды названы по-английски.
+
+Используй этот навык, когда пользователь хочет вести общий список задач текущего рабочего пространства.
 
 ## Trigger
 
@@ -19,7 +21,20 @@ Use this skill when the user wants to manage a shared task list for the current 
       "blocked task",
       "blocked tasks",
       "add to my todo",
-      "show my todo"
+      "show my todo",
+      "список дел",
+      "списка дел",
+      "списке дел",
+      "списку дел",
+      "в список дел",
+      "добавь в список дел",
+      "покажи список дел",
+      "мои дела",
+      "покажи мои дела",
+      "заблокированн",
+      "заблокированные задачи",
+      "разблокируй задачу",
+      "туду"
     ]
   },
   "movement": {
@@ -29,44 +44,44 @@ Use this skill when the user wants to manage a shared task list for the current 
 }
 ```
 
-When this skill is activated, the agent should return to its assigned desk before handling the request.
+Когда навык активирован, агент должен вернуться за свой рабочий стол и только потом заняться запросом.
 
-- If the user asks from Telegram or any other external surface to add, block, unblock, remove, or read TODO items, treat that as a trigger for this skill.
-- The physical behavior for this skill is: go sit at the assigned desk, then perform the TODO board workflow.
-- If the agent is already at the desk, continue without adding extra movement narration.
+- Если пользователь из Telegram или любого другого внешнего канала просит добавить, заблокировать, разблокировать, удалить или показать задачи из списка дел, считай это срабатыванием этого навыка.
+- Физическое поведение для этого навыка: дойди до своего рабочего стола, сядь за него, затем выполни работу со списком дел.
+- Если агент уже за столом, продолжай, не описывая лишний раз своё перемещение.
 
-## Storage location
+## Где хранятся данные
 
-The authoritative task file is `todo-skill/todo-list.json` in the workspace root.
+Основной файл задач — `todo-skill/todo-list.json` в корне рабочего пространства.
 
-- Always treat that file as the source of truth.
-- Never rely on chat memory alone for the latest task state.
-- Create the `todo-skill` directory and `todo-list.json` file if they do not exist.
+- Всегда считай этот файл единственным источником истины.
+- Никогда не полагайся только на память чата, чтобы узнать текущее состояние задач.
+- Если каталога `todo-skill` или файла `todo-list.json` нет, создай их.
 
-## Required workflow
+## Обязательный порядок работы
 
-1. Read `todo-skill/todo-list.json` before answering any task-management request.
-2. If the file does not exist, create it with the schema in this document before continuing.
-3. After every add, remove, block, or unblock action, write the full updated JSON back to disk.
-4. If the file exists but is invalid JSON or does not match the schema, repair it into a valid structure, preserve any recoverable items, and mention that repair in your response.
-5. If the user request is ambiguous, ask a clarifying question instead of guessing.
+1. Прежде чем отвечать на любой запрос по задачам, прочитай `todo-skill/todo-list.json`.
+2. Если файла нет, создай его по схеме из этого документа и только потом продолжай.
+3. После каждого добавления, удаления, блокировки или разблокировки записывай на диск весь обновлённый JSON целиком.
+4. Если файл существует, но содержит некорректный JSON или не соответствует схеме, приведи его к правильной структуре, сохрани все задачи, которые можно восстановить, и упомяни это исправление в ответе.
+5. Если запрос пользователя неоднозначен, задай уточняющий вопрос, а не угадывай.
 
-## Supported actions
+## Поддерживаемые действия
 
-- Add a task.
-  Create a new item unless an equivalent active item already exists.
-- Block a task.
-  Change the matching item to `status: "blocked"`. If the task does not exist and the request is clear, create it directly as blocked.
-- Unblock a task.
-  Change the matching item back to `status: "todo"` and clear `blockReason`.
-- Remove a task.
-  Delete only the matching item. If multiple items could match, ask for clarification.
-- Read the list.
-  Summarize tasks grouped into `TODO` and `BLOCKED`.
+- Добавить задачу.
+  Создай новую запись, если такой же активной задачи ещё нет.
+- Заблокировать задачу.
+  Переведи подходящую запись в `status: "blocked"`. Если такой задачи нет, а запрос понятен, сразу создай её заблокированной.
+- Разблокировать задачу.
+  Верни подходящей записи `status: "todo"` и очисти `blockReason`.
+- Удалить задачу.
+  Удали только подходящую запись. Если под запрос подходят несколько записей, попроси уточнить.
+- Показать список.
+  Кратко перечисли задачи, сгруппировав их на «К выполнению» (`todo`) и «Заблокировано» (`blocked`).
 
-## File format
+## Формат файла
 
-Use this JSON shape:
+Используй такую структуру JSON:
 
 ```json
 {
@@ -75,7 +90,7 @@ Use this JSON shape:
   "items": [
     {
       "id": "task-1",
-      "title": "Example task",
+      "title": "Пример задачи",
       "status": "todo",
       "createdAt": "2026-03-22T00:00:00.000Z",
       "updatedAt": "2026-03-22T00:00:00.000Z",
@@ -85,25 +100,25 @@ Use this JSON shape:
 }
 ```
 
-## Field rules
+## Правила для полей
 
-- Keep `version` at `1`.
-- Generate stable, human-readable IDs such as `prepare-demo` or `task-2`.
-- Keep titles concise and preserve the user's intent.
-- Use only `todo` or `blocked` for `status`.
-- Use ISO timestamps for `createdAt`, item `updatedAt`, and top-level `updatedAt`.
-- Keep `blockReason` as `null` unless the user gave a reason or a short precise reason is clearly implied.
+- Оставляй `version` равным `1`.
+- Придумывай стабильные и понятные человеку идентификаторы, например `prepare-demo` или `task-2`.
+- Делай названия краткими и сохраняй в них смысл запроса пользователя.
+- В поле `status` используй только `todo` или `blocked`.
+- Для `createdAt`, `updatedAt` у задачи и `updatedAt` верхнего уровня используй метки времени в формате ISO.
+- Оставляй `blockReason` равным `null`, если пользователь не назвал причину и короткая точная причина не следует из контекста очевидным образом.
 
-## Mutation rules
+## Правила изменения
 
-- Avoid duplicate active items that describe the same work.
-- Preserve existing IDs and `createdAt` values for unchanged items.
-- Update the touched item's `updatedAt` whenever you modify it.
-- Update the top-level `updatedAt` on every write.
-- Keep untouched items in their original order unless there is a strong reason to reorder them.
+- Не допускай дублей: две активные задачи не должны описывать одну и ту же работу.
+- Сохраняй существующие `id` и значения `createdAt` у неизменённых задач.
+- При каждом изменении задачи обновляй её `updatedAt`.
+- При каждой записи обновляй `updatedAt` верхнего уровня.
+- Сохраняй исходный порядок незатронутых задач, если нет веской причины его менять.
 
-## Response style
+## Стиль ответа
 
-- After each mutation, say what changed.
-- When showing the list, group tasks into `TODO` and `BLOCKED`.
-- Include each blocked task's reason when one exists.
+- После каждого изменения сообщай, что именно изменилось.
+- Показывая список, группируй задачи на «К выполнению» (`todo`) и «Заблокировано» (`blocked`).
+- Для каждой заблокированной задачи указывай причину, если она есть.

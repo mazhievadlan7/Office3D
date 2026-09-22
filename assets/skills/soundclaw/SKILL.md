@@ -1,12 +1,14 @@
 ---
 name: soundclaw
-description: Control Spotify playback, search music, and return shareable music links.
+description: Управляет воспроизведением в Spotify, ищет музыку и возвращает ссылки на неё, которыми можно поделиться.
 metadata: {"openclaw":{"skillKey":"soundclaw"}}
 ---
 
 # SOUNDCLAW
 
-Use this skill when the user wants an agent to search for music, play a song or playlist, control Spotify playback, or send back a shareable Spotify link on the same channel the request came from.
+Всегда отвечай пользователю на русском языке, даже если названия треков, команды и методы API указаны по-английски.
+
+Используй этот навык, когда пользователь хочет, чтобы агент нашёл музыку, включил песню или плейлист, управлял воспроизведением в Spotify или прислал ссылку на Spotify в тот же канал, из которого пришёл запрос.
 
 ## Trigger
 
@@ -21,7 +23,23 @@ Use this skill when the user wants an agent to search for music, play a song or 
       "play a playlist",
       "find a song",
       "queue this song",
-      "music link"
+      "music link",
+      "спотифай",
+      "включи музыку",
+      "поставь музыку",
+      "включи песню",
+      "поставь песню",
+      "найди песню",
+      "включи трек",
+      "поставь трек",
+      "найди трек",
+      "плейлист",
+      "песню в очередь",
+      "трек в очередь",
+      "ссылку на песню",
+      "ссылку на трек",
+      "ссылка на песню",
+      "ссылка на трек"
     ]
   },
   "movement": {
@@ -31,62 +49,62 @@ Use this skill when the user wants an agent to search for music, play a song or 
 }
 ```
 
-When this skill is activated, the agent should walk to the office jukebox before handling the request.
+Когда навык активирован, агент должен дойти до музыкального автомата в офисе и только потом заняться запросом.
 
-- Treat requests from Telegram or any other external surface as valid triggers when they ask for Spotify playback, search, queueing, or music-link sharing.
-- The physical behavior for this skill is: go to the jukebox, perform the music-selection workflow, then report the result.
-- If the agent is already at the jukebox, continue without adding extra movement narration.
+- Запросы из Telegram или любого другого внешнего канала считаются срабатыванием навыка, если в них просят включить музыку в Spotify, найти её, добавить в очередь или поделиться ссылкой на музыку.
+- Физическое поведение для этого навыка: дойди до музыкального автомата, подбери музыку, затем сообщи о результате.
+- Если агент уже у музыкального автомата, продолжай, не описывая лишний раз своё перемещение.
 
-## Channel behavior
+## Поведение в каналах
 
-- Reply on the same active channel or session that received the request.
-- If playback cannot start but a matching track, album, or playlist is found, send back the best Spotify link instead of failing silently.
-- If multiple matches are plausible, ask a clarifying question instead of guessing.
+- Отвечай в том же активном канале или сеансе, откуда пришёл запрос.
+- Если воспроизведение запустить не удалось, но подходящий трек, альбом или плейлист найден, пришли лучшую ссылку на Spotify, а не молчи о неудаче.
+- Если подходят несколько вариантов, задай уточняющий вопрос, а не угадывай.
 
 ---
 
-## OpenClaw Gateway Skill Contract
+## Контракт навыка для OpenClaw Gateway
 
-> This section is for developers implementing the backend skill handler in OpenClaw.
-> The Office3D UI handles authentication via Spotify PKCE OAuth in the browser.
-> The gateway skill handles agent-driven requests via the `soundclaw.*` RPC namespace.
+> Этот раздел предназначен для разработчиков, которые реализуют серверный обработчик навыка в OpenClaw.
+> Интерфейс Office3D проводит аутентификацию в браузере через Spotify PKCE OAuth.
+> Навык на шлюзе обрабатывает запросы от агентов через пространство имён RPC `soundclaw.*`.
 
-### Authentication model
+### Модель аутентификации
 
-The user authenticates directly in the browser (PKCE, no secret required).
-The access token is stored in browser `localStorage` under the key `soundclaw_token`.
+Пользователь проходит аутентификацию прямо в браузере (PKCE, секрет не нужен).
+Токен доступа хранится в `localStorage` браузера под ключом `soundclaw_token`.
 
-For **agent-driven** playback (e.g. "play Jazz for me"), the gateway skill should either:
-- Use a server-side Spotify app token (Client Credentials) for search-only actions, or
-- Instruct the agent to tell the user to use the jukebox panel for actual playback
+Для воспроизведения **по запросу агента** (например, «включи мне джаз») навык на шлюзе должен:
+- либо использовать серверный токен приложения Spotify (Client Credentials) для действий, связанных только с поиском;
+- либо поручить агенту попросить пользователя включить музыку через панель музыкального автомата.
 
-### RPC methods the gateway skill should expose
+### RPC-методы, которые должен предоставлять навык на шлюзе
 
 ```ts
-// Search for tracks. Returns a list of { name, artist, album, uri, spotifyUrl }.
+// Поиск треков. Возвращает список { name, artist, album, uri, spotifyUrl }.
 soundclaw.search({ query: string }): SpotifySearchResult[]
 
-// Get a shareable Spotify link for a query (for Telegram/chat replies).
+// Получить ссылку на Spotify по запросу (для ответов в Telegram и чатах).
 soundclaw.getLink({ query: string }): { url: string; title: string }
 
-// Report current playback state (reads from Spotify API).
+// Текущее состояние воспроизведения (читается из Spotify API).
 soundclaw.playerStatus(): PlayerStatus | null
 
-// Request playback of a URI (requires user to be authenticated in browser).
+// Запросить воспроизведение URI (пользователь должен быть авторизован в браузере).
 soundclaw.play({ uri: string }): { ok: boolean; message?: string }
 
-// Pause / resume / skip.
+// Пауза / продолжение / переключение треков.
 soundclaw.pause(): void
 soundclaw.resume(): void
 soundclaw.next(): void
 soundclaw.previous(): void
 ```
 
-### Agent workflow
+### Порядок работы агента
 
-1. Agent receives a music request ("play some jazz", "find this song", etc.)
-2. Agent walks to the jukebox (`movement.target: "jukebox"`)
-3. Agent calls `soundclaw.search` to find the best match
-4. If the request came from a chat channel (Telegram, etc.): call `soundclaw.getLink` and reply with the link
-5. If the request came from the office UI: call `soundclaw.play` to start playback
-6. Agent reports back what was played or linked
+1. Агент получает музыкальный запрос («включи джаз», «найди эту песню» и т. п.).
+2. Агент идёт к музыкальному автомату (`movement.target: "jukebox"`).
+3. Агент вызывает `soundclaw.search`, чтобы найти лучшее совпадение.
+4. Если запрос пришёл из чата (Telegram и т. п.), агент вызывает `soundclaw.getLink` и отвечает ссылкой.
+5. Если запрос пришёл из интерфейса офиса, агент вызывает `soundclaw.play`, чтобы запустить воспроизведение.
+6. Агент сообщает, что было включено или какая ссылка отправлена.

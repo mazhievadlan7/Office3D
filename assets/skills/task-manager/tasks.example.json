@@ -4,8 +4,8 @@
   "tasks": [
     {
       "id": "research-mtulsa-com",
-      "title": "Research mtulsa.com",
-      "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
+      "title": "Изучить mtulsa.com",
+      "description": "Просмотреть mtulsa.com и кратко описать сайт, позиционирование и возможности для улучшения.",
       "status": "in_progress",
       "source": "office3d_manual",
       "sourceEventId": null,
@@ -24,7 +24,7 @@
         {
           "at": "2026-03-30T00:00:00.000Z",
           "type": "created",
-          "note": "Task created.",
+          "note": "Задача создана.",
           "fromStatus": null,
           "toStatus": "todo"
         },

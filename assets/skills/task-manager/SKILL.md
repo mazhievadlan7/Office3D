@@ -1,12 +1,14 @@
 ---
 name: task-manager
-description: Capture actionable user requests as persistent tasks, update task status as work progresses, and keep a shared task store in sync. Use when a user asks an agent to do work, check progress, block a task, complete a task, or manage the Kanban board.
+description: Превращает рабочие запросы пользователя в постоянные задачи, обновляет их статус по ходу работы и поддерживает общее хранилище задач в актуальном состоянии. Используй, когда пользователь просит агента что-то сделать, узнать о ходе работы, заблокировать или завершить задачу либо управлять канбан-доской.
 metadata: {"openclaw":{"skillKey":"task-manager"}}
 ---
 
-# Task Manager
+# Менеджер задач
 
-Use this skill for task capture and task lifecycle updates.
+Всегда отвечай пользователю на русском языке, даже если файлы, поля и статусы названы по-английски.
+
+Используй этот навык, чтобы заводить задачи и обновлять их на протяжении всего жизненного цикла.
 
 ## Trigger
 
@@ -20,7 +22,24 @@ Use this skill for task capture and task lifecycle updates.
       "task status",
       "mark this done",
       "block this task",
-      "what tasks do we have"
+      "what tasks do we have",
+      "добавь задачу",
+      "добавить задачу",
+      "создай задачу",
+      "создать задачу",
+      "заведи задачу",
+      "новая задача",
+      "новую задачу",
+      "отслеживай эту задачу",
+      "статус задачи",
+      "статус задач",
+      "отметь как выполненн",
+      "отметь как сделанн",
+      "заблокируй задачу",
+      "заблокируй эту задачу",
+      "какие задачи",
+      "какие у нас задачи",
+      "канбан"
     ]
   },
   "movement": {
@@ -30,37 +49,37 @@ Use this skill for task capture and task lifecycle updates.
 }
 ```
 
-Also use this skill even when those exact phrases are absent if the latest user message is an actionable work request. If the user asks the agent to do something, that request must become a task before the agent proceeds.
+Используй этот навык, даже если ни одной из этих фраз нет, но последнее сообщение пользователя — это запрос на выполнение работы. Если пользователь просит агента что-то сделать, этот запрос должен стать задачей до того, как агент приступит к работе.
 
-## Storage location
+## Где хранятся данные
 
-The authoritative task file is:
+Основной файл задач:
 
-- `${OPENCLAW_STATE_DIR}/office3d/task-manager/tasks.json` when `OPENCLAW_STATE_DIR` is set.
-- `~/.openclaw/office3d/task-manager/tasks.json` otherwise.
+- `${OPENCLAW_STATE_DIR}/office3d/task-manager/tasks.json`, если задана переменная `OPENCLAW_STATE_DIR`;
+- `~/.openclaw/office3d/task-manager/tasks.json` в остальных случаях.
 
-Always treat that file as the shared source of truth for the Kanban board.
+Всегда считай этот файл общим источником истины для канбан-доски.
 
-## Required workflow
+## Обязательный порядок работы
 
-1. Read the task file before handling an actionable request.
-2. If the file does not exist, create it with the schema in this document.
-3. If the latest user message is actionable and no matching active task exists, create one immediately.
-4. Before starting execution, ensure the task is `todo` or move it to `in_progress`.
-5. If work cannot continue, set the task to `blocked` and record a short reason in `notes`.
-6. When work is finished, set the task to `done`.
-7. When work needs user review or confirmation, set the task to `review`.
-8. After every mutation, write the full updated JSON back to disk.
+1. Прежде чем браться за рабочий запрос, прочитай файл задач.
+2. Если файла нет, создай его по схеме из этого документа.
+3. Если последнее сообщение пользователя — рабочий запрос и подходящей активной задачи нет, сразу создай её.
+4. Перед началом работы убедись, что задача находится в статусе `todo`, или переведи её в `in_progress`.
+5. Если продолжить работу невозможно, переведи задачу в `blocked` и запиши короткую причину в `notes`.
+6. Когда работа закончена, переведи задачу в `done`.
+7. Когда работа требует проверки или подтверждения пользователем, переведи задачу в `review`.
+8. После каждого изменения записывай на диск весь обновлённый JSON целиком.
 
-## Matching rules
+## Правила сопоставления
 
-- Match first by `externalThreadId` when the request comes from a stable thread or conversation.
-- Otherwise match by a concise normalized title that preserves user intent.
-- Avoid creating duplicate active tasks for the same request.
+- Если запрос пришёл из постоянной ветки или беседы, сначала ищи задачу по `externalThreadId`.
+- Иначе ищи по краткому нормализованному названию, сохраняющему смысл запроса пользователя.
+- Не создавай повторных активных задач для одного и того же запроса.
 
-## Task fields
+## Поля задачи
 
-Each task must include:
+Каждая задача должна содержать:
 
 - `id`
 - `title`
@@ -81,15 +100,15 @@ Each task must include:
 - `isInferred`
 - `history`
 
-## Status rules
+## Правила статусов
 
-- New actionable requests start as `todo` unless work has already begun.
-- Move to `in_progress` when the agent is actively working.
-- Move to `blocked` when progress depends on missing input, credentials, approvals, or failures.
-- Move to `review` when the work is ready for inspection or handoff.
-- Move to `done` only when the requested work is complete.
+- Новые рабочие запросы начинаются со статуса `todo`, если работа ещё не началась.
+- Переводи в `in_progress`, когда агент активно работает над задачей.
+- Переводи в `blocked`, когда продвижение зависит от недостающих данных, учётных данных, согласований или сбоев.
+- Переводи в `review`, когда работа готова к проверке или передаче.
+- Переводи в `done`, только когда запрошенная работа полностью выполнена.
 
-## File format
+## Формат файла
 
 ```json
 {
@@ -98,8 +117,8 @@ Each task must include:
   "tasks": [
     {
       "id": "research-mtulsa-com",
-      "title": "Research mtulsa.com",
-      "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
+      "title": "Изучить mtulsa.com",
+      "description": "Просмотреть mtulsa.com и кратко описать сайт, позиционирование и возможности для улучшения.",
       "status": "in_progress",
       "source": "office3d_manual",
       "sourceEventId": null,
@@ -118,7 +137,7 @@ Each task must include:
         {
           "at": "2026-03-30T00:00:00.000Z",
           "type": "created",
-          "note": "Task created.",
+          "note": "Задача создана.",
           "fromStatus": null,
           "toStatus": "todo"
         },
@@ -135,8 +154,8 @@ Each task must include:
 }
 ```
 
-## Response rules
+## Правила ответа
 
-- Briefly confirm which task was created or updated.
-- If the request is ambiguous, ask a clarifying question instead of guessing.
-- Do not claim work is complete without updating the task status.
+- Кратко подтверди, какая задача создана или обновлена.
+- Если запрос неоднозначен, задай уточняющий вопрос, а не угадывай.
+- Не заявляй, что работа выполнена, пока не обновил статус задачи.
