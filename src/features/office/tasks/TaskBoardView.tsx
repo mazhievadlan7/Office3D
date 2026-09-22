@@ -144,10 +144,10 @@ export function TaskBoardView({
                 })}
               </div>
               <div>
-                Last task id: {taskCaptureDebug.lastTaskId ?? "-"}
+                {t("taskboard.lastTaskId", { id: taskCaptureDebug.lastTaskId ?? "-" })}
               </div>
               <div>
-                Session/thread: {taskCaptureDebug.lastSessionKey ?? "-"}
+                {t("taskboard.sessionThread", { key: taskCaptureDebug.lastSessionKey ?? "-" })}
               </div>
               <div>
                 {t("taskboard.lastUpdate", {
@@ -169,7 +169,7 @@ export function TaskBoardView({
               </div>
               {taskCaptureDebug.sharedTasksError ? (
                 <div className="text-rose-200">
-                  Store error: {taskCaptureDebug.sharedTasksError}
+                  {t("taskboard.storeError", { error: taskCaptureDebug.sharedTasksError })}
                 </div>
               ) : null}
             </div>
@@ -276,7 +276,7 @@ export function TaskBoardView({
           <aside className="flex min-h-0 flex-col border-l border-white/8 bg-black/25">
             <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
-                Task Details
+                {t("taskboard.details")}
               </div>
               <button
                 type="button"
@@ -399,7 +399,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Channel
+                  {t("taskboard.channel")}
                 </span>
                 <input
                   value={selectedCard.channel ?? ""}
@@ -414,7 +414,7 @@ export function TaskBoardView({
 
               <label className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Notes
+                  {t("taskboard.notes")}
                 </span>
                 <textarea
                   rows={3}

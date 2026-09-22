@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 const THEME_STORAGE_KEY = "theme";
 
@@ -48,7 +49,7 @@ export const ThemeToggle = () => {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark ? t("theme.toLight") : t("theme.toDark")}
       className="ui-btn-icon ui-btn-icon-xs"
     >
       {isDark ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}

@@ -48,7 +48,7 @@ const createEmptyRole = (index: number): CompanyBuilderRole => ({
   heartbeat: [],
   emoji: "🤖",
   creature: "specialist",
-  vibe: "helpful and focused",
+  vibe: t("company.defaultVibe"),
   userContext: "",
   commandMode: "ask",
 });
@@ -283,7 +283,7 @@ export function CompanyBuilderModal({
                   <div className="text-sm leading-6 text-white/70">
                     {input.businessDescription.trim()
                       ? input.businessDescription
-                      : "Describe what the company should do and Office3D will immediately turn it into an improved brief."}
+                      : t("company.describePlaceholder")}
                   </div>
                 </div>
               </div>
@@ -316,9 +316,7 @@ export function CompanyBuilderModal({
                 </div>
                 {replacesExistingAgents ? (
                   <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100/85">
-                    Your current {agentCount === 1 ? "agent will" : `${agentCount} agents will`} be
-                    deleted and replaced by this company when you create it. This action is
-                    irreversible and will delete the old agents&apos; workspaces.
+                    {t("company.replaceNotice", { count: agentCount })}
                   </div>
                 ) : null}
                 {!canUseAi ? (
@@ -427,13 +425,13 @@ export function CompanyBuilderModal({
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs uppercase tracking-[0.14em] text-white/45">
-                              Role {index + 1}
+                              {t("company.role")} {index + 1}
                             </div>
                             <div className="mt-2 text-sm font-semibold text-white">
                               {role.title || t("company.untitledRole")}
                             </div>
                             <div className="mt-1 text-xs text-white/45">
-                              3D avatar preview generated for this role.
+                              {t("company.avatarPreview")}
                             </div>
                           </div>
                         </div>

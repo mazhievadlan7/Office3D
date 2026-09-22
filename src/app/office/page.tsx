@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { AgentStoreProvider } from "@/features/agents/state/store";
 import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
+import { t } from "@/lib/i18n";
 
 const ENABLED_RE = /^(1|true|yes|on)$/i;
 
@@ -15,14 +16,14 @@ function OfficeLoadingFallback() {
   return (
     <div
       className="flex h-full w-full items-center justify-center bg-background"
-      aria-label="Loading office"
+      aria-label={t("office.loading")}
       role="status"
     >
       <div className="flex flex-col items-center gap-3">
         <RunningAvatarLoader
           size={28}
           trackWidth={76}
-          label="Loading..."
+          label={t("office.loadingShort")}
           labelClassName="text-muted-foreground"
         />
       </div>

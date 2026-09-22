@@ -23,7 +23,7 @@ export function KanbanDisabledPanel({
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
       <div className="w-full max-w-sm rounded-3xl border border-slate-700/40 bg-slate-950/95 p-8 text-center shadow-2xl">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-700/40 bg-slate-800/60 px-2 text-center text-sm font-semibold uppercase tracking-[0.12em] text-slate-200">
-          Kanban
+          {t("kanban.title")}
         </div>
 
         <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">

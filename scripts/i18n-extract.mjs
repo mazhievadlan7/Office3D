@@ -234,6 +234,10 @@ const apply = (specPath) => {
       }
       out = out.split(raw.old).join(raw.new);
     }
+    if (edits.length === 0) {
+      // A keys-only entry: nothing to write, and no import to add.
+      continue;
+    }
     writeFileSync(file, out);
     if (/\bt\(/.test(out)) {
       execFileSync("node", [path.join(ROOT, "scripts/add-i18n-import.mjs"), file, spec.import ?? "t"]);

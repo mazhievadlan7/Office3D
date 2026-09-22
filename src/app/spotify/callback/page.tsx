@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { t } from "@/lib/i18n";
 
 export default function SpotifyCallbackPage() {
   useEffect(() => {
@@ -29,9 +30,9 @@ export default function SpotifyCallbackPage() {
         <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-300/70">
           Soundclaw
         </div>
-        <h1 className="text-xl font-semibold text-white">Finishing Spotify sign-in</h1>
+        <h1 className="text-xl font-semibold text-white">{t("jukebox.finishingSignIn")}</h1>
         <p className="mt-3 text-sm text-slate-400">
-          You can close this window if it does not close automatically.
+          {t("jukebox.closeWindow")}
         </p>
       </div>
     </main>

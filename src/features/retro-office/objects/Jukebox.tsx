@@ -11,6 +11,7 @@ import {
   toWorld,
 } from "@/features/retro-office/core/geometry";
 import type { InteractiveFurnitureModelProps } from "@/features/retro-office/objects/types";
+import { t } from "@/lib/i18n";
 
 export type JukeboxModelProps = InteractiveFurnitureModelProps & {
   active?: boolean;
@@ -125,7 +126,7 @@ export function JukeboxModel({
             maxWidth={0.55}
             textAlign="center"
           >
-            {enabled ? (playing ? "♪  NOW PLAYING" : "SOUNDCLAW") : "NOT INSTALLED"}
+            {enabled ? (playing ? t("jukebox.nowPlaying") : "SOUNDCLAW") : t("jukebox.notInstalledShort")}
           </Text>
         </Billboard>
 
@@ -191,7 +192,7 @@ export function JukeboxModel({
         {!enabled && (localHovered || isHovered) && (
           <Billboard position={[0, 2.0, 0]} follow={false}>
             <Text fontSize={0.07} color="#facc15" anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#000">
-              Click to install SOUNDCLAW
+              {t("jukebox.clickToInstall")}
             </Text>
           </Billboard>
         )}

@@ -100,7 +100,7 @@ const DatePickerField = ({
           type="button"
           onClick={() => openNativeDatePicker(inputRef.current)}
           className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-white/40 transition-colors hover:text-cyan-200"
-          aria-label={`Open ${label.toLowerCase()} calendar`}
+          aria-label={t("analytics.openCalendar", { label: label.toLowerCase() })}
         >
           <CalendarDays className="h-3.5 w-3.5" />
         </button>
@@ -338,7 +338,7 @@ export function AnalyticsPanel({
 
           <div className="mt-4 rounded border border-white/8 bg-black/25 px-3 py-3">
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-              Cost Breakdown
+              {t("analytics.costBreakdown")}
             </div>
             <div className="mt-2 space-y-1 font-mono text-[11px] text-white/70">
               <div>{t("analytics.input", { value: formatCurrency(usage.totals.inputCost) })}</div>
@@ -437,20 +437,20 @@ export function AnalyticsPanel({
                     {row.agentName}
                   </span>
                   <span className="font-mono text-[10px] text-white/40">
-                    {row.totalRuns} runs
+                    {t("analytics.runsCount", { count: row.totalRuns })}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[10px] text-white/55">
-                  <div>Success: {formatPercent(row.successRate)}.</div>
-                  <div>Avg runtime: {formatDuration(row.avgRuntimeMs)}.</div>
-                  <div>Tool calls: {formatNumber(row.toolCalls)}.</div>
-                  <div>Approvals: {formatNumber(row.approvalRequestedCount)}.</div>
+                  <div>{t("analytics.rowSuccess", { value: formatPercent(row.successRate) })}</div>
+                  <div>{t("analytics.rowAvgRuntime", { value: formatDuration(row.avgRuntimeMs) })}</div>
+                  <div>{t("analytics.rowToolCalls", { value: formatNumber(row.toolCalls) })}</div>
+                  <div>{t("analytics.rowApprovals", { value: formatNumber(row.approvalRequestedCount) })}</div>
                 </div>
               </button>
             ))}
             {performance.rows.length === 0 ? (
               <div className="font-mono text-[11px] text-white/35">
-                No performance data is available yet.
+                {t("analytics.noPerformance")}
               </div>
             ) : null}
           </div>

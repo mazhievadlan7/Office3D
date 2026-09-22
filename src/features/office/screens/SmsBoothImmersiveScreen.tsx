@@ -60,7 +60,7 @@ export function SmsBoothImmersiveScreen({
           <div className="rounded-[32px] border border-sky-300/18 bg-slate-950/65 p-8 shadow-[0_24px_90px_rgba(2,8,23,0.75)]">
             <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
               <MessageSquareText className="h-4 w-4" />
-              Messaging Booth
+              {t("smsBooth.title")}
             </div>
             <div className="mt-4 text-4xl font-semibold tracking-[0.08em] text-sky-50">
               {message.recipient}
@@ -71,7 +71,7 @@ export function SmsBoothImmersiveScreen({
             <div className="mt-8 rounded-[28px] border border-sky-300/16 bg-slate-900/90 p-6">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/60">
                 <span>{t("smsBooth.typingFromBooth")}</span>
-                <span>iPhone relay</span>
+                <span>{t("smsBooth.relay")}</span>
               </div>
               <div className="mt-5 rounded-[24px] border border-slate-700 bg-slate-950/80 px-5 py-4 text-base leading-7 text-sky-50">
                 {messageBody || t("smsBooth.waitingChars")}
@@ -80,7 +80,7 @@ export function SmsBoothImmersiveScreen({
               <div className="mt-5 flex items-center justify-end gap-3 text-sm uppercase tracking-[0.22em]">
                 <div className="inline-flex items-center gap-2 rounded-2xl border border-sky-300/22 bg-sky-400/10 px-4 py-2 text-sky-100/80">
                   <Smartphone className="h-4 w-4" />
-                  Active
+                  {t("smsBooth.active")}
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/24 bg-emerald-400/10 px-4 py-2 text-emerald-100/80">
                   {step === "sending" ? <Send className="h-4 w-4" /> : <CheckCheck className="h-4 w-4" />}
@@ -116,7 +116,7 @@ export function SmsBoothImmersiveScreen({
                       />
                       {step === "sent" ? (
                         <div className="text-right text-[11px] uppercase tracking-[0.2em] text-sky-200/45">
-                          Sent
+                          {t("smsBooth.sent")}
                         </div>
                       ) : null}
                       {step === "failed" ? (
@@ -141,13 +141,27 @@ export function SmsBoothImmersiveScreen({
   );
 }
 
+// Russian ЙЦУКЕН, since that is what the agents type in.
 const KEYBOARD_ROWS = [
-  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-  ["z", "x", "c", "v", "b", "n", "m", ",", ".", "?"],
+  ["й", "ц", "у", "к", "е", "н", "г", "ш", "щ", "з", "х"],
+  ["ф", "ы", "в", "а", "п", "р", "о", "л", "д", "ж", "э"],
+  ["я", "ч", "с", "м", "и", "т", "ь", "б", "ю", ",", "."],
 ] as const;
 
-function PhoneKeyboard({ activeKey }: { activeKey: string | null }) {
+// The booth passes the character just typed; the keyboard names two keys by
+// what they do rather than by the character they produce.
+const toKeyboardKey = (typed: string | null): string | null => {
+  if (typed === null) return null;
+  if (typed === " ") return "space";
+  if (typed === "\n") return "return";
+  const lower = typed.toLowerCase();
+  if (lower === "ё") return "е";
+  if (lower === "ъ") return "ь";
+  return lower;
+};
+
+function PhoneKeyboard({ activeKey: typed }: { activeKey: string | null }) {
+  const activeKey = toKeyboardKey(typed);
   return (
     <div className="space-y-2">
       {KEYBOARD_ROWS.map((row, rowIndex) => (
@@ -166,8 +180,8 @@ function PhoneKeyboard({ activeKey }: { activeKey: string | null }) {
       ))}
       <div className="flex items-center gap-2">
         <KeyboardKey label="123" active={false} className="w-[18%]" />
-        <KeyboardKey label="space" active={activeKey === "space"} className="flex-1" />
-        <KeyboardKey label="return" active={activeKey === "return"} className="w-[22%]" />
+        <KeyboardKey label={t("smsBooth.space")} active={activeKey === "space"} className="flex-1" />
+        <KeyboardKey label={t("smsBooth.return")} active={activeKey === "return"} className="w-[22%]" />
       </div>
     </div>
   );

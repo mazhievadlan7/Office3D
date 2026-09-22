@@ -31,11 +31,11 @@ describe("ThemeToggle", () => {
   it("applies and persists theme when toggled", () => {
     render(createElement(ThemeToggle));
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch to dark mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Включить тёмную тему" }));
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem("theme")).toBe("dark");
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Включить светлую тему" }));
     expect(document.documentElement).not.toHaveClass("dark");
     expect(window.localStorage.getItem("theme")).toBe("light");
   });
@@ -48,6 +48,6 @@ describe("ThemeToggle", () => {
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
-    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Включить светлую тему" })).toBeInTheDocument();
   });
 });

@@ -158,6 +158,7 @@ export const ru = {
   "analytics.cacheWrite": "Запись кэша: {value}.",
   "analytics.completedRuns": "Завершённых запусков",
   "analytics.completedRunsHint": "Журнал запусков офиса в памяти.",
+  "analytics.costBreakdown": "Разбивка расходов",
   "analytics.dailyCost": "Расходы по дням",
   "analytics.dailyUsd": "В день, USD",
   "analytics.end": "Конец",
@@ -173,10 +174,17 @@ export const ru = {
   "analytics.noCostInRange": "За выбранный период данных о расходах нет.",
   "analytics.noLimit": "Без лимита",
   "analytics.noModelUsage": "Данных о потреблении по моделям пока нет.",
+  "analytics.noPerformance": "Данных о производительности пока нет.",
   "analytics.noSnapshot": "Снимок аналитики пока не собран",
+  "analytics.openCalendar": "Открыть календарь: {label}",
   "analytics.output": "Вывод: {value}.",
   "analytics.perAgentUsd": "На агента, USD",
   "analytics.performance": "Производительность",
+  "analytics.rowApprovals": "Одобрений: {value}.",
+  "analytics.rowAvgRuntime": "Среднее время: {value}.",
+  "analytics.rowSuccess": "Успешно: {value}.",
+  "analytics.rowToolCalls": "Вызовов инструментов: {value}.",
+  "analytics.runsCount": "запусков: {count}",
   "analytics.softLimit": "Мягкий лимит",
   "analytics.start": "Начало",
   "analytics.successRate": "Доля успешных",
@@ -394,6 +402,7 @@ export const ru = {
   "company.actionsLead": "Сгенерируйте структуру, затем создайте её в подключённой среде.",
   "company.activeRole": "Выбранная роль",
   "company.addRole": "Добавить роль",
+  "company.avatarPreview": "Превью 3D-аватара для этой роли.",
   "company.briefPh": "Здесь ИИ перепишет описание.",
   "company.cancel": "Отмена",
   "company.clear": "Очистить",
@@ -402,7 +411,10 @@ export const ru = {
   "company.closePrompt": "Закрыть окно описания",
   "company.collaborators": "С кем работает",
   "company.create": "Создать компанию",
+  "company.defaultVibe": "отзывчивый и собранный",
   "company.describe": "Описать компанию",
+  "company.describePlaceholder":
+    "Опишите, чем должна заниматься компания, и Office3D сразу превратит это в улучшенное описание.",
   "company.editPrompt": "Изменить описание",
   "company.editTeam": "Отредактируйте команду, прежде чем создавать агентов в подключённой среде.",
   "company.emoji": "Эмодзи",
@@ -433,10 +445,13 @@ export const ru = {
   "company.promptTitle": "Чем должна заниматься компания?",
   "company.purpose": "Назначение",
   "company.removeRole": "Убрать роль {index}",
+  "company.replaceNotice":
+    "Текущие агенты ({count}) будут удалены и заменены этой компанией при её создании. Это необратимо: рабочие пространства старых агентов будут удалены.",
   "company.replaceTitle": "Заменить текущих агентов?",
   "company.replaceWarning":
     "Сейчас в офисе {agents} — все они будут удалены и заменены новой компанией вместе с рабочими пространствами. Отменить это нельзя. Продолжить?",
   "company.responsibilities": "Обязанности",
+  "company.role": "Роль",
   "company.role1": "Роль 1",
   "company.roleN": "Роль {index}",
   "company.sharedRules": "Общие правила",
@@ -689,14 +704,21 @@ export const ru = {
   "header.openMenu": "Открыть меню студии",
 
   // --- История -------------------------------------------------------------
+  "history.agent": "Агент",
   "history.allAgents": "Все агенты",
   "history.allTriggers": "Все запуски",
   "history.duration": "Длительность",
+  "history.empty": "В этой сессии запусков ещё не было.",
+  "history.lead":
+    "Только эта сессия. События жизненного цикла приходят из штаба в реальном времени.",
   "history.outcome": "Итог",
   "history.outcomeCompleted": "Завершён",
   "history.outcomeError": "Ошибка",
   "history.outcomeRunning": "Выполняется",
+  "history.runningFor": "идёт {seconds} с",
   "history.started": "Начат",
+  "history.title": "Журнал аудита",
+  "history.trigger": "Источник",
   "history.triggerCron": "Расписание",
   "history.triggerHeartbeat": "Пульс",
   "history.triggerUser": "Пользователь",
@@ -737,11 +759,28 @@ export const ru = {
   "inbox.empty": "Готовых ответов ассистента пока нет.",
   "inbox.hoursAgo": "{count} ч назад",
   "inbox.justNow": "Только что",
+  "inbox.lead": "Последние ответы ассистентов со всех столов.",
   "inbox.minutesAgo": "{count} мин назад",
+  "inbox.new": "Новое",
+  "inbox.noAgents": "Агенты пока не подключены.",
   "inbox.noOutput": "Ответов пока нет",
+  "inbox.title": "Центр результатов",
 
   // --- Инспектор агента ------------------------------------------------------
   "inspect.closePanel": "Закрыть панель",
+
+  // --- Музыкальный автомат ---------------------------------------------------
+  "jukebox.clickToInstall": "Нажмите, чтобы установить SOUNDCLAW",
+  "jukebox.closeWindow": "Это окно можно закрыть, если оно не закрылось само.",
+  "jukebox.dismiss": "Закрыть",
+  "jukebox.finishingSignIn": "Завершаем вход в Spotify",
+  "jukebox.installLead1": "Установите навык",
+  "jukebox.installLead2":
+    "— и агенты смогут выбирать и включать музыку прямо на музыкальном автомате в офисе.",
+  "jukebox.installSkill": "Установить навык SOUNDCLAW",
+  "jukebox.notInstalled": "Музыкальный автомат не установлен",
+  "jukebox.notInstalledShort": "НЕ УСТАНОВЛЕН",
+  "jukebox.nowPlaying": "♪  СЕЙЧАС ИГРАЕТ",
 
   // --- Канбан (навык не установлен) ----------------------------------------
   "kanban.dismiss": "Закрыть",
@@ -754,6 +793,7 @@ export const ru = {
   "kanban.notInstalled": "Навык канбана не установлен",
   "kanban.refreshNote": "Как только он установится, Office3D обновит состояние task-manager.",
   "kanban.taskManager": "Менеджер задач",
+  "kanban.title": "Канбан",
 
   // --- Канбан-доска (полный экран) -----------------------------------------
   "kanbanScreen.close": "Закрыть канбан-доску",
@@ -780,6 +820,11 @@ export const ru = {
     "Сообщение уходит внутри утверждённого шаблона WhatsApp, а не обычным текстом. Получатель видит шаблон, в который подставлен этот текст.",
   "messaging.templateOf": "шаблон {name}",
   "messaging.title": "Сообщения офиса",
+
+  // --- Офис ------------------------------------------------------------------
+  "office.clickForChat": "нажмите, чтобы открыть чат",
+  "office.loading": "Загрузка офиса",
+  "office.loadingShort": "Загрузка…",
 
   // --- Мастер первого запуска ------------------------------------------
   "onboarding.agentsFound": "Найдено агентов: {count}",
@@ -1044,11 +1089,13 @@ export const ru = {
 
   // --- Реестры навыков -----------------------------------------------------
   "registry.install": "Установить",
+  "registry.installFailed": "Установка не удалась.",
   "registry.installInto": "Установить в",
   "registry.installedAs": "Установлен как {name} для {runtime}.",
   "registry.noSkills": "Навыков не вернулось.",
   "registry.nothingFound": "По запросу «{query}» ничего не найдено.",
   "registry.search": "Найти",
+  "registry.searchFailed": "Поиск не удался.",
   "registry.searchLabel": "Поиск по реестрам навыков",
   "registry.searchPlaceholder": "Поиск по ClawHub и GitHub — или оставьте пустым, чтобы посмотреть всё",
   "registry.searching": "Поиск",
@@ -1323,15 +1370,20 @@ export const ru = {
   "skillsPanel.unavailableHere": "Недоступен в этой системе.",
 
   // --- Будка сообщений (полный экран) --------------------------------------
+  "smsBooth.active": "Активно",
   "smsBooth.agent": "Агент",
   "smsBooth.composing": "Набор текста",
   "smsBooth.drafting": "Черновик",
   "smsBooth.messages": "Сообщения",
   "smsBooth.notSent": "Не отправлено",
   "smsBooth.notSentBody": "Сообщение не отправлено.",
+  "smsBooth.relay": "Отправка с iPhone",
+  "smsBooth.return": "ввод",
   "smsBooth.sending": "Отправка",
   "smsBooth.sent": "Отправлено",
+  "smsBooth.space": "пробел",
   "smsBooth.startingDraft": "Начинаем черновик.",
+  "smsBooth.title": "Будка сообщений",
   "smsBooth.typingFromBooth": "Печатает из будки",
   "smsBooth.waitingChars": "Ждём первых символов.",
 
@@ -1367,13 +1419,16 @@ export const ru = {
   "taskboard.assignedAgent": "Назначенный агент",
   "taskboard.available": "Доступно.",
   "taskboard.captureDebug": "Отладка захвата",
+  "taskboard.channel": "Канал",
   "taskboard.created": "Создана: {value}.",
   "taskboard.delete": "Удалить задачу",
   "taskboard.description": "Описание",
+  "taskboard.details": "Подробности задачи",
   "taskboard.detected": "Распознано: {count}",
   "taskboard.dropHere": "Перетащите карточку сюда.",
   "taskboard.justNow": "Только что",
   "taskboard.lastRequest": "Последняя просьба: {title}",
+  "taskboard.lastTaskId": "Последняя задача: {id}",
   "taskboard.lastUpdate": "Последнее обновление: {when}",
   "taskboard.linkedPlaybook": "Связанный плейбук",
   "taskboard.linkedRun": "Связанный запуск",
@@ -1383,8 +1438,10 @@ export const ru = {
   "taskboard.noLinkedRun": "Запуск не связан",
   "taskboard.none": "Пока нет.",
   "taskboard.note": "Заметка: {text}",
+  "taskboard.notes": "Заметки",
   "taskboard.playbookLinked": "Плейбук связан.",
   "taskboard.runLinked": "Запуск связан.",
+  "taskboard.sessionThread": "Сессия/переписка: {key}",
   "taskboard.sharedStore": "Общее хранилище: ",
   "taskboard.source": "Источник: {value}.",
   "taskboard.statusBlocked": "Заблокировано",
@@ -1394,6 +1451,7 @@ export const ru = {
   "taskboard.statusReview": "Проверка",
   "taskboard.statusTodo": "К выполнению",
   "taskboard.statusValue": "Статус: {value}",
+  "taskboard.storeError": "Ошибка хранилища: {error}",
   "taskboard.subtitle": "Ручные задачи, распознанные просьбы и плейбуки по расписанию.",
   "taskboard.syncing": "Синхронизация.",
   "taskboard.title": "Канбан",
@@ -1404,6 +1462,10 @@ export const ru = {
   "taskboard.updated": "Обновлена: {value}.",
   "taskboard.visibleCards": "Видимых карточек: {count}",
   "taskboard.waitingDetection": "Ждём распознавания входящих просьб.",
+
+  // --- Тема оформления -------------------------------------------------------
+  "theme.toDark": "Включить тёмную тему",
+  "theme.toLight": "Включить светлую тему",
 
   // --- Голоса ----------------------------------------------------------------
   "voices.balanced": "Сбалансированный, разговорный.",

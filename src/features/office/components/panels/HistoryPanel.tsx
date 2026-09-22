@@ -15,7 +15,7 @@ const formatClockTime = (timestampMs: number) =>
 const formatDuration = (startedAt: number, endedAt: number | null) => {
   const deltaMs = Math.max(0, (endedAt ?? Date.now()) - startedAt);
   const seconds = Math.floor(deltaMs / 1000);
-  if (!endedAt) return `${Math.max(1, seconds)}s running`;
+  if (!endedAt) return t("history.runningFor", { seconds: Math.max(1, seconds) });
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -55,17 +55,17 @@ export function HistoryPanel({
     <section className="flex h-full min-h-0 flex-col">
       <div className="border-b border-cyan-500/10 px-4 py-3">
         <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-          Audit Log
+          {t("history.title")}
         </div>
         <div className="mt-1 font-mono text-[11px] text-white/40">
-          This session only. Lifecycle events are captured live from HQ.
+          {t("history.lead")}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 border-b border-cyan-500/10 px-4 py-3">
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            Agent
+            {t("history.agent")}
           </span>
           <select
             value={agentFilter}
@@ -83,7 +83,7 @@ export function HistoryPanel({
 
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            Trigger
+            {t("history.trigger")}
           </span>
           <select
             value={triggerFilter}
@@ -101,7 +101,7 @@ export function HistoryPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {filteredRuns.length === 0 ? (
           <div className="px-2 py-6 font-mono text-[11px] text-white/35">
-            No run records yet for this session.
+            {t("history.empty")}
           </div>
         ) : (
           filteredRuns.map((run) => {

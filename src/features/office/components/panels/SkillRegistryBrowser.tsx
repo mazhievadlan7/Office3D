@@ -64,7 +64,7 @@ export function SkillRegistryBrowser() {
       );
       setSources(payload.results);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed.");
+      setError(err instanceof Error ? err.message : t("registry.searchFailed"));
       setSources([]);
     } finally {
       setLoading(false);
@@ -101,7 +101,7 @@ export function SkillRegistryBrowser() {
         ...current,
         [key]: {
           kind: "failed",
-          message: err instanceof Error ? err.message : "Install failed.",
+          message: err instanceof Error ? err.message : t("registry.installFailed"),
         },
       }));
     }

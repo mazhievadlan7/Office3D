@@ -1,5 +1,7 @@
 "use client";
 
+import { t } from "@/lib/i18n";
+
 type JukeboxDisabledPanelProps = {
   onClose: () => void;
   onInstall: () => void;
@@ -17,10 +19,10 @@ export function JukeboxDisabledPanel({ onClose, onInstall }: JukeboxDisabledPane
         <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">
           Soundclaw
         </div>
-        <h2 className="mt-1 text-xl font-semibold text-white">Jukebox Not Installed</h2>
+        <h2 className="mt-1 text-xl font-semibold text-white">{t("jukebox.notInstalled")}</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-400">
-          Install the <span className="text-cyan-400">SOUNDCLAW</span> skill to let your agents
-          pick and play music right from the office jukebox.
+          {t("jukebox.installLead1")} <span className="text-cyan-400">SOUNDCLAW</span>{" "}
+          {t("jukebox.installLead2")}
         </p>
 
         <div className="mt-6 flex flex-col gap-3">
@@ -29,14 +31,14 @@ export function JukeboxDisabledPanel({ onClose, onInstall }: JukeboxDisabledPane
             className="rounded-xl bg-cyan-500 px-5 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 active:scale-95"
             onClick={onInstall}
           >
-            Install SOUNDCLAW skill
+            {t("jukebox.installSkill")}
           </button>
           <button
             type="button"
             className="rounded-xl border border-slate-700/40 px-5 py-2.5 text-sm text-slate-400 transition hover:bg-slate-800/50"
             onClick={onClose}
           >
-            Dismiss
+            {t("jukebox.dismiss")}
           </button>
         </div>
       </div>
