@@ -11,20 +11,15 @@ import {
 
 const ORIGINAL_ENV = { ...process.env };
 
-const CARRIER_ENV = {
-  TWILIO_ACCOUNT_SID: "AC1",
-  TWILIO_AUTH_TOKEN: "tok",
-  TWILIO_PHONE_NUMBER: "+14155550100",
-  OFFICE3D_PUBLIC_URL: "https://office.example",
+const AGENT_ENV = {
+  ELEVENLABS_API_KEY: "key",
+  ELEVENLABS_AGENT_ID: "agent_123",
+  ELEVENLABS_PHONE_NUMBER_ID: "phnum_123",
 };
 
 beforeEach(() => {
   resetCallStore();
-  for (const key of [
-    "ELEVENLABS_API_KEY",
-    "ELEVENLABS_AGENT_ID",
-    ...Object.keys(CARRIER_ENV),
-  ]) {
+  for (const key of Object.keys(AGENT_ENV)) {
     delete process.env[key];
   }
 });
@@ -39,12 +34,14 @@ describe("resolveVoiceAgentConfig", () => {
     const config = resolveVoiceAgentConfig({
       ELEVENLABS_API_KEY: " key ",
       ELEVENLABS_AGENT_ID: " agent_123 ",
+      ELEVENLABS_PHONE_NUMBER_ID: " phnum_123 ",
     } as unknown as NodeJS.ProcessEnv);
 
     expect(config).toEqual({
       provider: "elevenlabs",
       apiKey: "key",
       agentId: "agent_123",
+      phoneNumberId: "phnum_123",
     });
   });
 
@@ -56,14 +53,15 @@ describe("resolveVoiceAgentConfig", () => {
       expect((error as TelephonyError).status).toBe(503);
       expect((error as Error).message).toContain("ELEVENLABS_API_KEY");
       expect((error as Error).message).toContain("ELEVENLABS_AGENT_ID");
+      expect((error as Error).message).toContain("ELEVENLABS_PHONE_NUMBER_ID");
     }
   });
 
   it("treats_a_blank_value_as_missing", () => {
     expect(
       isVoiceAgentConfigured({
+        ...AGENT_ENV,
         ELEVENLABS_API_KEY: "   ",
-        ELEVENLABS_AGENT_ID: "agent_123",
       } as unknown as NodeJS.ProcessEnv),
     ).toBe(false);
   });
@@ -76,34 +74,31 @@ describe("describeVoiceAgentReadiness", () => {
     } as unknown as NodeJS.ProcessEnv);
 
     expect(readiness.configured).toBe(false);
-    expect(readiness.missing).toEqual(["ELEVENLABS_AGENT_ID"]);
+    expect(readiness.missing).toEqual([
+      "ELEVENLABS_AGENT_ID",
+      "ELEVENLABS_PHONE_NUMBER_ID",
+    ]);
     expect(JSON.stringify(readiness)).not.toContain("super-secret-key");
   });
 });
 
 describe("GET /api/telephony/status", () => {
-  it("reports_the_carrier_and_the_voice_agent_apart", async () => {
-    // A deployment missing one should see which, not a single unhelpful
-    // "not configured".
-    Object.assign(process.env, CARRIER_ENV);
-
+  it("names_what_is_missing_rather_than_reporting_a_bare_not_configured", async () => {
     const body = await (await telephonyStatus()).json();
 
     expect(body.ready).toBe(false);
-    expect(body.carrier).toEqual({ provider: "twilio", configured: true });
-    expect(body.voiceAgent.configured).toBe(false);
     expect(body.voiceAgent.missing).toEqual([
       "ELEVENLABS_API_KEY",
       "ELEVENLABS_AGENT_ID",
+      "ELEVENLABS_PHONE_NUMBER_ID",
     ]);
+    // The carrier is registered with ElevenLabs, so this app holds no carrier
+    // credentials and reports none.
+    expect(body.carrier).toBeUndefined();
   });
 
-  it("is_ready_only_when_both_halves_are_configured", async () => {
-    Object.assign(process.env, CARRIER_ENV, {
-      ELEVENLABS_API_KEY: "key",
-      ELEVENLABS_AGENT_ID: "agent_123",
-    });
-
+  it("is_ready_once_the_voice_agent_is_configured", async () => {
+    Object.assign(process.env, AGENT_ENV);
     expect((await (await telephonyStatus()).json()).ready).toBe(true);
   });
 

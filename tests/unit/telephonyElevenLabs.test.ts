@@ -1,0 +1,180 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { fetchConversation, placeVoiceAgentCall } from "@/lib/telephony/elevenlabs";
+import type { VoiceAgentConfig } from "@/lib/telephony/voiceAgent";
+
+const CONFIG: VoiceAgentConfig = {
+  provider: "elevenlabs",
+  apiKey: "xi-key",
+  agentId: "agent_abc",
+  phoneNumberId: "phnum_123",
+};
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe("placeVoiceAgentCall", () => {
+  it("posts_the_call_in_the_shape_elevenlabs_expects", async () => {
+    const spy = vi
+      .fn()
+      .mockResolvedValue(
+        json({ success: true, message: "ok", conversation_id: "conv_1", sip_call_id: "sip_1" }),
+      );
+    vi.stubGlobal("fetch", spy);
+
+    const placed = await placeVoiceAgentCall(
+      { toNumber: "+447700900123", officeAgentId: "agent-1" },
+      CONFIG,
+    );
+
+    const [url, init] = spy.mock.calls[0] as [URL, RequestInit];
+    expect(String(url)).toBe("https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call");
+    expect((init.headers as Record<string, string>)["xi-api-key"]).toBe("xi-key");
+
+    // Field names are snake_case on the wire; these were taken from the
+    // official SDK's serializers rather than guessed.
+    expect(JSON.parse(String(init.body))).toEqual({
+      agent_id: "agent_abc",
+      agent_phone_number_id: "phnum_123",
+      to_number: "+447700900123",
+      conversation_initiation_client_data: {
+        dynamic_variables: { office_agent_id: "agent-1" },
+      },
+    });
+
+    expect(placed).toEqual({
+      conversationId: "conv_1",
+      sipCallId: "sip_1",
+      message: "ok",
+    });
+  });
+
+  it("rejects_a_bad_number_before_spending_a_call", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+
+    await expect(
+      placeVoiceAgentCall({ toNumber: "0123", officeAgentId: "agent-1" }, CONFIG),
+    ).rejects.toThrow(/E.164/);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("requires_the_office_agent_placing_the_call", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "  " }, CONFIG),
+    ).rejects.toThrow(/officeAgentId is required/);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("treats_a_success_false_body_as_a_failure", async () => {
+    // A 200 with success:false is still a call that did not happen; reporting
+    // it as placed would leave the office showing a conversation that is not.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ success: false, message: "No credit" })),
+    );
+
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+    ).rejects.toThrow(/No credit/);
+  });
+
+  it("treats_a_missing_conversation_id_as_a_failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ success: true, message: "ok" })));
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+    ).rejects.toThrow(/did not start the call/);
+  });
+
+  it("preserves_the_api_status_so_a_bad_key_is_distinguishable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Invalid API key" }, 401)));
+
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+    ).rejects.toMatchObject({ status: 401, message: "ElevenLabs: Invalid API key" });
+  });
+
+  it("reports_a_transport_failure_as_a_gateway_error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ENOTFOUND")));
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+});
+
+describe("fetchConversation", () => {
+  it("maps_roles_onto_the_office_transcript", async () => {
+    const spy = vi.fn().mockResolvedValue(
+      json({
+        status: "in-progress",
+        transcript: [
+          { role: "agent", message: "Hello, this is the assistant." },
+          { role: "user", message: "Go ahead." },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", spy);
+
+    const snapshot = await fetchConversation("conv_1", CONFIG);
+
+    expect(String(spy.mock.calls[0][0])).toBe(
+      "https://api.elevenlabs.io/v1/convai/conversations/conv_1",
+    );
+    // ElevenLabs says "user"; from the office the other party is the callee,
+    // since the user here is the operator watching.
+    expect(snapshot).toEqual({
+      status: "in-progress",
+      turns: [
+        { speaker: "agent", text: "Hello, this is the assistant." },
+        { speaker: "callee", text: "Go ahead." },
+      ],
+    });
+  });
+
+  it("drops_turns_that_carry_no_speech", async () => {
+    // Tool calls and interruption markers are turns with no message; they are
+    // not something a person said.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json({
+          transcript: [
+            { role: "agent", message: "Hi." },
+            { role: "agent", message: null, tool_calls: [{ name: "lookup" }] },
+            { role: "system", message: "internal" },
+            { role: "user", message: "   " },
+          ],
+        }),
+      ),
+    );
+
+    expect((await fetchConversation("conv_1", CONFIG)).turns).toEqual([
+      { speaker: "agent", text: "Hi." },
+    ]);
+  });
+
+  it("survives_a_conversation_with_no_transcript_yet", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ status: "initiated" })));
+    expect(await fetchConversation("conv_1", CONFIG)).toEqual({
+      status: "initiated",
+      turns: [],
+    });
+  });
+
+  it("requires_a_conversation_id", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    await expect(fetchConversation("  ", CONFIG)).rejects.toThrow(/conversation id is required/);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

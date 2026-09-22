@@ -22,6 +22,12 @@ export type VoiceAgentConfig = {
   apiKey: string;
   /** The agent created in the provider's dashboard that speaks on calls. */
   agentId: string;
+  /**
+   * The phone number registered with the provider that calls are placed from.
+   * One number serves every office agent, so each agent identifies itself in
+   * conversation rather than by caller ID.
+   */
+  phoneNumberId: string;
 };
 
 export const resolveVoiceAgentConfig = (
@@ -29,10 +35,12 @@ export const resolveVoiceAgentConfig = (
 ): VoiceAgentConfig => {
   const apiKey = env.ELEVENLABS_API_KEY?.trim() ?? "";
   const agentId = env.ELEVENLABS_AGENT_ID?.trim() ?? "";
+  const phoneNumberId = env.ELEVENLABS_PHONE_NUMBER_ID?.trim() ?? "";
 
   const missing = [
     !apiKey && "ELEVENLABS_API_KEY",
     !agentId && "ELEVENLABS_AGENT_ID",
+    !phoneNumberId && "ELEVENLABS_PHONE_NUMBER_ID",
   ].filter(Boolean);
 
   if (missing.length > 0) {
@@ -42,7 +50,7 @@ export const resolveVoiceAgentConfig = (
     );
   }
 
-  return { provider: "elevenlabs", apiKey, agentId };
+  return { provider: "elevenlabs", apiKey, agentId, phoneNumberId };
 };
 
 export const isVoiceAgentConfigured = (
@@ -69,6 +77,7 @@ export const describeVoiceAgentReadiness = (
   const missing = [
     !env.ELEVENLABS_API_KEY?.trim() && "ELEVENLABS_API_KEY",
     !env.ELEVENLABS_AGENT_ID?.trim() && "ELEVENLABS_AGENT_ID",
+    !env.ELEVENLABS_PHONE_NUMBER_ID?.trim() && "ELEVENLABS_PHONE_NUMBER_ID",
   ].filter((entry): entry is string => typeof entry === "string");
 
   return { provider: "elevenlabs", configured: missing.length === 0, missing };

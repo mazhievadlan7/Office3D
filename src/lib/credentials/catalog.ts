@@ -95,42 +95,14 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     docsUrl: "https://elevenlabs.io/docs/eleven-agents",
   },
   {
-    id: "twilio-account-sid",
-    label: "Twilio account SID",
-    envVar: "TWILIO_ACCOUNT_SID",
-    consumedBy: "office3d",
-    purpose: "Identifies the Twilio account agent phone calls are placed from.",
-    requiredFor: "Agent phone calls.",
-    docsUrl: "https://www.twilio.com/docs/voice",
-  },
-  {
-    id: "twilio-auth-token",
-    label: "Twilio auth token",
-    envVar: "TWILIO_AUTH_TOKEN",
+    id: "elevenlabs-phone-number-id",
+    label: "ElevenLabs phone number ID",
+    envVar: "ELEVENLABS_PHONE_NUMBER_ID",
     consumedBy: "office3d",
     purpose:
-      "Authenticates calls to Twilio and verifies the signature on Twilio's webhooks, which is what stops a stranger injecting speech into a live call.",
-    requiredFor: "Agent phone calls.",
-    docsUrl: "https://www.twilio.com/docs/usage/webhooks/webhooks-security",
-  },
-  {
-    id: "twilio-phone-number",
-    label: "Twilio phone number",
-    envVar: "TWILIO_PHONE_NUMBER",
-    consumedBy: "office3d",
-    purpose: "The E.164 number agents call from; must be bought in Twilio.",
-    requiredFor: "Agent phone calls.",
-    docsUrl: null,
-  },
-  {
-    id: "public-url",
-    label: "Public base URL",
-    envVar: "OFFICE3D_PUBLIC_URL",
-    consumedBy: "office3d",
-    purpose:
-      "Where Twilio reaches this app for call instructions and status. Twilio dials from its own infrastructure, so localhost never works without a tunnel.",
-    requiredFor: "Agent phone calls.",
-    docsUrl: null,
+      "The number registered with ElevenLabs that agents call from. One number serves every office agent.",
+    requiredFor: "Voice agent phone calls.",
+    docsUrl: "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking",
   },
   // Below: keys a skill or agent may use. Office3D never calls these APIs
   // itself, so a missing one costs nothing here — it is listed so a
