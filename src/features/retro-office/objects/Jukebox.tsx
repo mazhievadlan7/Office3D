@@ -12,6 +12,8 @@ import {
 } from "@/features/retro-office/core/geometry";
 import type { InteractiveFurnitureModelProps } from "@/features/retro-office/objects/types";
 import { t } from "@/lib/i18n";
+// Points 3D text at the bundled font before any label is laid out.
+import "@/components/three/sceneAssets";
 
 export type JukeboxModelProps = InteractiveFurnitureModelProps & {
   active?: boolean;

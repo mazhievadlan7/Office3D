@@ -25,7 +25,8 @@ import {
   useState,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
+import { OfficeEnvironment } from "@/components/three/sceneAssets";
 import * as THREE from "three";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { AtmImmersiveScreen } from "@/features/office/screens/AtmImmersiveScreen";
@@ -4964,9 +4965,7 @@ export function RetroOffice3D({
             <SceneWallPictures showRemoteOffice={remoteOfficeEnabled} />
 
             {/* Environment lighting — async, wrapped in its own Suspense so floor stays visible. */}
-            <Suspense fallback={null}>
-              <Environment preset="city" />
-            </Suspense>
+            <OfficeEnvironment />
 
             {/* Furniture models — each loads its GLB asynchronously. */}
             <Suspense fallback={null}>

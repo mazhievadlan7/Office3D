@@ -15,6 +15,14 @@ import {
 import type { FurnitureItem } from "@/features/retro-office/core/types";
 import type { InteractiveFurnitureModelProps } from "@/features/retro-office/objects/types";
 
+// None of the office models is Draco- or meshopt-compressed, so neither
+// decoder is attached. Left on (drei's default), they fetch the Draco decoder
+// from www.gstatic.com and compile meshopt's WebAssembly, which the
+// production Content-Security-Policy rightly refuses. A compressed model added
+// later needs a self-hosted decoder and a CSP entry, not these flags flipped.
+const GLTF_DRACO = false;
+const GLTF_MESHOPT = false;
+
 export const FURNITURE_GLB: Record<string, string> = {
   desk_cubicle: "/office-assets/models/furniture/desk.glb",
   executive_desk: "/office-assets/models/furniture/deskCorner.glb",
@@ -199,7 +207,7 @@ export function InstancedFurnitureItems({
   onItemClick?: (itemUid: string) => void;
 }) {
   const glbPath = FURNITURE_GLB[itemType] ?? FURNITURE_GLB.table_rect;
-  const { scene } = useGLTF(glbPath);
+  const { scene } = useGLTF(glbPath, GLTF_DRACO, GLTF_MESHOPT);
   const template = useMemo(
     () =>
       resolveFurnitureTemplate({
@@ -298,7 +306,7 @@ export function FurnitureModel({
 }: InteractiveFurnitureModelProps) {
   const itemType = resolveItemTypeKey(item);
   const glbPath = FURNITURE_GLB[itemType] ?? FURNITURE_GLB.table_rect;
-  const { scene } = useGLTF(glbPath);
+  const { scene } = useGLTF(glbPath, GLTF_DRACO, GLTF_MESHOPT);
   const template = useMemo(
     () =>
       resolveFurnitureTemplate({
@@ -724,7 +732,7 @@ export function PlacementGhost({
   position: [number, number, number];
 }) {
   const glbPath = FURNITURE_GLB[itemType] ?? FURNITURE_GLB.table_rect;
-  const { scene } = useGLTF(glbPath);
+  const { scene } = useGLTF(glbPath, GLTF_DRACO, GLTF_MESHOPT);
   const template = useMemo(
     () =>
       resolveFurnitureTemplate({
@@ -751,5 +759,5 @@ export function PlacementGhost({
 }
 
 [...new Set(Object.values(FURNITURE_GLB))].forEach((path) =>
-  useGLTF.preload(path),
+  useGLTF.preload(path, GLTF_DRACO, GLTF_MESHOPT),
 );

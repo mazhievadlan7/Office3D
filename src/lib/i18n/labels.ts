@@ -46,3 +46,16 @@ const GATEWAY_STATUSES: Record<string, () => string> = {
 
 export const gatewayStatusLabel = (status: string): string =>
   GATEWAY_STATUSES[status]?.() ?? status;
+
+// Backend (adapter) kinds as the connection screens name them. Product names
+// stay as they are; the generic kinds are words.
+const ADAPTERS: Record<string, () => string> = {
+  openclaw: () => "OpenClaw",
+  hermes: () => "Hermes",
+  office3d: () => "Office3D",
+  demo: () => t("labels.adapterDemo"),
+  local: () => t("labels.adapterLocal"),
+  custom: () => t("labels.adapterCustom"),
+};
+
+export const adapterLabel = (adapter: string): string => ADAPTERS[adapter]?.() ?? adapter;

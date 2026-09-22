@@ -3,6 +3,7 @@ import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { X } from "lucide-react";
 import { resolveGatewayStatusBadgeClass, resolveGatewayStatusLabel } from "./colorSemantics";
 import { t } from "@/lib/i18n";
+import { adapterLabel } from "@/lib/i18n/labels";
 
 type ConnectionPanelProps = {
   gatewayUrl: string;
@@ -133,8 +134,8 @@ export const ConnectionPanel = ({
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="font-mono">{t("settings.selectedBackend", { name: selectedAdapterType })}</span>
-        <span className="font-mono">{t("settings.activeBackend", { name: activeAdapterType })}</span>
+        <span className="font-mono">{t("settings.selectedBackend", { name: adapterLabel(selectedAdapterType) })}</span>
+        <span className="font-mono">{t("settings.activeBackend", { name: adapterLabel(activeAdapterType) })}</span>
         <span>{t("gateway.backendsKeepOwnSettings")}</span>
       </div>
       <div className="text-[11px] leading-snug text-muted-foreground">

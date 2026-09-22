@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { t } from "@/lib/i18n";
+import { adapterLabel } from "@/lib/i18n/labels";
 
 // Spelled out rather than looked up by building a key: a key assembled at
 // runtime is invisible to the check that finds unused and missing phrases.
@@ -196,10 +197,10 @@ export function SettingsPanel({
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-white/60">
           <span className="font-mono">
-            {t("settings.selectedBackend", { name: selectedAdapterType })}
+            {t("settings.selectedBackend", { name: adapterLabel(selectedAdapterType) })}
           </span>
           <span className="font-mono">
-            {t("settings.activeBackend", { name: activeAdapterType })}
+            {t("settings.activeBackend", { name: adapterLabel(activeAdapterType) })}
           </span>
           <span>{t("gateway.backendsKeepOwnSettings")}</span>
         </div>

@@ -14,6 +14,8 @@ import type {
 } from "@/features/retro-office/core/types";
 import { AgentModelProps } from "@/features/retro-office/objects/types";
 import { t } from "@/lib/i18n";
+// Points 3D text at the bundled font before any label is laid out.
+import "@/components/three/sceneAssets";
 
 const MAX_NAMEPLATE_TEXT_LENGTH = 10;
 const MAX_SPEECH_BUBBLE_TEXT_LENGTH = 180;

@@ -1,6 +1,7 @@
 "use client";
 
-import { Environment, OrbitControls } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
+import { OfficeEnvironment } from "@/components/three/sceneAssets";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -329,7 +330,7 @@ export const AgentAvatarPreview3D = ({
             setReadyProfileKey(profileKey);
           }}
         />
-        <Environment preset="city" />
+        <OfficeEnvironment />
         <OrbitControls enablePan={false} enableZoom={false} maxPolarAngle={1.8} minPolarAngle={1.1} />
       </Canvas>
     </div>

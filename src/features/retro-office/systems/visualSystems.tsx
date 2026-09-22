@@ -15,6 +15,8 @@ import type {
   OfficeAgent,
   RenderAgent,
 } from "@/features/retro-office/core/types";
+// Points 3D text at the bundled font before any label is laid out.
+import "@/components/three/sceneAssets";
 
 const HEAT_COLS = Math.floor(CANVAS_W / SNAP_GRID);
 const HEAT_ROWS = Math.floor(CANVAS_H / SNAP_GRID);

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { t } from "@/lib/i18n";
+import { adapterLabel } from "@/lib/i18n/labels";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import type { StudioGatewayAdapterType, StudioGatewaySettings } from "@/lib/studio/settings";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
@@ -265,8 +266,8 @@ export const GatewayConnectScreen = ({
           </p>
           <p className="mt-2 font-mono text-[11px] text-muted-foreground">
             {t("gateway.selectedBackend", {
-              selected: selectedAdapterType,
-              active: activeAdapterType,
+              selected: adapterLabel(selectedAdapterType),
+              active: adapterLabel(activeAdapterType),
             })}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">

@@ -1081,7 +1081,7 @@ export const ru = {
     "Ничего не играет. Сначала откройте Spotify на устройстве и нажмите воспроизведение.",
   "jukebox.notInstalled": "Музыкальный автомат не установлен",
   "jukebox.notInstalledShort": "НЕ УСТАНОВЛЕН",
-  "jukebox.nowPlaying": "♪  СЕЙЧАС ИГРАЕТ",
+  "jukebox.nowPlaying": "СЕЙЧАС ИГРАЕТ",
   "jukebox.nowPlayingTitle": "Сейчас играет",
   "jukebox.opening": "Открываем Spotify…",
   "jukebox.pause": "Пауза",
@@ -1120,6 +1120,9 @@ export const ru = {
   "kanbanScreen.title": "Канбан-доска",
 
   // --- Подписи служебных значений --------------------------------------------
+  "labels.adapterCustom": "Свой бэкенд",
+  "labels.adapterDemo": "Демо",
+  "labels.adapterLocal": "Локальная среда",
   "labels.fileAdded": "добавлен",
   "labels.fileChanged": "изменён",
   "labels.fileCopied": "скопирован",

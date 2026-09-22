@@ -103,7 +103,15 @@ async function main() {
   });
 
   await app.prepare();
-  const handleUpgrade = app.getUpgradeHandler();
+  // Next's own upgrade handler, the one it would attach to the server itself:
+  // in development it carries hot reload and React's debug channel, which the
+  // page waits on before it hydrates. app.getUpgradeHandler() goes to the
+  // inner page server instead — it accepts the socket and then never writes to
+  // it, so in development the office rendered on the server and then sat on
+  // «Подключаемся…» with every button dead. Only one upgrade listener is ever
+  // attached (see attachUpgradeHandlers), so this is where Next's has to go.
+  const handleUpgrade =
+    typeof app.upgradeHandler === "function" ? app.upgradeHandler : app.getUpgradeHandler();
   const handleServerUpgrade = (req, socket, head) => {
     if (resolvePathname(req.url) === "/api/gateway/ws") {
       proxy.handleUpgrade(req, socket, head);
