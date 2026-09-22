@@ -1,5 +1,15 @@
 import type { TranscriptEntry } from "@/features/agents/state/transcript";
 import { stripUiMetadata } from "@/lib/text/message-extract";
+import { hasCyrillic } from "@/lib/text/transliterate";
+import {
+  resolveRuCall,
+  resolveRuGymCommand,
+  resolveRuGymSkill,
+  resolveRuInteraction,
+  resolveRuQa,
+  resolveRuStandup,
+  resolveRuText,
+} from "@/lib/office/deskDirectivesRu";
 
 // This module is the single natural-language entry point for office movement and room intents.
 // Runtime consumers should prefer the unified snapshot instead of scattering transport-specific
@@ -428,17 +438,27 @@ export const resolveOfficeIntentSnapshot = (
   const cached = getCachedIntentSnapshot(normalized);
   if (cached) return cached;
 
-  const interactionDirective = resolveOfficeInteractionDirectiveFromNormalized(
-    normalized,
-  );
-  const gymManualDirective = resolveOfficeGymCommandDirectiveFromNormalized(
-    normalized,
-  );
-  const qaDirective = resolveOfficeQaDirectiveFromNormalized(normalized);
-  const gymSkillDirective = resolveOfficeGymSkillDirectiveFromNormalized(normalized);
-  const standupDirective = resolveOfficeStandupDirectiveFromNormalized(normalized);
-  const callDirective = resolveOfficeCallDirectiveFromNormalized(normalized);
-  const textDirective = resolveOfficeTextDirectiveFromNormalized(normalized);
+  // Russian commands are read first when the message is in Russian; the English
+  // rules still apply as a fallback, so a mixed message is understood either way.
+  const ru = hasCyrillic(normalized);
+  const interactionDirective =
+    (ru ? resolveRuInteraction(normalized) : null) ??
+    resolveOfficeInteractionDirectiveFromNormalized(normalized);
+  const gymManualDirective =
+    (ru ? resolveRuGymCommand(normalized) : null) ??
+    resolveOfficeGymCommandDirectiveFromNormalized(normalized);
+  const qaDirective =
+    (ru ? resolveRuQa(normalized) : null) ?? resolveOfficeQaDirectiveFromNormalized(normalized);
+  const gymSkillDirective =
+    (ru ? resolveRuGymSkill(normalized) : null) ??
+    resolveOfficeGymSkillDirectiveFromNormalized(normalized);
+  const standupDirective =
+    (ru ? resolveRuStandup(normalized) : null) ??
+    resolveOfficeStandupDirectiveFromNormalized(normalized);
+  const callDirective =
+    (ru ? resolveRuCall(normalized) : null) ?? resolveOfficeCallDirectiveFromNormalized(normalized);
+  const textDirective =
+    (ru ? resolveRuText(normalized) : null) ?? resolveOfficeTextDirectiveFromNormalized(normalized);
   const gymDirective = gymManualDirective
     ? {
         directive: gymManualDirective,
