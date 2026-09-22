@@ -1,122 +1,122 @@
-# QA Department Spec
+# Спецификация отдела QA
 
-> Fourth concrete office-system feature for Office3D, completing the first real office loop: plan, coordinate, execute, review.
+> Четвёртая конкретная офисная система для Office3D, замыкающая первый настоящий рабочий цикл офиса: спланировать, скоординировать, выполнить, проверить.
 
-## Goal
+## Цель
 
-Add a QA department workflow to Office3D so the office can visibly review, test, triage, and sign off on work before it is treated as complete.
+Добавить в Office3D рабочий процесс отдела QA, чтобы офис мог наглядно проверять, тестировать, сортировать и утверждать работу, прежде чем она будет считаться завершённой.
 
-The QA department should make review state legible in-world.
+Отдел QA должен сделать состояние проверки понятным прямо в мире.
 
-It is where the office asks:
+Именно здесь офис спрашивает:
 
-- does this actually work?
-- what failed?
-- what is blocked?
-- what is safe to ship?
+- это действительно работает?
+- что сломалось?
+- что заблокировано?
+- что можно безопасно выпускать?
 
-## Product Position
+## Место в продукте
 
-QA should not be just flavor.
+QA не должна быть просто антуражем.
 
-It should be an operational system that connects:
+Это должна быть рабочая система, которая связывает:
 
-- tasks
-- agent work output
-- reviews
-- approvals
-- regressions
-- release-readiness
+- задачи
+- результаты работы агентов
+- ревью
+- одобрения
+- регрессии
+- готовность к релизу
 
-The QA department is the office’s verification layer.
+Отдел QA — это слой проверки в офисе.
 
-## Why This Feature Matters
+## Почему эта функция важна
 
-Without a QA layer, the office can generate and coordinate work but not convincingly validate it.
+Без слоя QA офис может создавать и координировать работу, но не может убедительно её проверять.
 
-QA adds:
+QA добавляет:
 
-- visible review state
-- feedback loops
-- bug triage
-- approval pressure where needed
-- a clearer path from "done writing" to "done safely"
+- видимое состояние проверки
+- циклы обратной связи
+- сортировку багов
+- требование одобрения там, где оно нужно
+- более понятный путь от «написано» к «безопасно готово»
 
-It also pairs naturally with:
+Она также естественно сочетается с:
 
-- bulletin board blockers
-- meeting room review workflows
-- task board status
-- approval systems
+- блокерами на доске объявлений
+- сценариями ревью в переговорной
+- статусами на доске задач
+- системами одобрения
 
-## Core Responsibilities
+## Основные обязанности
 
-The QA department should handle:
+Отдел QA должен отвечать за:
 
-- review intake
-- test/result tracking
-- bug triage
-- regression visibility
-- release gate / readiness signal
+- приём работы на ревью
+- отслеживание тестов и результатов
+- сортировку багов
+- видимость регрессий
+- релизный барьер / сигнал готовности
 
-## Primary Use Cases
+## Основные сценарии использования
 
-### Review Queue
+### Очередь ревью
 
-Examples:
+Примеры:
 
-- a task is ready for QA
-- an agent requests review
-- a release candidate needs signoff
+- задача готова к QA
+- агент запрашивает ревью
+- кандидату в релиз нужно утверждение
 
-### Bug Triage
+### Сортировка багов
 
-Examples:
+Примеры:
 
-- classify failures
-- route issues to the right owner
-- mark severity
-- surface blockers to the office
+- классифицировать сбои
+- направлять проблемы нужному ответственному
+- отмечать серьёзность
+- выносить блокеры на вид всему офису
 
-### Regression Detection
+### Обнаружение регрессий
 
-Examples:
+Примеры:
 
-- recent change broke existing behavior
-- previously passing workflow now fails
-- approval flow or adapter integration regressed
+- недавнее изменение сломало существующее поведение
+- ранее проходивший сценарий теперь падает
+- регрессия в процессе одобрения или интеграции адаптера
 
-### Approval-Aware Review
+### Ревью с учётом одобрений
 
-Examples:
+Примеры:
 
-- code/run needs human approval before release-like action
-- QA can recommend approval but not finalize it
-- owners or leads can override or sign off
+- коду или запуску нужно одобрение человека перед действием, похожим на релиз
+- QA может рекомендовать одобрение, но не утверждать его окончательно
+- владельцы или лиды могут переопределить решение или утвердить
 
-### Release Readiness
+### Готовность к релизу
 
-Examples:
+Примеры:
 
-- green / yellow / red office-level signal
-- unresolved blockers prevent completion
-- review summary appears on bulletin board
+- зелёный / жёлтый / красный сигнал на уровне офиса
+- нерешённые блокеры не дают завершить работу
+- сводка ревью появляется на доске объявлений
 
-## V1 Scope
+## Объём V1
 
-V1 should focus on clear office-level QA workflows, not a full CI system.
+V1 должна сосредоточиться на понятных процессах QA на уровне офиса, а не на полноценной CI-системе.
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- QA queue
-- QA status per task or work item
-- bug / blocker recording
-- review outcome states
-- office-visible readiness signal
+- очередь QA
+- статус QA для каждой задачи или единицы работы
+- запись багов / блокеров
+- состояния результата ревью
+- видимый в офисе сигнал готовности
 
-## Suggested Workflow Model
+## Предлагаемая модель рабочего процесса
 
-Recommended QA states:
+Рекомендуемые состояния QA:
 
 - `queued`
 - `in_review`
@@ -126,37 +126,37 @@ Recommended QA states:
 - `failed`
 - `verified`
 
-### Queued
+### Queued (в очереди)
 
-Work has entered QA but has not been actively reviewed yet.
+Работа попала в QA, но её ещё не начали проверять.
 
-### In Review
+### In Review (на ревью)
 
-A QA agent or human reviewer is assessing the work.
+QA-агент или человек-ревьюер оценивает работу.
 
-### Changes Requested
+### Changes Requested (запрошены изменения)
 
-Work is not acceptable yet and must be revised.
+Работа пока неприемлема и должна быть доработана.
 
-### Blocked
+### Blocked (заблокировано)
 
-QA cannot proceed because a dependency, approval, or missing artifact prevents review.
+QA не может продолжить, потому что ревью мешает зависимость, одобрение или отсутствующий артефакт.
 
-### Approved
+### Approved (одобрено)
 
-Review is positive, but final release/ship behavior may still depend on a higher-level approval model.
+Ревью положительное, но итоговый релиз/выпуск всё ещё может зависеть от модели одобрения более высокого уровня.
 
-### Failed
+### Failed (провалено)
 
-Verification found concrete failure.
+Проверка обнаружила конкретный сбой.
 
-### Verified
+### Verified (проверено)
 
-The work passed the required QA checks and is complete from the department’s perspective.
+Работа прошла необходимые проверки QA и завершена с точки зрения отдела.
 
-## Suggested Data Model
+## Предлагаемая модель данных
 
-V1 shape:
+Форма для V1:
 
 ```ts
 type QaStatus =
@@ -206,132 +206,132 @@ type QaDepartmentState = {
 };
 ```
 
-## Relationship To Existing Systems
+## Связь с существующими системами
 
-The QA department should plug into systems Office3D already has.
+Отдел QA должен подключаться к системам, которые уже есть в Office3D.
 
-### Task Board / Kanban
+### Доска задач / канбан
 
-The QA department should consume work from the task board.
+Отдел QA должен получать работу с доски задач.
 
-Examples:
+Примеры:
 
-- task moves into a review-ready state
-- QA item is created or updated
-- blocked QA creates blocker visibility back on the bulletin board
+- задача переходит в состояние готовности к ревью
+- создаётся или обновляется элемент QA
+- заблокированная QA снова делает блокер видимым на доске объявлений
 
-Suggested relationship:
+Предлагаемое соотношение:
 
-- task board = execution status
-- QA department = verification status
+- доска задач = статус выполнения
+- отдел QA = статус проверки
 
-### Bulletin Board
+### Доска объявлений
 
-The bulletin board should show the important QA outcomes.
+Доска объявлений должна показывать важные результаты QA.
 
-Examples:
+Примеры:
 
-- "Build blocked on QA"
-- "Regression found in Hermes adapter flow"
-- "Release candidate verified"
+- «Сборка заблокирована на QA»
+- «Найдена регрессия в сценарии адаптера Hermes»
+- «Кандидат в релиз проверен»
 
-Suggested card mapping:
+Предлагаемое соответствие карточек:
 
-- critical QA issue -> blocker card
-- release-ready signal -> announcement card
-- changes requested -> handoff card
+- критическая проблема QA -> карточка блокера
+- сигнал готовности к релизу -> карточка объявления
+- запрошены изменения -> карточка передачи работы
 
-### Meeting Room
+### Переговорная
 
-Review meetings should naturally feed into QA.
+Встречи по ревью должны естественно передавать работу в QA.
 
-Examples:
+Примеры:
 
-- planning meeting creates work
-- execution completes
-- review meeting sends selected items into QA
-- QA findings can be discussed in a follow-up review meeting
+- встреча по планированию создаёт работу
+- выполнение завершается
+- встреча по ревью отправляет выбранные элементы в QA
+- находки QA можно обсудить на следующей встрече по ревью
 
-This makes the meeting room and QA department part of one loop instead of separate ideas.
+Так переговорная и отдел QA становятся частью одного цикла, а не отдельными идеями.
 
-### Approvals
+### Одобрения
 
-Office3D already has approval-related surfaces.
+В Office3D уже есть интерфейсы, связанные с одобрениями.
 
-The QA department should integrate with them conceptually, even if V1 is mostly local office state.
+Отдел QA должен концептуально интегрироваться с ними, даже если в V1 это в основном локальное состояние офиса.
 
-Important distinction:
+Важное различие:
 
-- QA approval = "this looks good from verification"
-- release approval = "a human or higher authority allows the next action"
+- одобрение QA = «с точки зрения проверки всё хорошо»
+- одобрение релиза = «человек или вышестоящая инстанция разрешает следующее действие»
 
-Those are related but not identical.
+Эти вещи связаны, но не тождественны.
 
-### GitHub / Review Surfaces
+### GitHub / интерфейсы ревью
 
-Office3D already has review-adjacent UI, including GitHub-oriented immersive screens.
+В Office3D уже есть интерфейс, близкий к ревью, включая иммерсивные экраны для GitHub.
 
-The QA department should be able to:
+Отдел QA должен уметь:
 
-- reflect review outcomes
-- ingest review summaries
-- show whether work is waiting for review or returned with changes requested
+- отражать результаты ревью
+- принимать сводки ревью
+- показывать, ждёт ли работа ревью или возвращена с запрошенными изменениями
 
-## In-World UX
+## UX внутри мира
 
-The QA department should feel like a place in the office.
+Отдел QA должен ощущаться как место в офисе.
 
-Possible visual forms:
+Возможные визуальные формы:
 
-- QA lab
-- testing bullpen
-- release desk
-- audit wall
+- QA-лаборатория
+- зона тестировщиков
+- релизный стол
+- стена аудита
 
-Behavior:
+Поведение:
 
-- queue visible in-world
-- blocked items stand out clearly
-- verified items visibly clear from the queue
-- readiness state visible at a glance
+- очередь видна прямо в мире
+- заблокированные элементы чётко выделяются
+- проверенные элементы заметно уходят из очереди
+- состояние готовности видно с первого взгляда
 
-The room should communicate office health, not just hold another panel.
+Комната должна сообщать о состоянии офиса, а не быть ещё одной панелью.
 
-## Secondary UI
+## Дополнительный интерфейс
 
-Also provide a non-spatial UI surface.
+Также нужен интерфейс вне пространства офиса.
 
-Good options:
+Хорошие варианты:
 
-- HQ sidebar panel
-- immersive QA screen
-- release/readiness panel
+- панель в боковой панели HQ
+- иммерсивный экран QA
+- панель релиза/готовности
 
-Users should be able to inspect:
+Пользователи должны иметь возможность просматривать:
 
-- queued reviews
-- open issues
-- who owns each item
-- overall readiness state
+- ревью в очереди
+- открытые проблемы
+- ответственного за каждый элемент
+- общее состояние готовности
 
-## V1 Automation
+## Автоматизация в V1
 
-Useful automations:
+Полезные автоматизации:
 
-- create a QA item when a task enters review-ready state
-- create blocker cards for high-severity QA issues
-- update readiness color based on unresolved critical/high issues
-- generate a short QA summary when an item leaves review
+- создавать элемент QA, когда задача переходит в состояние готовности к ревью
+- создавать карточки блокеров для проблем QA высокой серьёзности
+- обновлять цвет готовности в зависимости от нерешённых критических/серьёзных проблем
+- формировать короткую сводку QA, когда элемент выходит из ревью
 
-Keep automation conservative.
+Автоматизация должна быть сдержанной.
 
-Avoid flooding the system with low-value noise.
+Не заваливайте систему малоценным шумом.
 
-## Storage Model
+## Модель хранения
 
-V1 can be stored in office preferences, similar to bulletin board and whiteboard systems.
+V1 можно хранить в настройках офиса — так же, как системы доски объявлений и маркерной доски.
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type OfficePreference = {
@@ -339,126 +339,126 @@ type OfficePreference = {
 };
 ```
 
-This keeps the feature:
+Так функция:
 
-- backend-neutral
-- easy to persist
-- easy to evolve later
+- не зависит от бэкенда
+- легко сохраняется
+- легко развивается в будущем
 
-## Human Interaction Model
+## Модель взаимодействия с человеком
 
-The human should be able to:
+Человек должен иметь возможность:
 
-- open the QA queue
-- inspect a review item
-- mark status changes
-- add issues
-- resolve issues
-- promote or reject readiness
+- открыть очередь QA
+- просмотреть элемент ревью
+- менять статус
+- добавлять проблемы
+- закрывать проблемы
+- подтверждать или отклонять готовность
 
-Humans should remain the final arbiter when needed, especially for ship/release-style outcomes.
+Человек должен оставаться последней инстанцией, когда это нужно, особенно для результатов вроде выпуска/релиза.
 
-## Agent Interaction Model
+## Модель взаимодействия агентов
 
-QA agents should be able to:
+QA-агенты должны уметь:
 
-- review work items
-- generate findings
-- summarize likely regressions
-- mark items as changes requested or verified
-- surface blockers
+- проверять единицы работы
+- формулировать находки
+- кратко описывать вероятные регрессии
+- помечать элементы как требующие изменений или проверенные
+- выносить блокеры на вид
 
-Longer term:
+В перспективе:
 
-- specialized QA agents may exist by area
-- adapter QA
-- UI QA
-- release QA
-- regression QA
+- могут появиться QA-агенты, специализирующиеся на отдельных областях
+- QA адаптеров
+- QA интерфейса
+- QA релизов
+- QA регрессий
 
-## Readiness Signal
+## Сигнал готовности
 
-The department should publish an office-level readiness state:
+Отдел должен публиковать состояние готовности на уровне офиса:
 
 - `green`
 - `yellow`
 - `red`
 
-Suggested meaning:
+Предлагаемое значение:
 
-- green = no blocking QA issues
-- yellow = warnings / pending review / moderate unresolved issues
-- red = blocking failures or critical unresolved issues
+- green = нет блокирующих проблем QA
+- yellow = предупреждения / ожидающее ревью / умеренные нерешённые проблемы
+- red = блокирующие сбои или критические нерешённые проблемы
 
-This signal should be visible outside the QA room as well.
+Этот сигнал должен быть виден и за пределами комнаты QA.
 
-For example:
+Например:
 
-- bulletin board card
-- office status banner
-- release desk indicator
+- карточка на доске объявлений
+- баннер состояния офиса
+- индикатор на релизном столе
 
-## Out of Scope For V1
+## Вне рамок V1
 
-Do not include these initially:
+Поначалу не включайте:
 
-- full CI orchestration
-- external test runner infrastructure
-- rich flake analytics
-- cross-repo release orchestration
-- advanced approval hierarchies
-- fully automated release pipelines
+- полноценную оркестрацию CI
+- внешнюю инфраструктуру для запуска тестов
+- подробную аналитику нестабильных тестов
+- оркестрацию релизов в нескольких репозиториях
+- сложные иерархии одобрения
+- полностью автоматические релизные конвейеры
 
-V1 should be office workflow first.
+V1 должна прежде всего обслуживать рабочий процесс офиса.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define QA review item and issue schema.
-2. Add local persisted QA department state.
-3. Build a simple QA queue panel.
-4. Add readiness signal.
-5. Connect task board / review-ready states to QA queue creation.
-6. Emit bulletin board blockers or announcements from QA outcomes.
+1. Определить схему элемента ревью QA и проблемы.
+2. Добавить локальное сохраняемое состояние отдела QA.
+3. Сделать простую панель очереди QA.
+4. Добавить сигнал готовности.
+5. Связать состояния доски задач / готовности к ревью с созданием элементов в очереди QA.
+6. Публиковать блокеры или объявления на доске объявлений по результатам QA.
 
-## Existing Code Seams
+## Существующие точки интеграции в коде
 
-This work should likely align with:
+Эта работа, скорее всего, должна согласовываться с:
 
-- task board state and transitions
-- approval/review UI surfaces
-- GitHub immersive review screens
-- office performance / approvals analytics
-- bulletin board and meeting room outputs from the new docs
+- состоянием доски задач и переходами между статусами
+- интерфейсами одобрения/ревью
+- иммерсивными экранами ревью GitHub
+- аналитикой производительности офиса / одобрений
+- результатами доски объявлений и переговорной из новых документов
 
-The key is to avoid building QA as an isolated toy feature.
+Главное — не строить QA как изолированную игрушечную функцию.
 
-It should be another operational loop in the same office system.
+Это должен быть ещё один рабочий цикл в той же офисной системе.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- the office can visibly route work into QA
-- QA findings can block or clear work in a legible way
-- users can inspect review items and issues
-- readiness state is visible at the office level
-- QA outcomes can feed the bulletin board
+- офис может наглядно направлять работу в QA
+- находки QA могут понятным образом блокировать работу или пропускать её
+- пользователи могут просматривать элементы ревью и проблемы
+- состояние готовности видно на уровне офиса
+- результаты QA могут попадать на доску объявлений
 
-## Future Extensions
+## Будущие расширения
 
-Once V1 is stable, follow-up work can add:
+Когда V1 стабилизируется, можно добавить:
 
-- QA meeting rituals
-- release room / release wall
-- specialized QA subteams
-- automated regression summaries
-- richer review analytics
-- policy-aware signoff chains
+- ритуалы встреч QA
+- релизную комнату / релизную стену
+- специализированные подкоманды QA
+- автоматические сводки по регрессиям
+- более подробную аналитику ревью
+- цепочки утверждения с учётом политик
 
-## Summary
+## Итог
 
-The QA department should make verification a first-class part of office life.
+Отдел QA должен сделать проверку полноценной частью жизни офиса.
 
-It closes the loop between planning, execution, and trustworthy completion.
+Он замыкает цикл между планированием, выполнением и надёжным завершением работы.

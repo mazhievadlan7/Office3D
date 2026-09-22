@@ -1,69 +1,69 @@
-# Hierarchy And Teams Spec
+# Спецификация иерархии и команд
 
-> Sixth concrete office-system feature for Office3D, turning visible office roles into an actual organizational model for delegation, permissions, and team coordination.
+> Шестая конкретная офисная система для Office3D: она превращает видимые роли в офисе в настоящую организационную модель для делегирования, прав и координации команд.
 
-## Goal
+## Цель
 
-Add a hierarchy and teams system so the office can express:
+Добавить систему иерархии и команд, чтобы офис мог выразить:
 
-- who leads
-- who reports where
-- who can delegate
-- who can approve
-- who belongs to which team
+- кто руководит
+- кто кому подчиняется
+- кто может делегировать
+- кто может одобрять
+- кто в какой команде состоит
 
-The goal is to move from "a group of agents in one room" to "an actual organization with structure".
+Цель — перейти от «группы агентов в одной комнате» к «настоящей организации со структурой».
 
-## Product Position
+## Место в продукте
 
-Hierarchy and teams should not exist only as labels.
+Иерархия и команды не должны существовать только как ярлыки.
 
-They should affect:
+Они должны влиять на:
 
-- delegation
-- review authority
-- meeting participation
-- bulletin/whiteboard authorship weight
-- task routing
-- desk progression meaning
+- делегирование
+- право на ревью
+- участие во встречах
+- вес авторства на доске объявлений и маркерной доске
+- маршрутизацию задач
+- смысл прогрессии столов
 
-This is the organizational layer that sits above desks and departments.
+Это организационный слой, который находится над столами и отделами.
 
-## Why This Feature Matters
+## Почему эта функция важна
 
-Without hierarchy, all agents are peers by default.
+Без иерархии все агенты по умолчанию равноправны.
 
-That creates limits:
+Это создаёт ограничения:
 
-- delegation feels flat
-- responsibility is ambiguous
-- review authority is unclear
-- the office lacks believable structure
+- делегирование получается плоским
+- ответственность размыта
+- неясно, кто вправе проводить ревью
+- офису не хватает правдоподобной структуры
 
-Hierarchy and teams solve that by giving the office:
+Иерархия и команды решают это, давая офису:
 
-- reporting lines
-- ownership boundaries
-- authority surfaces
-- coordination lanes
+- линии подчинения
+- границы ответственности
+- точки принятия решений
+- каналы координации
 
-## Core Principle
+## Основной принцип
 
-Keep hierarchy operational, not theatrical.
+Иерархия должна быть рабочей, а не декоративной.
 
-Do not start with elaborate roleplay.
+Не начинайте с проработанной ролевой игры.
 
-Start with real organizational questions:
+Начинайте с реальных организационных вопросов:
 
-- who can assign work?
-- who can review work?
-- who can call meetings?
-- who can finalize outcomes?
-- which agents belong together?
+- кто может назначать работу?
+- кто может проверять работу?
+- кто может созывать встречи?
+- кто может утверждать итоговые результаты?
+- какие агенты должны быть вместе?
 
-## Suggested Role Model
+## Предлагаемая модель ролей
 
-Recommended role classes:
+Рекомендуемые классы ролей:
 
 - `owner`
 - `executive`
@@ -73,70 +73,70 @@ Recommended role classes:
 - `contractor`
 - `intern`
 
-These role classes are about authority and org structure.
+Эти классы ролей описывают полномочия и оргструктуру.
 
-They are distinct from:
+Они отличаются от:
 
-- desk tier
-- functional specialty
-- department
+- уровня стола
+- функциональной специализации
+- отдела
 
-### Owner
+### Owner (владелец)
 
-Characteristics:
+Характеристики:
 
-- human-controlled top authority
-- final signoff for high-impact actions
-- can override structure
+- высшие полномочия, под контролем человека
+- окончательное утверждение действий с большим влиянием
+- может обходить структуру
 
-### Executive
+### Executive (руководитель)
 
-Characteristics:
+Характеристики:
 
-- broad office-level coordination
-- can set direction across teams
+- широкая координация на уровне всего офиса
+- может задавать направление для нескольких команд
 
-### Manager
+### Manager (менеджер)
 
-Characteristics:
+Характеристики:
 
-- owns a team or department lane
-- routes work
-- coordinates reviews and meetings
+- отвечает за команду или направление отдела
+- распределяет работу
+- координирует ревью и встречи
 
-### Lead
+### Lead (лид)
 
-Characteristics:
+Характеристики:
 
-- technical or functional authority inside a team
-- can delegate and review
+- техническая или функциональная власть внутри команды
+- может делегировать и проводить ревью
 
-### Member
+### Member (участник)
 
-Characteristics:
+Характеристики:
 
-- standard contributor role
-- executes work inside team scope
+- стандартная роль исполнителя
+- выполняет работу в рамках команды
 
-### Contractor
+### Contractor (подрядчик)
 
-Characteristics:
+Характеристики:
 
-- scoped contributor
-- limited authority outside assigned work
+- исполнитель с ограниченной зоной
+- ограниченные полномочия за пределами назначенной работы
 
-### Intern
+### Intern (стажёр)
 
-Characteristics:
+Характеристики:
 
-- low-authority contributor
-- learning / supervised mode
+- исполнитель с минимальными полномочиями
+- режим обучения / работы под надзором
 
-## Team Model
+## Модель команд
 
-Teams should be explicit groups, not only emergent behavior.
+Команды должны быть явными группами, а не только возникать из поведения.
 
-Suggested examples:
+Примеры:
 
 - Platform
 - Frontend
@@ -145,7 +145,7 @@ Suggested examples:
 - Ops
 - Design
 
-Suggested V1 shape:
+Предлагаемая форма для V1:
 
 ```ts
 type TeamId = string;
@@ -161,9 +161,9 @@ type OfficeTeam = {
 };
 ```
 
-## Hierarchy Model
+## Модель иерархии
 
-Suggested V1 shape:
+Предлагаемая форма для V1:
 
 ```ts
 type OfficeHierarchyRole =
@@ -188,166 +188,166 @@ type AgentHierarchyProfile = {
 };
 ```
 
-The exact flags can be derived from role later.
+Конкретные флаги позже можно выводить из роли.
 
-V1 can store them explicitly for clarity if needed.
+В V1 их можно при необходимости хранить явно — для наглядности.
 
-## Relationship To Desk Progression
+## Связь с прогрессией столов
 
-Desk progression expresses maturity and capability in a physical way.
+Прогрессия столов физически выражает зрелость и возможности агента.
 
-Hierarchy expresses authority and organizational position.
+Иерархия выражает полномочия и положение в организации.
 
-These should be related, but not identical.
+Эти вещи должны быть связаны, но не тождественны.
 
-Examples:
+Примеры:
 
-- a senior desk does not automatically make an agent a manager
-- a contractor may have a strong workstation but still limited authority
-- a lead may have more coordination authority than a senior member
+- старший стол не делает агента менеджером автоматически
+- у подрядчика может быть мощное рабочее место, но ограниченные полномочия
+- у лида может быть больше полномочий по координации, чем у старшего участника
 
-That separation matters.
+Это разделение важно.
 
-## Relationship To Departments
+## Связь с отделами
 
-Departments are organizational domains.
+Отделы — это организационные области.
 
-Examples:
+Примеры:
 
 - Engineering
 - QA
 - Research
 - Ops
 
-Teams live inside or alongside departments.
+Команды существуют внутри отделов или рядом с ними.
 
-Examples:
+Примеры:
 
 - Engineering -> Frontend Team
 - Engineering -> Platform Team
 - QA -> Release Team
 
-Hierarchy determines authority.
-Departments determine domain.
-Teams determine working group.
+Иерархия определяет полномочия.
+Отделы определяют область.
+Команды определяют рабочую группу.
 
-## Relationship To Meetings
+## Связь со встречами
 
-Hierarchy should affect meetings in practical ways.
+Иерархия должна влиять на встречи на практике.
 
-Examples:
+Примеры:
 
-- managers or leads can call planning meetings
-- review meetings may require a lead or manager present
-- interns may attend but not finalize decisions
-- executives may approve office-wide changes after summary
+- менеджеры или лиды могут созывать встречи по планированию
+- для встреч по ревью может требоваться присутствие лида или менеджера
+- стажёры могут присутствовать, но не принимать окончательных решений
+- руководители могут одобрять изменения на уровне всего офиса после сводки
 
-This gives meetings more structure without overcomplicating V1.
+Это придаёт встречам больше структуры, не усложняя V1.
 
-## Relationship To QA
+## Связь с QA
 
-Hierarchy should influence QA responsibility.
+Иерархия должна влиять на ответственность в QA.
 
-Examples:
+Примеры:
 
-- leads can review work
-- managers can route items into QA
-- members can request review
-- interns more often require review
-- owners/executives can override final readiness decisions when needed
+- лиды могут проверять работу
+- менеджеры могут направлять задачи в QA
+- участники могут запрашивать ревью
+- работа стажёров чаще требует ревью
+- владельцы и руководители при необходимости могут переопределять окончательные решения о готовности
 
-QA should remain operationally distinct, but authority should not be flat.
+QA должна оставаться отдельной с операционной точки зрения, но полномочия не должны быть плоскими.
 
-## Relationship To Bulletin Board / Whiteboard
+## Связь с доской объявлений и маркерной доской
 
-Hierarchy can shape information flow.
+Иерархия может определять поток информации.
 
-Examples:
+Примеры:
 
-- high-priority office announcements may come from leads/managers
-- planning whiteboards may identify team ownership
-- bulletin cards can show team and owner context
+- важные объявления для офиса могут исходить от лидов и менеджеров
+- на доске планирования может быть указано, какая команда отвечает за задачу
+- карточки на доске объявлений могут показывать команду и владельца
 
-Important:
+Важно:
 
-Do not hide information behind hierarchy.
+Не прячьте информацию за иерархией.
 
-Use hierarchy to improve clarity, not to make the office opaque.
+Используйте иерархию, чтобы сделать офис понятнее, а не непрозрачнее.
 
-## Delegation Model
+## Модель делегирования
 
-Hierarchy becomes most useful when it changes delegation behavior.
+Иерархия полезнее всего, когда она меняет поведение делегирования.
 
-Suggested operational rules:
+Предлагаемые рабочие правила:
 
-- owners, executives, managers, and leads can delegate
-- members can hand off but not broadly route work across the org
-- contractors delegate only within limited scope
-- interns usually cannot delegate except in restricted workflows
+- владельцы, руководители, менеджеры и лиды могут делегировать
+- участники могут передавать работу, но не распределять её широко по всей организации
+- подрядчики делегируют только в ограниченных рамках
+- стажёры, как правило, не могут делегировать, кроме специально ограниченных сценариев
 
-This should be represented both:
+Это должно отражаться:
 
-- in UI
-- in agent-facing behavior and constraints where appropriate
+- в интерфейсе
+- в поведении и ограничениях агентов, где это уместно
 
-## Visual Expression
+## Визуальное выражение
 
-Hierarchy should have visible but restrained expression in the office.
+У иерархии должно быть заметное, но сдержанное выражение в офисе.
 
-Examples:
+Примеры:
 
-- title/subtitle on agent nameplate
-- seat/desk placement
-- room proximity to planning areas
-- meeting table positioning
-- desk quality in combination with progression
+- должность/подзаголовок на табличке агента
+- расположение места/стола
+- близость к зонам планирования
+- место за столом переговоров
+- качество стола в сочетании с прогрессией
 
-The office should communicate structure without turning into a caricature.
+Офис должен передавать структуру, не превращаясь в карикатуру.
 
-## Human Interaction Model
+## Модель взаимодействия с человеком
 
-The human should be able to:
+Человек должен иметь возможность:
 
-- assign hierarchy role
-- assign team
-- set reporting line
-- move agents between teams
-- understand what organizational changes actually affect
+- назначать роль в иерархии
+- назначать команду
+- задавать линию подчинения
+- переводить агентов между командами
+- понимать, на что на самом деле влияют организационные изменения
 
-This should be editable and transparent.
+Всё это должно быть редактируемым и прозрачным.
 
-## Agent Interaction Model
+## Модель взаимодействия агентов
 
-Longer term, agents may:
+В перспективе агенты смогут:
 
-- recommend reassignments
-- request escalation
-- request specialist support from another team
-- suggest promotions or org changes
+- рекомендовать переназначения
+- запрашивать эскалацию
+- запрашивать помощь специалиста из другой команды
+- предлагать повышения или изменения в оргструктуре
 
-V1 does not need autonomous re-org behavior.
+В V1 автономная реорганизация не нужна.
 
-V1 should focus on:
+V1 должна сосредоточиться на:
 
-- clear structure
-- delegation paths
-- UI visibility
+- понятной структуре
+- путях делегирования
+- видимости в интерфейсе
 
-## V1 Scope
+## Объём V1
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- explicit hierarchy role per agent
-- explicit team membership
-- simple reporting line
-- visible title/subtitle
-- delegation and meeting authority rules at a lightweight level
+- явная роль в иерархии для каждого агента
+- явное членство в команде
+- простая линия подчинения
+- видимая должность/подзаголовок
+- правила полномочий для делегирования и встреч на лёгком уровне
 
-Keep V1 small enough that it improves office understanding immediately.
+V1 должна быть достаточно небольшой, чтобы сразу улучшить понимание офиса.
 
-## Storage Model
+## Модель хранения
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type OfficePreference = {
@@ -359,65 +359,65 @@ type OfficePreference = {
 };
 ```
 
-This keeps the feature local, backend-neutral, and easy to evolve.
+Так функция остаётся локальной, не зависит от бэкенда и легко развивается.
 
-## Out of Scope For V1
+## Вне рамок V1
 
-Do not include these initially:
+Поначалу не включайте:
 
-- automatic org chart optimization
-- political simulation
-- compensation/economy systems
-- punitive management mechanics
-- heavy workflow bureaucracy
+- автоматическую оптимизацию оргструктуры
+- симуляцию офисной политики
+- системы вознаграждения/экономики
+- карательные механики управления
+- тяжёлую бюрократию в процессах
 
-The system should clarify work, not create needless friction.
+Система должна прояснять работу, а не создавать лишнее трение.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define hierarchy profile and team schema.
-2. Add office-level persistence.
-3. Add UI for role/team assignment.
-4. Show titles/subtitles and team membership in office/agent UI.
-5. Apply lightweight authority rules to delegation and meeting actions.
+1. Определить схему профиля иерархии и команды.
+2. Добавить сохранение на уровне офиса.
+3. Добавить интерфейс для назначения роли/команды.
+4. Показывать должности/подзаголовки и членство в команде в интерфейсе офиса и агента.
+5. Применить лёгкие правила полномочий к делегированию и действиям со встречами.
 
-## Existing Code Seams
+## Существующие точки интеграции в коде
 
-This feature should likely align with:
+Эта функция, скорее всего, должна согласовываться с:
 
-- role/title flow already added for agents
-- desk progression data and UI
-- meeting room workflows
-- QA routing
-- bulletin board ownership/priority metadata
+- уже добавленным для агентов потоком ролей/должностей
+- данными и интерфейсом прогрессии столов
+- сценариями переговорной комнаты
+- маршрутизацией в QA
+- метаданными владельца/приоритета на доске объявлений
 
-This is important because hierarchy should unify other office systems rather than stand apart from them.
+Это важно, потому что иерархия должна объединять другие офисные системы, а не стоять особняком.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- the office can represent who leads and who belongs where
-- delegation and review paths are clearer
-- titles/teams are visible in the office
-- hierarchy affects at least a small set of real office behaviors
-- the system remains understandable and editable
+- офис может показать, кто руководит и кто где состоит
+- пути делегирования и ревью стали понятнее
+- должности/команды видны в офисе
+- иерархия влияет хотя бы на небольшой набор реальных действий в офисе
+- система остаётся понятной и редактируемой
 
-## Future Extensions
+## Будущие расширения
 
-Once V1 is stable, follow-up work can add:
+Когда V1 стабилизируется, можно добавить:
 
-- org chart views
-- department dashboards
-- automatic escalation paths
-- team-specific meeting rituals
-- richer approval chains
-- promotion recommendations
+- представления оргструктуры
+- дашборды отделов
+- автоматические пути эскалации
+- ритуалы встреч для отдельных команд
+- более сложные цепочки одобрения
+- рекомендации к повышению
 
-## Summary
+## Итог
 
-Hierarchy and teams should give Office3D a real organizational model.
+Иерархия и команды должны дать Office3D настоящую организационную модель.
 
-That model should support delegation, ownership, and coordination without losing the clarity and playfulness of the office metaphor.
+Эта модель должна поддерживать делегирование, ответственность и координацию, не теряя ясности и игривости офисной метафоры.

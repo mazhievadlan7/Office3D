@@ -1,111 +1,111 @@
-# Whiteboard Spec
+# Спецификация маркерной доски
 
-> Second concrete office-system feature for Office3D, designed to work alongside the bulletin board.
+> Вторая конкретная офисная система для Office3D, задуманная для работы в паре с доской объявлений.
 
-## Goal
+## Цель
 
-Add a whiteboard system inside the office for collaborative planning, meeting notes, and draft idea shaping.
+Добавить в офис маркерную доску для совместного планирования, заметок со встреч и проработки черновых идей.
 
-The whiteboard is where the office thinks.
+Маркерная доска — это место, где офис думает.
 
-The bulletin board is where the office posts what matters.
+Доска объявлений — это место, где офис публикует то, что важно.
 
-## Product Position
+## Место в продукте
 
-The whiteboard should not duplicate the bulletin board.
+Маркерная доска не должна дублировать доску объявлений.
 
-Use the distinction:
+Используйте такое разделение:
 
-- bulletin board = visible office signals
-- whiteboard = active drafting and planning surface
+- доска объявлений = заметные сигналы для офиса
+- маркерная доска = поверхность для активной работы над черновиками и планирования
 
-The whiteboard is best for:
+Маркерная доска лучше всего подходит для:
 
-- brainstorming
-- architecture outlines
-- meeting notes
-- draft task breakdowns
-- org planning
-- decision framing
+- мозговых штурмов
+- набросков архитектуры
+- заметок со встреч
+- черновой декомпозиции задач
+- планирования оргструктуры
+- формулировки решений
 
-It is not a Kanban replacement and not a polished document editor.
+Это не замена канбану и не редактор для готовых документов.
 
-## Why This Feature Matters
+## Почему эта функция важна
 
-The office already has:
+В офисе уже есть:
 
-- standup logic
-- meeting room space
-- whiteboard props in the retro office
-- task board and planning-adjacent systems
+- логика планёрок
+- переговорная комната
+- реквизит-доски в ретро-офисе
+- доска задач и системы, близкие к планированию
 
-What is missing is a shared in-world planning surface.
+Не хватает общей поверхности для планирования внутри мира.
 
-The whiteboard creates that surface.
+Маркерная доска создаёт такую поверхность.
 
-## Primary Use Cases
+## Основные сценарии использования
 
-### Meeting Notes
+### Заметки со встреч
 
-Examples:
+Примеры:
 
-- standup talking points
-- decisions made during a meeting
-- action items
-- unresolved questions
+- тезисы для планёрки
+- решения, принятые на встрече
+- пункты к исполнению
+- открытые вопросы
 
-### Brainstorming
+### Мозговой штурм
 
-Examples:
+Примеры:
 
-- possible approaches to a feature
-- tradeoff comparisons
-- rough implementation ideas
-- product concept sketches in text form
+- возможные подходы к функции
+- сравнение компромиссов
+- черновые идеи реализации
+- наброски продуктовых концепций в текстовом виде
 
-### Architecture Planning
+### Планирование архитектуры
 
-Examples:
+Примеры:
 
-- component breakdown
-- adapter/provider mapping
-- system boundaries
-- workflow diagrams in structured text
+- разбиение на компоненты
+- сопоставление адаптеров и поставщиков
+- границы систем
+- схемы процессов в виде структурированного текста
 
-### Org Planning
+### Планирование оргструктуры
 
-Examples:
+Примеры:
 
-- team structure drafts
-- role definitions
-- department responsibilities
-- handoff chains
+- черновики структуры команд
+- описания ролей
+- зоны ответственности отделов
+- цепочки передачи работы
 
-### Session-to-Plan Bridge
+### Мост от сессии к плану
 
-Examples:
+Примеры:
 
-- summarize an agent conversation into a board section
-- turn standup outputs into grouped notes
-- capture a working draft before turning it into bulletin board items or tasks
+- свести разговор с агентом в раздел доски
+- превратить итоги планёрки в сгруппированные заметки
+- зафиксировать рабочий черновик, прежде чем превратить его в записи на доске объявлений или задачи
 
-## V1 Scope
+## Объём V1
 
-V1 should be structured, not freehand.
+V1 должна быть структурированной, а не рисованной от руки.
 
-That means:
+Это значит:
 
-- text blocks
-- sections
-- cards / note clusters
-- ordering
-- lightweight templates
+- текстовые блоки
+- разделы
+- карточки / группы заметок
+- упорядочивание
+- лёгкие шаблоны
 
-Do not start with arbitrary drawing tools.
+Не начинайте с инструментов для произвольного рисования.
 
-## Whiteboard Model
+## Модель маркерной доски
 
-Suggested V1 shape:
+Предлагаемая форма для V1:
 
 ```ts
 type WhiteboardBlockType =
@@ -144,29 +144,29 @@ type WhiteboardDocument = {
 };
 ```
 
-## V1 Interaction Model
+## Модель взаимодействия в V1
 
-V1 interactions:
+Действия в V1:
 
-- create whiteboard
-- rename whiteboard
-- add/edit/delete blocks
-- reorder blocks
-- collapse/expand groups
-- link a block to an agent, task, or session
-- archive whiteboard
-- duplicate whiteboard
+- создать доску
+- переименовать доску
+- добавить/изменить/удалить блоки
+- изменить порядок блоков
+- свернуть/развернуть группы
+- связать блок с агентом, задачей или сессией
+- отправить доску в архив
+- дублировать доску
 
-Optional but useful:
+Необязательно, но полезно:
 
-- convert a block into a bulletin-board card
-- convert a block into a task seed
+- превратить блок в карточку доски объявлений
+- превратить блок в заготовку задачи
 
-## Templates
+## Шаблоны
 
-Templates are important because they make the feature useful immediately.
+Шаблоны важны: благодаря им функция полезна сразу.
 
-Recommended V1 templates:
+Рекомендуемые шаблоны для V1:
 
 - `Meeting Notes`
 - `Standup Review`
@@ -174,103 +174,103 @@ Recommended V1 templates:
 - `Architecture Draft`
 - `Org Planning`
 
-### Example: Meeting Notes Template
+### Пример: шаблон «Заметки со встречи»
 
-Sections:
+Разделы:
 
-- attendees
-- current topic
-- decisions
-- blockers
-- next actions
+- участники
+- текущая тема
+- решения
+- блокеры
+- следующие шаги
 
-### Example: Planning Session Template
+### Пример: шаблон «Сессия планирования»
 
-Sections:
+Разделы:
 
-- problem
-- options
-- risks
-- chosen direction
-- tasks
+- проблема
+- варианты
+- риски
+- выбранное направление
+- задачи
 
-## Relationship To Existing Systems
+## Связь с существующими системами
 
-The whiteboard should integrate with what Office3D already has.
+Маркерная доска должна интегрироваться с тем, что уже есть в Office3D.
 
-### Standup
+### Планёрка
 
-The standup controller already exists.
+Контроллер планёрки уже существует.
 
-The whiteboard should support:
+Маркерная доска должна поддерживать:
 
-- auto-creating a meeting notes board for an active standup
-- writing participant summaries to blocks
-- collecting blockers and next actions into dedicated sections
+- автоматическое создание доски для заметок во время активной планёрки
+- запись сводок участников в блоки
+- сбор блокеров и следующих шагов в отдельные разделы
 
-### Bulletin Board
+### Доска объявлений
 
-The whiteboard should feed the bulletin board, not replace it.
+Маркерная доска должна наполнять доску объявлений, а не заменять её.
 
-Examples:
+Примеры:
 
-- convert a decision block into an announcement card
-- convert a blocker block into a blocker card
-- convert a next-action block into a handoff card
+- превратить блок решения в карточку объявления
+- превратить блок блокера в карточку блокера
+- превратить блок следующего шага в карточку передачи работы
 
-### Task Board / Kanban
+### Доска задач / канбан
 
-The whiteboard is where a plan is shaped before it becomes a tracked workflow.
+Маркерная доска — это место, где план складывается, прежде чем стать отслеживаемым процессом.
 
-Examples:
+Примеры:
 
-- rough task breakdown on whiteboard
-- selected action blocks converted into actual task records
-- blocked tasks reflected back to the bulletin board
+- черновая декомпозиция задач на маркерной доске
+- выбранные блоки действий превращаются в настоящие записи задач
+- заблокированные задачи отражаются обратно на доске объявлений
 
-### Company Builder / Org Planning
+### Конструктор компании / планирование оргструктуры
 
-The whiteboard is a natural fit for:
+Маркерная доска естественно подходит для:
 
-- team structure drafts
-- department planning
-- role relationship mapping
+- черновиков структуры команд
+- планирования отделов
+- схем связей между ролями
 
-This is especially useful before company-builder output becomes actual agents.
+Это особенно полезно до того, как результат конструктора компании превратится в настоящих агентов.
 
-## In-World UX
+## UX внутри мира
 
-The whiteboard should exist as a real office surface.
+Маркерная доска должна существовать как настоящая поверхность в офисе.
 
-Recommended forms:
+Рекомендуемые формы:
 
-- meeting-room whiteboard
-- wall-mounted planning board
-- design room / architecture board in future themes
+- маркерная доска в переговорной
+- настенная доска планирования
+- доска в дизайн-студии / архитектурная доска в будущих темах
 
-Behavior:
+Поведение:
 
-- clicking the board opens an immersive planning surface
-- active meetings can auto-focus or highlight the whiteboard
-- whiteboard state should feel like part of the room, not a random modal
+- щелчок по доске открывает иммерсивную поверхность планирования
+- во время активных встреч маркерная доска может автоматически оказываться в фокусе или подсвечиваться
+- состояние маркерной доски должно ощущаться частью комнаты, а не случайным модальным окном
 
-## Sidebar / Secondary Access
+## Боковая панель / дополнительный доступ
 
-The user should also be able to open the whiteboard from a panel or shortcut.
+Пользователь также должен иметь возможность открыть маркерную доску из панели или по ярлыку.
 
-Good options:
+Хорошие варианты:
 
-- HQ sidebar tab
-- meeting controls
-- standup panel
+- вкладка боковой панели HQ
+- элементы управления встречей
+- панель планёрки
 
-This is especially important when users want direct access without camera movement.
+Это особенно важно, когда пользователю нужен прямой доступ без перемещения камеры.
 
-## Storage Model
+## Модель хранения
 
-Like the bulletin board, V1 should be persisted locally in office preferences.
+Как и доска объявлений, V1 должна сохраняться локально в настройках офиса.
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type OfficePreference = {
@@ -282,142 +282,142 @@ type OfficePreference = {
 };
 ```
 
-Storage should be keyed by gateway URL / office context so each connected office can keep its own working state.
+Ключом хранения должны быть URL шлюза / контекст офиса, чтобы каждый подключённый офис мог хранить своё рабочее состояние.
 
-## JSON Canvas Compatibility
+## Совместимость с JSON Canvas
 
-JSON Canvas is a good interoperability target for the whiteboard, but it should not define the product by itself.
+JSON Canvas — хорошая цель для совместимости маркерной доски, но он не должен сам по себе определять продукт.
 
-Recommended stance:
+Рекомендуемая позиция:
 
-- use Office3D's own whiteboard model as the primary domain model
-- support export/import to JSON Canvas as a compatibility layer
-- avoid turning the whiteboard into a generic infinite-canvas editor before the office workflow is proven
+- использовать собственную модель маркерной доски Office3D как основную доменную модель
+- поддерживать экспорт/импорт в JSON Canvas как слой совместимости
+- не превращать маркерную доску в универсальный редактор бесконечного холста, пока офисный сценарий работы не доказал свою ценность
 
-Why:
+Почему:
 
-- Office3D needs stronger links to meetings, bulletin board items, tasks, agents, and sessions
-- the whiteboard is a workflow surface, not only a canvas
-- structured planning is more important than unconstrained canvas freedom in V1
+- Office3D нужны более сильные связи со встречами, записями на доске объявлений, задачами, агентами и сессиями
+- маркерная доска — это поверхность для рабочего процесса, а не просто холст
+- в V1 структурированное планирование важнее неограниченной свободы холста
 
-Good use of JSON Canvas:
+Хорошее применение JSON Canvas:
 
-- export planning boards
-- import external draft canvases
-- map blocks/groups into JSON Canvas nodes
-- preserve links where practical
+- экспорт досок планирования
+- импорт внешних черновых холстов
+- отображение блоков/групп в узлы JSON Canvas
+- сохранение связей, где это практично
 
-Bad use of JSON Canvas:
+Плохое применение JSON Canvas:
 
-- letting a generic canvas model dictate the first product UX
-- replacing office-native planning behavior with a broad but shallow editor
+- позволить универсальной модели холста диктовать UX первой версии продукта
+- заменить родное для офиса поведение планирования широким, но поверхностным редактором
 
-## Authoring Rules
+## Правила авторства
 
-Allowed authors:
+Допустимые авторы:
 
-- human
-- agent
-- system
+- человек
+- агент
+- система
 
-Recommended behavior:
+Рекомендуемое поведение:
 
-- human edits are fully editable
-- system-generated sections should remain editable but visibly marked
-- agent-authored blocks should show provenance
+- правки человека полностью редактируемы
+- разделы, созданные системой, должны оставаться редактируемыми, но с видимой пометкой
+- блоки, созданные агентами, должны показывать своё происхождение
 
-That balance keeps the board useful without feeling rigid.
+Такой баланс сохраняет пользу доски и не делает её жёсткой.
 
-## V1 Automation
+## Автоматизация в V1
 
-Useful automations:
+Полезные автоматизации:
 
-- create a whiteboard automatically when a standup meeting starts
-- seed a whiteboard from a planning command or meeting ritual
-- let an agent summarize a session into selected board blocks
+- автоматически создавать маркерную доску при начале планёрки
+- заполнять маркерную доску по команде планирования или ритуалу встречи
+- позволять агенту сводить сессию в выбранные блоки доски
 
-Important:
+Важно:
 
-- automation should create structure, not spam content
-- the user should remain able to edit the board freely
+- автоматизация должна создавать структуру, а не засыпать доску контентом
+- пользователь должен сохранять возможность свободно редактировать доску
 
-## Visual Structure
+## Визуальная структура
 
-V1 should look like a structured planning board, not a blank canvas.
+V1 должна выглядеть как структурированная доска планирования, а не пустой холст.
 
-Possible presentation:
+Возможное оформление:
 
-- left column for sections
-- center canvas for block editing
-- right rail for linked agents/sessions/tasks
+- левая колонка для разделов
+- центральный холст для редактирования блоков
+- правая панель для связанных агентов/сессий/задач
 
-Or:
+Или:
 
-- grouped lanes by section with text cards inside them
+- дорожки, сгруппированные по разделам, с текстовыми карточками внутри
 
-The design should prioritize clarity over novelty.
+Дизайн должен ставить ясность выше новизны.
 
-## Out of Scope For V1
+## Вне рамок V1
 
-Do not include these initially:
+Поначалу не включайте:
 
-- freehand drawing tools
-- multiplayer cursor presence
-- arbitrary shapes/connectors
-- full diagramming toolkit
-- external document sync
-- rich media embedding
-- advanced permissions by department
+- инструменты рисования от руки
+- отображение курсоров других участников
+- произвольные фигуры/соединители
+- полноценный набор для построения диаграмм
+- синхронизацию с внешними документами
+- встраивание мультимедиа
+- расширенные права доступа по отделам
 
-Those can come later if the structured board proves valuable.
+Всё это может появиться позже, если структурированная доска докажет свою ценность.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define whiteboard document and block schema.
-2. Add office preference persistence.
-3. Build a simple whiteboard panel UI with templates.
-4. Connect the in-world whiteboard object to open the panel.
-5. Add standup seeding / meeting integration.
-6. Add conversions into bulletin-board cards and task seeds.
+1. Определить схему документа и блоков маркерной доски.
+2. Добавить сохранение в настройках офиса.
+3. Сделать простую панель маркерной доски с шаблонами.
+4. Связать объект маркерной доски в мире с открытием панели.
+5. Добавить заполнение по итогам планёрки / интеграцию со встречами.
+6. Добавить превращение блоков в карточки доски объявлений и заготовки задач.
 
-## Existing Code Seams
+## Существующие точки интеграции в коде
 
-This feature should align with:
+Эта функция должна согласовываться с:
 
-- standup systems in `src/features/office/hooks/useOfficeStandupController.ts`
-- standup API routes under `src/app/api/office/standup`
-- retro office whiteboard objects and room interactions
-- office settings persistence
-- task board seeding concepts already present in office task flows
+- системами планёрки в `src/features/office/hooks/useOfficeStandupController.ts`
+- API-маршрутами планёрки в `src/app/api/office/standup`
+- объектами маркерной доски в ретро-офисе и взаимодействиями в комнатах
+- сохранением настроек офиса
+- идеями заготовок для доски задач, уже присутствующими в офисных сценариях работы с задачами
 
-This reduces implementation risk and keeps the feature tied to real office mechanics.
+Это снижает риски реализации и привязывает функцию к реальной механике офиса.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- the user can open a whiteboard from inside the office
-- a meeting or planning session can write structured notes to it
-- the board can link to agents, sessions, and tasks
-- users can turn whiteboard outputs into bulletin board items or task seeds
-- the system works independently of OpenClaw-specific behavior
+- пользователь может открыть маркерную доску прямо в офисе
+- встреча или сессия планирования может записывать на неё структурированные заметки
+- доска может ссылаться на агентов, сессии и задачи
+- пользователи могут превращать результаты с маркерной доски в записи на доске объявлений или заготовки задач
+- система работает независимо от поведения, специфичного для OpenClaw
 
-## Future Extensions
+## Будущие расширения
 
-Once V1 is working, the whiteboard can evolve into:
+Когда V1 заработает, маркерная доска может развиться в:
 
-- diagram mode
-- relationship mapping
-- architecture views
-- agent collaboration sessions
-- department-specific whiteboards
-- persistent planning archives
-- richer visual theming by office skin
+- режим диаграмм
+- схемы связей
+- архитектурные представления
+- сессии совместной работы агентов
+- маркерные доски для отдельных отделов
+- постоянные архивы планирования
+- более богатое визуальное оформление в зависимости от скина офиса
 
-## Summary
+## Итог
 
-The whiteboard should become Office3D’s active planning surface.
+Маркерная доска должна стать активной поверхностью планирования в Office3D.
 
-It is where meetings, drafts, and rough plans take shape before they become tasks, bulletin items, or office decisions.
+Именно здесь встречи, черновики и наброски планов обретают форму, прежде чем стать задачами, записями на доске объявлений или решениями офиса.

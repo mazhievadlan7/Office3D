@@ -1,205 +1,205 @@
-# Multi-Floor Runtime Architecture
+# Архитектура многоэтажных сред выполнения
 
-> Architecture note for evolving Office3D from single-runtime switching into one persistent building with multiple runtime-backed floors.
+> Архитектурная заметка о том, как развить Office3D от переключения одной среды выполнения к одному постоянному зданию с несколькими этажами, каждый из которых работает на своей среде выполнения.
 
-## Goal
+## Цель
 
-Office3D should move from:
+Office3D должен перейти от:
 
-- one selected runtime at a time
+- одной выбранной среды выполнения за раз
 
-to:
+к:
 
-- one building shell
-- multiple floors
-- one runtime binding per floor
-- one or more floors active in the same session
-- persistent roster/state per floor
-- controlled cross-floor interaction
+- одной оболочке здания
+- нескольким этажам
+- одной привязке к среде выполнения на этаж
+- одному или нескольким этажам, активным в одной сессии
+- постоянному составу агентов и состоянию для каждого этажа
+- контролируемому взаимодействию между этажами
 
-This is the bridge from the merged runtime seam work into Office Systems.
+Это мост от слитой работы над швом сред выполнения к офисным системам (Office Systems).
 
-## Product Model
+## Продуктовая модель
 
-The user should think in places, not provider toggles.
+Пользователь должен думать в терминах мест, а не переключателей поставщиков.
 
-Examples:
+Примеры:
 
 - `Lobby`
-  - onboarding, demo, reception, visitor flow
+  - онбординг, демо, ресепшен, поток посетителей
 - `OpenClaw Floor`
-  - default upstream team
+  - основная команда на вышестоящем шлюзе
 - `Hermes Floor`
-  - supervisor / orchestration team
+  - команда супервизора / оркестрации
 - `Custom Floor`
-  - downstream/orchestrator/runtime experiments
+  - эксперименты с нижестоящими средами / оркестраторами / средами выполнения
 - `Training Floor`
-  - classrooms, auditorium, distillation labs, evals, coaching, simulations
+  - учебные классы, аудитория, лаборатории дистилляции, оценки, коучинг, симуляции
 - `Trader's Floor`
-  - event streams, signals, analyst desks, execution pits
+  - потоки событий, сигналы, столы аналитиков, торговые площадки
 - `Outside / Campus`
-  - stadium, events, unlockables, public scenes
+  - стадион, мероприятия, разблокируемый контент, публичные сцены
 
-Additional future departments:
+Дополнительные отделы в будущем:
 
 - `War Room`
-  - incident response, debugging, approvals, ops escalation
+  - реагирование на инциденты, отладка, одобрения, эскалация в эксплуатации
 - `R&D Lab`
-  - prompt experiments, model comparisons, benchmarks
+  - эксперименты с промптами, сравнение моделей, бенчмарки
 - `Legal / Compliance`
-  - permissions, policies, audit trails
+  - права доступа, политики, журналы аудита
 - `Studio / Broadcast Room`
-  - demos, presentations, voice/video outputs
+  - демо, презентации, голосовой и видеовывод
 - `Watercooler / Commons`
-  - intentional cross-agent cross-talk space
+  - специально отведённое место для общения агентов между собой
 
-## Core Principles
+## Основные принципы
 
-- One runtime per floor.
-- One shared building shell above all floors.
-- Floor state is persistent and local to that floor.
-- Building systems are shared and runtime-neutral.
-- Cross-floor coordination is explicit, not accidental.
-- The gateway/runtime remains the source of truth for runtime-owned data.
-- Floor switching owns the connection lifecycle for that floor.
+- Одна среда выполнения на этаж.
+- Одна общая оболочка здания над всеми этажами.
+- Состояние этажа постоянно и локально для этого этажа.
+- Системы здания общие и не зависят от среды выполнения.
+- Координация между этажами явная, а не случайная.
+- Шлюз / среда выполнения остаётся источником истины для данных, которыми владеет среда выполнения.
+- Переключение этажей управляет жизненным циклом подключения для этого этажа.
 
-## Why Floors
+## Почему этажи
 
-Floors solve several problems at once:
+Этажи решают сразу несколько задач:
 
-- they preserve backend neutrality
-- they prevent multi-runtime support from flattening into one undifferentiated roster
-- they make agent origin legible to the user
-- they let Office Systems map naturally onto place
-- they create a clean future path for cross-runtime coordination
+- сохраняют независимость от бэкенда
+- не дают поддержке нескольких сред выполнения схлопнуться в один неразличимый состав агентов
+- делают происхождение агента понятным пользователю
+- позволяют естественно привязать офисные системы к месту
+- открывают чистый путь к будущей координации между средами выполнения
 
-Instead of "choose one provider", the user can think:
+Вместо «выберите одного поставщика» пользователь может думать так:
 
-- OpenClaw is downstairs
-- Hermes is on the first floor
-- Custom is upstairs
-- Demo starts in the lobby
+- OpenClaw — внизу
+- Hermes — на первом этаже
+- Custom — наверху
+- Демо начинается в лобби
 
-## Building Layers
+## Слои здания
 
-### 1. Building Shell
+### 1. Оболочка здания
 
-Persistent across the whole app:
+Существует постоянно во всём приложении:
 
-- top-level navigation
-- player identity
-- building map / floor switcher
-- building-wide settings
-- shared event feed
-- shared progression/unlocks
-- common Office Systems surfaces
+- навигация верхнего уровня
+- личность игрока
+- карта здания / переключатель этажей
+- настройки всего здания
+- общая лента событий
+- общая прогрессия / разблокировки
+- общие интерфейсы офисных систем
 
-This layer should not depend on one runtime being selected.
+Этот слой не должен зависеть от того, выбрана ли какая-то среда выполнения.
 
-### 2. Floor Runtime Surface
+### 2. Поверхность среды выполнения этажа
 
-Owned per floor:
+Принадлежит каждому этажу:
 
-- provider binding
-- runtime profile and connection settings
-- connection status and error state
-- hydrated roster for that floor
-- floor-local room state
-- floor signage / presentation metadata
+- привязка к поставщику
+- профиль среды выполнения и настройки подключения
+- состояние подключения и ошибки
+- загруженный состав агентов этого этажа
+- локальное состояние комнат этажа
+- вывески этажа / метаданные оформления
 
-### 3. Shared Building Systems
+### 3. Общие системы здания
 
-Runtime-neutral systems that can reference one or many floors:
+Системы, не зависящие от среды выполнения, которые могут ссылаться на один или несколько этажей:
 
-- bulletin board
-- whiteboard
-- meeting rooms
-- QA systems
-- approvals
-- shared announcements
-- watercooler / commons
+- доска объявлений
+- маркерная доска
+- переговорные
+- системы QA
+- одобрения
+- общие объявления
+- кулер / общая зона
 
-### 4. Cross-Floor Coordination
+### 4. Координация между этажами
 
-Later-phase systems:
+Системы более поздних этапов:
 
-- cross-floor messaging
-- supervisor handoff chains
-- dispatch boards
-- agent encounter rules
-- multi-floor meetings
+- сообщения между этажами
+- цепочки передачи работы от супервизора
+- доски распределения задач
+- правила встреч агентов
+- встречи на нескольких этажах
 
-## Runtime Rules
+## Правила сред выполнения
 
-Each floor has exactly one runtime binding at a time.
+У каждого этажа в каждый момент ровно одна привязка к среде выполнения.
 
-Examples:
+Примеры:
 
 - `openclaw-ground`
-  - provider: `openclaw`
+  - поставщик: `openclaw`
 - `hermes-first`
-  - provider: `hermes`
+  - поставщик: `hermes`
 - `custom-second`
-  - provider: `custom`
+  - поставщик: `custom`
 - `demo-lobby`
-  - provider: `demo`
+  - поставщик: `demo`
 
-A floor can be:
+Этаж может быть:
 
-- configured but disconnected
-- connecting
-- connected
-- errored
+- настроен, но не подключён
+- в процессе подключения
+- подключён
+- в состоянии ошибки
 
-Multiple floors may be loaded in the same session, but they should not share runtime connection state.
+В одной сессии могут быть загружены несколько этажей, но у них не должно быть общего состояния подключения к среде выполнения.
 
-When the user switches to another runtime-backed floor:
+Когда пользователь переходит на другой этаж со своей средой выполнения:
 
-- the shell should keep the building mounted
-- the current runtime should disconnect if the target floor uses a different transport
-- the next floor should connect using that floor's saved runtime profile
-- the floor label should not get ahead of the actual runtime handoff
-- reconnect churn should collapse into one transition state instead of flashing through multiple disconnected/connecting states
+- оболочка должна оставлять здание смонтированным
+- текущая среда выполнения должна отключиться, если целевой этаж использует другой транспорт
+- следующий этаж должен подключиться с помощью сохранённого для него профиля среды выполнения
+- название этажа не должно опережать фактическую передачу среды выполнения
+- череда переподключений должна сворачиваться в одно переходное состояние, а не мелькать несколькими состояниями «отключено» / «подключение»
 
-## State Ownership
+## Владение состоянием
 
-### Runtime-owned
+### Принадлежит среде выполнения
 
-Still owned by the runtime/gateway:
+По-прежнему принадлежит среде выполнения / шлюзу:
 
-- agent records
-- sessions
-- approvals
-- runtime files
-- runtime event streams
+- записи агентов
+- сессии
+- одобрения
+- файлы среды выполнения
+- потоки событий среды выполнения
 
-### Studio-owned
+### Принадлежит Studio
 
-Local Office3D state should own:
+Локальное состояние Office3D должно включать:
 
-- floor registry
-- active floor
-- saved runtime profile per floor
-- last-known-good profile per floor
-- floor-local presentation preferences
-- building-level Office Systems state
+- реестр этажей
+- активный этаж
+- сохранённый профиль среды выполнения для каждого этажа
+- последний рабочий профиль для каждого этажа
+- локальные настройки оформления этажа
+- состояние офисных систем на уровне здания
 
-This follows the existing architecture boundary in [ARCHITECTURE.md](/c:/Users/G/Desktop/Builds/sigilnet/isolation/Office3D/ARCHITECTURE.md): Office3D should not become the system of record for runtime agent state.
+Это соответствует существующей архитектурной границе в [ARCHITECTURE.md](/c:/Users/G/Desktop/Builds/sigilnet/isolation/Office3D/ARCHITECTURE.md): Office3D не должен становиться системой учёта для состояния агентов среды выполнения.
 
-## Floor Registry
+## Реестр этажей
 
-The first concrete implementation step should be a floor registry.
+Первым конкретным шагом реализации должен стать реестр этажей.
 
-Required fields:
+Обязательные поля:
 
-- floor id
-- label
-- provider
-- zone / level kind
-- connection profile key
-- whether the floor is enabled
+- id этажа
+- название
+- поставщик
+- зона / тип уровня
+- ключ профиля подключения
+- включён ли этаж
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type FloorProvider = "openclaw" | "hermes" | "custom" | "demo";
@@ -223,19 +223,19 @@ type FloorDefinition = {
 };
 ```
 
-## Persistent Per-Floor Runtime State
+## Постоянное состояние среды выполнения для каждого этажа
 
-This should be the first real implementation slice after the doc.
+Это должен быть первый настоящий срез реализации после этого документа.
 
-Each floor needs persistent local state for:
+Каждому этажу нужно постоянное локальное состояние для:
 
-- selected runtime profile
-- last-known-good connection profile
-- connection status
-- recent connect error
-- last successful roster snapshot metadata
+- выбранного профиля среды выполнения
+- последнего рабочего профиля подключения
+- состояния подключения
+- последней ошибки подключения
+- метаданных последнего успешного снимка состава агентов
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type FloorRuntimeState = {
@@ -250,98 +250,98 @@ type FloorRuntimeState = {
 };
 ```
 
-Important rule:
+Важное правило:
 
-- floor-local runtime state should not be overwritten by switching to another floor
-- switching floors should not leave the previous runtime active under the next floor's label
+- переключение на другой этаж не должно перезаписывать локальное состояние среды выполнения этажа
+- переключение этажей не должно оставлять предыдущую среду выполнения активной под названием следующего этажа
 
-## PR Breakdown
+## Разбиение на пул-реквесты
 
-Office Systems should ship as a sequence of narrow PRs, not one long-running mega branch.
+Офисные системы следует выпускать последовательностью узких пул-реквестов, а не одной долгоживущей мега-веткой.
 
-Recommended slices:
+Рекомендуемые срезы:
 
 1. `office: add floor registry and canonical floor definitions`
-   - floor ids
-   - provider/kind definitions
-   - registry helpers
+   - id этажей
+   - определения поставщиков / типов
+   - вспомогательные функции реестра
 
 2. `office: persist per-floor runtime state`
-   - floor-local runtime profile binding
-   - connection status
-   - recent error
-   - last-known-good metadata
+   - локальная для этажа привязка профиля среды выполнения
+   - состояние подключения
+   - последняя ошибка
+   - метаданные последнего рабочего состояния
 
 3. `office: add per-floor roster hydration`
-   - one roster cache per floor
-   - runtime-neutral hydration entry points
+   - один кэш состава агентов на этаж
+   - точки входа загрузки, не зависящие от среды выполнения
 
 4. `office: add building shell floor switcher`
-   - active floor selection
-   - shell navigation
-   - floor-local presentation handoff
+   - выбор активного этажа
+   - навигация в оболочке
+   - передача локального оформления этажа
 
 5. `office: add cross-floor messaging primitives`
-   - explicit inter-floor message model
-   - supervisor handoff
-   - shared commons channels
+   - явная модель сообщений между этажами
+   - передача работы от супервизора
+   - каналы общей зоны
 
 6. `office: add higher-level Office Systems features`
-   - training
-   - trader's floor
-   - war room
-   - bulletin/meeting systems
+   - обучение
+   - торговый этаж
+   - штаб (war room)
+   - системы доски объявлений / встреч
 
 7. `office: integrate campus and specialized environments`
-   - stadium / outside campus
-   - specialized booths and labs
+   - стадион / кампус снаружи
+   - специализированные кабинки и лаборатории
 
-## Current Implementation Status
+## Текущее состояние реализации
 
-Implemented in the current Office Systems foundation slice:
+Реализовано в текущем базовом срезе офисных систем:
 
 - `1. floor registry and canonical floor definitions`
-  - canonical floor ids
-  - provider/kind definitions
-  - enabled-floor helpers
+  - канонические id этажей
+  - определения поставщиков / типов
+  - вспомогательные функции для включённых этажей
 - `2. persistent per-floor runtime state`
-  - persisted floor-local runtime profile binding
-  - connection status
-  - recent error state
-  - last-known-good metadata
+  - сохраняемая локальная для этажа привязка профиля среды выполнения
+  - состояние подключения
+  - состояние последней ошибки
+  - метаданные последнего рабочего состояния
 - `3. per-floor roster hydration`
-  - one roster cache per floor
-  - runtime-neutral hydration/state builders
-  - preserved runtime/identity/session display-name provenance
+  - один кэш состава агентов на этаж
+  - построители загрузки / состояния, не зависящие от среды выполнения
+  - сохранённое происхождение отображаемых имён из среды выполнения / личности / сессии
 - `4. building shell floor switcher`
-  - persisted `activeFloorId`
-  - enabled-floor switching helpers
-  - shell-level floor picker in OfficeScreen
-  - floor-local roster status surfaced in the shell
+  - сохраняемый `activeFloorId`
+  - вспомогательные функции для переключения между включёнными этажами
+  - выбор этажа на уровне оболочки в OfficeScreen
+  - состояние локального состава агентов этажа отображается в оболочке
 
-Explicitly deferred from this slice:
+Сознательно отложено из этого среза:
 
-- cross-floor messaging
-- supervisor handoff chains
-- shared commons/watercooler traffic
-- specialized floor systems like Training, Trader's Floor, and Campus gameplay
+- сообщения между этажами
+- цепочки передачи работы от супервизора
+- общий трафик общей зоны / кулера
+- специализированные системы этажей вроде Training, Trader's Floor и игрового процесса Campus
 
-Reason for deferral:
+Причина откладывания:
 
-- cross-agent messaging primitives should be tightened first
-- then cross-floor messaging can build on a cleaner interaction model
+- сначала нужно доработать примитивы сообщений между агентами
+- после этого сообщения между этажами можно будет построить на более чистой модели взаимодействия
 
-## Multi-Provider Roster Loading
+## Загрузка состава агентов от нескольких поставщиков
 
-Today Office3D mostly thinks in one active roster.
+Сейчас Office3D в основном мыслит одним активным составом агентов.
 
-The next model should be:
+Следующая модель должна быть такой:
 
-- one roster per floor
-- one hydration pipeline per floor
-- one selected active floor in the UI
+- один состав агентов на этаж
+- один конвейер загрузки на этаж
+- один выбранный активный этаж в интерфейсе
 
-Suggested shape:
+Предлагаемая форма:
 
 ```ts
 type FloorRosterEntry = {
@@ -361,46 +361,46 @@ type FloorRosterState = {
 };
 ```
 
-This matches recent runtime work:
+Это согласуется с недавней работой над средами выполнения:
 
-- preserve useful runtime and identity metadata
-- do not throw away `runtimeName`, `identityName`, or `sessionDisplayName`
+- сохранять полезные метаданные среды выполнения и личности
+- не отбрасывать `runtimeName`, `identityName` или `sessionDisplayName`
 
-## Building Shell vs Floor Scene
+## Оболочка здания и сцена этажа
 
-The office should split into:
+Офис должен разделиться на:
 
-### Building shell
+### Оболочка здания
 
-- navigation
-- floor switcher
-- global overlays
-- building systems surfaces
+- навигация
+- переключатель этажей
+- глобальные оверлеи
+- интерфейсы систем здания
 
-### Floor scene
+### Сцена этажа
 
-- runtime-backed roster
-- room layout for that floor
-- floor-local devices and props
-- floor-local agent simulation
+- состав агентов, предоставляемый средой выполнения
+- планировка комнат этого этажа
+- локальные устройства и реквизит этажа
+- локальная симуляция агентов этажа
 
-That prevents reconnecting or swapping floors from feeling like the whole app is remounting.
+Так переподключение или смена этажа не будут ощущаться как перемонтирование всего приложения.
 
-## Cross-Floor Messaging Model
+## Модель сообщений между этажами
 
-Cross-floor coordination should be explicit.
+Координация между этажами должна быть явной.
 
-Do not infer it from raw runtime adjacency.
+Не выводите её из простого соседства сред выполнения.
 
-Recommended primitives:
+Рекомендуемые примитивы:
 
-- handoff board
-- floor inbox
-- supervisor dispatch
-- meeting invite
-- commons encounter
+- доска передачи работы
+- входящие этажа
+- распределение задач супервизором
+- приглашение на встречу
+- встреча в общей зоне
 
-Minimal event shape:
+Минимальная форма события:
 
 ```ts
 type CrossFloorMessage = {
@@ -416,165 +416,165 @@ type CrossFloorMessage = {
 };
 ```
 
-Important rule:
+Важное правило:
 
-- cross-floor messaging is a building system
-- it should not require editing runtime config files directly
+- сообщения между этажами — это система здания
+- они не должны требовать прямого редактирования конфигурационных файлов среды выполнения
 
-## Office Systems Fit
+## Место в офисных системах
 
-This architecture is meant to support the Office Systems roadmap, not compete with it.
+Эта архитектура должна поддерживать дорожную карту офисных систем, а не конкурировать с ней.
 
-Good examples:
+Удачные примеры:
 
 - `Lobby`
-  - onboarding, demo, reception
+  - онбординг, демо, ресепшен
 - `Training Floor`
-  - classrooms, evals, replay, distillation
+  - учебные классы, оценки, повторы, дистилляция
 - `Trader's Floor`
-  - feeds, signals, alerts, analyst desks
+  - ленты, сигналы, оповещения, столы аналитиков
 - `Outside / Campus`
-  - stadium and event spaces
+  - стадион и площадки для мероприятий
 
-The pending stadium PR [#88](https://github.com/mazhievadlan7/Office3D/pull/88) should be treated as a future `Outside / Campus` scene, not as a blocker for the core floor/runtime model.
+Ожидающий пул-реквест со стадионом [#88](https://github.com/mazhievadlan7/Office3D/pull/88) следует рассматривать как будущую сцену `Outside / Campus`, а не как блокер для основной модели этажей и сред выполнения.
 
-## Progression / Unlocks
+## Прогрессия / разблокировки
 
-Possible progression model:
+Возможная модель прогрессии:
 
-- first login
-  - lobby only
-- after first runtime setup
-  - OpenClaw floor
-- after multi-runtime setup
-  - Hermes floor
-- after usage thresholds
-  - Training floor
-- later milestones
-  - Trader's floor
-  - Campus / stadium
+- первый вход
+  - только лобби
+- после первой настройки среды выполнения
+  - этаж OpenClaw
+- после настройки нескольких сред выполнения
+  - этаж Hermes
+- после достижения порогов использования
+  - учебный этаж
+- на более поздних этапах
+  - торговый этаж
+  - кампус / стадион
 
-Possible unlock outputs:
+Что может разблокироваться:
 
-- floor access
-- room access
-- signage themes
-- team/floor colors
-- props and trophies
+- доступ к этажам
+- доступ к комнатам
+- темы вывесок
+- цвета команд / этажей
+- реквизит и трофеи
 
-## Recommended Implementation Order
+## Рекомендуемый порядок реализации
 
-1. Finalize multi-floor architecture doc
-2. Add floor registry model
-3. Add persistent per-floor runtime state
-4. Add multi-provider roster loading
-5. Add building shell + floor switcher
-6. Add cross-floor messaging primitives
-7. Build Office Systems on top
+1. Доработать документ об архитектуре многоэтажности
+2. Добавить модель реестра этажей
+3. Добавить постоянное состояние среды выполнения для каждого этажа
+4. Добавить загрузку состава агентов от нескольких поставщиков
+5. Добавить оболочку здания и переключатель этажей
+6. Добавить примитивы сообщений между этажами
+7. Строить офисные системы поверх этого
 
-This keeps floors foundational, and avoids building bulletin boards / meetings / QA on top of a single-runtime assumption that will just need to be broken later.
+Так этажи остаются фундаментом, и мы не строим доски объявлений / встречи / QA на предположении об одной среде выполнения, которое потом всё равно придётся ломать.
 
-## Concrete Delivery Plan
+## Конкретный план поставки
 
-### Phase 1: Floor Registry
+### Этап 1: реестр этажей
 
-Deliverables:
+Результаты:
 
-- define canonical `FloorId` and `FloorProvider` types
-- add a floor definition registry in Studio-owned state
-- mark which floors are enabled, core, support, simulation, or outside
-- add runtime profile linkage per floor
+- определить канонические типы `FloorId` и `FloorProvider`
+- добавить реестр определений этажей в состояние, которым владеет Studio
+- отметить, какие этажи включены и какие из них основные, вспомогательные, симуляционные или внешние
+- добавить привязку профиля среды выполнения к каждому этажу
 
-Acceptance criteria:
+Критерии приёмки:
 
-- Office3D can enumerate all known floors without connecting to any runtime
-- floor definitions are runtime-neutral and local-state only
-- the building shell can reference floor labels and kinds without depending on roster data
+- Office3D может перечислить все известные этажи, не подключаясь ни к одной среде выполнения
+- определения этажей не зависят от среды выполнения и хранятся только в локальном состоянии
+- оболочка здания может ссылаться на названия и типы этажей, не завися от данных состава агентов
 
-### Phase 2: Persistent Per-Floor Runtime State
+### Этап 2: постоянное состояние среды выполнения для каждого этажа
 
-Deliverables:
+Результаты:
 
-- store connection/runtime profile state per floor
-- persist `lastKnownGood` per floor
-- persist per-floor gateway URL/token profile linkage
-- preserve connection errors per floor instead of one global connection slot
+- хранить состояние подключения / профиля среды выполнения для каждого этажа
+- сохранять `lastKnownGood` для каждого этажа
+- сохранять привязку URL шлюза / токена профиля для каждого этажа
+- хранить ошибки подключения для каждого этажа, а не в одном глобальном слоте подключения
 
-Acceptance criteria:
+Критерии приёмки:
 
-- switching floors does not wipe another floor’s runtime state
-- reconnecting one floor does not reset another floor
-- Office3D can show disconnected/configured/connected/errored state per floor
-- moving from one runtime floor to another reconnects against the target runtime before the floor is treated as live
+- переключение этажей не стирает состояние среды выполнения другого этажа
+- переподключение одного этажа не сбрасывает другой
+- Office3D может показывать состояние «отключено» / «настроено» / «подключено» / «ошибка» для каждого этажа
+- при переходе с одного этажа со средой выполнения на другой переподключение к целевой среде выполнения происходит до того, как этаж будет считаться активным
 
-### Phase 3: Per-Floor Roster Hydration
+### Этап 3: загрузка состава агентов для каждого этажа
 
-Deliverables:
+Результаты:
 
-- hydrate one roster per floor
-- preserve `runtimeName`, `identityName`, and `sessionDisplayName` in roster entries
-- cache roster load metadata per floor
-- add floor-local selected agent state
+- загружать отдельный состав агентов для каждого этажа
+- сохранять `runtimeName`, `identityName` и `sessionDisplayName` в записях состава
+- кэшировать метаданные загрузки состава для каждого этажа
+- добавить локальное для этажа состояние выбранного агента
 
-Acceptance criteria:
+Критерии приёмки:
 
-- multiple floors can have rosters loaded in the same session
-- roster entries remain associated with their owning floor
-- the UI can distinguish local-floor vs other-floor agent origin cleanly
+- в одной сессии могут быть загружены составы нескольких этажей
+- записи состава остаются привязанными к своему этажу
+- интерфейс чётко различает, с текущего этажа агент или с другого
 
-### Phase 4: Building Shell + Floor Switcher
+### Этап 4: оболочка здания и переключатель этажей
 
-Deliverables:
+Результаты:
 
-- add building map / floor switcher UI
-- keep shell mounted while changing floors
-- render active floor scene without remounting global app state
-- make lobby and campus valid destinations even before all rooms are implemented
+- добавить интерфейс карты здания / переключателя этажей
+- сохранять оболочку смонтированной при смене этажей
+- отрисовывать сцену активного этажа без перемонтирования глобального состояния приложения
+- сделать лобби и кампус допустимыми пунктами назначения ещё до того, как будут реализованы все комнаты
 
-Acceptance criteria:
+Критерии приёмки:
 
-- floor switching is UI-stateful, not route-destructive
-- the shell remains stable while floor scenes swap
-- disconnected floors remain visible as places, not absent data
-- runtime-backed floors enter through a transition/arrival flow, not by silently reusing the previous floor's live runtime
+- переключение этажей меняет состояние интерфейса, а не разрушает маршрут
+- оболочка остаётся стабильной, пока сцены этажей сменяются
+- отключённые этажи остаются видимыми как места, а не как отсутствующие данные
+- на этажи со средой выполнения попадают через переход / сцену прибытия, а не молча переиспользуя активную среду выполнения предыдущего этажа
 
-### Phase 5: Cross-Floor Coordination Primitives
+### Этап 5: примитивы координации между этажами
 
-Deliverables:
+Результаты:
 
-- define handoff board / floor inbox / supervisor dispatch primitives
-- add message/event records with source floor and target floor
-- support explicit cross-floor meeting invites or requests
+- определить примитивы доски передачи работы / входящих этажа / распределения задач супервизором
+- добавить записи сообщений / событий с исходным и целевым этажом
+- поддержать явные приглашения на встречи или запросы между этажами
 
-Acceptance criteria:
+Критерии приёмки:
 
-- cross-floor actions are visible building events
-- routing is explicit, not inferred from hidden runtime config
-- Hermes supervising OpenClaw can be modeled as a building behavior
+- действия между этажами — это видимые события здания
+- маршрутизация явная, а не выводится из скрытой конфигурации среды выполнения
+- надзор Hermes за OpenClaw можно смоделировать как поведение здания
 
-### Phase 6: Office Systems on Top
+### Этап 6: офисные системы поверх
 
-Deliverables:
+Результаты:
 
-- lobby onboarding
-- training rooms
-- trader floor / specialized rooms
-- QA / meetings / bulletin systems
-- outside campus and stadium integration
+- онбординг в лобби
+- учебные комнаты
+- торговый этаж / специализированные комнаты
+- системы QA / встреч / доски объявлений
+- интеграция внешнего кампуса и стадиона
 
-Acceptance criteria:
+Критерии приёмки:
 
-- Office Systems are built against the building/floor model
-- room features do not assume single-runtime global state
-- specialized rooms remain optional extensions, not core architecture blockers
+- офисные системы строятся на модели здания и этажей
+- функции комнат не предполагают глобального состояния одной среды выполнения
+- специализированные комнаты остаются необязательными расширениями, а не блокерами основной архитектуры
 
-## Immediate Implementation Checklist
+## Чек-лист ближайшей реализации
 
-### Floor Registry Slice
+### Срез реестра этажей
 
-- add `FloorId`, `FloorProvider`, and `FloorDefinition` types
-- create a canonical floor registry module
-- include at least:
+- добавить типы `FloorId`, `FloorProvider` и `FloorDefinition`
+- создать модуль канонического реестра этажей
+- включить как минимум:
   - `lobby`
   - `openclaw-ground`
   - `hermes-first`
@@ -582,60 +582,60 @@ Acceptance criteria:
   - `training`
   - `traders-floor`
   - `campus`
-- decide where floor registry state lives inside Studio settings/local state
+- решить, где в настройках / локальном состоянии Studio будет храниться состояние реестра этажей
 
-### Per-Floor Runtime State Slice
+### Срез состояния среды выполнения для каждого этажа
 
-- define `FloorRuntimeState`
-- store runtime profile key per floor
-- store connection status per floor
-- store last-known-good timestamp per floor
-- store last error code/message per floor
+- определить `FloorRuntimeState`
+- хранить ключ профиля среды выполнения для каждого этажа
+- хранить состояние подключения для каждого этажа
+- хранить метку времени последнего рабочего состояния для каждого этажа
+- хранить код / сообщение последней ошибки для каждого этажа
 
-### Roster Slice
+### Срез состава агентов
 
-- define `FloorRosterEntry`
-- define `FloorRosterState`
-- preserve runtime/identity/session naming metadata
-- keep floor-local selected agent state
+- определить `FloorRosterEntry`
+- определить `FloorRosterState`
+- сохранять метаданные имён из среды выполнения / личности / сессии
+- хранить локальное для этажа состояние выбранного агента
 
-### UI Shell Slice
+### Срез оболочки интерфейса
 
-- add a floor switcher stub in the building shell
-- keep current office scene as one floor implementation first
-- do not attempt full cross-floor scene rendering in the first pass
+- добавить заглушку переключателя этажей в оболочку здания
+- для начала оставить текущую сцену офиса реализацией одного этажа
+- не пытаться реализовать полноценную отрисовку сцен нескольких этажей в первом проходе
 
-## Reference Branches
+## Эталонные ветки
 
-Use these as references, not merge targets for the foundational slice:
+Используйте их как образцы, а не как цели слияния для базового среза:
 
 - `upstream/soccer-stadium-outside-office`
-  - reference for `Outside / Campus`
-  - useful for environment/scene ideas
+  - образец для `Outside / Campus`
+  - полезна для идей окружения / сцен
 - `upstream/feature/crypto-booth`
-  - reference for specialized room/department patterns
-  - useful later for `Trader's Floor` or a market/crypto room
+  - образец паттернов специализированных комнат / отделов
+  - пригодится позже для `Trader's Floor` или рыночной / криптокомнаты
 
-The foundational multi-floor work should still be built from current `upstream/main`, not from either feature branch.
+Базовую работу над многоэтажностью всё равно следует строить от текущей `upstream/main`, а не от какой-либо из этих функциональных веток.
 
-## Immediate Non-Goals
+## Что не входит в ближайшие цели
 
-Not for the first slice:
+Не для первого среза:
 
-- full cross-floor conversation simulation
-- automatic agent movement across floors
-- deep unlock/economy system
-- multi-user tenancy
-- replacing the runtime as system of record
+- полная симуляция разговоров между этажами
+- автоматическое перемещение агентов между этажами
+- глубокая система разблокировок / экономики
+- многопользовательская изоляция арендаторов
+- замена среды выполнения в роли системы учёта
 
-## Summary
+## Итог
 
-Office3D should evolve into:
+Office3D должен развиться в:
 
-- one building shell
-- multiple runtime-backed floors
-- one roster per floor
-- persistent floor-local state
-- shared building-native Office Systems
+- одну оболочку здания
+- несколько этажей, работающих на своих средах выполнения
+- один состав агентов на этаж
+- постоянное локальное состояние этажа
+- общие офисные системы, встроенные в здание
 
-That gives the project a clean path from merged runtime support into real Office Systems without collapsing everything back into one flat provider toggle.
+Это даёт проекту чистый путь от слитой поддержки сред выполнения к настоящим офисным системам, не сводя всё обратно к одному плоскому переключателю поставщиков.
