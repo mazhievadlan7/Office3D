@@ -1,102 +1,102 @@
-# Bulletin Board Spec
+# Спецификация доски объявлений
 
-> First concrete office-system feature for Office3D.
+> Первая конкретная офисная система Office3D.
 
-## Goal
+## Цель
 
-Add a shared bulletin board inside the office that acts as the visible coordination surface for:
+Добавить в офис общую доску объявлений — видимую поверхность координации для:
 
-- goals
-- announcements
-- blockers
-- handoff notes
-- standup outcomes
-- lightweight task cards
+- целей
+- объявлений
+- блокеров
+- заметок о передаче работы
+- итогов планёрок
+- лёгких карточек задач
 
-This should be the first step toward making Office3D a real agent operations environment instead of only a gateway visualizer.
+Это должен быть первый шаг к тому, чтобы Office3D стал настоящей средой для работы агентов, а не только визуализатором шлюза.
 
-## Product Position
+## Позиционирование в продукте
 
-The bulletin board is not a replacement for the existing task board or Kanban views.
+Доска объявлений не заменяет существующую доску задач или канбан-представления.
 
-It is the office-native layer above them.
+Это слой над ними, органичный для офиса.
 
-Think of it as:
+Её можно представить как:
 
-- the most important things the office should see right now
-- the shared memory wall
-- the in-world coordination surface
+- самое важное, что офис должен видеть прямо сейчас
+- общую стену памяти
+- поверхность координации внутри мира офиса
 
-## Why This Feature First
+## Почему эта функция первая
 
-This is the best first office-system feature because it is:
+Это лучшая первая офисная система, потому что она:
 
-- easy to understand
-- visually natural in the office
-- useful even before deeper simulation systems exist
-- compatible with all backends
-- able to reuse existing task and standup signals
+- проста для понимания
+- естественно смотрится в офисе
+- полезна ещё до появления более глубоких систем симуляции
+- совместима со всеми бэкендами
+- может переиспользовать существующие сигналы задач и планёрок
 
-It also creates a clean landing zone for future systems:
+Она также создаёт удобную площадку для будущих систем:
 
-- whiteboards
-- meeting summaries
-- QA queues
-- hierarchy / department routing
-- shared office memory
+- маркерных досок
+- сводок встреч
+- очередей QA
+- иерархии и маршрутизации по отделам
+- общей памяти офиса
 
-## Primary Use Cases
+## Основные сценарии
 
-### Shared Goals
+### Общие цели
 
-Examples:
+Примеры:
 
-- "Ship Hermes adapter support"
-- "Fix production bug in standup flow"
-- "Prepare Friday release review"
+- «Выпустить поддержку адаптера Hermes»
+- «Исправить баг в процессе планёрки на проде»
+- «Подготовить ревью пятничного релиза»
 
-### Announcements
+### Объявления
 
-Examples:
+Примеры:
 
-- "Hermes provider smoke test passed"
-- "Build is blocked on QA"
-- "Meeting starts in 5 minutes"
+- «Дымовой тест поставщика Hermes пройден»
+- «Сборка заблокирована на QA»
+- «Встреча начнётся через 5 минут»
 
-### Blockers
+### Блокеры
 
-Examples:
+Примеры:
 
-- "Gateway auth broken on staging"
-- "Agent Alice waiting on review"
-- "No provider token configured"
+- «Авторизация шлюза сломана на стейджинге»
+- «Агент Alice ждёт ревью»
+- «Не настроен токен поставщика»
 
-### Handoffs
+### Передача работы
 
-Examples:
+Примеры:
 
-- "Backend done, hand off to QA"
-- "Needs design signoff"
-- "Waiting for owner approval"
+- «Бэкенд готов, передаём в QA»
+- «Нужно согласование дизайна»
+- «Ждём одобрения владельца»
 
-### Meeting Output
+### Итоги встреч
 
-Examples:
+Примеры:
 
-- standup summary
-- decisions made
-- next actions
-- active speaker queue
+- сводка планёрки
+- принятые решения
+- следующие действия
+- очередь выступающих
 
-## V1 Scope
+## Объём V1
 
-V1 should stay intentionally small.
+V1 должна намеренно оставаться небольшой.
 
-The board should support a few card types and simple interactions, not a full project-management suite.
+Доска должна поддерживать несколько типов карточек и простые действия, а не полноценный набор для управления проектами.
 
-### Card Types
+### Типы карточек
 
-Initial types:
+Начальные типы:
 
 - `goal`
 - `announcement`
@@ -104,9 +104,9 @@ Initial types:
 - `handoff`
 - `meeting_note`
 
-### Card Fields
+### Поля карточки
 
-Minimum shape:
+Минимальная форма:
 
 ```ts
 type BulletinBoardCardType =
@@ -136,120 +136,120 @@ type BulletinBoardCard = {
 };
 ```
 
-### Basic Interactions
+### Базовые действия
 
-V1 interactions:
+Действия в V1:
 
-- create card
-- edit card
-- pin/unpin card
-- archive/unarchive card
-- filter by type
-- filter by author
-- open linked session or linked agent
+- создать карточку
+- отредактировать карточку
+- закрепить или открепить карточку
+- отправить карточку в архив или вернуть из архива
+- фильтровать по типу
+- фильтровать по автору
+- открыть связанную сессию или связанного агента
 
-No drag-and-drop lane system is required for V1.
+Система колонок с перетаскиванием для V1 не нужна.
 
-## Visual Design
+## Визуальный дизайн
 
-The bulletin board should feel like a wall-mounted coordination surface inside the office.
+Доска объявлений должна ощущаться как настенная поверхность координации внутри офиса.
 
-Possible visual forms:
+Возможные визуальные формы:
 
-- cork board
-- notice board
-- sprint wall
-- pinboard with index cards / sticky notes
+- пробковая доска
+- доска объявлений
+- стена спринта
+- доска с приколотыми карточками или стикерами
 
-The in-world object should have:
+У объекта в мире офиса должны быть:
 
-- a visible prop in the retro office
-- a click target
-- an immersive detail panel when opened
+- видимый предмет в ретро-офисе
+- область для клика
+- полноэкранная панель с подробностями при открытии
 
-It should feel distinct from the existing Kanban board.
+Она должна заметно отличаться от существующей канбан-доски.
 
-Suggested difference:
+Предлагаемое различие:
 
-- Kanban = detailed task workflow
-- Bulletin board = office-wide signal surface
+- канбан = подробный процесс работы с задачами
+- доска объявлений = поверхность сигналов для всего офиса
 
-## Information Hierarchy
+## Иерархия информации
 
-At a glance, the board should answer:
+С первого взгляда доска должна отвечать на вопросы:
 
-1. What is the office trying to do?
-2. What is blocked?
-3. What changed recently?
-4. What needs a human to notice?
+1. Чего офис пытается добиться?
+2. Что заблокировано?
+3. Что недавно изменилось?
+4. На что должен обратить внимание человек?
 
-Recommended layout:
+Рекомендуемая раскладка:
 
-- pinned cards first
-- blockers prominently visible
-- recent announcements grouped together
-- meeting notes grouped separately
+- сначала закреплённые карточки
+- блокеры на видном месте
+- недавние объявления сгруппированы вместе
+- заметки о встречах сгруппированы отдельно
 
-## Integration Points
+## Точки интеграции
 
-The feature should hook into systems Office3D already has.
+Функция должна подключаться к системам, которые в Office3D уже есть.
 
-### Task Board / Kanban
+### Доска задач и канбан
 
-Use the bulletin board as a summary layer over the task board, not a duplicate.
+Используйте доску объявлений как слой сводки над доской задач, а не как дубликат.
 
-Examples:
+Примеры:
 
-- show a pinned goal card that links into Kanban
-- create blocker cards when a task enters a blocked state
-- create handoff cards when work moves between agents or departments
+- показывать закреплённую карточку цели со ссылкой на канбан
+- создавать карточки блокеров, когда задача переходит в заблокированное состояние
+- создавать карточки передачи работы, когда работа переходит между агентами или отделами
 
-### Standup System
+### Система планёрок
 
-The standup system already exists.
+Система планёрок уже существует.
 
-Use it to populate:
+Используйте её, чтобы наполнять доску:
 
-- current meeting announcement
-- summary card after standup completes
-- follow-up note cards for unresolved blockers
+- объявлением о текущей встрече
+- карточкой сводки после завершения планёрки
+- карточками последующих заметок о нерешённых блокерах
 
-### Agent Sessions
+### Сессии агентов
 
-Cards should be linkable to:
+Карточки должны связываться с:
 
-- an agent
-- a session key
-- a run or task where applicable
+- агентом
+- ключом сессии
+- запуском или задачей, где это применимо
 
-That lets the user jump from "office signal" to "underlying conversation or task".
+Так пользователь может перейти от «сигнала офиса» к «лежащей в основе переписке или задаче».
 
-### Runtime-Neutral Backends
+### Бэкенды, не зависящие от среды выполнения
 
-The board must not depend on OpenClaw-specific methods.
+Доска не должна зависеть от методов, специфичных для OpenClaw.
 
-It should operate off:
+Она должна работать на основе:
 
-- Office3D state
-- local persisted office data
-- optional provider metadata when available
+- состояния Office3D
+- локально сохранённых данных офиса
+- необязательных метаданных поставщика, когда они доступны
 
-That keeps it usable with:
+Благодаря этому она работает с:
 
 - OpenClaw
 - Hermes
 - Vera
-- Demo mode
+- демо-режимом
 
-## Storage Model
+## Модель хранения
 
-V1 storage should be local office data persisted through the same Studio settings path used by other office preferences.
+В V1 данные должны храниться локально как данные офиса и сохраняться тем же путём настроек Studio, что и другие настройки офиса.
 
-Suggested storage location:
+Предлагаемое место хранения:
 
-- studio office settings keyed by gateway URL
+- офисные настройки Studio с ключом по URL шлюза
 
-Example shape:
+Пример формы:
 
 ```ts
 type OfficePreference = {
@@ -260,134 +260,134 @@ type OfficePreference = {
 };
 ```
 
-Why:
+Почему так:
 
-- matches existing office preference patterns
-- backend-neutral
-- fast to implement
-- easy to migrate later
+- соответствует существующим шаблонам офисных настроек
+- не зависит от бэкенда
+- быстро реализуется
+- легко мигрировать позже
 
-## Authoring Rules
+## Правила авторства
 
-Cards may be created by:
+Карточки могут создавать:
 
-- human user
-- agent action
-- system automation
+- пользователь-человек
+- агент своим действием
+- системная автоматизация
 
-Recommended rules:
+Рекомендуемые правила:
 
-- human cards should always be editable
-- system cards can be archived but not freely mutated
-- agent cards should show authorship clearly
+- карточки человека всегда можно редактировать
+- системные карточки можно архивировать, но нельзя свободно изменять
+- у карточек агентов авторство должно быть хорошо видно
 
-That keeps provenance visible without overcomplicating the model.
+Так происхождение карточек остаётся видимым без усложнения модели.
 
-## V1 Automation
+## Автоматизация в V1
 
-Useful automations to add early:
+Полезные автоматизации, которые стоит добавить пораньше:
 
-- create a meeting note card after standup
-- create a blocker card from explicit blocked-state flows
-- create announcement cards for major office events
+- создавать карточку заметки о встрече после планёрки
+- создавать карточку блокера из явных процессов перехода в заблокированное состояние
+- создавать карточки объявлений о крупных событиях офиса
 
-Keep automation conservative.
+Автоматизация должна быть сдержанной.
 
-The board should not flood itself with noise.
+Доска не должна захлёбываться от шума.
 
-## UI Surfaces
+## Элементы интерфейса
 
-### In-World Object
+### Объект в мире офиса
 
-Add a dedicated bulletin board prop to the office layout.
+Добавить в планировку офиса отдельный предмет — доску объявлений.
 
-It should:
+Он должен:
 
-- be visible from the main office floor
-- support hover/click affordance
-- open an immersive board panel
+- быть виден с основного этажа офиса
+- реагировать на наведение и клик
+- открывать полноэкранную панель доски
 
-### Sidebar / Panel Access
+### Доступ через боковую панель или панели
 
-Also add a panel entry for cases where the user wants quick access without camera movement.
+Также добавить вход через панель на случай, когда пользователю нужен быстрый доступ без перемещения камеры.
 
-Possible placement:
+Возможное размещение:
 
-- HQ sidebar tab
-- office control panel
+- вкладка боковой панели штаба
+- панель управления офисом
 
-### Agent Interaction
+### Взаимодействие агентов
 
-Optional for V1:
+Необязательно для V1:
 
-- agents can approach the board during meetings or handoffs
-- pinned cards can be reflected in ambient office behavior
+- агенты могут подходить к доске во время встреч или передачи работы
+- закреплённые карточки могут отражаться в фоновом поведении офиса
 
-This is useful but not required for first delivery.
+Это полезно, но не обязательно для первой поставки.
 
-## Out of Scope For V1
+## Вне рамок V1
 
-Do not include these initially:
+На первом этапе не включать:
 
-- full Kanban replacement
-- freehand drawing
-- multiplayer collaborative editing
-- complicated permission lattice
-- department-specific boards
-- heavy simulation logic
-- arbitrary external integrations
+- полную замену канбана
+- рисование от руки
+- совместное редактирование несколькими пользователями
+- сложную решётку прав доступа
+- доски отдельных отделов
+- тяжёлую логику симуляции
+- произвольные внешние интеграции
 
-Those belong in later systems.
+Всё это относится к более поздним системам.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define board card types and storage schema.
-2. Add persisted board data to office settings.
-3. Add a simple board panel UI.
-4. Add in-world bulletin board prop and open interaction.
-5. Connect standup summary output.
-6. Add simple blocker / announcement automation.
+1. Определить типы карточек и схему хранения.
+2. Добавить сохраняемые данные доски в настройки офиса.
+3. Добавить простой интерфейс панели доски.
+4. Добавить в мир офиса предмет — доску объявлений — и действие открытия.
+5. Подключить вывод сводки планёрки.
+6. Добавить простую автоматизацию блокеров и объявлений.
 
-## Existing Code Seams
+## Точки стыковки с существующим кодом
 
-This feature should likely align with:
+Скорее всего, функция должна опираться на:
 
-- task board state and controller logic in `src/features/office/tasks`
-- standup flows in `src/features/office/hooks/useOfficeStandupController.ts`
-- office settings persistence
-- retro office object interaction in `src/features/retro-office/RetroOffice3D.tsx`
-- furniture/object definitions in `src/features/retro-office/objects`
+- состояние доски задач и логику контроллера в `src/features/office/tasks`
+- процессы планёрки в `src/features/office/hooks/useOfficeStandupController.ts`
+- сохранение настроек офиса
+- взаимодействие с объектами ретро-офиса в `src/features/retro-office/RetroOffice3D.tsx`
+- определения мебели и объектов в `src/features/retro-office/objects`
 
-This is intentional.
+Это сделано намеренно.
 
-The bulletin board should reuse existing office mechanics where possible.
+Доска объявлений должна по возможности переиспользовать существующие механики офиса.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- the user can open the board from inside the office
-- the board shows office-relevant cards, not just generic notes
-- standup or blocker information can appear on the board
-- cards can link back into agents/sessions/tasks
-- the system works with Hermes, OpenClaw, and demo mode
+- пользователь может открыть доску изнутри офиса
+- доска показывает карточки, важные для офиса, а не просто абстрактные заметки
+- на доске может появляться информация с планёрок или о блокерах
+- карточки могут ссылаться обратно на агентов, сессии и задачи
+- система работает с Hermes, OpenClaw и демо-режимом
 
-## Future Extensions
+## Дальнейшее развитие
 
-Once V1 is stable, this can grow into:
+Когда V1 стабилизируется, она может вырасти в:
 
-- department boards
-- QA wall
-- release wall
-- meeting room whiteboard handoff
-- agent-authored summaries
-- office-wide historical archive
-- team-specific bulletin surfaces
+- доски отделов
+- стену QA
+- стену релизов
+- передачу с маркерной доски переговорной
+- сводки, написанные агентами
+- исторический архив всего офиса
+- поверхности объявлений для отдельных команд
 
-## Summary
+## Итог
 
-The bulletin board should become the first shared memory surface inside Office3D.
+Доска объявлений должна стать первой поверхностью общей памяти внутри Office3D.
 
-It is the clearest next step toward making the office itself the product.
+Это самый очевидный следующий шаг к тому, чтобы продуктом стал сам офис.

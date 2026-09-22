@@ -1,70 +1,70 @@
-# Meeting Room Workflow Spec
+# Спецификация процессов переговорной
 
-> Third concrete office-system feature for Office3D, building on existing standup support and extending it into a generalized meeting workflow model.
+> Третья конкретная офисная система Office3D: опирается на существующую поддержку планёрок и расширяет её до обобщённой модели процессов встреч.
 
-## Goal
+## Цель
 
-Turn the meeting room from a visual location into an operational workflow surface.
+Превратить переговорную из визуальной локации в рабочую поверхность для процессов.
 
-The meeting room should become the place where agents:
+Переговорная должна стать местом, где агенты:
 
-- gather
-- present updates
-- coordinate plans
-- resolve blockers
-- record decisions
-- create follow-up actions
+- собираются
+- рассказывают о прогрессе
+- согласовывают планы
+- снимают блокеры
+- фиксируют решения
+- создают последующие действия
 
-## Product Position
+## Позиционирование в продукте
 
-The meeting room is not just a room.
+Переговорная — это не просто комната.
 
-It is a workflow type.
+Это тип процесса.
 
-That means the system should support:
+Значит, система должна поддерживать:
 
-- visible in-world gathering
-- structured meeting phases
-- meeting outputs that affect the rest of the office
+- видимый сбор участников в мире офиса
+- структурированные фазы встречи
+- результаты встреч, которые влияют на остальной офис
 
-It should connect naturally to:
+Она должна естественно связываться с:
 
-- standup
-- whiteboard
-- bulletin board
-- task board
-- QA/review systems later
+- планёркой
+- маркерной доской
+- доской объявлений
+- доской задач
+- системами QA и ревью в будущем
 
-## Existing Foundation
+## Существующая основа
 
-Office3D already has meaningful meeting-related pieces:
+В Office3D уже есть значимые части, связанные со встречами:
 
-- a meeting room in the office layout
-- standup meeting state and API routes
-- participant arrival handling
-- immersive standup board UI
-- agent movement into the meeting area
+- переговорная в планировке офиса
+- состояние планёрки и API-маршруты
+- обработка прибытия участников
+- полноэкранный интерфейс доски планёрки
+- перемещение агентов в зону встречи
 
-This spec should treat standup as the first implemented meeting type, not as a special one-off.
+Эта спецификация должна рассматривать планёрку как первый реализованный тип встречи, а не как разовое исключение.
 
-## Core Principle
+## Основной принцип
 
-Meetings should generate office state, not just temporary visuals.
+Встречи должны порождать состояние офиса, а не только временные визуальные эффекты.
 
-Every meeting should be able to produce:
+Каждая встреча должна уметь создавать:
 
-- summaries
-- decisions
-- blockers
-- next actions
-- linked whiteboard notes
-- linked bulletin board items
+- сводки
+- решения
+- блокеры
+- следующие действия
+- связанные заметки на маркерной доске
+- связанные карточки на доске объявлений
 
-That is what makes the office feel alive and useful.
+Именно это делает офис живым и полезным.
 
-## Meeting Types
+## Типы встреч
 
-Recommended initial types:
+Рекомендуемые начальные типы:
 
 - `standup`
 - `planning`
@@ -72,51 +72,51 @@ Recommended initial types:
 - `incident`
 - `sync`
 
-### Standup
+### Планёрка (`standup`)
 
-Purpose:
+Назначение:
 
-- what each agent is working on
-- blockers
-- immediate next step visibility
+- над чем работает каждый агент
+- блокеры
+- видимость ближайшего следующего шага
 
-### Planning
+### Планирование (`planning`)
 
-Purpose:
+Назначение:
 
-- define approach
-- compare options
-- assign next actions
+- определить подход
+- сравнить варианты
+- распределить следующие действия
 
-### Review
+### Ревью (`review`)
 
-Purpose:
+Назначение:
 
-- assess work completed
-- gather feedback
-- approve or reject next move
+- оценить выполненную работу
+- собрать обратную связь
+- одобрить или отклонить следующий шаг
 
-### Incident
+### Инцидент (`incident`)
 
-Purpose:
+Назначение:
 
-- coordinate under failure or urgency
-- assign responsibilities
-- capture current status and recovery path
+- координация при сбое или в срочной ситуации
+- распределение обязанностей
+- фиксация текущего статуса и пути восстановления
 
-### Sync
+### Синхронизация (`sync`)
 
-Purpose:
+Назначение:
 
-- lightweight multi-agent coordination
-- brief handoffs
-- cross-team visibility
+- лёгкая координация нескольких агентов
+- короткие передачи работы
+- видимость между командами
 
-## Workflow Model
+## Модель процесса
 
-Each meeting should have explicit phases.
+У каждой встречи должны быть явные фазы.
 
-Suggested phases:
+Предлагаемые фазы:
 
 - `scheduled`
 - `gathering`
@@ -125,37 +125,37 @@ Suggested phases:
 - `complete`
 - `archived`
 
-### Scheduled
+### Запланирована (`scheduled`)
 
-Meeting exists but has not started.
+Встреча существует, но ещё не началась.
 
-### Gathering
+### Сбор (`gathering`)
 
-Agents are walking to the meeting room or otherwise being assembled.
+Агенты идут в переговорную или собираются иным способом.
 
-### In Progress
+### Идёт (`in_progress`)
 
-Updates are being presented, questions asked, and information collected.
+Участники рассказывают о прогрессе, задают вопросы, собирается информация.
 
-### Decision
+### Решение (`decision`)
 
-The meeting is converging:
+Встреча подходит к итогам:
 
-- decisions recorded
-- unresolved blockers identified
-- next actions prepared
+- решения записаны
+- нерешённые блокеры выявлены
+- следующие действия подготовлены
 
-### Complete
+### Завершена (`complete`)
 
-The outputs are finalized and written back into office systems.
+Результаты окончательно оформлены и записаны обратно в офисные системы.
 
-### Archived
+### В архиве (`archived`)
 
-Meeting is preserved in history but no longer active.
+Встреча сохранена в истории, но больше не активна.
 
-## Suggested Data Model
+## Предлагаемая модель данных
 
-V1 generalized meeting shape:
+Обобщённая форма встречи в V1:
 
 ```ts
 type MeetingType =
@@ -207,184 +207,184 @@ type OfficeMeeting = {
 };
 ```
 
-## Relationship To Standup
+## Связь с планёркой
 
-The current standup system should become the first meeting implementation under this model.
+Текущая система планёрок должна стать первой реализацией встречи в рамках этой модели.
 
-That means:
+Это значит:
 
-- keep standup behavior working
-- preserve arrival and speaker sequencing
-- treat standup as a specialized meeting workflow
-- reuse the immersive standup screen as the first meeting immersive view
+- сохранить работоспособность планёрки
+- сохранить очерёдность прибытия и выступлений
+- рассматривать планёрку как специализированный процесс встречи
+- переиспользовать полноэкранный экран планёрки как первый полноэкранный вид встречи
 
-In practice:
+На практике:
 
-- standup = `MeetingType: standup`
-- existing standup cards become structured meeting inputs
-- standup completion should emit durable outputs into whiteboard and bulletin board systems
+- планёрка = `MeetingType: standup`
+- существующие карточки планёрки становятся структурированными входными данными встречи
+- по завершении планёрки долговременные результаты должны попадать в маркерную доску и доску объявлений
 
-## Whiteboard Integration
+## Интеграция с маркерной доской
 
-Every meaningful meeting should have a whiteboard relationship.
+У каждой значимой встречи должна быть связь с маркерной доской.
 
-Possible behaviors:
+Возможное поведение:
 
-- auto-create whiteboard document when meeting starts
-- write summary sections as the meeting progresses
-- capture blockers, decisions, and next actions into whiteboard blocks
+- автоматически создавать документ на маркерной доске при начале встречи
+- дописывать разделы сводки по ходу встречи
+- записывать блокеры, решения и следующие действия в блоки маркерной доски
 
-Suggested mapping:
+Предлагаемое соответствие:
 
-- meeting discussion -> whiteboard notes
-- decisions -> whiteboard decision blocks
-- next actions -> whiteboard action blocks
+- обсуждение на встрече -> заметки на маркерной доске
+- решения -> блоки решений на маркерной доске
+- следующие действия -> блоки действий на маркерной доске
 
-The whiteboard is the drafting surface during the meeting.
+Во время встречи маркерная доска служит черновиком.
 
-## Bulletin Board Integration
+## Интеграция с доской объявлений
 
-The bulletin board is the public output surface after the meeting.
+Доска объявлений — публичная поверхность для результатов после встречи.
 
-Suggested mapping:
+Предлагаемое соответствие:
 
-- important decision -> announcement card
-- blocker -> blocker card
-- action item with office-wide significance -> handoff card
-- meeting completion -> meeting note card
+- важное решение -> карточка объявления
+- блокер -> карточка блокера
+- пункт действий, значимый для всего офиса -> карточка передачи работы
+- завершение встречи -> карточка заметки о встрече
 
-The meeting room should feed the bulletin board, not bypass it.
+Переговорная должна наполнять доску объявлений, а не обходить её.
 
-## Task Board Integration
+## Интеграция с доской задач
 
-Meetings should be able to seed or update tasks.
+Встречи должны уметь создавать или обновлять задачи.
 
-Examples:
+Примеры:
 
-- planning meeting creates task candidates
-- review meeting marks work ready for QA
-- incident meeting creates urgent recovery tasks
+- встреча по планированию создаёт кандидатов в задачи
+- встреча-ревью помечает работу как готовую к QA
+- встреча по инциденту создаёт срочные задачи по восстановлению
 
-The task board remains the detailed execution layer.
+Доска задач остаётся подробным слоем исполнения.
 
-The meeting room creates and updates intent.
+Переговорная создаёт и обновляет намерения.
 
-## Human Interaction Model
+## Модель взаимодействия с человеком
 
-The human should be able to:
+Человек должен иметь возможность:
 
-- start a meeting
-- pick meeting type
-- pick participants
-- follow progress
-- intervene during the meeting
-- edit outcomes
-- confirm or reject generated next steps
+- начать встречу
+- выбрать тип встречи
+- выбрать участников
+- следить за ходом
+- вмешиваться во время встречи
+- редактировать итоги
+- подтверждать или отклонять сгенерированные следующие шаги
 
-The user should not lose control over the outputs just because the meeting is agent-driven.
+Пользователь не должен терять контроль над результатами только потому, что встречу ведут агенты.
 
-## Agent Interaction Model
+## Модель взаимодействия с агентами
 
-Agents should be able to:
+Агенты должны уметь:
 
-- gather into the meeting room
-- take speaking turns
-- surface blockers
-- suggest next steps
-- add whiteboard content
-- create meeting-derived outputs when allowed
+- собираться в переговорной
+- выступать по очереди
+- сообщать о блокерах
+- предлагать следующие шаги
+- добавлять содержимое на маркерную доску
+- создавать результаты встречи, когда это разрешено
 
-Longer term, hierarchy may affect who can:
+В долгосрочной перспективе иерархия может влиять на то, кто может:
 
-- call meetings
-- approve decisions
-- assign action items
+- созывать встречи
+- утверждать решения
+- назначать пункты действий
 
-## Visual / Spatial Behavior
+## Визуальное и пространственное поведение
 
-The meeting room should visibly change state during active meetings.
+Во время активной встречи переговорная должна заметно менять состояние.
 
-Possible signals:
+Возможные сигналы:
 
-- agents walk to seats
-- current speaker highlighting
-- board auto-opens or highlights
-- room status banner
-- meeting timer / phase indicator
+- агенты идут к своим местам
+- подсветка текущего докладчика
+- доска автоматически открывается или подсвечивается
+- баннер со статусом комнаты
+- таймер встречи или индикатор фазы
 
-The office should make it obvious that something coordinated is happening.
+Офис должен наглядно показывать, что происходит что-то скоординированное.
 
-## V1 Scope
+## Объём V1
 
-V1 should focus on turning standup into the first generalized meeting flow.
+V1 должна сосредоточиться на превращении планёрки в первый обобщённый процесс встречи.
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- meeting type abstraction for standup
-- whiteboard output on meeting completion
-- bulletin board output on meeting completion
-- simple action-item capture
-- immersive meeting screen improvements
+- абстракция типа встречи для планёрки
+- вывод на маркерную доску по завершении встречи
+- вывод на доску объявлений по завершении встречи
+- простая фиксация пунктов действий
+- улучшения полноэкранного экрана встречи
 
-Do not try to build all meeting types at once.
+Не пытайтесь построить все типы встреч сразу.
 
-## Out of Scope For V1
+## Вне рамок V1
 
-- voice/video simulation
-- arbitrary meeting transcripts
-- real-time collaborative editing by many actors at once
-- department-specific meeting policies
-- advanced approval chains
-- multiplayer human facilitation
+- симуляция голоса и видео
+- произвольные стенограммы встреч
+- совместное редактирование в реальном времени многими участниками одновременно
+- правила встреч для отдельных отделов
+- сложные цепочки одобрений
+- ведение встречи несколькими людьми одновременно
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Generalize standup data model into a broader meeting model.
-2. Keep standup UI working on top of that generalized model.
-3. Add whiteboard document creation/output for completed meetings.
-4. Add bulletin board output for decisions and blockers.
-5. Add action item seeding into task workflows.
-6. Introduce second meeting type, likely `planning`.
+1. Обобщить модель данных планёрки до более широкой модели встречи.
+2. Сохранить работу интерфейса планёрки поверх обобщённой модели.
+3. Добавить создание документа и вывод на маркерную доску для завершённых встреч.
+4. Добавить вывод решений и блокеров на доску объявлений.
+5. Добавить создание задач из пунктов действий.
+6. Ввести второй тип встречи — вероятно, `planning`.
 
-## Existing Code Seams
+## Точки стыковки с существующим кодом
 
-This work should likely align with:
+Скорее всего, работа должна опираться на:
 
 - `src/features/office/hooks/useOfficeStandupController.ts`
 - `src/features/office/screens/StandupImmersiveScreen.tsx`
 - `src/app/api/office/standup/*`
-- retro office meeting-room positioning and agent movement
-- office state persistence
+- позиционирование переговорной и перемещение агентов в ретро-офисе
+- сохранение состояния офиса
 
-This is important because Office3D already has the skeleton of a meeting system.
+Это важно, потому что в Office3D уже есть каркас системы встреч.
 
-The right path is to extend it, not replace it.
+Правильный путь — расширить его, а не заменить.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- standup remains functional
-- standup now behaves like the first generalized meeting workflow
-- meeting completion can write useful results into whiteboard and bulletin board systems
-- users can see meeting outcomes affect the rest of the office
-- the system remains backend-neutral
+- планёрка продолжает работать
+- планёрка теперь ведёт себя как первый обобщённый процесс встречи
+- по завершении встречи полезные результаты записываются в маркерную доску и доску объявлений
+- пользователи видят, как итоги встреч влияют на остальной офис
+- система остаётся независимой от бэкенда
 
-## Future Extensions
+## Дальнейшее развитие
 
-Once the workflow model is stable, follow-up work can add:
+Когда модель процесса стабилизируется, следующие этапы могут добавить:
 
-- planning meetings
-- review meetings
-- incident rooms
-- hierarchy-aware meeting permissions
-- department-specific meeting rituals
-- richer meeting summaries and archives
+- встречи по планированию
+- встречи-ревью
+- комнаты инцидентов
+- права на встречи с учётом иерархии
+- ритуалы встреч отдельных отделов
+- более подробные сводки и архивы встреч
 
-## Summary
+## Итог
 
-The meeting room should become the office’s coordination engine.
+Переговорная должна стать двигателем координации офиса.
 
-Standup is the starting point, but the real goal is a general workflow where meetings create durable plans, blockers, decisions, and next actions that shape the whole office.
+Планёрка — отправная точка, но настоящая цель — общий процесс, в котором встречи создают долговременные планы, блокеры, решения и следующие действия, определяющие работу всего офиса.

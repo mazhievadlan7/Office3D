@@ -1,74 +1,74 @@
-# Desk Progression Spec
+# Спецификация прогрессии столов
 
-> Fifth concrete office-system feature for Office3D, connecting visible office presence to role maturity, permissions, and capability growth.
+> Пятая конкретная офисная система Office3D: связывает видимое присутствие в офисе со зрелостью роли, правами и ростом возможностей.
 
-## Goal
+## Цель
 
-Add a desk progression system so agents visibly grow from limited office members into more capable contributors.
+Добавить систему прогрессии столов, чтобы агенты заметно вырастали из сотрудников с ограниченными возможностями в более способных участников работы.
 
-Desk progression should connect:
+Прогрессия столов должна связывать:
 
-- role maturity
-- workspace/tool access
-- permissions
-- office identity
-- visible progression in the environment
+- зрелость роли
+- доступ к рабочему пространству и инструментам
+- права
+- идентичность в офисе
+- видимый рост в окружении
 
-The goal is not just cosmetics.
+Цель — не просто косметика.
 
-The goal is to make office growth legible and meaningful.
+Цель — сделать рост офиса наглядным и осмысленным.
 
-## Product Position
+## Позиционирование в продукте
 
-Desk progression should be the physical expression of organizational state.
+Прогрессия столов должна быть физическим выражением организационного состояния.
 
-It answers questions like:
+Она отвечает на вопросы вроде:
 
-- is this agent an intern or a fully trusted contributor?
-- what tools can they use?
-- how much autonomy do they have?
-- how much context or responsibility should they carry?
+- этот агент — стажёр или полностью доверенный участник?
+- какими инструментами он может пользоваться?
+- сколько у него самостоятельности?
+- какой объём контекста или ответственности ему стоит нести?
 
-In other words:
+Иными словами:
 
-- desk progression = visible capability ladder
+- прогрессия столов = видимая лестница возможностей
 
-## Why This Feature Matters
+## Почему эта функция важна
 
-Without progression, all agents tend to feel flat.
+Без прогрессии все агенты кажутся одинаковыми.
 
-Desk progression creates:
+Прогрессия столов даёт:
 
-- visible hierarchy without requiring a complex org chart first
-- a natural path for permissions and access
-- stronger office storytelling
-- motivation for role specialization and promotion systems later
+- видимую иерархию без необходимости сначала строить сложную оргструктуру
+- естественный путь для прав и доступа
+- более выразительное повествование офиса
+- мотивацию для специализации ролей и систем повышения в будущем
 
-It also gives you a much cleaner bridge between:
+Кроме того, она даёт гораздо более понятный мост между:
 
-- abstract policy
-- physical office layout
-- agent identity
+- абстрактной политикой
+- физической планировкой офиса
+- идентичностью агента
 
-## Core Principle
+## Основной принцип
 
-Do not start with fake game stats.
+Не начинайте с надуманных игровых характеристик.
 
-Start with operational capability tiers that can later gain more playful flavor.
+Начните с рабочих уровней возможностей, которым позже можно придать более игровой оттенок.
 
-That means progression should first affect:
+Это значит, что прогрессия в первую очередь должна влиять на:
 
-- tool access
-- workspace access
-- review requirements
-- ability to spawn/delegate
-- context budget or workload tolerance
+- доступ к инструментам
+- доступ к рабочему пространству
+- требования к ревью
+- возможность создавать агентов и делегировать
+- бюджет контекста или допустимую нагрузку
 
-The visual office layer should reflect those operational differences.
+Визуальный слой офиса должен отражать эти рабочие различия.
 
-## Example Role Ladder
+## Пример лестницы ролей
 
-Recommended initial tiers:
+Рекомендуемые начальные уровни:
 
 - `intern`
 - `probation`
@@ -77,62 +77,62 @@ Recommended initial tiers:
 - `lead`
 - `contractor`
 
-These are examples, not hard-coded lore.
+Это примеры, а не жёстко заданный лор.
 
-### Intern
+### Стажёр (`intern`)
 
-Characteristics:
+Характеристики:
 
-- limited tools
-- limited workspace access
-- small or shared desk
-- requires close oversight
+- ограниченный набор инструментов
+- ограниченный доступ к рабочему пространству
+- маленький или общий стол
+- требуется плотный надзор
 
-### Probation
+### Испытательный срок (`probation`)
 
-Characteristics:
+Характеристики:
 
-- basic desk
-- restricted autonomy
-- still under review for sensitive actions
+- базовый стол
+- ограниченная самостоятельность
+- чувствительные действия всё ещё проходят ревью
 
-### Employee
+### Сотрудник (`employee`)
 
-Characteristics:
+Характеристики:
 
-- normal desk
-- normal task ownership
-- standard office access
+- обычный стол
+- обычное владение задачами
+- стандартный доступ к офису
 
-### Senior
+### Старший сотрудник (`senior`)
 
-Characteristics:
+Характеристики:
 
-- stronger autonomy
-- wider task scope
-- can mentor or review others
+- больше самостоятельности
+- более широкий круг задач
+- может наставлять других или проводить их ревью
 
-### Lead
+### Руководитель (`lead`)
 
-Characteristics:
+Характеристики:
 
-- can coordinate others
-- can trigger certain meetings
-- can manage or route work more broadly
+- может координировать других
+- может созывать определённые встречи
+- может шире управлять работой и распределять её
 
-### Contractor
+### Подрядчик (`contractor`)
 
-Characteristics:
+Характеристики:
 
-- useful specialist
-- limited long-term authority
-- constrained workspace and access model
+- полезный узкий специалист
+- ограниченные долгосрочные полномочия
+- ограниченное рабочее пространство и модель доступа
 
-## Suggested Capability Model
+## Предлагаемая модель возможностей
 
-V1 should describe progression in terms of clear capability flags.
+V1 должна описывать прогрессию через понятные флаги возможностей.
 
-Example:
+Пример:
 
 ```ts
 type DeskTier =
@@ -158,134 +158,134 @@ type DeskCapabilityProfile = {
 };
 ```
 
-The exact values can evolve, but the idea should remain:
+Конкретные значения могут меняться, но идея должна сохраняться:
 
-- tier drives visible access differences
+- уровень определяет видимые различия в доступе
 
-## Visual Expression
+## Визуальное выражение
 
-Each tier should map to a clear desk/environment feel.
+Каждый уровень должен соответствовать узнаваемому облику стола и окружения.
 
-Examples:
+Примеры:
 
-### Intern Desk
+### Стол стажёра
 
-- minimal desk
-- no dedicated computer or weaker setup
-- fewer personal objects
-- close to a shared area or support station
+- минимальный стол
+- нет собственного компьютера или он слабее
+- меньше личных вещей
+- рядом с общей зоной или стойкой поддержки
 
-### Probation Desk
+### Стол на испытательном сроке
 
-- basic computer
-- little customization
-- modest footprint
+- базовый компьютер
+- почти без персонализации
+- скромная площадь
 
-### Employee Desk
+### Стол сотрудника
 
-- normal workstation
-- standard office setup
-- stable identity in the room
+- обычное рабочее место
+- стандартное офисное оснащение
+- устойчивое присутствие в комнате
 
-### Senior Desk
+### Стол старшего сотрудника
 
-- expanded desk
-- more equipment / screens / references
-- visually established presence
+- расширенный стол
+- больше техники, экранов и справочных материалов
+- заметное, прочно утвердившееся присутствие
 
-### Lead Desk
+### Стол руководителя
 
-- premium workstation
-- visibility within the office
-- closer proximity to planning or meeting surfaces
+- рабочее место премиум-класса
+- хорошо заметно в офисе
+- ближе к зонам планирования и встреч
 
-### Contractor Desk
+### Стол подрядчика
 
-- temporary station
-- portable or isolated feel
-- clearly functional but not deeply embedded
+- временное рабочее место
+- ощущение переносного или обособленного места
+- явно рабочее, но не глубоко встроенное в офис
 
-## Relationship To Existing Systems
+## Связь с существующими системами
 
-Desk progression should integrate with real Office3D systems rather than sit beside them.
+Прогрессия столов должна интегрироваться с реальными системами Office3D, а не существовать рядом с ними.
 
-### Permissions
+### Права
 
-Office3D already has permission and approval surfaces.
+В Office3D уже есть интерфейсы прав и одобрений.
 
-Desk progression should act as a higher-level office policy layer that influences:
+Прогрессия столов должна работать как верхнеуровневый слой офисной политики, который влияет на:
 
-- what defaults an agent gets
-- whether sensitive actions need review
-- what tools or flows are emphasized
+- какие настройки по умолчанию получает агент
+- требуют ли чувствительные действия ревью
+- какие инструменты или процессы выходят на первый план
 
-Important:
+Важно:
 
-This does not need to replace existing permission logic.
+Это не обязательно должно заменять существующую логику прав.
 
-It should help explain and structure it.
+Прогрессия должна помогать объяснять и структурировать её.
 
-### Workspace Access
+### Доступ к рабочему пространству
 
-Agents already have real workspaces.
+У агентов уже есть настоящие рабочие пространства.
 
-Desk progression should help determine:
+Прогрессия столов должна помогать определять:
 
-- how much workspace freedom an agent gets
-- whether they operate in restricted or normal modes
-- whether some installs or edits require higher tiers
+- сколько свободы в рабочем пространстве получает агент
+- работает ли он в ограниченном или обычном режиме
+- требуют ли некоторые установки или правки более высокого уровня
 
-### QA Department
+### Отдел QA
 
-More mature agents can naturally interact differently with QA.
+Более зрелые агенты могут естественным образом взаимодействовать с QA иначе.
 
-Examples:
+Примеры:
 
-- interns more often route into review
-- seniors can participate in review
-- leads can mark certain work as ready for higher-level signoff
+- работа стажёров чаще уходит на ревью
+- старшие сотрудники могут участвовать в ревью
+- руководители могут помечать некоторые работы как готовые к согласованию на более высоком уровне
 
-### Meeting Room
+### Переговорная
 
-Meeting behavior can reflect progression.
+Поведение на встречах может отражать прогрессию.
 
-Examples:
+Примеры:
 
-- leads can call planning meetings
-- seniors can present or facilitate review
-- interns may attend but not control outcomes
+- руководители могут созывать встречи по планированию
+- старшие сотрудники могут выступать или вести ревью
+- стажёры могут присутствовать, но не определять итоги
 
-### Bulletin Board / Whiteboard
+### Доска объявлений и маркерная доска
 
-More mature tiers may:
+Более зрелые уровни могут:
 
-- author higher-priority office notes
-- post official announcements
-- create planning documents for others
+- писать офисные заметки с более высоким приоритетом
+- публиковать официальные объявления
+- создавать документы планирования для других
 
-Again, this should be treated as office behavior, not roleplay for its own sake.
+Опять же, это стоит рассматривать как поведение офиса, а не как ролевую игру ради самой игры.
 
-## Promotion / Progression Logic
+## Логика повышения и прогрессии
 
-V1 does not need automatic leveling.
+V1 не нужно автоматическое повышение уровня.
 
-Start with:
+Начните с:
 
-- manual assignment
-- explicit promotion/demotion
-- visible tier on the agent profile
+- ручного назначения
+- явного повышения и понижения
+- видимого уровня в профиле агента
 
-Later, progression can be influenced by:
+Позже на прогрессию смогут влиять:
 
-- successful task completion
-- review outcomes
-- reliability
-- blockers created vs resolved
-- trust level
+- успешное выполнение задач
+- результаты ревью
+- надёжность
+- соотношение созданных и снятых блокеров
+- уровень доверия
 
-## Suggested Data Model
+## Предлагаемая модель данных
 
-Example V1 shape:
+Пример формы в V1:
 
 ```ts
 type AgentDeskProfile = {
@@ -297,7 +297,7 @@ type AgentDeskProfile = {
 };
 ```
 
-Office-level data:
+Данные на уровне офиса:
 
 ```ts
 type OfficePreference = {
@@ -308,103 +308,103 @@ type OfficePreference = {
 };
 ```
 
-## Human Interaction Model
+## Модель взаимодействия с человеком
 
-The human should be able to:
+Человек должен иметь возможность:
 
-- view an agent’s desk tier
-- promote or demote an agent
-- reassign desk placement
-- understand what the tier changes operationally
+- видеть уровень стола агента
+- повышать или понижать агента
+- переназначать место за столом
+- понимать, что уровень меняет в работе
 
-This should be clear and reversible.
+Это должно быть понятно и обратимо.
 
-Do not hide progression behind mystery rules.
+Не прячьте прогрессию за загадочными правилами.
 
-## Agent Interaction Model
+## Модель взаимодействия с агентами
 
-Agents may later:
+Позже агенты смогут:
 
-- request promotion
-- request better tools
-- recommend another agent for a role upgrade
-- be restricted from actions based on tier
+- запрашивать повышение
+- запрашивать более мощные инструменты
+- рекомендовать другого агента для повышения роли
+- получать ограничения на действия в зависимости от уровня
 
-But V1 should not depend on autonomous progression requests.
+Но V1 не должна зависеть от самостоятельных запросов на повышение.
 
-## V1 Scope
+## Объём V1
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- define desk tiers
-- persist per-agent desk tier
-- show desk tier in UI
-- apply visual desk differentiation
-- connect tier to a small number of capability differences
+- определить уровни столов
+- сохранять уровень стола для каждого агента
+- показывать уровень стола в интерфейсе
+- визуально различать столы
+- связать уровень с небольшим числом различий в возможностях
 
-Good first capability differences:
+Хорошие первые различия в возможностях:
 
-- review / approval expectations
-- delegation rights
-- desk computer presence
+- ожидания по ревью и одобрениям
+- право делегировать
+- наличие компьютера на столе
 
-## Out of Scope For V1
+## Вне рамок V1
 
-Do not include these initially:
+На первом этапе не включать:
 
-- hidden progression XP systems
-- complex morale simulation
-- salary/economy systems
-- automatic performance scoring
-- punitive systems that make agents unusable
+- скрытые системы опыта (XP) для прогрессии
+- сложную симуляцию морального духа
+- системы зарплат и экономики
+- автоматическую оценку эффективности
+- карательные механики, которые делают агентов непригодными к работе
 
-Keep V1 understandable and operational.
+V1 должна оставаться понятной и практичной.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define desk tier model and profile storage.
-2. Add UI for viewing and assigning tier.
-3. Add retro-office visual differences by tier.
-4. Connect tier to a small capability profile.
-5. Surface tier in agent details and office presence.
+1. Определить модель уровней столов и хранение профилей.
+2. Добавить интерфейс для просмотра и назначения уровня.
+3. Добавить визуальные различия по уровням в ретро-офисе.
+4. Связать уровень с небольшим профилем возможностей.
+5. Показывать уровень в сведениях об агенте и в его присутствии в офисе.
 
-## Existing Code Seams
+## Точки стыковки с существующим кодом
 
-This feature should likely align with:
+Скорее всего, функция должна опираться на:
 
-- office desk assignment systems
-- agent settings / permissions UI
-- approval and policy surfaces
-- retro office desk rendering
-- office preferences persistence
+- системы закрепления столов в офисе
+- интерфейс настроек и прав агента
+- интерфейсы одобрений и политик
+- отрисовку столов в ретро-офисе
+- сохранение настроек офиса
 
-This matters because progression should feel native to the office, not bolted on.
+Это важно, потому что прогрессия должна ощущаться естественной частью офиса, а не прикрученной сбоку.
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- desk tier is visible and understandable
-- the office reflects agent maturity visually
-- tier differences have real operational meaning
-- the user can promote/demote intentionally
-- the system reinforces office identity instead of distracting from it
+- уровень стола виден и понятен
+- офис визуально отражает зрелость агентов
+- различия между уровнями имеют реальный рабочий смысл
+- пользователь может осознанно повышать и понижать агентов
+- система укрепляет идентичность офиса, а не отвлекает от неё
 
-## Future Extensions
+## Дальнейшее развитие
 
-Once V1 is stable, later systems can add:
+Когда V1 стабилизируется, последующие системы могут добавить:
 
-- promotion ceremonies or office events
-- hierarchy-aware desk placement
-- department-specific workstation styles
-- probation rules
-- contractor/offsite variants
-- context / workload tuning by tier
+- церемонии повышения или офисные события
+- размещение столов с учётом иерархии
+- стили рабочих мест для отдельных отделов
+- правила испытательного срока
+- варианты для подрядчиков и удалённой работы
+- настройку контекста и нагрузки по уровням
 
-## Summary
+## Итог
 
-Desk progression should turn office growth into something visible and operational.
+Прогрессия столов должна сделать рост офиса видимым и практически значимым.
 
-It is the cleanest way to connect hierarchy, permissions, workspace access, and office identity without jumping straight into heavy simulation.
+Это самый понятный способ связать иерархию, права, доступ к рабочему пространству и идентичность офиса, не переходя сразу к тяжёлой симуляции.

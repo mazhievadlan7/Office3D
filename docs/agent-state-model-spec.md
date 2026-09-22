@@ -1,68 +1,68 @@
-# Agent State Model Spec
+# Спецификация модели состояний агента
 
-> Seventh concrete office-system feature for Office3D, formalizing operational agent states before any deeper simulation or affective layer is introduced.
+> Седьмая конкретная офисная система Office3D: формализует рабочие состояния агентов до того, как появятся более глубокая симуляция или эмоциональный слой.
 
-## Goal
+## Цель
 
-Add a public, office-visible agent state model that explains how an agent is currently operating.
+Добавить публичную модель состояний агента, видимую в офисе и объясняющую, в каком режиме агент сейчас работает.
 
-The state model should answer:
+Модель состояний должна отвечать на вопросы:
 
-- what is this agent doing right now?
-- are they available?
-- are they blocked?
-- are they overloaded?
-- should the office route more work to them?
+- чем агент занят прямо сейчас?
+- свободен ли он?
+- заблокирован ли он?
+- перегружен ли он?
+- стоит ли офису направлять ему больше работы?
 
-This state model should be understandable to users and stable across backends.
+Модель должна быть понятна пользователям и одинаково работать на разных бэкендах.
 
-## Core Principle
+## Основной принцип
 
-Start with operational states, not emotional roleplay.
+Начинать с рабочих состояний, а не с эмоциональной ролевой игры.
 
-That means the visible model should describe work conditions such as:
+Это значит, что видимая модель описывает условия работы, например:
 
-- focused
-- idle
-- blocked
-- overloaded
-- waiting
-- recovering
-- degraded
+- сосредоточен
+- свободен
+- заблокирован
+- перегружен
+- ожидает
+- восстанавливается
+- в ухудшенном режиме
 
-The office should show states that are useful for coordination.
+Офис должен показывать состояния, полезные для координации.
 
-Any richer or more proprietary internal signal stack can feed these states later, but should not be required to understand them.
+Позже эти состояния может питать любой более богатый или проприетарный набор внутренних сигналов, но для их понимания он не должен быть обязателен.
 
-## Why This Matters
+## Почему это важно
 
-Office3D already visualizes activity, presence, and meeting participation.
+Office3D уже визуализирует активность, присутствие и участие во встречах.
 
-What is still missing is a reliable office-wide language for work condition and agent load.
+Чего пока не хватает — надёжного общего для всего офиса языка, описывающего условия работы и нагрузку агентов.
 
-A proper state model would improve:
+Полноценная модель состояний улучшит:
 
-- delegation
-- meeting routing
-- desk progression meaning
-- team visibility
-- office atmosphere
+- делегирование
+- распределение участников встреч
+- смысл прогрессии столов
+- видимость работы команды
+- атмосферу офиса
 
-It also gives a clean place for future internal state systems to map into.
+Кроме того, она даёт понятное место, куда будущие внутренние системы состояний смогут отображать свои данные.
 
-## Product Position
+## Позиционирование в продукте
 
-The agent state model is:
+Модель состояний агента:
 
-- a public coordination surface
-- not a hidden internal metric system
-- not a mood simulator in V1
+- публичная поверхность для координации
+- не скрытая система внутренних метрик
+- не симулятор настроения в V1
 
-It should help the user make decisions quickly.
+Она должна помогать пользователю быстро принимать решения.
 
-## Recommended Visible States
+## Рекомендуемые видимые состояния
 
-Suggested initial state set:
+Предлагаемый начальный набор состояний:
 
 - `idle`
 - `focused`
@@ -75,88 +75,88 @@ Suggested initial state set:
 - `meeting`
 - `error`
 
-### Idle
+### Свободен (`idle`)
 
-The agent is available and not actively engaged in a task.
+Агент доступен и не занят активной задачей.
 
-### Focused
+### Сосредоточен (`focused`)
 
-The agent is actively working and should not be interrupted casually.
+Агент активно работает, и его не стоит отвлекать без веской причины.
 
-### Working
+### Работает (`working`)
 
-The agent is doing normal active work without special load concerns.
+Агент выполняет обычную активную работу без особых проблем с нагрузкой.
 
-### Waiting
+### Ожидает (`waiting`)
 
-The agent is paused on a dependency, approval, or external result.
+Агент приостановлен в ожидании зависимости, одобрения или внешнего результата.
 
-### Blocked
+### Заблокирован (`blocked`)
 
-The agent cannot make forward progress because a required condition is missing.
+Агент не может продвигаться дальше, потому что не выполнено необходимое условие.
 
-### Overloaded
+### Перегружен (`overloaded`)
 
-The agent has too much work, too much context pressure, or too many active demands.
+У агента слишком много работы, слишком большое давление на контекст или слишком много одновременных запросов.
 
-### Recovering
+### Восстанавливается (`recovering`)
 
-The agent has recently completed intense work or a failure state and should stabilize before taking more on.
+Агент недавно завершил интенсивную работу или вышел из сбоя, и ему нужно стабилизироваться, прежде чем брать новое.
 
-### Degraded
+### В ухудшенном режиме (`degraded`)
 
-The agent is operational but impaired in quality, speed, or confidence.
+Агент работает, но с потерей качества, скорости или уверенности.
 
-### Meeting
+### На встрече (`meeting`)
 
-The agent is participating in a coordination workflow and is temporarily occupied there.
+Агент участвует в процессе координации и временно занят там.
 
-### Error
+### Ошибка (`error`)
 
-The agent encountered a concrete failure or unrecoverable problem and needs attention.
+Агент столкнулся с конкретным сбоем или неустранимой проблемой, и ему требуется внимание.
 
-## Relationship To Existing Presence
+## Связь с существующим присутствием
 
-Office3D already uses simpler presence states such as:
+Office3D уже использует более простые состояния присутствия, такие как:
 
-- idle
-- working
-- meeting
-- error
+- ожидание (idle)
+- работа (working)
+- встреча (meeting)
+- ошибка (error)
 
-This spec should extend that concept rather than replace it abruptly.
+Эта спецификация должна расширять эту концепцию, а не резко её заменять.
 
-The new states should be layered so older/fallback providers can still map into the simpler model.
+Новые состояния нужно выстроить слоями, чтобы старые и резервные поставщики по-прежнему могли отображаться на упрощённую модель.
 
-## Public vs Internal State
+## Публичное и внутреннее состояние
 
-This distinction matters.
+Это различие важно.
 
-### Public State
+### Публичное состояние
 
-What Office3D shows in the office:
+То, что Office3D показывает в офисе:
 
-- stable
-- understandable
-- backend-neutral
-- useful for coordination
+- стабильное
+- понятное
+- не зависящее от бэкенда
+- полезное для координации
 
-### Internal State
+### Внутреннее состояние
 
-What a stack like Vera might use internally:
+То, что стек вроде Vera может использовать внутри себя:
 
-- latent regime
-- coherence
-- confidence or control signals
-- advanced routing/load heuristics
+- латентный режим
+- согласованность (coherence)
+- сигналы уверенности или контроля
+- продвинутые эвристики маршрутизации и нагрузки
 
-Internal state can be richer.
+Внутреннее состояние может быть богаче.
 
-Public state should remain simpler and more durable.
+Публичное состояние должно оставаться проще и устойчивее.
 
-## Suggested Mapping Model
+## Предлагаемая модель отображения
 
-Recommended structure:
+Рекомендуемая структура:
 
 ```ts
 type OfficeAgentState =
@@ -191,190 +191,190 @@ type OfficeAgentStateSnapshot = {
 };
 ```
 
-The `reason` is important because it prevents the state from feeling arbitrary.
+Поле `reason` важно: благодаря ему состояние не выглядит произвольным.
 
-## V1 Derivation Rules
+## Правила вывода состояния в V1
 
-The first version should use straightforward observable signals.
+Первая версия должна опираться на простые наблюдаемые сигналы.
 
-Examples:
+Примеры:
 
-- active run -> `working` or `focused`
-- pending approval -> `waiting`
-- unresolved dependency or explicit blocker -> `blocked`
-- too many simultaneous demands -> `overloaded`
-- active standup/meeting -> `meeting`
-- recent hard failure -> `error` or `degraded`
-- no recent work -> `idle`
+- активный запуск -> `working` или `focused`
+- ожидающее одобрение -> `waiting`
+- неразрешённая зависимость или явный блокер -> `blocked`
+- слишком много одновременных запросов -> `overloaded`
+- идущая планёрка или встреча -> `meeting`
+- недавний серьёзный сбой -> `error` или `degraded`
+- нет недавней работы -> `idle`
 
-This gives immediate utility without needing a deeper cognitive model.
+Это даёт пользу сразу, без более глубокой когнитивной модели.
 
-## Relationship To Other Office Systems
+## Связь с другими офисными системами
 
-### Meetings
+### Встречи
 
-Meeting participation should temporarily dominate many other states.
+Участие во встрече должно временно перекрывать большинство других состояний.
 
-Example:
+Пример:
 
-- a focused agent who joins a standup becomes `meeting` while the meeting is active
+- сосредоточенный агент, который присоединился к планёрке, переходит в `meeting`, пока встреча идёт
 
-### Bulletin Board
+### Доска объявлений
 
-The bulletin board should be able to surface meaningful state changes.
+Доска объявлений должна уметь показывать значимые смены состояний.
 
-Examples:
+Примеры:
 
-- "Alice blocked waiting on approval"
-- "Bob overloaded during release push"
-- "Hermes degraded after provider failure"
+- «Alice заблокирована в ожидании одобрения»
+- «Bob перегружен во время подготовки релиза»
+- «Hermes в ухудшенном режиме после сбоя поставщика»
 
-### Whiteboard
+### Маркерная доска
 
-Planning workflows can use state to decide:
+Процессы планирования могут использовать состояние, чтобы решить:
 
-- who is available
-- who should not be interrupted
-- who is the right candidate for next actions
+- кто свободен
+- кого не стоит отвлекать
+- кто лучше всего подходит для следующих действий
 
-### QA Department
+### Отдел QA
 
-QA and state should influence each other.
+QA и состояние должны влиять друг на друга.
 
-Examples:
+Примеры:
 
-- repeated QA failures may push an agent or workflow into `degraded`
-- review-ready but approval-blocked work can show `waiting`
+- повторяющиеся провалы в QA могут перевести агента или процесс в `degraded`
+- работа, готовая к ревью, но заблокированная одобрением, может показывать `waiting`
 
-### Desk Progression / Hierarchy
+### Прогрессия столов и иерархия
 
-More mature roles may tolerate:
+Более зрелые роли могут выдерживать:
 
-- more context
-- more delegation
-- higher review authority
+- больше контекста
+- больше делегирования
+- более высокие полномочия на ревью
 
-But the visible state model should still be shared across all roles.
+Но видимая модель состояний всё равно должна быть общей для всех ролей.
 
-## Visual Expression
+## Визуальное выражение
 
-States should be visible in restrained ways.
+Состояния должны быть видны, но сдержанно.
 
-Examples:
+Примеры:
 
-- nameplate subtitle or badge
-- desk lighting/accent
-- movement pacing
-- speech bubble framing
-- office panel badges
+- подзаголовок или значок на табличке с именем
+- подсветка или акцент стола
+- темп движения
+- оформление облачка с репликой
+- значки на панелях офиса
 
-Examples by state:
+Примеры по состояниям:
 
-- `focused`: sharper or brighter work signal
-- `waiting`: subdued idle with pending marker
-- `blocked`: warning tone
-- `overloaded`: high activity / stress marker
-- `meeting`: meeting-specific signal
-- `degraded`: weakened signal, slower feel
+- `focused`: более чёткий или яркий сигнал работы
+- `waiting`: приглушённый простой с маркером ожидания
+- `blocked`: предупреждающий тон
+- `overloaded`: высокая активность или маркер стресса
+- `meeting`: особый сигнал встречи
+- `degraded`: ослабленный сигнал, ощущение замедленности
 
-Keep the visual language readable, not noisy.
+Визуальный язык должен оставаться читаемым, а не шумным.
 
-## Human Interaction Model
+## Модель взаимодействия с человеком
 
-The human should be able to:
+Человек должен иметь возможность:
 
-- see current state
-- understand why the state was chosen
-- optionally override state in limited cases
+- видеть текущее состояние
+- понимать, почему выбрано именно это состояние
+- в отдельных случаях вручную переопределять состояние
 
-The user should not have to guess what "degraded" or "blocked" means.
+Пользователю не должно приходиться гадать, что означает «в ухудшенном режиме» или «заблокирован».
 
-## Provider / Backend Considerations
+## Поставщики и бэкенды
 
-Different runtimes will expose different levels of insight.
+Разные среды выполнения дают разную глубину информации.
 
-That is fine.
+Это нормально.
 
-The public state model should support:
+Публичная модель состояний должна поддерживать:
 
-- direct provider-native state
-- derived state from Office3D activity
-- optional custom stack enrichments
+- состояние, которое напрямую сообщает поставщик
+- состояние, выведенное из активности в Office3D
+- необязательные обогащения от собственного стека
 
-This is especially important for:
+Это особенно важно для:
 
 - OpenClaw
 - Hermes
-- Demo mode
-- future custom providers
+- демо-режима
+- будущих собственных поставщиков
 
-## Vera / Coherence / Latent-Regime Compatibility
+## Совместимость с Vera, согласованностью и латентными режимами
 
-This spec intentionally leaves room for deeper internal models without exposing them directly.
+Спецификация намеренно оставляет место для более глубоких внутренних моделей, не раскрывая их напрямую.
 
-Good future pattern:
+Хороший шаблон на будущее:
 
-- internal stack computes richer latent regime / coherence / workload state
-- adapter maps that into public office states
-- Office3D shows the public office state plus optional note/reason
+- внутренний стек вычисляет более богатые латентный режим, согласованность и нагрузку
+- адаптер отображает их на публичные офисные состояния
+- Office3D показывает публичное офисное состояние и, при желании, заметку или причину
 
-This preserves:
+Это сохраняет:
 
-- clean UX
-- backend neutrality
-- proprietary implementation freedom
+- понятный UX
+- независимость от бэкенда
+- свободу проприетарной реализации
 
-## V1 Scope
+## Объём V1
 
-Recommended V1 scope:
+Рекомендуемый объём V1:
 
-- define expanded office agent state enum
-- derive state from observable office/runtime signals
-- surface state in UI and office visuals
-- show a short reason or note when helpful
+- определить расширенное перечисление офисных состояний агента
+- выводить состояние из наблюдаемых сигналов офиса и среды выполнения
+- показывать состояние в интерфейсе и визуале офиса
+- выводить короткую причину или заметку, когда это полезно
 
-Do not build the full simulation layer yet.
+Полный слой симуляции пока не строить.
 
-## Out of Scope For V1
+## Вне рамок V1
 
-- emotional simulation
-- arbitrary personality modeling
-- hidden scoring systems shown as fake moods
-- deep physiological metaphors
+- симуляция эмоций
+- произвольное моделирование личности
+- скрытые системы оценок, выдаваемые за настроение
+- глубокие физиологические метафоры
 
-Those can come later if they remain useful and readable.
+Всё это может появиться позже, если останется полезным и понятным.
 
-## Implementation Strategy
+## Стратегия реализации
 
-Recommended order:
+Рекомендуемый порядок:
 
-1. Define public state model and reason codes.
-2. Add derivation rules from current runtime/task/meeting signals.
-3. Update office visuals and badges.
-4. Add optional state note/reason surfaces.
-5. Leave room for future provider-specific enrichments.
+1. Определить публичную модель состояний и коды причин.
+2. Добавить правила вывода из текущих сигналов среды выполнения, задач и встреч.
+3. Обновить визуал офиса и значки.
+4. Добавить необязательные места для заметки или причины состояния.
+5. Оставить место для будущих обогащений под конкретных поставщиков.
 
-## Existing Code Seams
+## Точки стыковки с существующим кодом
 
-This should likely align with:
+Скорее всего, работа должна опираться на:
 
-- current office presence/state handling
-- runtime event bridge and latest-update logic
-- standup meeting state
-- task and approval signals
-- office visual systems
+- текущую обработку присутствия и состояния в офисе
+- мост событий среды выполнения и логику последних обновлений
+- состояние планёрки
+- сигналы задач и одобрений
+- визуальные системы офиса
 
-## Success Criteria
+## Критерии успеха
 
-V1 is successful if:
+V1 успешна, если:
 
-- users can tell what condition each agent is in
-- state changes help routing and coordination
-- the model works without any proprietary backend
-- the design still leaves room for richer future internal stacks
+- пользователи могут понять, в каком состоянии находится каждый агент
+- смены состояний помогают маршрутизации и координации
+- модель работает без какого-либо проприетарного бэкенда
+- дизайн по-прежнему оставляет место для более богатых внутренних стеков в будущем
 
-## Summary
+## Итог
 
-The agent state model should become the office’s shared language for work condition.
+Модель состояний агента должна стать общим языком офиса для описания условий работы.
 
-It should be simple enough to understand immediately, but structured enough to accept richer future inputs from advanced runtime stacks.
+Она должна быть достаточно простой, чтобы её понимали сразу, и достаточно структурированной, чтобы в будущем принимать более богатые данные от продвинутых стеков среды выполнения.

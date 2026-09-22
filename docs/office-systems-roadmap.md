@@ -1,349 +1,349 @@
-# Office Systems Roadmap
+# Дорожная карта офисных систем
 
-> Product roadmap for turning Office3D from a gateway visualizer into a living agent operations environment.
+> Продуктовая дорожная карта превращения Office3D из визуализатора шлюза в живую среду для работы агентов.
 
-## Core Direction
+## Основное направление
 
-Office3D should keep users inside the office.
+Office3D должен удерживать пользователей внутри офиса.
 
-That means companion tools should be brought into the space as rooms, surfaces, devices, and shared systems instead of pulling users out into separate interfaces.
+Это значит, что сопутствующие инструменты нужно встраивать в пространство как комнаты, поверхности, устройства и общие системы, а не уводить пользователей в отдельные интерфейсы.
 
-The guiding principle is:
+Руководящий принцип:
 
-- do not spawn Office3D inside another tool
-- bring the other tool into Office3D
+- не запускать Office3D внутри другого инструмента
+- встраивать другой инструмент в Office3D
 
-This is especially relevant for ideas like Moltbook. The better version is not "leave Office3D to use Moltbook". The better version is:
+Это особенно важно для идей вроде Moltbook. Лучший вариант — не «выйти из Office3D, чтобы воспользоваться Moltbook». Лучший вариант:
 
-- a bulletin board in the office
-- a whiteboard in meeting rooms
-- a desk computer app
-- a shared intranet terminal
-- a wall display in common spaces
+- доска объявлений в офисе
+- маркерная доска в переговорных
+- приложение на компьютере за столом
+- общий терминал интранета
+- настенный экран в общих зонах
 
-## Product Goal
+## Цель продукта
 
-Office3D should evolve into an agent operations environment with:
+Office3D должен развиться в среду для работы агентов, где есть:
 
-- visual presence
-- planning and task coordination
-- meetings and handoffs
-- review and QA
-- hierarchy and permissions
-- workplace state
-- progression and identity
+- визуальное присутствие
+- планирование и координация задач
+- встречи и передача работы
+- ревью и QA
+- иерархия и права
+- состояние рабочего места
+- прогрессия и идентичность
 
-The office should feel like a real place where work happens, not only a dashboard for remote agent calls.
+Офис должен ощущаться как настоящее место, где идёт работа, а не только как дашборд для удалённых вызовов агентов.
 
-## Design Principles
+## Принципы проектирования
 
-- Keep primary workflows in-world when possible.
-- Prefer physical metaphors that make the office easier to understand.
-- Separate real operational systems from cosmetic flavor.
-- Build useful features first, then layer on simulation and style.
-- Preserve backend neutrality so these systems work across OpenClaw, Hermes, Vera, and future providers.
+- По возможности держать основные процессы внутри мира офиса.
+- Предпочитать физические метафоры, которые делают офис понятнее.
+- Отделять настоящие рабочие системы от косметического оформления.
+- Сначала строить полезные функции, а потом добавлять поверх симуляцию и стиль.
+- Сохранять независимость от бэкенда, чтобы эти системы работали с OpenClaw, Hermes, Vera и будущими поставщиками.
 
-## V1: Useful Office Systems
+## V1: полезные офисные системы
 
-These should be the first systems because they add product value immediately and fit the existing office concept naturally.
+Эти системы должны идти первыми, потому что сразу добавляют ценность продукту и естественно вписываются в существующую концепцию офиса.
 
-### Bulletin Board
+### Доска объявлений
 
-Purpose:
+Назначение:
 
-- shared goals
-- current sprint priorities
-- blockers
-- announcements
-- handoff notes
+- общие цели
+- приоритеты текущего спринта
+- блокеры
+- объявления
+- заметки о передаче работы
 
-Possible behaviors:
+Возможное поведение:
 
-- sticky notes or task cards pinned by agents or humans
-- cards linked to sessions, agents, or tasks
-- quick visibility into what the office is trying to accomplish
+- стикеры или карточки задач, которые прикрепляют агенты или люди
+- карточки, связанные с сессиями, агентами или задачами
+- быстрый обзор того, чего офис пытается добиться
 
-Why it matters:
+Почему это важно:
 
-- low ambiguity
-- high utility
-- strong visual fit for the office
+- мало неоднозначности
+- высокая польза
+- хорошо вписывается в облик офиса
 
-### Whiteboard
+### Маркерная доска
 
-Purpose:
+Назначение:
 
-- brainstorming
-- architecture notes
-- meeting notes
-- rough plans
-- idea capture
+- мозговые штурмы
+- заметки об архитектуре
+- заметки со встреч
+- черновые планы
+- фиксация идей
 
-Possible behaviors:
+Возможное поведение:
 
-- text notes
-- grouped cards
-- simple sketches or structured plan areas
-- human and agent authored content
+- текстовые заметки
+- сгруппированные карточки
+- простые наброски или структурированные области планов
+- содержимое, созданное людьми и агентами
 
-Why it matters:
+Почему это важно:
 
-- good bridge between conversation and execution
-- natural place for planning artifacts
+- хороший мост между обсуждением и исполнением
+- естественное место для артефактов планирования
 
-### Meeting Room Workflows
+### Процессы переговорной
 
-Purpose:
+Назначение:
 
-- standups
-- planning
-- coordination
-- decision making
-- status reviews
+- планёрки
+- планирование
+- координация
+- принятие решений
+- обзоры статуса
 
-Possible behaviors:
+Возможное поведение:
 
-- gather selected agents into a meeting
-- produce summary, decisions, and next actions
-- write results to bulletin board or whiteboard
-- trigger structured follow-up tasks
+- собирать выбранных агентов на встречу
+- формировать сводку, решения и следующие действия
+- записывать результаты на доску объявлений или маркерную доску
+- запускать структурированные последующие задачи
 
-Why it matters:
+Почему это важно:
 
-- gives multi-agent coordination a visible home
-- makes the office feel operational instead of decorative
+- даёт координации нескольких агентов видимый дом
+- делает офис рабочим, а не декоративным
 
-### QA Department
+### Отдел QA
 
-Purpose:
+Назначение:
 
-- review
-- testing
-- bug triage
-- release readiness
+- ревью
+- тестирование
+- разбор багов
+- готовность к релизу
 
-Possible behaviors:
+Возможное поведение:
 
-- route tasks or runs to QA agents
-- visualize test queues
-- track failures and review outcomes
-- require QA signoff before release-style actions
+- направлять задачи или запуски агентам QA
+- визуализировать очереди тестов
+- отслеживать провалы и результаты ревью
+- требовать согласования QA перед действиями уровня релиза
 
-Why it matters:
+Почему это важно:
 
-- this is real product value, not only flavor
-- it matches how users already think about software teams
+- это настоящая ценность продукта, а не только оформление
+- это совпадает с тем, как пользователи уже представляют себе команды разработки
 
-### Desk / CPU Progression
+### Прогрессия столов и компьютеров
 
-Purpose:
+Назначение:
 
-- make role maturity visible
-- tie capability to office presence
+- сделать зрелость роли видимой
+- связать возможности с присутствием в офисе
 
-Possible behaviors:
+Возможное поведение:
 
-- interns start with minimal desk access
-- probationary agents have limited tools or workspace
-- promoted agents unlock desk computers, tools, or context budget
-- contractors get restricted environments
+- стажёры начинают с минимальным доступом к столу
+- у агентов на испытательном сроке ограничены инструменты или рабочее пространство
+- повышенные агенты открывают компьютеры на столах, инструменты или бюджет контекста
+- подрядчики получают ограниченную среду
 
-Why it matters:
+Почему это важно:
 
-- strong visual progression
-- easy to understand
-- creates room for permissions and capability systems later
+- выразительная визуальная прогрессия
+- легко понять
+- создаёт основу для будущих систем прав и возможностей
 
-## V2: Management Systems
+## V2: системы управления
 
-These systems add organizational structure once the basic office workflows are useful.
+Эти системы добавляют организационную структуру, когда базовые процессы офиса уже приносят пользу.
 
-### Hierarchy
+### Иерархия
 
-Possible levels:
+Возможные уровни:
 
-- human owner
-- CEO / lead orchestrator
-- managers / bosses
-- employees
-- contractors
-- interns
+- владелец-человек
+- CEO / ведущий оркестратор
+- менеджеры / начальники
+- сотрудники
+- подрядчики
+- стажёры
 
-Possible effects:
+Возможные эффекты:
 
-- delegation rights
-- approval authority
-- visibility across teams
-- access to spaces and tools
+- право делегировать
+- полномочия на одобрение
+- видимость между командами
+- доступ к пространствам и инструментам
 
-### Departments
+### Отделы
 
-Examples:
+Примеры:
 
-- Engineering
+- разработка
 - QA
-- Research
-- Ops
-- Design
-- Support
+- исследования
+- эксплуатация
+- дизайн
+- поддержка
 
-Possible effects:
+Возможные эффекты:
 
-- room ownership
-- task routing
-- dashboards by department
-- workload balancing
+- закрепление комнат за отделами
+- маршрутизация задач
+- дашборды по отделам
+- балансировка нагрузки
 
-### Permission Lanes
+### Линии прав
 
-Possible controls:
+Возможные ограничения:
 
-- context budget
-- tool access
-- file access
-- approval requirements
-- concurrency
-- agent spawning / dismissal rights
+- бюджет контекста
+- доступ к инструментам
+- доступ к файлам
+- требования к одобрению
+- параллельность
+- право создавать и отзывать агентов
 
-Why it matters:
+Почему это важно:
 
-- lets the office represent real operational constraints
-- reduces "all agents are identical" flatness
+- позволяет офису отражать реальные рабочие ограничения
+- снижает ощущение, что «все агенты одинаковые»
 
-### Office Rituals
+### Офисные ритуалы
 
-Examples:
+Примеры:
 
-- daily standup
-- sprint planning
-- review/demo
-- retrospective
-- incident response
+- ежедневная планёрка
+- планирование спринта
+- ревью / демо
+- ретроспектива
+- реагирование на инциденты
 
-Why it matters:
+Почему это важно:
 
-- converts routine coordination into visible office behavior
+- превращает рутинную координацию в видимое поведение офиса
 
-## V3: Simulation Systems
+## V3: системы симуляции
 
-These are the fun layers, but they should sit on top of useful product systems rather than replace them.
+Это самые весёлые слои, но они должны надстраиваться над полезными продуктовыми системами, а не заменять их.
 
-### Agent State Model
+### Модель состояний агента
 
-Avoid fake emotions first. Start with operational states:
+Сначала избегайте надуманных эмоций. Начните с рабочих состояний:
 
-- focused
-- idle
-- blocked
-- overloaded
-- waiting
-- cooling down
-- degraded
+- сосредоточен
+- свободен
+- заблокирован
+- перегружен
+- ожидает
+- остывает
+- в ухудшенном режиме
 
-Possible effects:
+Возможные эффекты:
 
-- response speed
-- delegation tendency
-- context budget
-- summarization pressure
-- task throughput
+- скорость ответа
+- склонность к делегированию
+- бюджет контекста
+- давление на суммаризацию
+- пропускная способность по задачам
 
-This can later evolve into a more playful "wellbeing" or "comfort" layer without losing technical meaning.
+Позже это может перерасти в более игровой слой «благополучия» или «комфорта» без потери технического смысла.
 
-### Workplace Culture
+### Культура рабочего места
 
-Examples:
+Примеры:
 
-- recognition
-- probation periods
-- promotions
-- competitions
-- events
+- признание заслуг
+- испытательные сроки
+- повышения
+- соревнования
+- события
 
-Use carefully:
+Применять осторожно:
 
-- good for flavor and identity
-- should not obscure the operational state of the system
+- хорошо для атмосферы и идентичности
+- не должно заслонять рабочее состояние системы
 
-### Shared Office Memory
+### Общая память офиса
 
-Examples:
+Примеры:
 
-- bulletin archives
-- meeting minutes
-- org notes
-- playbooks
-- team history
+- архивы объявлений
+- протоколы встреч
+- заметки об организации
+- плейбуки
+- история команды
 
-Why it matters:
+Почему это важно:
 
-- gives the office continuity across sessions
-- helps explain why teams get better over time
+- даёт офису непрерывность между сессиями
+- помогает объяснить, почему команды со временем становятся лучше
 
-## Moltbook Integration Direction
+## Направление интеграции с Moltbook
 
-Moltbook should be integrated into Office3D, not the other way around.
+Moltbook нужно встраивать в Office3D, а не наоборот.
 
-Best forms:
+Лучшие формы:
 
-- office bulletin board
-- intranet terminal
-- desk CPU app
-- wall monitor
-- break-room or lobby information surface
+- доска объявлений офиса
+- терминал интранета
+- приложение на компьютере за столом
+- настенный монитор
+- информационная поверхность в комнате отдыха или лобби
 
-Bad form:
+Плохая форма:
 
-- forcing users to leave Office3D for core team coordination workflows
+- заставлять пользователей покидать Office3D ради основных процессов координации команды
 
-The office should remain the primary interaction layer.
+Офис должен оставаться основным слоем взаимодействия.
 
-## Candidate Feature Order
+## Возможный порядок функций
 
-Recommended sequence:
+Рекомендуемая последовательность:
 
-1. Bulletin board
-2. Whiteboard
-3. Meeting room workflows
-4. QA department
-5. Desk / CPU progression
-6. Hierarchy and departments
-7. Agent operational state model
-8. Culture / sim systems
-9. Theme skins
+1. Доска объявлений
+2. Маркерная доска
+3. Процессы переговорной
+4. Отдел QA
+5. Прогрессия столов и компьютеров
+6. Иерархия и отделы
+7. Модель рабочих состояний агента
+8. Культура и системы симуляции
+9. Тематические скины
 
-## Theme / Skin Strategy
+## Стратегия тем и скинов
 
-Skins should come after the office has enough systems worth skinning.
+Скины должны появиться после того, как в офисе будет достаточно систем, которые стоит оформлять.
 
-Mechanics should stay consistent while art, labels, props, and room names vary.
+Механики должны оставаться неизменными, а графика, подписи, предметы и названия комнат — меняться.
 
-Possible theme packs:
+Возможные тематические наборы:
 
 - Office Space
 - The Office
 - Parks & Rec
 - The I.T. Crowd
 
-Examples:
+Примеры:
 
-- conference room becomes town hall, bullpen, annex, or ops room
-- bulletin board becomes notice board, incident wall, municipal board, or sprint wall
-- QA area becomes testing lab, audit desk, or review bullpen
+- переговорная превращается в ратушу, общий зал, пристройку или оперативный штаб
+- доска объявлений превращается в доску уведомлений, стену инцидентов, городскую доску или стену спринта
+- зона QA превращается в тестовую лабораторию, стол аудита или общий зал ревью
 
-## Immediate Next Deliverables
+## Ближайшие результаты
 
-If this roadmap is used for implementation planning, the best next concrete docs/tasks are:
+Если эта дорожная карта используется для планирования реализации, лучшие следующие конкретные документы и задачи:
 
-1. Bulletin board system spec
-2. Whiteboard interaction spec
-3. Meeting room workflow spec
-4. QA department workflow spec
+1. Спецификация системы доски объявлений
+2. Спецификация взаимодействия с маркерной доской
+3. Спецификация процессов переговорной
+4. Спецификация процессов отдела QA
 
-Those four would create the strongest foundation for future hierarchy, progression, and simulation layers.
+Эти четыре пункта заложат самую прочную основу для будущих слоёв иерархии, прогрессии и симуляции.
 
-## Summary
+## Итог
 
-Office3D gets stronger when the office becomes the place where work actually happens.
+Office3D становится сильнее, когда офис превращается в место, где действительно идёт работа.
 
-The best next step is not expanding external tooling around the office. It is bringing planning, meetings, reviews, and shared memory into the office itself.
+Лучший следующий шаг — не расширять внешние инструменты вокруг офиса, а перенести планирование, встречи, ревью и общую память в сам офис.
