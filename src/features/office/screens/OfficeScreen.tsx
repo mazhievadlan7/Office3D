@@ -3182,7 +3182,14 @@ export function OfficeScreen({
   // calling from should not be asking the provider for anything.
   const callFeed = useOfficeCallFeed({ enabled: callFeedOpen });
   const callFeedAgents = useMemo(
-    () => state.agents.map((agent) => ({ agentId: agent.agentId, name: agent.name })),
+    () =>
+      state.agents.map((agent) => ({
+        agentId: agent.agentId,
+        name: agent.name,
+        // The role is what the phone prompt is built from, so the agent says
+        // what it actually does rather than a generic greeting.
+        role: agent.role ?? null,
+      })),
     [state.agents],
   );
   const skillTriggers = useOfficeSkillTriggers({

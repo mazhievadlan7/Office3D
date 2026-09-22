@@ -26,6 +26,18 @@ export type VoiceAgentReadiness = {
   missing: string[];
 };
 
+export type PlaceCallParams = {
+  toNumber: string;
+  agentId: string;
+  /**
+   * Who is speaking. Sent as facts, not as prompt text: the server composes
+   * the agent's phone prompt from these and always keeps the AI disclosure in
+   * it, which it could not guarantee if the browser supplied the prompt.
+   */
+  agentName: string;
+  agentRole?: string | null;
+};
+
 export type CallFeed = {
   ready: boolean;
   voiceAgent: VoiceAgentReadiness | null;
@@ -38,7 +50,7 @@ export type CallFeed = {
   dialing: boolean;
   dialError: string | null;
   refresh: () => Promise<void>;
-  placeCall: (params: { toNumber: string; agentId: string }) => Promise<CallRecord | null>;
+  placeCall: (params: PlaceCallParams) => Promise<CallRecord | null>;
 };
 
 const readError = async (response: Response, fallback: string): Promise<string> => {
@@ -120,14 +132,14 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
   }, [enabled, hasLiveCall, refresh]);
 
   const placeCall = useCallback(
-    async ({ toNumber, agentId }: { toNumber: string; agentId: string }) => {
+    async ({ toNumber, agentId, agentName, agentRole }: PlaceCallParams) => {
       setDialing(true);
       setDialError(null);
       try {
         const response = await fetch("/api/telephony/calls", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toNumber, agentId }),
+          body: JSON.stringify({ toNumber, agentId, agentName, agentRole }),
         });
         if (!response.ok) {
           throw new Error(await readError(response, "The call could not be placed"));

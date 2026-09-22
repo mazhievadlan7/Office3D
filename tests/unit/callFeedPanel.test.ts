@@ -7,8 +7,8 @@ import type { CallFeed } from "@/features/office/hooks/useOfficeCallFeed";
 import type { CallRecord, CallStatus } from "@/lib/telephony/types";
 
 const AGENTS = [
-  { agentId: "agent-1", name: "Nova" },
-  { agentId: "agent-2", name: "Atlas" },
+  { agentId: "agent-1", name: "Nova", role: "Chases invoices" },
+  { agentId: "agent-2", name: "Atlas", role: "Books meetings" },
 ];
 
 const call = (overrides: Partial<CallRecord> = {}): CallRecord => ({
@@ -60,9 +60,14 @@ describe("CallFeedPanel", () => {
     await waitFor(() => {
       // One number serves the whole office, so which agent is speaking has to
       // travel with the call.
+      // The name and role travel with the call: the server builds the
+      // agent's phone prompt from them, so the agent says what it actually
+      // does instead of a generic greeting.
       expect(placeCall).toHaveBeenCalledWith({
         toNumber: "+447700900123",
         agentId: "agent-2",
+        agentName: "Atlas",
+        agentRole: "Books meetings",
       });
     });
   });

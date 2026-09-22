@@ -24,31 +24,69 @@ asks for the call and reads back what was said. That means:
 
 ## Configuration
 
-Three variables, all documented in `.env.example`:
+Four variables, all documented in `.env.example`:
 
 | Variable | What it is |
 | --- | --- |
 | `ELEVENLABS_API_KEY` | Account key, sent as `xi-api-key`. |
 | `ELEVENLABS_AGENT_ID` | The conversational agent created in the ElevenLabs dashboard. |
 | `ELEVENLABS_PHONE_NUMBER_ID` | The number registered with ElevenLabs that agents call from. |
+| `OFFICE3D_ORG_NAME` | Optional. The organisation agents say they are calling for. |
+
+One more step in the ElevenLabs dashboard: on the agent, enable **allow
+overrides** for the prompt and the first message (Security). Office3D sends
+both per call, and without that switch ElevenLabs refuses the call. The
+refusal is passed through with a hint naming the setting.
 
 With any of them missing, the phone booth opens but will not dial, and says
 which variable is missing rather than a bare "not configured".
 `GET /api/telephony/status` answers the same question without placing a call —
 it reports names only, never values.
 
+## Who the agent is on the call
+
+You do not write a system prompt in the ElevenLabs dashboard. One ElevenLabs
+agent and one number serve the whole office; who is speaking is decided per
+call, from the agent's own name and role as the office already knows them:
+
+```
+You are Nova, calling on behalf of Northwind.
+Your role: Chases overdue invoices.
+
+<AI disclosure>
+
+On this call:
+- Give your name early, and say why you are calling in one sentence.
+- …
+```
+
+The prompt is composed **on the server**, from facts, and a prompt sent in the
+request body is ignored. That is a security boundary, not a style choice: a
+caller who could supply prompt text could delete the disclosure below. For the
+same reason `OFFICE3D_ORG_NAME` comes from the environment — who an agent
+claims to represent on a real phone call is the deployment's to decide, not a
+session's. A name or role is flattened to one line and length-capped before it
+reaches the prompt, so neither can pose as a new instruction block.
+
+Add a new agent to the office and it can call immediately; there is nothing to
+fill in per agent.
+
 ## Disclosure
 
-The agent must say it is an AI when asked, and the ElevenLabs agent's prompt
-should open by identifying itself. This is not a stylistic choice: the EU AI
-Act (Article 50) requires that a person interacting with an AI system is told
-so, and the obligation follows the deployer — self-hosting does not remove it.
+The agent identifies itself as an AI in its opening line and confirms it
+whenever asked. Both the rule and the opening line are in the generated prompt
+(`AI_DISCLOSURE_RULE` in `src/lib/telephony/agentPrompt.ts`), and because that
+prompt is composed on the server there is no request that can remove them.
+
+This is not a stylistic choice: the EU AI Act (Article 50) requires that a
+person interacting with an AI system is told so, and the obligation follows the
+deployer — self-hosting does not remove it.
 
 ## API
 
 | Route | What it does |
 | --- | --- |
-| `POST /api/telephony/calls` | `{toNumber, agentId}` → places the call, returns the record. `toNumber` must be E.164. |
+| `POST /api/telephony/calls` | `{toNumber, agentId, agentName, agentRole?}` → places the call, returns the record. `toNumber` must be E.164, and the prompt is built server-side from the rest. |
 | `GET /api/telephony/calls` | The live feed: every call with its transcript, live ones read fresh from the provider. |
 | `GET /api/telephony/calls/[sid]` | One call, read fresh while it is live. |
 | `GET /api/telephony/status` | Readiness plus a summary of calls, without transcripts. |

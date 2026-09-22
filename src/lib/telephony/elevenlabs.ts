@@ -1,4 +1,9 @@
 import {
+  buildOfficeAgentFirstMessage,
+  buildOfficeAgentPrompt,
+  type OfficeCallerIdentity,
+} from "@/lib/telephony/agentPrompt";
+import {
   TelephonyError,
   assertE164,
   type TranscriptTurn,
@@ -90,37 +95,79 @@ const request = async <T>(
 };
 
 /**
+ * Adds the one hint a refused override needs.
+ *
+ * ElevenLabs rejects a per-call prompt unless the agent allows overrides, and
+ * its own message does not say where that switch is. Appended only to a 4xx,
+ * and phrased as a likely cause rather than a diagnosis, because the same
+ * status also covers an unrelated bad request.
+ */
+const withOverrideHint = (error: unknown): unknown => {
+  if (
+    !(error instanceof TelephonyError) ||
+    error.status < 400 ||
+    error.status >= 500
+  ) {
+    return error;
+  }
+  return new TelephonyError(
+    `${error.message} If this is about the prompt override, enable "allow overrides" ` +
+      "for the prompt and first message on this agent in the ElevenLabs dashboard.",
+    error.status,
+    error.cause,
+  );
+};
+
+/**
  * Asks the voice agent to call a number.
  *
- * `officeAgentId` is passed through as a dynamic variable so the agent knows
- * which member of the office it is speaking as — the callee sees one shared
- * number for every agent, so the agent has to say who it is.
+ * One ElevenLabs agent and one number serve the whole office, so who is
+ * speaking is decided per call: the caller's prompt and opening line are sent
+ * as an override, and the office agent id travels as a dynamic variable so the
+ * conversation can be traced back to the desk that placed it.
+ *
+ * The override needs "allow overrides" enabled for prompt and first message on
+ * the agent in the ElevenLabs dashboard. Without it ElevenLabs refuses the
+ * call, and that refusal is reported with the hint rather than swallowed.
  */
 export const placeVoiceAgentCall = async (
-  params: { toNumber: string; officeAgentId: string },
+  params: { toNumber: string; caller: OfficeCallerIdentity },
   config: VoiceAgentConfig = resolveVoiceAgentConfig(),
 ): Promise<PlacedVoiceAgentCall> => {
   const toNumber = assertE164(params.toNumber, "toNumber");
-  const officeAgentId = params.officeAgentId.trim();
+  const officeAgentId = params.caller.agentId.trim();
   if (!officeAgentId) {
-    throw new TelephonyError("officeAgentId is required.");
+    throw new TelephonyError("agentId is required.");
   }
 
-  const payload = await request<OutboundCallResponse>(
-    config,
-    "v1/convai/sip-trunk/outbound-call",
-    {
-      method: "POST",
-      body: {
-        agent_id: config.agentId,
-        agent_phone_number_id: config.phoneNumberId,
-        to_number: toNumber,
-        conversation_initiation_client_data: {
-          dynamic_variables: { office_agent_id: officeAgentId },
+  // Composed here from the office's own facts. A raw prompt is never accepted
+  // from a caller, so the AI disclosure cannot be edited out.
+  const prompt = buildOfficeAgentPrompt(params.caller);
+  const firstMessage = buildOfficeAgentFirstMessage(params.caller);
+
+  let payload: OutboundCallResponse;
+  try {
+    payload = await request<OutboundCallResponse>(
+      config,
+      "v1/convai/sip-trunk/outbound-call",
+      {
+        method: "POST",
+        body: {
+          agent_id: config.agentId,
+          agent_phone_number_id: config.phoneNumberId,
+          to_number: toNumber,
+          conversation_initiation_client_data: {
+            conversation_config_override: {
+              agent: { prompt: { prompt }, first_message: firstMessage },
+            },
+            dynamic_variables: { office_agent_id: officeAgentId },
+          },
         },
       },
-    },
-  );
+    );
+  } catch (error) {
+    throw withOverrideHint(error);
+  }
 
   // Two different failures, reported apart: the service refusing says why,
   // while a response with no conversation id leaves nothing to follow and its

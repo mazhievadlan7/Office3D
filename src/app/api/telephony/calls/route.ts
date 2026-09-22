@@ -1,4 +1,5 @@
 import { telephonyError, telephonyJson } from "@/app/api/telephony/respond";
+import { resolveOrganisationName } from "@/lib/telephony/agentPrompt";
 import { placeVoiceAgentCall } from "@/lib/telephony/elevenlabs";
 import { createCall, getCall, listCalls } from "@/lib/telephony/store";
 import { syncCalls } from "@/lib/telephony/sync";
@@ -29,6 +30,13 @@ export const runtime = "nodejs";
 type CallRequest = {
   toNumber?: unknown;
   agentId?: unknown;
+  /**
+   * Who is speaking, as the office knows them. Facts, not instructions: the
+   * server composes the agent's prompt from these, and never takes prompt
+   * text from a caller.
+   */
+  agentName?: unknown;
+  agentRole?: unknown;
 };
 
 const readBody = async (request: Request): Promise<CallRequest> => {
@@ -51,20 +59,28 @@ const readString = (value: unknown, field: string): string => {
   return value.trim();
 };
 
+const readOptionalString = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
+
 export async function POST(request: Request) {
   try {
     const body = await readBody(request);
     const toNumber = assertE164(readString(body.toNumber, "toNumber"), "toNumber");
     const agentId = readString(body.agentId, "agentId");
+    const caller = {
+      agentId,
+      agentName: readString(body.agentName, "agentName"),
+      agentRole: readOptionalString(body.agentRole),
+      // Never from the request: who an agent claims to represent on a real
+      // phone call is the deployment's to decide, not a session's.
+      organisation: resolveOrganisationName(),
+    };
 
     // Resolved before dialling so a half-configured deployment fails with the
     // names of what it is missing rather than a provider error.
     const config = resolveVoiceAgentConfig();
 
-    const placed = await placeVoiceAgentCall(
-      { toNumber, officeAgentId: agentId },
-      config,
-    );
+    const placed = await placeVoiceAgentCall({ toNumber, caller }, config);
 
     // The provider's conversation id is the call's identity here, so a repeat
     // of the same conversation never doubles up in the feed.

@@ -55,6 +55,8 @@ const formatTime = (iso: string): string => {
 export type OfficeCallAgent = {
   agentId: string;
   name: string;
+  /** What this agent does, which becomes part of its phone prompt. */
+  role?: string | null;
 };
 
 export function CallFeedPanel({
@@ -89,7 +91,14 @@ export function CallFeedPanel({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canDial) return;
-    const call = await feed.placeCall({ toNumber: toNumber.trim(), agentId });
+    const caller = agents.find((agent) => agent.agentId === agentId);
+    if (!caller) return;
+    const call = await feed.placeCall({
+      toNumber: toNumber.trim(),
+      agentId,
+      agentName: caller.name,
+      agentRole: caller.role ?? null,
+    });
     if (call) {
       setSelectedSid(call.sid);
       setToNumber("");

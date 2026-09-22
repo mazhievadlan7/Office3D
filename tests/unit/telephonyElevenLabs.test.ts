@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { OfficeCallerIdentity } from "@/lib/telephony/agentPrompt";
 import { fetchConversation, placeVoiceAgentCall } from "@/lib/telephony/elevenlabs";
 import type { VoiceAgentConfig } from "@/lib/telephony/voiceAgent";
+
+const caller = (overrides: Partial<OfficeCallerIdentity> = {}): OfficeCallerIdentity => ({
+  agentId: "agent-1",
+  agentName: "Nova",
+  agentRole: "Handles overdue invoices",
+  organisation: "Northwind",
+  ...overrides,
+});
 
 const CONFIG: VoiceAgentConfig = {
   provider: "elevenlabs",
@@ -31,7 +40,7 @@ describe("placeVoiceAgentCall", () => {
     vi.stubGlobal("fetch", spy);
 
     const placed = await placeVoiceAgentCall(
-      { toNumber: "+447700900123", officeAgentId: "agent-1" },
+      { toNumber: "+447700900123", caller: caller() },
       CONFIG,
     );
 
@@ -41,7 +50,8 @@ describe("placeVoiceAgentCall", () => {
 
     // Field names are snake_case on the wire; these were taken from the
     // official SDK's serializers rather than guessed.
-    expect(JSON.parse(String(init.body))).toEqual({
+    const sent = JSON.parse(String(init.body));
+    expect(sent).toMatchObject({
       agent_id: "agent_abc",
       agent_phone_number_id: "phnum_123",
       to_number: "+447700900123",
@@ -49,6 +59,16 @@ describe("placeVoiceAgentCall", () => {
         dynamic_variables: { office_agent_id: "agent-1" },
       },
     });
+
+    // One agent and one number serve the whole office, so who is speaking is
+    // sent per call as an override rather than set in the dashboard.
+    const override =
+      sent.conversation_initiation_client_data.conversation_config_override.agent;
+    expect(override.prompt.prompt).toContain("You are Nova, calling on behalf of Northwind.");
+    expect(override.prompt.prompt).toContain("Handles overdue invoices");
+    expect(override.first_message).toBe(
+      "Hello, this is Nova, an AI assistant calling from Northwind. Do you have a moment?",
+    );
 
     expect(placed).toEqual({
       conversationId: "conv_1",
@@ -62,7 +82,7 @@ describe("placeVoiceAgentCall", () => {
     vi.stubGlobal("fetch", spy);
 
     await expect(
-      placeVoiceAgentCall({ toNumber: "0123", officeAgentId: "agent-1" }, CONFIG),
+      placeVoiceAgentCall({ toNumber: "0123", caller: caller() }, CONFIG),
     ).rejects.toThrow(/E.164/);
     expect(spy).not.toHaveBeenCalled();
   });
@@ -71,8 +91,8 @@ describe("placeVoiceAgentCall", () => {
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     await expect(
-      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "  " }, CONFIG),
-    ).rejects.toThrow(/officeAgentId is required/);
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller({ agentId: "  " }) }, CONFIG),
+    ).rejects.toThrow(/agentId is required/);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -85,14 +105,14 @@ describe("placeVoiceAgentCall", () => {
     );
 
     await expect(
-      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
     ).rejects.toThrow(/No credit/);
   });
 
   it("treats_a_missing_conversation_id_as_a_failure", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ success: true, message: "ok" })));
     await expect(
-      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
     ).rejects.toThrow(/did not start the call/);
   });
 
@@ -100,14 +120,42 @@ describe("placeVoiceAgentCall", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Invalid API key" }, 401)));
 
     await expect(
-      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
-    ).rejects.toMatchObject({ status: 401, message: "ElevenLabs: Invalid API key" });
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
+    ).rejects.toMatchObject({
+      status: 401,
+      // The provider's own words, plus the one thing its message cannot say:
+      // where the override switch lives.
+      message: expect.stringContaining("ElevenLabs: Invalid API key"),
+    });
+  });
+
+  it("points_at_the_override_switch_when_the_provider_refuses", async () => {
+    // ElevenLabs rejects a per-call prompt unless the agent allows overrides,
+    // and its message does not say where that setting is.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ detail: "Overrides are not enabled" }, 422)),
+    );
+
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
+    ).rejects.toThrow(/allow overrides/);
+  });
+
+  it("does_not_add_the_override_hint_to_a_server_side_failure", async () => {
+    // A 500 is not a misconfigured agent; the hint would send someone to the
+    // wrong screen.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ detail: "Boom" }, 500)));
+
+    await expect(
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
+    ).rejects.toThrow(/^ElevenLabs: Boom$/);
   });
 
   it("reports_a_transport_failure_as_a_gateway_error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ENOTFOUND")));
     await expect(
-      placeVoiceAgentCall({ toNumber: "+14155550100", officeAgentId: "a" }, CONFIG),
+      placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
     ).rejects.toMatchObject({ status: 502 });
   });
 });

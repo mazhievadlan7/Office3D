@@ -104,6 +104,16 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     requiredFor: "Voice agent phone calls.",
     docsUrl: "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking",
   },
+  {
+    id: "office3d-org-name",
+    label: "Organisation name",
+    envVar: "OFFICE3D_ORG_NAME",
+    consumedBy: "office3d",
+    purpose:
+      "The organisation agents say they are calling for. Read from the server so a browser session cannot choose who an agent claims to represent on a real call.",
+    requiredFor: null,
+    docsUrl: null,
+  },
   // Below: keys a skill or agent may use. Office3D never calls these APIs
   // itself, so a missing one costs nothing here — it is listed so a
   // deployment can confirm at a glance what the host has.
