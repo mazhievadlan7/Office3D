@@ -164,6 +164,7 @@ import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPan
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
 import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
+import { isTerminalCallStatus } from "@/lib/telephony/types";
 import { JukeboxPanel } from "@/features/spotify-jukebox/components/JukeboxPanel";
 import { JukeboxDisabledPanel } from "@/features/spotify-jukebox/components/JukeboxDisabledPanel";
 import { executeBrowserJukeboxCommand } from "@/features/spotify-jukebox/agentBridge";
@@ -201,7 +202,6 @@ import {
   type OfficeTextMessageRequest,
 } from "@/lib/office/eventTriggers";
 import { buildOfficeSkillTriggerHoldMaps } from "@/lib/office/places";
-import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import {
   buildOfficeDeskMonitor,
@@ -308,11 +308,6 @@ type OpenClawLogEntry = {
   payloadText: string;
 };
 
-type PreparedPhoneCallEntry = {
-  requestKey: string;
-  scenario: MockPhoneCallScenario;
-};
-
 type PreparedTextMessageEntry = {
   requestKey: string;
   scenario: MockTextMessageScenario;
@@ -332,12 +327,6 @@ type PendingFloorRuntimeSwitch = {
   adapterType: StudioGatewayAdapterType;
   gatewayUrl: string;
   token: string;
-};
-
-type PhoneCallSpeakPayload = {
-  agentId: string;
-  requestKey: string;
-  scenario: MockPhoneCallScenario;
 };
 
 const createOpenClawLogEntry = (params: {
@@ -1102,15 +1091,11 @@ export function OfficeScreen({
     useState<CreateAgentBlockState | null>(null);
   const [deleteAgentBlock, setDeleteAgentBlock] =
     useState<OfficeDeleteMutationBlockState | null>(null);
-  const [preparedPhoneCallsByAgentId, setPreparedPhoneCallsByAgentId] = useState<
-    Record<string, PreparedPhoneCallEntry>
-  >({});
   const [preparedTextMessagesByAgentId, setPreparedTextMessagesByAgentId] = useState<
     Record<string, PreparedTextMessageEntry>
   >({});
   const promptedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const preparedPhoneCallKeysRef = useRef<Set<string>>(new Set());
-  const spokenPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const promptedTextMessageKeysRef = useRef<Set<string>>(new Set());
   const preparedTextMessageKeysRef = useRef<Set<string>>(new Set());
   const [deskAssignmentByDeskUid, setDeskAssignmentByDeskUid] = useState<
@@ -1132,6 +1117,11 @@ export function OfficeScreen({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [callFeedOpen, setCallFeedOpen] = useState(false);
+  const [callFeedDraft, setCallFeedDraft] = useState<{
+    agentId: string;
+    callee: string;
+    message: string | null;
+  } | null>(null);
   const [kanbanInstallPromptOpen, setKanbanInstallPromptOpen] = useState(false);
   const [kanbanInstallProgress, setKanbanInstallProgress] = useState<{
     active: boolean;
@@ -2082,12 +2072,7 @@ export function OfficeScreen({
     setMonitorAgentId((current) => (current === agentId ? null : current));
     setGithubReviewAgentId((current) => (current === agentId ? null : current));
     setQaTestingAgentId((current) => (current === agentId ? null : current));
-    setPreparedPhoneCallsByAgentId((current) => {
-      if (!(agentId in current)) return current;
-      const next = { ...current };
-      delete next[agentId];
-      return next;
-    });
+    setCallFeedDraft((current) => (current?.agentId === agentId ? null : current));
     setPreparedTextMessagesByAgentId((current) => {
       if (!(agentId in current)) return current;
       const next = { ...current };
@@ -3178,9 +3163,11 @@ export function OfficeScreen({
     onSkillActivityStart: handleMarketplaceGymStart,
     onSkillActivityEnd: handleMarketplaceGymEnd,
   });
-  // Polling only runs while the phone booth is open: an office nobody is
-  // calling from should not be asking the provider for anything.
-  const callFeed = useOfficeCallFeed({ enabled: callFeedOpen });
+  // Always on, because the phone booth on the floor animates from the same
+  // feed as the panel. It is a local request that backs off to every thirty
+  // seconds when nothing is live, and reaches the provider only for calls
+  // that actually are.
+  const callFeed = useOfficeCallFeed();
   const callFeedAgents = useMemo(
     () =>
       state.agents.map((agent) => ({
@@ -3350,90 +3337,35 @@ export function OfficeScreen({
     preparedPhoneCallKeysRef.current = new Set(
       [...preparedPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
     );
-    spokenPhoneCallKeysRef.current = new Set(
-      [...spokenPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
-    );
-    setPreparedPhoneCallsByAgentId((previous) => {
-      const next = Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => activeKeys.has(entry.requestKey)),
-      );
-      if (
-        Object.keys(previous).length === Object.keys(next).length &&
-        Object.keys(previous).every((agentId) => previous[agentId] === next[agentId])
-      ) {
-        return previous;
-      }
-      return next;
-    });
   }, [phoneCallByAgentId]);
 
   useEffect(() => {
     const requests = Object.entries(phoneCallByAgentId);
     if (requests.length === 0) return;
 
-    const appendPromptForAgent = (agentId: string, request: OfficePhoneCallRequest) => {
-      const agent = state.agents.find((entry) => entry.agentId === agentId);
-      if (!agent) return;
+    // "Call my wife" names a person, not a number, and a real call costs
+    // money and rings a stranger. So a request opens the office phone with
+    // what was asked for, and a human supplies the number and dials. Nothing
+    // is placed, and nothing is invented, on an agent's say-so alone.
+    const askForMessage = (agentId: string, request: OfficePhoneCallRequest) => {
+      if (!state.agents.some((entry) => entry.agentId === agentId)) return;
       promptedPhoneCallKeysRef.current.add(request.key);
-      void fetch("/api/office/call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          callee: request.callee,
-          message: null,
-        }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as {
-            scenario?: MockPhoneCallScenario;
-          } | null;
-          const promptText = body?.scenario?.promptText?.trim();
-          if (!response.ok || !promptText) {
-            promptedPhoneCallKeysRef.current.delete(request.key);
-            return;
-          }
-          focusLocalAgent(agentId);
-          dispatch({
-            type: "appendOutput",
-            agentId,
-            line: buildPhoneCallOutputLine(promptText),
-          });
-        })
-        .catch(() => {
-          promptedPhoneCallKeysRef.current.delete(request.key);
-        });
+      focusLocalAgent(agentId);
+      dispatch({
+        type: "appendOutput",
+        agentId,
+        line: buildPhoneCallOutputLine(`What should I say to ${request.callee}?`),
+      });
     };
 
-    const prepareScenarioForAgent = (agentId: string, request: OfficePhoneCallRequest) => {
+    const openPhoneForRequest = (agentId: string, request: OfficePhoneCallRequest) => {
       preparedPhoneCallKeysRef.current.add(request.key);
-      void fetch("/api/office/call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          callee: request.callee,
-          message: request.message,
-        }),
-      })
-        .then(async (response) => {
-          const body = (await response.json().catch(() => null)) as {
-            scenario?: MockPhoneCallScenario;
-          } | null;
-          const scenario = body?.scenario;
-          if (!response.ok || !scenario) {
-            preparedPhoneCallKeysRef.current.delete(request.key);
-            return;
-          }
-          setPreparedPhoneCallsByAgentId((previous) => ({
-            ...previous,
-            [agentId]: {
-              requestKey: request.key,
-              scenario,
-            },
-          }));
-        })
-        .catch(() => {
-          preparedPhoneCallKeysRef.current.delete(request.key);
-        });
+      setCallFeedDraft({
+        agentId,
+        callee: request.callee,
+        message: request.message,
+      });
+      setCallFeedOpen(true);
     };
 
     for (const [agentId, request] of requests) {
@@ -3441,49 +3373,49 @@ export function OfficeScreen({
         request.phase === "needs_message" &&
         !promptedPhoneCallKeysRef.current.has(request.key)
       ) {
-        appendPromptForAgent(agentId, request);
+        askForMessage(agentId, request);
       }
       if (
         request.phase === "ready_to_call" &&
         !preparedPhoneCallKeysRef.current.has(request.key)
       ) {
-        prepareScenarioForAgent(agentId, request);
+        openPhoneForRequest(agentId, request);
       }
     }
   }, [dispatch, focusLocalAgent, phoneCallByAgentId, state.agents]);
 
-  const activePhoneBoothAgentId = useMemo(
-    () =>
-      state.agents.find((agent) => {
-        if (!phoneBoothHoldByAgentId[agent.agentId]) return false;
-        const prepared = preparedPhoneCallsByAgentId[agent.agentId];
-        const request = phoneCallByAgentId[agent.agentId];
-        return Boolean(prepared && request && prepared.requestKey === request.key);
-      })?.agentId ?? null,
-    [phoneBoothHoldByAgentId, phoneCallByAgentId, preparedPhoneCallsByAgentId, state.agents],
-  );
+  const activePhoneBoothCall = useMemo(() => {
+    // The booth shows a call that is actually on the line, for the agent
+    // standing in it. With no such call there is nothing to show — which is
+    // why the booth now stays dark rather than playing a scripted one.
+    for (const agent of state.agents) {
+      if (!phoneBoothHoldByAgentId[agent.agentId]) continue;
+      const live = callFeed.calls.find(
+        (entry) => entry.agentId === agent.agentId && !isTerminalCallStatus(entry.status),
+      );
+      if (live) {
+        return {
+          agentId: agent.agentId,
+          view: {
+            dialNumber: live.to,
+            agentName: agent.name,
+            status: live.status,
+            turns: live.transcript.map((turn) => ({
+              id: turn.id,
+              speaker: turn.speaker,
+              text: turn.text,
+            })),
+          },
+        };
+      }
+    }
+    return null;
+  }, [callFeed.calls, phoneBoothHoldByAgentId, state.agents]);
 
-  const activePhoneCallScenario = useMemo(() => {
-    if (!activePhoneBoothAgentId) return null;
-    return preparedPhoneCallsByAgentId[activePhoneBoothAgentId]?.scenario ?? null;
-  }, [activePhoneBoothAgentId, preparedPhoneCallsByAgentId]);
-
-  const handlePhoneCallSpeak = useCallback(
-    ({ agentId, requestKey }: PhoneCallSpeakPayload) => {
-      if (spokenPhoneCallKeysRef.current.has(requestKey)) return;
-      spokenPhoneCallKeysRef.current.add(requestKey);
-      focusLocalAgent(agentId);
-    },
-    [focusLocalAgent],
-  );
+  const activePhoneBoothAgentId = activePhoneBoothCall?.agentId ?? null;
 
   const handlePhoneCallComplete = useCallback(
     (agentId: string) => {
-      setPreparedPhoneCallsByAgentId((previous) => {
-        const next = { ...previous };
-        delete next[agentId];
-        return next;
-      });
       const request = phoneCallByAgentId[agentId];
       if (request) {
         dispatch({
@@ -4785,7 +4717,7 @@ export function OfficeScreen({
           githubReviewAgentId={githubReviewAgentId}
           qaTestingAgentId={qaTestingAgentId}
           phoneBoothAgentId={activePhoneBoothAgentId}
-          phoneCallScenario={activePhoneCallScenario}
+          phoneBoothCall={activePhoneBoothCall?.view ?? null}
           smsBoothAgentId={activeSmsBoothAgentId}
           textMessageScenario={activeTextMessageScenario}
           monitorAgentId={monitorAgentId}
@@ -4884,7 +4816,6 @@ export function OfficeScreen({
           onQaLabDismiss={() => {
             handleQaDismiss();
           }}
-          onPhoneCallSpeak={handlePhoneCallSpeak}
           onPhoneCallComplete={handlePhoneCallComplete}
           onTextMessageComplete={handleTextMessageComplete}
           onOpenGithubSkillSetup={() => {
@@ -5154,7 +5085,11 @@ export function OfficeScreen({
         open={callFeedOpen}
         feed={callFeed}
         agents={callFeedAgents}
-        onClose={() => setCallFeedOpen(false)}
+        draft={callFeedDraft}
+        onClose={() => {
+          setCallFeedOpen(false);
+          setCallFeedDraft(null);
+        }}
       />
 
       <SkillsMarketplaceModal

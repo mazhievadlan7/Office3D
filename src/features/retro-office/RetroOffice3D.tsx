@@ -33,7 +33,7 @@ import { GithubImmersiveScreen } from "@/features/office/screens/GithubImmersive
 import { KanbanImmersiveScreen } from "@/features/office/screens/KanbanImmersiveScreen";
 import {
   PhoneBoothImmersiveScreen,
-  type PhoneCallStep,
+  type PhoneBoothCallView,
 } from "@/features/office/screens/PhoneBoothImmersiveScreen";
 import {
   SmsBoothImmersiveScreen,
@@ -43,8 +43,6 @@ import { StandupImmersiveScreen } from "@/features/office/screens/StandupImmersi
 import type { OfficeUsageAnalyticsParams } from "@/features/office/hooks/useOfficeUsageAnalyticsViewModel";
 import type { AgentState } from "@/features/agents/state/store";
 import type { CronJobSummary } from "@/lib/cron/types";
-import { buildMockPhoneCallScenario } from "@/lib/office/call/mock";
-import type { MockPhoneCallScenario } from "@/lib/office/call/types";
 import { buildMockTextMessageScenario } from "@/lib/office/text/mock";
 import type { MockTextMessageScenario } from "@/lib/office/text/types";
 import type { OfficeDeskMonitor } from "@/lib/office/deskMonitor";
@@ -2199,15 +2197,6 @@ function useAgentTick(
 const AWAY_THRESHOLD_MS = 15 * 60 * 1000;
 const COMPACT_AGENT_BADGE_LIMIT = 6;
 
-const estimatePhoneSpeechDurationMs = (
-  text: string | null | undefined,
-): number => {
-  const normalized = text?.trim() ?? "";
-  if (!normalized) return 5_000;
-  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
-  return Math.max(5_000, Math.min(12_000, 1_800 + wordCount * 380));
-};
-
 const getAgentInitials = (name: string | null | undefined): string => {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -2254,7 +2243,7 @@ export function RetroOffice3D({
   gymHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   githubReviewAgentId = null,
   phoneBoothAgentId = null,
-  phoneCallScenario = null,
+  phoneBoothCall = null,
   smsBoothAgentId = null,
   textMessageScenario = null,
   qaHoldByAgentId = EMPTY_BOOLEAN_RECORD,
@@ -2318,7 +2307,6 @@ export function RetroOffice3D({
   onDeskAssignmentsReset,
   onGithubReviewDismiss,
   onPhoneCallComplete,
-  onPhoneCallSpeak,
   onTextMessageComplete,
   onQaLabDismiss,
   onOpenGithubSkillSetup,
@@ -2369,7 +2357,8 @@ export function RetroOffice3D({
   gymHoldByAgentId?: Record<string, boolean>;
   githubReviewAgentId?: string | null;
   phoneBoothAgentId?: string | null;
-  phoneCallScenario?: MockPhoneCallScenario | null;
+  /** The call the booth is showing, as it actually stands. */
+  phoneBoothCall?: PhoneBoothCallView | null;
   smsBoothAgentId?: string | null;
   textMessageScenario?: MockTextMessageScenario | null;
   qaHoldByAgentId?: Record<string, boolean>;
@@ -2435,11 +2424,6 @@ export function RetroOffice3D({
   onDeskAssignmentsReset?: (deskUids: string[]) => void;
   onGithubReviewDismiss?: () => void;
   onPhoneCallComplete?: (agentId: string) => void;
-  onPhoneCallSpeak?: (payload: {
-    agentId: string;
-    requestKey: string;
-    scenario: MockPhoneCallScenario;
-  }) => void;
   onTextMessageComplete?: (agentId: string) => void;
   onQaLabDismiss?: () => void;
   onOpenGithubSkillSetup?: () => void;
@@ -2688,7 +2672,7 @@ export function RetroOffice3D({
   const [phoneBoothImmersiveReady, setPhoneBoothImmersiveReady] =
     useState(false);
   const [phoneBoothDoorOpen, setPhoneBoothDoorOpen] = useState(false);
-  const [phoneCallStep, setPhoneCallStep] = useState<PhoneCallStep>("dialing");
+
   const [dialedDigits, setDialedDigits] = useState("");
   const [smsBoothCommandArrived, setSmsBoothCommandArrived] = useState(false);
   const [smsBoothImmersiveReady, setSmsBoothImmersiveReady] = useState(false);
@@ -2702,20 +2686,18 @@ export function RetroOffice3D({
     number | null
   >(null);
   const [manualPhoneBoothOpen, setManualPhoneBoothOpen] = useState(false);
-  const [manualPhoneCallScenario, setManualPhoneCallScenario] =
-    useState<MockPhoneCallScenario | null>(null);
   const [manualSmsBoothOpen, setManualSmsBoothOpen] = useState(false);
   const [manualTextMessageScenario, setManualTextMessageScenario] =
     useState<MockTextMessageScenario | null>(null);
-  const activePhoneCallFlowKeyRef = useRef<string | null>(null);
+
   const activeTextMessageFlowKeyRef = useRef<string | null>(null);
   const boothAudioCtxRef = useRef<AudioContext | null>(null);
   const effectivePhoneBoothAgentIdRef = useRef<string | null>(null);
-  const effectivePhoneCallScenarioRef = useRef<MockPhoneCallScenario | null>(
+  const effectivePhoneBoothCallRef = useRef<PhoneBoothCallView | null>(
     null,
   );
   const phoneBoothAgentIdRef = useRef<string | null>(null);
-  const onPhoneCallSpeakRef = useRef(onPhoneCallSpeak);
+  const dialedNumberRef = useRef<string | null>(null);
   const onPhoneCallCompleteRef = useRef(onPhoneCallComplete);
   const onStandupArrivalsChangeRef = useRef(onStandupArrivalsChange);
   const lastStandupArrivalKeyRef = useRef<string | null>(null);
@@ -2996,28 +2978,17 @@ export function RetroOffice3D({
     () => furniture.find((item) => item.type === "phone_booth") ?? null,
     [furniture],
   );
-  const effectivePhoneCallScenario =
-    phoneCallScenario ??
-    (manualPhoneBoothOpen ? manualPhoneCallScenario : null);
+  const effectivePhoneBoothCall = phoneBoothCall;
   const effectivePhoneBoothAgentId =
     phoneBoothAgentId ??
     (manualPhoneBoothOpen ? "__manual_phone_booth__" : null);
   const phoneBoothViewActive =
     manualPhoneBoothOpen ||
     Boolean(phoneBoothAgentId && phoneBoothCommandArrived);
-  const activePhoneCallFlowKey = useMemo(() => {
-    if (!effectivePhoneBoothAgentId || !effectivePhoneCallScenario) return null;
-    return [
-      effectivePhoneBoothAgentId,
-      effectivePhoneCallScenario.dialNumber,
-      effectivePhoneCallScenario.spokenText ?? "",
-      effectivePhoneCallScenario.recipientReply ?? "",
-    ].join("|");
-  }, [effectivePhoneBoothAgentId, effectivePhoneCallScenario]);
   const phoneBoothImmersive = Boolean(
     activePhoneBooth &&
     effectivePhoneBoothAgentId &&
-    effectivePhoneCallScenario &&
+    effectivePhoneBoothCall &&
     phoneBoothViewActive &&
     phoneBoothImmersiveReady,
   );
@@ -3252,7 +3223,6 @@ export function RetroOffice3D({
     if (manualPhoneBoothOpen && phoneBoothAgentId) {
       const timer = window.setTimeout(() => {
         setManualPhoneBoothOpen(false);
-        setManualPhoneCallScenario(null);
       }, 0);
       return () => {
         window.clearTimeout(timer);
@@ -3266,9 +3236,8 @@ export function RetroOffice3D({
     smsBoothAgentIdRef.current = smsBoothAgentId;
     onTextMessageCompleteRef.current = onTextMessageComplete;
     effectivePhoneBoothAgentIdRef.current = effectivePhoneBoothAgentId;
-    effectivePhoneCallScenarioRef.current = effectivePhoneCallScenario;
+    effectivePhoneBoothCallRef.current = effectivePhoneBoothCall;
     phoneBoothAgentIdRef.current = phoneBoothAgentId;
-    onPhoneCallSpeakRef.current = onPhoneCallSpeak;
     onPhoneCallCompleteRef.current = onPhoneCallComplete;
     onStandupArrivalsChangeRef.current = onStandupArrivalsChange;
   }, [
@@ -3277,21 +3246,18 @@ export function RetroOffice3D({
     onTextMessageComplete,
     smsBoothAgentId,
     effectivePhoneBoothAgentId,
-    effectivePhoneCallScenario,
+    effectivePhoneBoothCall,
     onPhoneCallComplete,
-    onPhoneCallSpeak,
     onStandupArrivalsChange,
     phoneBoothAgentId,
   ]);
 
   const closeManualPhoneBoothView = useCallback(() => {
-    activePhoneCallFlowKeyRef.current = null;
     setManualPhoneBoothOpen(false);
-    setManualPhoneCallScenario(null);
     setPhoneBoothImmersiveReady(false);
     setPhoneBoothDoorOpen(false);
     setPhoneBoothCommandArrived(false);
-    setPhoneCallStep("dialing");
+    dialedNumberRef.current = null;
     setDialedDigits("");
     if (
       !followAgentId &&
@@ -3433,40 +3399,6 @@ export function RetroOffice3D({
     oscillatorB.stop(now + 1.38);
     return 1400;
   }, [getBoothAudioContext]);
-
-  const playBoothVoice = useCallback(
-    async (text: string): Promise<void> => {
-      try {
-        const response = await fetch("/api/office/voice/reply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            voiceId: voiceRepliesVoiceId ?? undefined,
-            speed: voiceRepliesSpeed ?? 1,
-          }),
-        });
-        if (!response.ok) return;
-        const blob = await response.blob();
-        const audioContext = await getBoothAudioContext();
-        if (!audioContext) return;
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-        const arrayBuffer = await blob.arrayBuffer();
-        const decoded = await audioContext.decodeAudioData(
-          arrayBuffer.slice(0),
-        );
-        const source = audioContext.createBufferSource();
-        source.buffer = decoded;
-        source.connect(audioContext.destination);
-        source.start();
-      } catch (error) {
-        console.warn("Booth voice playback failed.", error);
-      }
-    },
-    [getBoothAudioContext, voiceRepliesSpeed, voiceRepliesVoiceId],
-  );
 
   useEffect(() => {
     if (followAgentId && (activeGithubTerminalUid || githubReviewAgentId)) {
@@ -3967,7 +3899,7 @@ export function RetroOffice3D({
     const resetTimer = window.setTimeout(() => {
       setPhoneBoothImmersiveReady(false);
     }, 0);
-    if (!phoneBoothViewActive || !effectivePhoneCallScenario) {
+    if (!phoneBoothViewActive || !effectivePhoneBoothCall) {
       return () => {
         window.clearTimeout(resetTimer);
       };
@@ -3979,106 +3911,56 @@ export function RetroOffice3D({
       window.clearTimeout(resetTimer);
       window.clearTimeout(timer);
     };
-  }, [effectivePhoneCallScenario, phoneBoothViewActive]);
+  }, [effectivePhoneBoothCall, phoneBoothViewActive]);
 
   useEffect(() => {
-    if (!phoneBoothImmersive || !activePhoneCallFlowKey) {
-      activePhoneCallFlowKeyRef.current = null;
-      const timer = window.setTimeout(() => {
-        setPhoneCallStep("dialing");
-        setDialedDigits("");
-      }, 0);
-      return () => {
-        window.clearTimeout(timer);
-      };
+    // The booth types the number that was actually dialled and then stops.
+    // Everything after that — ringing, answered, what was said — comes from
+    // the call itself, so the animation can never run ahead of the call or
+    // show a conversation that has not happened.
+    const dialNumber = effectivePhoneBoothCall?.dialNumber ?? "";
+    if (!phoneBoothImmersive || !dialNumber) {
+      const timer = window.setTimeout(() => setDialedDigits(""), 0);
+      return () => window.clearTimeout(timer);
     }
-    if (activePhoneCallFlowKeyRef.current === activePhoneCallFlowKey) {
+    if (dialedNumberRef.current === dialNumber) {
       return;
     }
-    activePhoneCallFlowKeyRef.current = activePhoneCallFlowKey;
-    const scenario = effectivePhoneCallScenarioRef.current;
-    const boothAgentId = effectivePhoneBoothAgentIdRef.current;
-    if (!scenario || !boothAgentId) {
-      return;
-    }
-    const digits = scenario.dialNumber.replace(/\s+/g, "");
-    const initTimer = window.setTimeout(() => {
-      setPhoneCallStep("dialing");
-      setDialedDigits("");
-    }, 0);
+    dialedNumberRef.current = dialNumber;
+
+    const digits = dialNumber.replace(/\s+/g, "");
     let digitIndex = 0;
     let digitTimer: number | null = null;
-    let stageTimer: number | null = null;
-    let cancelled = false;
+    const initTimer = window.setTimeout(() => setDialedDigits(""), 0);
 
-    const advanceDigits = () => {
-      digitTimer = window.setInterval(() => {
-        digitIndex += 1;
-        const nextChunk = digits.slice(0, digitIndex);
-        const nextCharacter = digits[digitIndex - 1] ?? "";
-        setDialedDigits(nextChunk);
-        if (/\d/.test(nextCharacter)) {
-          void playPhoneKeyTone();
-        }
-        if (digitIndex >= digits.length && digitTimer !== null) {
-          window.clearInterval(digitTimer);
-          digitTimer = null;
-          setPhoneCallStep("ringing");
-          void playPhoneRingTone().then((ringDurationMs) => {
-            if (cancelled) return;
-            stageTimer = window.setTimeout(() => {
-              if (cancelled) return;
-              setPhoneCallStep("speaking");
-              if (scenario.spokenText?.trim()) {
-                void playBoothVoice(scenario.spokenText);
-              }
-              onPhoneCallSpeakRef.current?.({
-                agentId: boothAgentId,
-                requestKey: `${boothAgentId}:${scenario.dialNumber}:${scenario.spokenText ?? ""}`,
-                scenario,
-              });
-              const speechDurationMs =
-                estimatePhoneSpeechDurationMs(scenario.spokenText) + 2_500;
-              stageTimer = window.setTimeout(() => {
-                setPhoneCallStep("reply");
-                stageTimer = window.setTimeout(() => {
-                  setPhoneCallStep("complete");
-                  stageTimer = window.setTimeout(() => {
-                    if (phoneBoothAgentIdRef.current) {
-                      onPhoneCallCompleteRef.current?.(
-                        phoneBoothAgentIdRef.current,
-                      );
-                    } else {
-                      closeManualPhoneBoothView();
-                    }
-                  }, 2000);
-                }, 1600);
-              }, speechDurationMs);
-            }, ringDurationMs);
-          });
-        }
-      }, 170);
-    };
+    digitTimer = window.setInterval(() => {
+      digitIndex += 1;
+      setDialedDigits(digits.slice(0, digitIndex));
+      if (/\d/.test(digits[digitIndex - 1] ?? "")) {
+        void playPhoneKeyTone();
+      }
+      if (digitIndex >= digits.length && digitTimer !== null) {
+        window.clearInterval(digitTimer);
+        digitTimer = null;
+      }
+    }, 170);
 
-    advanceDigits();
     return () => {
       window.clearTimeout(initTimer);
-      cancelled = true;
       if (digitTimer !== null) {
         window.clearInterval(digitTimer);
       }
-      if (stageTimer !== null) {
-        window.clearTimeout(stageTimer);
-      }
     };
-  }, [
-    activePhoneCallFlowKey,
-    closeManualPhoneBoothView,
-    phoneBoothImmersive,
-    playBoothVoice,
-    playPhoneKeyTone,
-    playPhoneRingTone,
-  ]);
+  }, [effectivePhoneBoothCall, phoneBoothImmersive, playPhoneKeyTone]);
+
+  useEffect(() => {
+    // The ring tone follows the real status rather than a timer, so it stops
+    // when the call is actually answered.
+    if (!phoneBoothImmersive || effectivePhoneBoothCall?.status !== "ringing") {
+      return;
+    }
+    void playPhoneRingTone();
+  }, [effectivePhoneBoothCall?.status, phoneBoothImmersive, playPhoneRingTone]);
 
   useEffect(() => {
     const activeViewKey = manualPhoneBoothOpen
@@ -4595,19 +4477,11 @@ export function RetroOffice3D({
         setActiveGithubTerminalUid(null);
         setActiveQaTerminalUid(null);
         onMonitorSelect?.(null);
-        setPhoneBoothCommandArrived(true);
         setPhoneBoothDoorOpen(true);
-        setManualPhoneCallScenario(
-          buildMockPhoneCallScenario({
-            callee: "my contact",
-            message: "This is a demo call from the OpenClaw phone booth.",
-            voiceAvailable:
-              voiceRepliesLoaded &&
-              Boolean(voiceRepliesVoiceId) &&
-              voiceRepliesEnabled,
-          }),
-        );
-        setManualPhoneBoothOpen(true);
+        // Opens the real phone rather than a demo script: a booth that played
+        // an invented conversation next to a real one would make both
+        // unreadable.
+        onPhoneBoothInteract?.();
         return;
       }
       if (item.type === "server_terminal") {
@@ -4686,9 +4560,7 @@ export function RetroOffice3D({
       planPath,
       renderAgentsRef,
       serverTerminal,
-      voiceRepliesEnabled,
-      voiceRepliesLoaded,
-      voiceRepliesVoiceId,
+      onPhoneBoothInteract,
     ],
   );
 
@@ -6742,7 +6614,7 @@ export function RetroOffice3D({
       ) : null}
 
       {phoneBoothImmersive &&
-      effectivePhoneCallScenario &&
+      effectivePhoneBoothCall &&
       effectivePhoneBoothAgentId ? (
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
           <div className="absolute inset-0 bg-black/45" />
@@ -6754,8 +6626,7 @@ export function RetroOffice3D({
           <div className="absolute inset-[7.8vh_8.8vw_10.8vh_8.8vw] rounded-[24px] border border-sky-200/14 bg-[#020817] shadow-[inset_0_0_0_1px_rgba(125,211,252,0.04)]" />
           <div className="pointer-events-auto absolute inset-[8vh_9vw_11vh_9vw] overflow-hidden rounded-[22px] bg-[#020617]">
             <PhoneBoothImmersiveScreen
-              scenario={effectivePhoneCallScenario}
-              step={phoneCallStep}
+              call={effectivePhoneBoothCall}
               typedDigits={dialedDigits}
             />
           </div>

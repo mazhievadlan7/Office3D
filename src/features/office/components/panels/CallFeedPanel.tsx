@@ -52,6 +52,18 @@ const formatTime = (iso: string): string => {
     : at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 };
 
+/**
+ * A call somebody asked for, carried into the panel.
+ *
+ * "Call my wife" names a person, not a number, so the request is shown as
+ * context and a human still supplies the number. Nothing dials itself.
+ */
+export type CallRequestDraft = {
+  agentId: string;
+  callee: string;
+  message: string | null;
+};
+
 export type OfficeCallAgent = {
   agentId: string;
   name: string;
@@ -62,9 +74,11 @@ export type OfficeCallAgent = {
 export function CallFeedPanel({
   feed,
   agents,
+  draft = null,
 }: {
   feed: CallFeed;
   agents: OfficeCallAgent[];
+  draft?: CallRequestDraft | null;
 }) {
   const [toNumber, setToNumber] = useState("");
   const [pickedAgentId, setPickedAgentId] = useState<string | null>(null);
@@ -72,10 +86,12 @@ export function CallFeedPanel({
 
   // Derived rather than held in state: the roster can change under the panel
   // (an agent is deleted, or the floor loads late), and a stored id would keep
-  // pointing at someone who is no longer there.
+  // pointing at someone who is no longer there. A request picks the agent it
+  // came from, until the operator chooses otherwise.
+  const preferredAgentId = pickedAgentId ?? draft?.agentId ?? null;
   const agentId =
-    pickedAgentId && agents.some((agent) => agent.agentId === pickedAgentId)
-      ? pickedAgentId
+    preferredAgentId && agents.some((agent) => agent.agentId === preferredAgentId)
+      ? preferredAgentId
       : (agents[0]?.agentId ?? "");
 
   const selected = useMemo(() => {
@@ -129,6 +145,21 @@ export function CallFeedPanel({
         </NoticeBox>
       ) : null}
       {feed.error ? <NoticeBox tone="error">{feed.error}</NoticeBox> : null}
+
+      {draft ? (
+        <div className="rounded-xl border border-sky-300/25 bg-sky-400/8 px-3 py-2.5 text-xs text-sky-100/85">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200/60">
+            Requested
+          </div>
+          <div className="mt-1">
+            Call <span className="font-medium">{draft.callee}</span>
+            {draft.message ? <> — “{draft.message}”</> : null}
+          </div>
+          {/* The number is the operator's to supply: a name is not a number,
+              and a real call costs money and rings a stranger. */}
+          <div className="mt-1 text-sky-200/60">Enter the number to dial.</div>
+        </div>
+      ) : null}
 
       <form
         onSubmit={submit}

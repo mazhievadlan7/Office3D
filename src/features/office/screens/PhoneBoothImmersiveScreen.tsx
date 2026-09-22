@@ -1,34 +1,85 @@
 "use client";
 
 import { AudioLines, PhoneCall, Smartphone } from "lucide-react";
-import type { MockPhoneCallScenario } from "@/lib/office/call/types";
+
+import type { CallStatus, TranscriptSpeaker } from "@/lib/telephony/types";
+
+/**
+ * The phone booth, showing a call that is actually happening.
+ *
+ * Everything here comes from the call record: the number dialled, the status
+ * the provider reported, and the words that were really said. Nothing is
+ * scripted — an office that showed an invented conversation next to a real one
+ * would make both unreadable.
+ */
 
 export type PhoneCallStep =
   | "dialing"
   | "ringing"
   | "speaking"
-  | "reply"
   | "complete";
 
+export type PhoneBoothTurn = {
+  id: string;
+  speaker: TranscriptSpeaker;
+  text: string;
+};
+
+export type PhoneBoothCallView = {
+  /** The number dialled, as it was dialled. */
+  dialNumber: string;
+  /** The agent speaking, so the booth says whose call this is. */
+  agentName: string;
+  status: CallStatus;
+  turns: PhoneBoothTurn[];
+};
+
+const STATUS_LABEL: Record<CallStatus, string> = {
+  queued: "Dialing",
+  ringing: "Waiting for answer",
+  "in-progress": "Connected",
+  processing: "Wrapping up",
+  completed: "Call complete",
+  busy: "Line busy",
+  "no-answer": "No answer",
+  canceled: "Call canceled",
+  failed: "Call failed",
+};
+
+const SPEAKER_LABEL: Record<TranscriptSpeaker, string> = {
+  agent: "Agent",
+  callee: "Caller",
+  operator: "You",
+  system: "System",
+};
+
+/** The booth's animation stage, taken from the call rather than a timer. */
+export const stepForCallStatus = (status: CallStatus): PhoneCallStep => {
+  switch (status) {
+    case "queued":
+      return "dialing";
+    case "ringing":
+      return "ringing";
+    case "in-progress":
+    case "processing":
+      return "speaking";
+    default:
+      return "complete";
+  }
+};
+
 export function PhoneBoothImmersiveScreen({
-  scenario,
-  step,
+  call,
   typedDigits,
 }: {
-  scenario: MockPhoneCallScenario;
-  step: PhoneCallStep;
+  call: PhoneBoothCallView;
   typedDigits: string;
 }) {
-  const statusLabel =
-    step === "dialing"
-      ? "Dialing"
-      : step === "ringing"
-        ? "Waiting for answer"
-        : step === "speaking"
-          ? "Connected"
-          : step === "reply"
-            ? "On the line"
-            : "Call complete";
+  const step = stepForCallStatus(call.status);
+  const statusLabel = STATUS_LABEL[call.status];
+  // The last few turns: a booth is a glance, not a reading pane. The full
+  // transcript lives in the phone panel.
+  const recentTurns = call.turns.slice(-3);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(circle_at_top,#0f172a_0%,#050816_46%,#02030a_100%)] text-white">
@@ -40,19 +91,19 @@ export function PhoneBoothImmersiveScreen({
               <PhoneCall className="h-4 w-4" />
               Phone Booth Call
             </div>
-            <div className="mt-4 text-4xl font-semibold tracking-[0.08em] text-sky-50">
-              {scenario.callee}
+            <div className="mt-4 font-mono text-4xl font-semibold tracking-[0.08em] text-sky-50">
+              {call.dialNumber}
             </div>
             <div className="mt-2 text-sm uppercase tracking-[0.24em] text-sky-200/55">
               {statusLabel}
             </div>
             <div className="mt-8 rounded-[28px] border border-sky-300/16 bg-slate-900/90 p-6">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.24em] text-sky-200/60">
-                <span>Calling from booth</span>
-                <span>{scenario.voiceAvailable ? "ElevenLabs ready" : "Text fallback"}</span>
+                <span>Calling as</span>
+                <span>{call.agentName}</span>
               </div>
-              <div className="mt-5 text-3xl font-medium tracking-[0.24em] text-sky-50">
-                {typedDigits || scenario.dialNumber}
+              <div className="mt-5 font-mono text-3xl font-medium tracking-[0.24em] text-sky-50">
+                {typedDigits || call.dialNumber}
               </div>
               <div className="mt-6 grid grid-cols-3 gap-3">
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
@@ -77,7 +128,7 @@ export function PhoneBoothImmersiveScreen({
                   }`}
                 >
                   <PhoneCall className="h-4 w-4" />
-                  {step === "dialing" ? "Ready to call" : "Calling"}
+                  {statusLabel}
                 </div>
               </div>
             </div>
@@ -92,7 +143,7 @@ export function PhoneBoothImmersiveScreen({
                   <Smartphone className="h-4 w-4" />
                 </div>
                 <div className="mt-8 flex h-28 w-28 items-center justify-center self-center rounded-full border border-sky-300/22 bg-sky-400/10 text-sky-100">
-                  {step === "speaking" || step === "reply" ? (
+                  {step === "speaking" ? (
                     <AudioLines className="h-12 w-12" />
                   ) : (
                     <PhoneCall className="h-12 w-12" />
@@ -102,35 +153,42 @@ export function PhoneBoothImmersiveScreen({
                   <div className="text-[13px] uppercase tracking-[0.26em] text-sky-200/55">
                     {statusLabel}
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-sky-50">
-                    {scenario.callee}
+                  <div className="mt-2 font-mono text-2xl font-semibold text-sky-50">
+                    {call.dialNumber}
                   </div>
                   <div className="mt-2 text-sm tracking-[0.22em] text-sky-200/60">
-                    {scenario.dialNumber}
+                    {call.agentName}
                   </div>
                 </div>
-                <div className="mt-8 flex-1 space-y-4">
-                  <Bubble
-                    label="Agent"
-                    text={
-                      step === "dialing"
-                        ? `Typing ${typedDigits || scenario.dialNumber}.`
-                        : step === "ringing"
-                          ? `Pressed call and waiting for ${scenario.callee} to answer.`
-                          : scenario.spokenText ?? "Preparing the line."
-                    }
-                    tone="primary"
-                  />
-                  {step === "reply" || step === "complete" ? (
+                <div className="mt-8 flex-1 space-y-4 overflow-hidden">
+                  {recentTurns.length === 0 ? (
                     <Bubble
-                      label={scenario.callee}
-                      text={scenario.recipientReply ?? "The line is quiet."}
+                      label="Line"
+                      // Said, not guessed: before anyone speaks there is
+                      // nothing to show, and inventing an opening line would
+                      // put words in the agent's mouth.
+                      text={
+                        step === "complete"
+                          ? "Nothing was said on this call."
+                          : "Waiting for the first words…"
+                      }
                       tone="secondary"
                     />
                   ) : null}
+                  {recentTurns.map((turn) => (
+                    <Bubble
+                      key={turn.id}
+                      label={SPEAKER_LABEL[turn.speaker]}
+                      text={turn.text}
+                      tone={turn.speaker === "agent" ? "primary" : "secondary"}
+                    />
+                  ))}
                 </div>
                 <div className="rounded-[24px] border border-sky-300/14 bg-slate-950/70 px-4 py-3 text-sm text-sky-100/78">
-                  {scenario.statusLine}
+                  {statusLabel}
+                  {call.turns.length > recentTurns.length
+                    ? ` · ${call.turns.length} turns so far`
+                    : ""}
                 </div>
               </div>
             </div>

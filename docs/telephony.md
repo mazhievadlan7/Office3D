@@ -73,6 +73,21 @@ reaches the prompt, so neither can pose as a new instruction block.
 Add a new agent to the office and it can call immediately; there is nothing to
 fill in per agent.
 
+## Calls an agent asks for
+
+Saying "call my wife" to an agent does not place a call. The office opens the
+phone with the request shown as context, and a human supplies the number and
+presses Call.
+
+That is deliberate on two counts. A name is not a number, so there is nothing
+to dial. And a real call costs money and rings a stranger, which is not a
+decision to take on an agent's say-so.
+
+Before this, that path produced a **scripted call**: a hardcoded number, a line
+the agent never said, and an invented reply from the other party, animated in
+the booth and spoken aloud. It has been removed. The booth now shows a call
+that is actually on the line, or stays dark.
+
 ## Talking to the agent mid-call
 
 An operator watching a live call can type a note — "ask when they can pay",

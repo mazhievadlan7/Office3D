@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import {
   CallFeedPanel,
+  type CallRequestDraft,
   type OfficeCallAgent,
 } from "@/features/office/components/panels/CallFeedPanel";
 import type { CallFeed } from "@/features/office/hooks/useOfficeCallFeed";
@@ -19,11 +20,14 @@ export function CallFeedModal({
   open,
   feed,
   agents,
+  draft = null,
   onClose,
 }: {
   open: boolean;
   feed: CallFeed;
   agents: OfficeCallAgent[];
+  /** What an agent was asked to do, when the phone was opened by a request. */
+  draft?: CallRequestDraft | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -71,7 +75,7 @@ export function CallFeedModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-5">
-          <CallFeedPanel feed={feed} agents={agents} />
+          <CallFeedPanel feed={feed} agents={agents} draft={draft} />
         </div>
       </div>
     </div>
