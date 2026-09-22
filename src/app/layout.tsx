@@ -1,28 +1,34 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Oswald } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Office3D",
-  description: "Focused operator studio for the OpenClaw gateway.",
+  description: "Операторская студия для шлюза OpenClaw.",
 };
 
-const display = Bebas_Neue({
+/**
+ * Oswald rather than Bebas Neue, and this is not a taste decision: Bebas Neue
+ * has no Cyrillic at all, so every Russian heading would fall back to a system
+ * font and the typography would break across the whole app. Oswald is the
+ * nearest condensed display face that ships Cyrillic.
+ */
+const display = Oswald({
   variable: "--font-display",
   weight: "400",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
 const sans = IBM_Plex_Sans({
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
 const mono = IBM_Plex_Mono({
   variable: "--font-mono",
   weight: ["400", "500", "600"],
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
 export default function RootLayout({
@@ -31,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
