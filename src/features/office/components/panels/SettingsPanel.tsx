@@ -189,17 +189,17 @@ export function SettingsPanel({
               type="password"
               value={normalizedGatewayToken}
               onChange={(event) => onGatewayTokenChange?.(event.target.value)}
-              placeholder={tokenOptional ? "optional token" : "gateway token"}
+              placeholder={tokenOptional ? t("settings.tokenOptional") : t("settings.gatewayToken")}
               className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
             />
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-white/60">
           <span className="font-mono">
-            Selected backend: {selectedAdapterType}
+            {t("settings.selectedBackend", { name: selectedAdapterType })}
           </span>
           <span className="font-mono">
-            Active backend: {activeAdapterType}
+            {t("settings.activeBackend", { name: activeAdapterType })}
           </span>
           <span>{t("gateway.backendsKeepOwnSettings")}</span>
         </div>
@@ -270,7 +270,7 @@ export function SettingsPanel({
               <option value="openclaw_gateway">{t("settings.sourceGateway")}</option>
             </select>
             <div className="mt-1 text-[10px] text-white/50">
-              Use a presence endpoint when the other machine runs Office3D. Use gateway mode when the other machine only runs OpenClaw.
+              {t("settings.remoteModeHint")}
             </div>
           </div>
           <div>
@@ -296,7 +296,7 @@ export function SettingsPanel({
                   className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
-                  Studio polls this endpoint server-side when the other machine is also running Office3D.
+                  {t("settings.presencePollHint")}
                 </div>
               </div>
               <div>
@@ -342,7 +342,7 @@ export function SettingsPanel({
                   className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
-                  Office3D connects from the browser directly to the remote OpenClaw gateway and derives a read-only presence snapshot.
+                  {t("settings.remoteGatewayHint")}
                 </div>
               </div>
               <div>

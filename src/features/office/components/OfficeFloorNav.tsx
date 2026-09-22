@@ -11,7 +11,7 @@ import {
   type FloorId,
   type FloorProvider,
 } from "@/lib/office/floors";
-import type { FloorRosterState } from "@/lib/office/floorRoster";
+import type { FloorRosterState, FloorRosterStatus } from "@/lib/office/floorRoster";
 import { t } from "@/lib/i18n";
 
 const DIRECTORY_COLLAPSED_STORAGE_KEY = "office3d.officeFloorNav.directoryCollapsed";
@@ -77,13 +77,20 @@ type OfficeFloorNavProps = {
   activeAdapterType?: FloorProvider | null;
 };
 
+const ROSTER_STATUS_LABELS: Record<FloorRosterStatus, () => string> = {
+  idle: () => t("floors.rosterIdle"),
+  loading: () => t("floors.rosterLoading"),
+  loaded: () => t("floors.rosterLoaded"),
+  error: () => t("floors.rosterError"),
+};
+
 const PROVIDER_LABEL: Record<FloorProvider, string> = {
-  demo: "Demo",
+  demo: t("floors.providerDemo"),
   openclaw: "OpenClaw",
   hermes: "Hermes",
   paperclip: "Paperclip",
-  custom: "Custom",
-  local: "Local",
+  custom: t("floors.providerCustom"),
+  local: t("floors.providerLocal"),
   office3d: "Office3D",
 };
 
@@ -137,7 +144,7 @@ const renderFloorButton = (params: {
         <span>{floor.shortLabel}</span>
         {floor.enabled ? (
           <span>
-            roster {rosterCount} | {rosterStatus}
+            {t("floors.roster", { count: rosterCount, status: ROSTER_STATUS_LABELS[rosterStatus]() })}
           </span>
         ) : (
           <span>{t("floors.locked")}</span>
@@ -219,7 +226,7 @@ export function OfficeFloorNav({
             </div>
             <div className="mt-3 flex flex-col gap-2">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                Building
+                {t("floors.building")}
               </div>
               {buildingFloors.map((floor) =>
                 renderFloorButton({
@@ -233,7 +240,7 @@ export function OfficeFloorNav({
             {outsideFloors.length > 0 ? (
               <div className="mt-4 flex flex-col gap-2">
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Outside
+                  {t("floors.outside")}
                 </div>
                 {outsideFloors.map((floor) =>
                   renderFloorButton({
@@ -251,13 +258,16 @@ export function OfficeFloorNav({
 
       <section className="pointer-events-auto rounded-2xl border border-white/10 bg-black/68 px-3 py-2 shadow-xl backdrop-blur">
         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
-          Current Floor
+          {t("floors.currentFloor")}
         </div>
         <div className="mt-1 text-sm font-semibold text-white">{activeFloor.label}</div>
         <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
           <span>{PROVIDER_LABEL[activeFloor.provider]}</span>
           <span>
-            roster {activeRoster?.entries.length ?? 0} | {activeRoster?.status ?? "idle"}
+            {t("floors.roster", {
+              count: activeRoster?.entries.length ?? 0,
+              status: ROSTER_STATUS_LABELS[activeRoster?.status ?? "idle"](),
+            })}
           </span>
         </div>
       </section>

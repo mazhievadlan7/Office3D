@@ -113,7 +113,7 @@ describe("AgentChatPanel composer autoresize", () => {
 
     render(createElement(Harness));
 
-    const textarea = screen.getByPlaceholderText("type a message") as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText("напишите сообщение") as HTMLTextAreaElement;
 
     await waitFor(() => {
       expect(textarea.style.height).toBe("200px");

@@ -193,10 +193,10 @@ export function SkillsMarketplacePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-              Skills Marketplace
+              {t("skills.marketTitle")}
             </div>
             <div className="mt-1 font-mono text-[11px] text-white/40">
-              Browse gateway skills like a curated plugin store.
+              {t("skills.marketLead")}
             </div>
           </div>
           <button
@@ -205,15 +205,14 @@ export function SkillsMarketplacePanel({
             className="inline-flex items-center gap-1 rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            Refresh
+            {t("common.refresh")}
           </button>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="rounded border border-amber-500/20 bg-amber-500/10 px-3 py-2 font-mono text-[10px] text-amber-100">
-          Packaged skill installs target the selected agent workspace. Global setup actions still affect
-          the whole gateway. Agent access controls below apply only to the selected agent.
+          {t("skills.scopeNote")}
         </div>
 
         <div className="mt-3 rounded border border-cyan-500/15 bg-white/[0.03] px-3 py-3">
@@ -256,7 +255,7 @@ export function SkillsMarketplacePanel({
               }}
               className="rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Focus chat
+              {t("skills.focusChat")}
             </button>
             <button
               type="button"
@@ -312,7 +311,7 @@ export function SkillsMarketplacePanel({
             {marketplace.message.text}
             {marketplace.message.kind === "success" ? (
               <div className="mt-1 font-mono text-[10px] text-emerald-100/80">
-                Check the `OFFICE3D` filter below to find the installed skill quickly.
+                {t("skills.findInstalled")}
               </div>
             ) : null}
           </div>
@@ -364,7 +363,7 @@ export function SkillsMarketplacePanel({
                           <Star className="h-3 w-3 text-amber-300" />
                           {formatRating(entry.metadata.rating)}
                         </span>
-                        <span>{formatInstalls(entry.metadata.installs)} installs</span>
+                        <span>{t("skills.installsCount", { count: formatInstalls(entry.metadata.installs) })}</span>
                       </>
                     ) : null}
                     <span>{entry.metadata.category}</span>
@@ -391,7 +390,7 @@ export function SkillsMarketplacePanel({
 
         {activeFilter !== "registry" && !marketplace.loading && filteredCollections.length === 0 ? (
           <div className="mt-4 rounded border border-white/10 bg-white/[0.03] px-3 py-4 font-mono text-[11px] text-white/45">
-            No matching skills found for this gateway.
+            {t("skills.noMatches")}
           </div>
         ) : null}
 
@@ -473,7 +472,7 @@ export function SkillsMarketplacePanel({
                                   <Star className="h-3 w-3 text-amber-300" />
                                   {formatRating(entry.metadata.rating)}
                                 </span>
-                                <span>{formatInstalls(entry.metadata.installs)} installs</span>
+                                <span>{t("skills.installsCount", { count: formatInstalls(entry.metadata.installs) })}</span>
                               </>
                             ) : null}
                             <span>{entry.skill.source}</span>
@@ -580,7 +579,7 @@ export function SkillsMarketplacePanel({
           <div className="flex items-start justify-between border-b border-cyan-500/10 px-4 py-3">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/40">
-                Skill detail
+                {t("skills.detail")}
               </div>
               <div className="mt-1 font-mono text-[14px] font-semibold text-white/90">
                 {detailEntry.skill.name}
@@ -750,8 +749,7 @@ export function SkillsMarketplacePanel({
               ) : null}
             </div>
             <div className="mt-4 rounded border border-white/8 bg-white/[0.03] px-3 py-3 font-mono text-[10px] text-white/60">
-              `Enable/Disable for agent` only changes access for the selected agent. `Remove for all agents`
-              deletes the installed skill from the gateway workspace.
+              {t("skills.accessNote")}
             </div>
           </div>
         </div>

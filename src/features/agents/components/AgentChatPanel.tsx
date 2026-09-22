@@ -119,21 +119,21 @@ const isTextAttachmentFile = (file: File): boolean => {
 
 const buildAttachmentPromptBlock = (fileName: string, content: string): string =>
   [
-    `[Attached reference: ${fileName}]`,
+    t("chat.attachedReference", { name: fileName }),
     content,
-    `[End attached reference: ${fileName}]`,
+    t("chat.attachedReferenceEnd", { name: fileName }),
   ].join("\n");
 
 const buildUploadedAttachmentPromptBlock = (attachment: UploadAttachment): string => {
   const lines = [
-    `[Attached file: ${attachment.name}]`,
+    t("chat.attachedFile", { name: attachment.name }),
     `URL: ${attachment.url}`,
     `Content-Type: ${attachment.contentType}`,
   ];
   if (attachment.extractedText) {
     lines.push("", attachment.extractedText);
   }
-  lines.push(`[End attached file: ${attachment.name}]`);
+  lines.push(t("chat.attachedFileEnd", { name: attachment.name }));
   return lines.join("\n");
 };
 
@@ -411,7 +411,7 @@ const UserMessageCard = memo(function UserMessageCard({
     <div className="ui-chat-user-card w-full max-w-[70ch] self-end overflow-hidden rounded-[var(--radius-small)] bg-[color:var(--chat-user-bg)]">
       <div className="flex items-center justify-between gap-3 bg-[color:var(--chat-user-header-bg)] px-3 py-2 dark:px-3.5 dark:py-2.5">
         <div className="type-meta min-w-0 truncate font-mono text-foreground/90">
-          You
+          {t("chat.you")}
         </div>
         {typeof timestampMs === "number" ? (
           <time className="type-meta shrink-0 rounded-md bg-surface-3 px-2 py-0.5 font-mono text-muted-foreground/70">
@@ -833,8 +833,12 @@ const AgentChatTranscript = memo(function AgentChatTranscript({
           {historyMaybeTruncated && isAtTop ? (
             <div className="-mx-1 flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2 shadow-2xs">
               <div className="type-meta min-w-0 truncate font-mono text-muted-foreground">
-                Showing most recent {typeof historyFetchedCount === "number" ? historyFetchedCount : "?"} messages
-                {typeof historyFetchLimit === "number" ? ` (limit ${historyFetchLimit})` : ""}
+                {t("chat.showingRecent", {
+                  count: typeof historyFetchedCount === "number" ? historyFetchedCount : "?",
+                })}
+                {typeof historyFetchLimit === "number"
+                  ? ` ${t("chat.historyLimit", { limit: historyFetchLimit })}`
+                  : ""}
               </div>
               <button
                 type="button"
@@ -1096,7 +1100,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
           ) : null}
         </div>
         <div className="hidden">
-          <span className="font-mono tracking-[0.02em]">Show</span>
+          <span className="font-mono tracking-[0.02em]">{t("chat.show")}</span>
           <button
             type="button"
             role="switch"
@@ -1200,7 +1204,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
                   <button
                     type="button"
                     className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                    aria-label={`Remove attachment ${attachment.name}`}
+                    aria-label={t("chat.removeAttachment", { name: attachment.name })}
                     onClick={() => onRemoveAttachment(attachment.id)}
                   >
                     <X className="h-3 w-3" />
@@ -1241,7 +1245,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
             className="chat-composer-input min-h-[64px] flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-foreground outline-none shadow-none transition placeholder:text-muted-foreground/65 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
             onChange={onChange}
             onKeyDown={onKeyDown}
-            placeholder="type a message"
+            placeholder={t("chat.placeholder")}
           />
           <button
             className="rounded-md border border-border/70 bg-surface-3 px-2.5 py-2 font-mono text-[11px] font-medium tracking-[0.02em] text-white transition hover:bg-surface-2 hover:text-white disabled:cursor-not-allowed disabled:border-border/30 disabled:bg-muted/20 disabled:text-muted-foreground"
@@ -1525,7 +1529,7 @@ export const AgentChatPanel = ({
       const oversized = files.filter((file) => file.size > MAX_UPLOAD_BYTES);
       const supported = files.filter((file) => file.size <= MAX_UPLOAD_BYTES);
       if (supported.length === 0) {
-        setAttachmentStatus("All selected files exceeded the 10 MB upload limit.");
+        setAttachmentStatus(t("chat.allOversized"));
         return;
       }
       try {
@@ -1556,9 +1560,9 @@ export const AgentChatPanel = ({
           })
         );
         setAttachments((current) => [...current, ...uploaded]);
-        const statusParts = [`Uploaded ${uploaded.length} file${uploaded.length === 1 ? "" : "s"}.`];
+        const statusParts = [t("chat.uploaded", { count: uploaded.length })];
         if (oversized.length > 0) {
-          statusParts.push(`${oversized.length} oversized file${oversized.length === 1 ? "" : "s"} skipped.`);
+          statusParts.push(t("chat.oversizedSkipped", { count: oversized.length }));
         }
         setAttachmentStatus(statusParts.join(" "));
         scrollToBottomNextOutputRef.current = true;

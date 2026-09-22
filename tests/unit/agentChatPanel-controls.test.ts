@@ -349,7 +349,7 @@ describe("AgentChatPanel controls", () => {
       })
     );
 
-    const textarea = screen.getByPlaceholderText("type a message");
+    const textarea = screen.getByPlaceholderText("напишите сообщение");
     fireEvent.change(textarea, { target: { value: "follow up" } });
     fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
 
@@ -538,7 +538,7 @@ describe("AgentChatPanel controls", () => {
       })
     );
 
-    const textarea = screen.getByPlaceholderText("type a message") as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText("напишите сообщение") as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "hello world" } });
     expect(textarea.value).toBe("hello world");
 
@@ -601,7 +601,7 @@ describe("AgentChatPanel controls", () => {
       })
     );
 
-    const textarea = screen.getByPlaceholderText("type a message");
+    const textarea = screen.getByPlaceholderText("напишите сообщение");
     fireEvent.change(textarea, { target: { value: "draft text" } });
 
     fireEvent.keyDown(textarea, {

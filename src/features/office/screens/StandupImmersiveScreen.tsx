@@ -4,6 +4,7 @@ import { ExternalLink, X } from "lucide-react";
 
 import type { StandupMeeting } from "@/lib/office/standup/types";
 import { t } from "@/lib/i18n";
+import { standupPhaseLabel } from "@/lib/office/standup/labels";
 
 const sourceTone = (ready: boolean, stale: boolean) => {
   if (!ready) return stale ? "text-amber-200 border-amber-400/25" : "text-rose-200 border-rose-400/25";
@@ -44,7 +45,7 @@ export function StandupImmersiveScreen({
         </div>
 
         <div className="grid gap-4 border-b border-cyan-500/10 px-6 py-4 font-mono text-[11px] text-white/60 md:grid-cols-3">
-          <div>{t("standup.phase", { value: meeting.phase })}</div>
+          <div>{t("standup.phase", { value: standupPhaseLabel(meeting.phase) })}</div>
           <div>
             {t("standup.speaker", {
               name: meeting.currentSpeakerAgentId ?? t("standup.waiting"),
@@ -90,7 +91,7 @@ export function StandupImmersiveScreen({
                   <div className="mt-4 space-y-4">
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                        Current task
+                        {t("playbooks.currentTask")}
                       </div>
                       <div className="mt-1 text-sm leading-6 text-white/85">
                         {card.currentTask}
@@ -99,12 +100,12 @@ export function StandupImmersiveScreen({
 
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                        Recent commits
+                        {t("standup.recentCommits")}
                       </div>
                       <div className="mt-2 space-y-2">
                         {card.recentCommits.length === 0 ? (
                           <div className="font-mono text-[11px] text-white/35">
-                            No recent GitHub activity.
+                            {t("standup.noGithub")}
                           </div>
                         ) : (
                           card.recentCommits.map((commit) => (
@@ -170,12 +171,12 @@ export function StandupImmersiveScreen({
 
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                        Blockers
+                        {t("playbooks.blockers")}
                       </div>
                       <div className="mt-2 space-y-2">
                         {card.blockers.length === 0 ? (
                           <div className="font-mono text-[11px] text-emerald-200/75">
-                            No blockers reported.
+                            {t("standup.noBlockers")}
                           </div>
                         ) : (
                           card.blockers.map((blocker, index) => (
@@ -193,7 +194,7 @@ export function StandupImmersiveScreen({
                     {card.manualNotes.length > 0 ? (
                       <div>
                         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                          Manual notes
+                          {t("standup.manualNotes")}
                         </div>
                         <div className="mt-2 space-y-2">
                           {card.manualNotes.map((note, index) => (
@@ -210,7 +211,7 @@ export function StandupImmersiveScreen({
 
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                        Sources
+                        {t("standup.sources")}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {card.sourceStates.map((source) => (
@@ -222,7 +223,7 @@ export function StandupImmersiveScreen({
                             )}`}
                           >
                             {source.kind}
-                            {source.error ? ` · ${source.error}` : source.stale ? " · stale" : ""}
+                            {source.error ? ` · ${source.error}` : source.stale ? ` · ${t("standup.stale")}` : ""}
                           </div>
                         ))}
                       </div>

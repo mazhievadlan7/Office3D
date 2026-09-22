@@ -34,7 +34,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
 
   const handlePinSubmit = () => {
     if (inputPin.length < 4) {
-      setError("PIN must be at least 4 digits");
+      setError(t("atm.pinTooShort"));
       return;
     }
 
@@ -178,7 +178,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
               onClick={() => handleKeyPad("clear")}
               className="flex h-16 w-24 items-center justify-center rounded-xl border border-rose-500/20 bg-[#1a0505]/60 text-[14px] font-medium uppercase tracking-wider text-rose-200 transition-all hover:bg-rose-900/40 active:scale-95"
             >
-              Clear
+              {t("atm.clear")}
             </button>
             <button
               onClick={() => handleKeyPad("0")}
@@ -207,25 +207,25 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
           <div>
             <div className="flex items-center gap-3 text-[12px] uppercase tracking-[0.32em] text-[#83fff0]/70">
               <Landmark className="h-4 w-4" />
-              OpenClaw Treasury ATM
+              {t("atm.brand")}
             </div>
             <div className="mt-3 text-[13px] uppercase tracking-[0.24em] text-[#7ddfd2]/62">
-              Token Usage Ledger
+              {t("atm.ledger")}
             </div>
             <div className="mt-2 text-[44px] font-semibold tracking-[0.08em] text-[#dbfff6]">
               {formatNumber(usage.totals.totalTokens)}
             </div>
             <div className="mt-2 text-[15px] uppercase tracking-[0.28em] text-[#89fff1]/72">
-              Total tokens used
+              {t("atm.tokensUsed")}
             </div>
             <div className="mt-4 inline-flex items-center rounded-full border border-[#7cffef]/20 bg-black/20 px-4 py-2 text-[13px] uppercase tracking-[0.24em] text-[#bafff7]/85">
-              USD equivalent {formatCurrency(usage.totals.totalCost)}
+              {t("atm.usdEquivalent")} {formatCurrency(usage.totals.totalCost)}
             </div>
           </div>
           <div className="w-[320px] rounded-[24px] border border-[#7dfff0]/18 bg-black/22 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-[#88fff1]/62">
               <Wallet className="h-4 w-4" />
-              Account summary
+              {t("atm.accountSummary")}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {[
@@ -255,7 +255,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
             </div>
             <div className="mt-4 rounded-2xl border border-[#7dfff0]/12 bg-[#031314]/80 px-4 py-3 text-[12px] uppercase tracking-[0.18em] text-[#9ffef0]/76">
               {usage.lastRefreshedAt
-                ? `Last refresh ${new Date(usage.lastRefreshedAt).toLocaleTimeString()}`
+                ? t("atm.lastRefresh", { time: new Date(usage.lastRefreshedAt).toLocaleTimeString() })
                 : settingsLoaded
                   ? t("atm.awaitingSnapshot")
                   : t("atm.loadingPreferences")}
@@ -278,7 +278,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                 ) : (
                   <RefreshCw className="h-3.5 w-3.5" />
                 )}
-                Refresh
+                {t("common.refresh")}
               </button>
             }
           >
@@ -334,8 +334,8 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                   <ListRow
                     key={entry.date}
                     title={entry.date}
-                    primary={`${formatCurrency(entry.cost)} · ${formatNumber(entry.tokens)} tokens`}
-                    secondary={`${formatNumber(entry.messages)} messages · ${formatNumber(entry.toolCalls)} tool calls · ${formatNumber(entry.errors)} errors`}
+                    primary={t("atm.costAndTokens", { cost: formatCurrency(entry.cost), tokens: formatNumber(entry.tokens) })}
+                    secondary={t("atm.dayActivity", { messages: formatNumber(entry.messages), toolCalls: formatNumber(entry.toolCalls), errors: formatNumber(entry.errors) })}
                   />
                 ))}
                 {usage.aggregates.daily.length === 0 ? (
@@ -382,9 +382,9 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                 {usage.aggregates.byAgent.map((entry, index) => (
                   <ListRow
                     key={entry.agentId}
-                    title={`Account ${String(index + 1).padStart(2, "0")} · ${entry.agentName}`}
+                    title={t("atm.accountRow", { index: String(index + 1).padStart(2, "0"), name: entry.agentName })}
                     primary={formatCurrency(entry.totals.totalCost)}
-                    secondary={`${formatNumber(entry.totals.totalTokens)} tokens`}
+                    secondary={t("atm.tokensCount", { tokens: formatNumber(entry.totals.totalTokens) })}
                   />
                 ))}
                 {usage.aggregates.byAgent.length === 0 ? (
@@ -401,9 +401,9 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                 {usage.aggregates.byModel.map((entry, index) => (
                   <ListRow
                     key={`${entry.provider ?? "unknown"}:${entry.model ?? "unknown"}`}
-                    title={`Route ${String(index + 1).padStart(2, "0")} · ${entry.provider ?? "unknown"} / ${entry.model ?? "unknown"}`}
+                    title={t("atm.routeRow", { index: String(index + 1).padStart(2, "0"), provider: entry.provider ?? t("atm.unknown"), model: entry.model ?? t("atm.unknown") })}
                     primary={formatCurrency(entry.totals.totalCost)}
-                    secondary={`${formatNumber(entry.totals.totalTokens)} tokens`}
+                    secondary={t("atm.tokensCount", { tokens: formatNumber(entry.totals.totalTokens) })}
                   />
                 ))}
                 {usage.aggregates.byModel.length === 0 ? (
@@ -419,9 +419,9 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                 {usage.aggregates.tools.tools.map((tool, index) => (
                   <ListRow
                     key={tool.name}
-                    title={`Tool ${String(index + 1).padStart(2, "0")} · ${tool.name}`}
+                    title={t("atm.toolRow", { index: String(index + 1).padStart(2, "0"), name: tool.name })}
                     primary={formatNumber(tool.count)}
-                    secondary="total invocations"
+                    secondary={t("atm.totalInvocations")}
                   />
                 ))}
                 {usage.aggregates.tools.tools.length === 0 ? (
@@ -464,13 +464,11 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                 <ListRow
                   key={session.key}
                   title={session.label ?? session.agentName ?? session.key}
-                  primary={`${formatCurrency(session.usage.totals.totalCost)} · ${formatNumber(
-                    session.usage.totals.totalTokens,
-                  )} tokens`}
-                  secondary={`${session.provider ?? "unknown"} / ${session.model ?? "unknown"} · ${
+                  primary={t("atm.costAndTokens", { cost: formatCurrency(session.usage.totals.totalCost), tokens: formatNumber(session.usage.totals.totalTokens) })}
+                  secondary={`${session.provider ?? t("atm.unknown")} / ${session.model ?? t("atm.unknown")} · ${
                     session.updatedAt
                       ? new Date(session.updatedAt).toLocaleString()
-                      : "no timestamp"
+                      : t("atm.noTimestamp")
                   }`}
                 />
               ))}
