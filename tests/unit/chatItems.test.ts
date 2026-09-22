@@ -262,7 +262,7 @@ describe("summarizeToolLabel", () => {
 
     const summary = summarizeToolLabel(toolCallLine);
     expect(summary.summaryText).toBe(
-      "read /path/to/openclaw-agent-home/README.md"
+      "чтение /path/to/openclaw-agent-home/README.md"
     );
     expect(summary.inlineOnly).toBe(true);
     expect(summary.body).toBe("");

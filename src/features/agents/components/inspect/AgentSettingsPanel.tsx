@@ -72,6 +72,12 @@ export type AgentSettingsPanelProps = {
   onSaveSkillApiKey?: (skillKey: string) => Promise<void> | void;
 };
 
+const EVERY_UNIT_SHORT: Record<NonNullable<CronCreateDraft["everyUnit"]>, () => string> = {
+  minutes: () => t("agentSettings.unitMinutesShort"),
+  hours: () => t("agentSettings.unitHoursShort"),
+  days: () => t("agentSettings.unitDaysShort"),
+};
+
 const formatCronStateLine = (job: CronJobSummary): string | null => {
   if (typeof job.state.runningAtMs === "number" && Number.isFinite(job.state.runningAtMs)) {
     return t("agentSettings.runningNow");
@@ -579,7 +585,7 @@ export const AgentSettingsPanel = ({
                   </button>
                   <div className="sidebar-copy flex flex-col">
                     <span className="text-[11px] font-medium text-foreground/88">{t("agentSettings.browserAutomation")}</span>
-                    <span className="text-[10px] text-muted-foreground/70">Coming soon</span>
+                    <span className="text-[10px] text-muted-foreground/70">{t("agentSettings.comingSoon")}</span>
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/55" aria-hidden="true" />
@@ -924,7 +930,7 @@ export const AgentSettingsPanel = ({
               ) : null}
               {cronCreateStep === 2 ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">Choose when this should run.</div>
+                  <div className="text-sm text-muted-foreground">{t("agentSettings.chooseWhen")}</div>
                   <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.scheduleType")}</span>
                     <select
@@ -1022,14 +1028,19 @@ export const AgentSettingsPanel = ({
                       {cronDraft.taskText || t("agentSettings.noTask")}
                     </div>
                     <div className="mt-2 text-[11px]">
-                      Schedule:{" "}
+                      {t("agentSettings.scheduleLabel")}{" "}
                       {cronDraft.scheduleKind === "every"
-                        ? `Every ${cronDraft.everyAmount ?? 0} ${cronDraft.everyUnit ?? "minutes"}${
-                            cronDraft.everyUnit === "days"
-                              ? ` at ${cronDraft.everyAtTime ?? ""} (${cronDraft.everyTimeZone ?? resolveLocalTimeZone()})`
-                              : ""
-                          }`
-                        : `At ${cronDraft.scheduleAt ?? ""}`}
+                        ? t("agentSettings.everySummary", {
+                            amount: cronDraft.everyAmount ?? 0,
+                            unit: EVERY_UNIT_SHORT[cronDraft.everyUnit ?? "minutes"](),
+                          }) +
+                          (cronDraft.everyUnit === "days"
+                            ? ` ${t("agentSettings.atTimeZone", {
+                                time: cronDraft.everyAtTime ?? "",
+                                zone: cronDraft.everyTimeZone ?? resolveLocalTimeZone(),
+                              })}`
+                            : "")
+                        : t("agentSettings.atSummary", { at: cronDraft.scheduleAt ?? "" })}
                     </div>
                   </div>
                 </div>

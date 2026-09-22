@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 /**
  * Onboarding wizard types.
  *
@@ -36,38 +38,38 @@ export type OnboardingState = {
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "welcome",
-    title: "Welcome to Office3D",
-    description: "Your AI office in 3D",
+    title: t("onboarding.stepWelcome"),
+    description: t("onboarding.stepWelcomeLead"),
     skippable: false,
   },
   {
     id: "prerequisites",
-    title: "Before You Start",
-    description: "What you'll need",
+    title: t("onboarding.stepPrereq"),
+    description: t("onboarding.stepPrereqLead"),
     skippable: true,
   },
   {
     id: "connect",
-    title: "Connect Your Gateway",
-    description: "Link to your runtime instance",
+    title: t("onboarding.stepConnect"),
+    description: t("onboarding.stepConnectLead"),
     skippable: false,
   },
   {
     id: "agents",
-    title: "Your Agents",
-    description: "Meet your AI team",
+    title: t("onboarding.stepAgents"),
+    description: t("onboarding.stepAgentsLead"),
     skippable: true,
   },
   {
     id: "company",
-    title: "Build Your Company",
-    description: "Generate your org structure",
+    title: t("onboarding.stepCompany"),
+    description: t("onboarding.stepCompanyLead"),
     skippable: true,
   },
   {
     id: "complete",
-    title: "You're All Set",
-    description: "Start exploring",
+    title: t("onboarding.stepComplete"),
+    description: t("onboarding.stepCompleteLead"),
     skippable: false,
   },
 ];

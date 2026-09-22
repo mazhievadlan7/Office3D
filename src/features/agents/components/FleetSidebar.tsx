@@ -7,6 +7,7 @@ import {
   resolveAgentStatusLabel,
 } from "./colorSemantics";
 import { EmptyStatePanel } from "./EmptyStatePanel";
+import { t } from "@/lib/i18n";
 
 type FleetSidebarProps = {
   agents: AgentState[];
@@ -20,9 +21,9 @@ type FleetSidebarProps = {
 };
 
 const FILTER_OPTIONS: Array<{ value: FocusFilter; label: string; testId: string }> = [
-  { value: "all", label: "All", testId: "fleet-filter-all" },
-  { value: "running", label: "Running", testId: "fleet-filter-running" },
-  { value: "approvals", label: "Approvals", testId: "fleet-filter-approvals" },
+  { value: "all", label: t("fleet.filterAll"), testId: "fleet-filter-all" },
+  { value: "running", label: t("fleet.filterRunning"), testId: "fleet-filter-running" },
+  { value: "approvals", label: t("fleet.filterApprovals"), testId: "fleet-filter-approvals" },
 ];
 
 export const FleetSidebar = ({
@@ -75,7 +76,7 @@ export const FleetSidebar = ({
       data-testid="fleet-sidebar"
     >
       <div className="flex items-center justify-between gap-2 px-1">
-        <p className="console-title type-page-title text-foreground">Agents ({agents.length})</p>
+        <p className="console-title type-page-title text-foreground">{t("fleet.title", { count: agents.length })}</p>
         <button
           type="button"
           data-testid="fleet-new-agent-button"
@@ -83,7 +84,7 @@ export const FleetSidebar = ({
           onClick={onCreateAgent}
           disabled={createDisabled || createBusy}
         >
-          {createBusy ? "Creating..." : "New agent"}
+          {createBusy ? t("fleet.creating") : t("fleet.newAgent")}
         </button>
       </div>
 
@@ -108,7 +109,7 @@ export const FleetSidebar = ({
 
       <div ref={scrollContainerRef} className="ui-scroll min-h-0 flex-1 overflow-auto">
         {agents.length === 0 ? (
-          <EmptyStatePanel title="No agents available." compact className="p-3 text-xs" />
+          <EmptyStatePanel title={t("fleet.empty")} compact className="p-3 text-xs" />
         ) : (
           <div className="flex flex-col gap-2.5">
             {agents.map((agent) => {
@@ -126,7 +127,7 @@ export const FleetSidebar = ({
                   }}
                   type="button"
                   data-testid={`fleet-agent-row-${agent.agentId}`}
-                  aria-label={`Select agent: ${agent.name}`}
+                  aria-label={t("fleet.selectAgent", { name: agent.name })}
                   aria-pressed={selected}
                   className={`group relative ui-card flex w-full items-center gap-3 overflow-hidden border px-3 py-3 text-left transition-colors ${
                     selected
@@ -159,7 +160,7 @@ export const FleetSidebar = ({
                       </span>
                       {agent.awaitingUserInput ? (
                         <span className={`ui-badge ${NEEDS_APPROVAL_BADGE_CLASS}`} data-status="approval">
-                          Needs approval
+                          {t("fleet.needsApproval")}
                         </span>
                       ) : null}
                     </div>

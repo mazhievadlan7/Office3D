@@ -2,27 +2,28 @@
  * WelcomeStep — First onboarding screen introducing Office3D.
  */
 import { Building2, Eye, MessageSquare, Users } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 const features = [
   {
     icon: Eye,
-    title: "Watch agents work",
-    description: "See your AI agents in real time in a shared 3D office",
+    title: t("onboarding.welcomeWatch"),
+    description: t("onboarding.welcomeWatchLead"),
   },
   {
     icon: Users,
-    title: "Manage your fleet",
-    description: "Create, configure, and monitor agents from one place",
+    title: t("onboarding.welcomeFleet"),
+    description: t("onboarding.welcomeFleetLead"),
   },
   {
     icon: MessageSquare,
-    title: "Chat and approve",
-    description: "Talk to agents, approve exec commands, review their work",
+    title: t("onboarding.welcomeChat"),
+    description: t("onboarding.welcomeChatLead"),
   },
   {
     icon: Building2,
-    title: "Build your office",
-    description: "Customize rooms, desks, and the whole office layout",
+    title: t("onboarding.welcomeBuild"),
+    description: t("onboarding.welcomeBuildLead"),
   },
 ] as const;
 
@@ -30,14 +31,11 @@ export const WelcomeStep = () => (
   <div className="space-y-5">
     <div className="space-y-2">
       <p className="text-sm leading-relaxed text-white/80">
-        Office3D turns your AI automation into a{" "}
-        <span className="font-medium text-white">visual workplace</span> — an
-        office where your AI agents collaborate, code, test, and execute
-        tasks in a shared 3D environment.
+        {t("onboarding.welcomeLead1")}{" "}
+        <span className="font-medium text-white">{t("onboarding.welcomeLead2")}</span> {t("onboarding.welcomeLead3")}
       </p>
       <p className="text-sm text-white/60">
-        This wizard will help you connect to your runtime gateway and get
-        started in about two minutes.
+        {t("onboarding.welcomeLead4")}
       </p>
     </div>
 

@@ -67,7 +67,7 @@ const AgentCreateModalContent = ({
           <div>
             <div className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">{t("createAgent.title")}</div>
             <div className="mt-1 text-base font-semibold text-foreground">{t("createAgent.launch")}</div>
-            <div className="mt-1 text-xs text-muted-foreground">Name it and activate immediately.</div>
+            <div className="mt-1 text-xs text-muted-foreground">{t("createAgent.nameAndActivate")}</div>
           </div>
           <button
             type="button"
@@ -88,7 +88,7 @@ const AgentCreateModalContent = ({
           </label>
           <div className="-mt-2 text-[11px] text-muted-foreground">{t("createAgent.renameHint")}</div>
           <div className="grid justify-items-center gap-2 border-t border-border/40 pt-3">
-            <div className={labelClassName}>Choose avatar</div>
+            <div className={labelClassName}>{t("createAgent.chooseAvatar")}</div>
             <AgentAvatar
               seed={avatarSeed}
               name={name.trim() || t("wizard.defaultName")}
@@ -113,7 +113,7 @@ const AgentCreateModalContent = ({
         </div>
 
         <div className="flex items-center justify-between border-t border-border/45 px-6 pb-4 pt-5">
-          <div className="text-[11px] text-muted-foreground">Authority can be configured after launch.</div>
+          <div className="text-[11px] text-muted-foreground">{t("createAgent.authorityLater")}</div>
           <button
             type="submit"
             className="ui-btn-primary px-3 py-1.5 font-mono text-[11px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"

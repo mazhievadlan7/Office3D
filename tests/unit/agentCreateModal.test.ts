@@ -65,7 +65,7 @@ describe("AgentCreateModal", () => {
 
     expect(screen.getByRole("button", { name: "Запустить агента" })).toBeInTheDocument();
     expect(screen.getByLabelText("Имя агента")).toBeInTheDocument();
-    expect(screen.getByText("Choose avatar")).toBeInTheDocument();
+    expect(screen.getByText("Выберите аватар")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Перемешать выбор аватара" })).toBeInTheDocument();
     expect(screen.queryByText("Define Ownership")).not.toBeInTheDocument();
     expect(screen.queryByText("Set Authority Level")).not.toBeInTheDocument();

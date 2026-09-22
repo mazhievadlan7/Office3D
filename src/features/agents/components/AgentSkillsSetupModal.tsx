@@ -129,7 +129,7 @@ export const AgentSkillsSetupModal = ({
           <div>{skill.description}</div>
           {skill.blockedByAllowlist ? (
             <div className="text-[10px] text-muted-foreground/80">
-              Blocked by bundled skills policy (`skills.allowBundled`).
+              {t("skillSetup.blockedByPolicy")}
             </div>
           ) : null}
           {missingDetails.map((line) => (

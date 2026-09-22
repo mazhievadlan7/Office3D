@@ -16,6 +16,7 @@ import {
 } from "@/lib/avatars/profile";
 import { AgentAvatarPreview3D } from "@/features/agents/components/AgentAvatarPreview3D";
 import { randomUUID } from "@/lib/uuid";
+import { t } from "@/lib/i18n";
 
 export type AgentAvatarEditorPanelProps = {
   agentId: string;
@@ -52,8 +53,8 @@ export const AgentAvatarEditorPanel = forwardRef<
     onDraftChange,
     onCancel,
     onSaved,
-    cancelLabel = "Cancel",
-    saveLabel = "Save avatar",
+    cancelLabel = t("avatar.cancel"),
+    saveLabel = t("avatar.save"),
     showActions = true,
   }: AgentAvatarEditorPanelProps,
   ref
@@ -97,11 +98,11 @@ export const AgentAvatarEditorPanel = forwardRef<
     <div className="grid h-full min-h-0 gap-0 xl:grid-cols-[360px_minmax(0,1fr)]">
       <div className="border-b border-border/45 p-5 xl:border-b-0 xl:border-r">
         <div className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-          Avatar creator
+          {t("avatar.creator")}
         </div>
         <div className="mt-1 text-lg font-semibold text-foreground">{agentName}</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          Personalize this office avatar locally on this machine.
+          {t("avatar.creatorLead")}
         </div>
         <div className="mt-4 overflow-hidden rounded-xl border border-border/45 bg-[#070b16]">
           <AgentAvatarPreview3D profile={draft} className="h-[360px] w-full" />
@@ -114,7 +115,7 @@ export const AgentAvatarEditorPanel = forwardRef<
             disabled={saving}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            Reset
+            {t("avatar.reset")}
           </button>
           <button
             type="button"
@@ -123,7 +124,7 @@ export const AgentAvatarEditorPanel = forwardRef<
             disabled={saving}
           >
             <Shuffle className="h-3.5 w-3.5" />
-            Randomize
+            {t("avatar.randomize")}
           </button>
         </div>
       </div>
@@ -147,14 +148,14 @@ export const AgentAvatarEditorPanel = forwardRef<
               }}
               disabled={saving}
             >
-              {saving ? "Saving..." : saveLabel}
+              {saving ? t("avatar.saving") : saveLabel}
             </button>
           </div>
         ) : null}
         <div className="grid gap-6 xl:grid-cols-2">
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Skin tone
+              {t("avatar.skinTone")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_SKIN_TONE_OPTIONS.map((option) => {
@@ -180,7 +181,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Hair style
+              {t("avatar.hairStyle")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_HAIR_STYLE_OPTIONS.map((option) => {
@@ -210,7 +211,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Hair color
+              {t("avatar.hairColor")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_HAIR_COLOR_OPTIONS.map((option) => {
@@ -236,7 +237,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Top style
+              {t("avatar.topStyle")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_TOP_STYLE_OPTIONS.map((option) => {
@@ -266,7 +267,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Top color
+              {t("avatar.topColor")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_CLOTHING_COLOR_OPTIONS.map((option) => {
@@ -292,7 +293,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Bottom style
+              {t("avatar.bottomStyle")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_BOTTOM_STYLE_OPTIONS.map((option) => {
@@ -322,7 +323,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Bottom color
+              {t("avatar.bottomColor")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_CLOTHING_COLOR_OPTIONS.map((option) => {
@@ -348,7 +349,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Shoe color
+              {t("avatar.shoeColor")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_SHOE_COLOR_OPTIONS.map((option) => {
@@ -374,7 +375,7 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Hat
+              {t("avatar.hat")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {AGENT_AVATAR_HAT_STYLE_OPTIONS.map((option) => {
@@ -404,23 +405,23 @@ export const AgentAvatarEditorPanel = forwardRef<
 
           <section className="space-y-3 xl:col-span-2">
             <h3 className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Accessories
+              {t("avatar.accessories")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {[
                 {
                   key: "glasses" as const,
-                  label: "Glasses",
+                  label: t("avatar.glasses"),
                   enabled: draft.accessories.glasses,
                 },
                 {
                   key: "headset" as const,
-                  label: "Headset",
+                  label: t("avatar.headset"),
                   enabled: draft.accessories.headset,
                 },
                 {
                   key: "backpack" as const,
-                  label: "Backpack",
+                  label: t("avatar.backpack"),
                   enabled: draft.accessories.backpack,
                 },
               ].map((option) => (

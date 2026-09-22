@@ -21,6 +21,7 @@ import { ConnectStep } from "@/features/onboarding/components/ConnectStep";
 import { AgentsStep } from "@/features/onboarding/components/AgentsStep";
 import { CompanyStep } from "@/features/onboarding/components/CompanyStep";
 import { CompleteStep } from "@/features/onboarding/components/CompleteStep";
+import { t } from "@/lib/i18n";
 
 export type OnboardingWizardProps = {
   /** Whether the gateway is currently connected. */
@@ -155,7 +156,7 @@ export const OnboardingWizard = ({
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-white">
-              {currentStepDef?.title ?? "Onboarding"}
+              {currentStepDef?.title ?? t("onboarding.title")}
             </h2>
             <p className="mt-0.5 text-xs text-white/60">
               {currentStepDef?.description}
@@ -165,8 +166,8 @@ export const OnboardingWizard = ({
             type="button"
             className="flex h-8 w-8 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white"
             onClick={onComplete}
-            aria-label="Close onboarding"
-            title="Skip onboarding"
+            aria-label={t("onboarding.close")}
+            title={t("onboarding.skip")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -201,7 +202,7 @@ export const OnboardingWizard = ({
                 onClick={goPrev}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                Back
+                {t("onboarding.back")}
               </button>
             ) : null}
           </div>
@@ -215,7 +216,7 @@ export const OnboardingWizard = ({
                 className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-xs font-semibold text-[#1a1206] transition-colors hover:bg-amber-400"
                 onClick={onComplete}
               >
-                Enter Office
+                {t("onboarding.enterOffice")}
               </button>
             ) : (
               <button
@@ -225,8 +226,8 @@ export const OnboardingWizard = ({
                 disabled={!canGoNext}
               >
                 {currentStep === "connect" && !gatewayConnected
-                  ? "Connect first"
-                  : "Next"}
+                  ? t("onboarding.connectFirst")
+                  : t("onboarding.next")}
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}

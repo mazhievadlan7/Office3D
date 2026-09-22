@@ -2,36 +2,36 @@
  * PrerequisitesStep — Tells users what they need before connecting.
  */
 import { CheckCircle2, ExternalLink } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 const prerequisites = [
   {
-    label: "OpenClaw installed",
-    detail: "Install via npm, pnpm, or from source",
+    label: t("onboarding.preInstalled"),
+    detail: t("onboarding.preInstalledLead"),
     link: "https://docs.openclaw.ai",
-    linkLabel: "Installation docs",
+    linkLabel: t("onboarding.preInstallDocs"),
   },
   {
-    label: "Gateway running",
-    detail: "Start with: openclaw gateway start",
+    label: t("onboarding.preGateway"),
+    detail: t("onboarding.preGatewayLead"),
     command: "openclaw gateway start",
   },
   {
-    label: "Gateway URL and token",
-    detail: "Found in ~/.openclaw/openclaw.json or your remote setup",
+    label: t("onboarding.preCredentials"),
+    detail: t("onboarding.preCredentialsLead"),
   },
   {
     label: "Node.js 20+",
-    detail: "Required for running Office3D locally",
+    detail: t("onboarding.preNodeLead"),
     link: "https://nodejs.org",
-    linkLabel: "Download Node.js",
+    linkLabel: t("onboarding.preNodeDownload"),
   },
 ] as const;
 
 export const PrerequisitesStep = () => (
   <div className="space-y-2.5">
     <p className="text-[13px] leading-5 text-white/70">
-      Make sure you have these ready before connecting. If you already have
-      OpenClaw running, you can skip this step.
+      {t("onboarding.preLead")}
     </p>
 
     <div className="space-y-1.5">
@@ -56,7 +56,7 @@ export const PrerequisitesStep = () => (
                 rel="noopener noreferrer"
                 className="mt-1 inline-flex items-center gap-1 text-[10px] leading-4 text-amber-300 hover:text-amber-200"
               >
-                {rest.linkLabel ?? "Learn more"}
+                {rest.linkLabel ?? t("onboarding.learnMore")}
                 <ExternalLink className="h-3 w-3" />
               </a>
             ) : null}
@@ -66,7 +66,7 @@ export const PrerequisitesStep = () => (
     </div>
 
     <p className="text-[10px] leading-4 text-white/40">
-      Need help? Check{" "}
+      {t("onboarding.needHelp")}{" "}
       <a
         href="https://docs.openclaw.ai"
         target="_blank"
@@ -75,14 +75,14 @@ export const PrerequisitesStep = () => (
       >
         docs.openclaw.ai
       </a>{" "}
-      or{" "}
+      {t("onboarding.or")}{" "}
       <a
         href="https://discord.com/invite/clawd"
         target="_blank"
         rel="noopener noreferrer"
         className="text-amber-300/70 hover:text-amber-200"
       >
-        join Discord
+        {t("onboarding.joinDiscord")}
       </a>
       .
     </p>

@@ -85,8 +85,8 @@ describe("AgentEditorModal", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Backpack" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save avatar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Рюкзак" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить аватар" }));
 
     expect(onAvatarSave).toHaveBeenCalledTimes(1);
     expect(onAvatarSave).toHaveBeenCalledWith(

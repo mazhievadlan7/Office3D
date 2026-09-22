@@ -171,8 +171,8 @@ describe("AgentChatPanel markdown rendering", () => {
     );
 
     fireEvent.click(screen.getByText("Размышления (внутренние)"));
-    expect(screen.getByText("read /tmp/README.md")).toBeInTheDocument();
-    expect(screen.queryByText("read /tmp/README.md", { selector: "summary" })).toBeNull();
+    expect(screen.getByText("чтение /tmp/README.md")).toBeInTheDocument();
+    expect(screen.queryByText("чтение /tmp/README.md", { selector: "summary" })).toBeNull();
     expect(screen.queryByText(/"file_path"/)).toBeNull();
   });
 });

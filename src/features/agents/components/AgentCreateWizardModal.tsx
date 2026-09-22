@@ -344,7 +344,7 @@ export function AgentCreateWizardModal({
               <section className="space-y-3">
                 <h3 className="text-sm font-medium text-foreground">{t("wizard.stepIdentity")}</h3>
                 <div className="text-xs text-muted-foreground">
-                  Confirm the live agent name first, then fill in the rest of `IDENTITY.md`.
+                  {t("wizard.confirmNameFirst")}
                 </div>
                 <AgentIdentityFields
                   values={draft.identity}

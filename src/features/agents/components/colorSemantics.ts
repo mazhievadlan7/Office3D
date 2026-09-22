@@ -1,10 +1,11 @@
 import type { AgentStatus } from "@/features/agents/state/store";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export const AGENT_STATUS_LABEL: Record<AgentStatus, string> = {
-  idle: "Idle",
-  running: "Running",
-  error: "Error",
+  idle: t("fleet.statusIdle"),
+  running: t("fleet.statusRunning"),
+  error: t("fleet.statusError"),
 };
 
 export const AGENT_STATUS_BADGE_CLASS: Record<AgentStatus, string> = {
@@ -14,9 +15,9 @@ export const AGENT_STATUS_BADGE_CLASS: Record<AgentStatus, string> = {
 };
 
 export const GATEWAY_STATUS_LABEL: Record<GatewayStatus, string> = {
-  disconnected: "Disconnected",
-  connecting: "Connecting",
-  connected: "Connected",
+  disconnected: t("settings.gatewayStatusDisconnected"),
+  connecting: t("settings.gatewayStatusConnecting"),
+  connected: t("settings.gatewayStatusConnected"),
 };
 
 export const GATEWAY_STATUS_BADGE_CLASS: Record<GatewayStatus, string> = {

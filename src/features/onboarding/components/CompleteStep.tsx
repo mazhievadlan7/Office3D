@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
 import { Building2, Rocket } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export const CompleteStep = ({
   companyCreated = false,
@@ -57,13 +58,13 @@ export const CompleteStep = ({
       <div className="space-y-2 text-center">
         <p className="text-base font-semibold text-white">
           {companyCreated
-            ? `${companyName?.trim() || "Your company"} created successfully`
-            : "Welcome to your AI office"}
+            ? t("onboarding.companyCreated", { name: companyName?.trim() || t("onboarding.yourCompany") })
+            : t("onboarding.welcomeOffice")}
         </p>
         <p className="max-w-sm text-sm text-white/60">
           {companyCreated
-            ? `${companyName?.trim() || "Your company"} is ready. Your new team has been created in the connected runtime and placed into the office.`
-            : "Your gateway is connected and your agents are ready. Step inside and explore the 3D workspace where your AI team operates."}
+            ? t("onboarding.companyReady", { name: companyName?.trim() || t("onboarding.yourCompany") })
+            : t("onboarding.gatewayReady")}
         </p>
       </div>
 
@@ -72,19 +73,19 @@ export const CompleteStep = ({
           <Building2 className="h-4 w-4 shrink-0 text-amber-300" />
           <div>
             <p className="text-xs font-medium text-white">
-              {companyCreated ? "Meet Your New Team" : "Explore the Office"}
+              {companyCreated ? t("onboarding.meetTeam") : t("onboarding.exploreOffice")}
             </p>
             <p className="text-[10px] text-white/45">
               {companyCreated
-                ? "Walk the office, inspect the new roles, and start delegating work."
-                : "Navigate rooms, watch agents, and interact"}
+                ? t("onboarding.meetTeamLead")
+                : t("onboarding.exploreOfficeLead")}
             </p>
           </div>
         </div>
       </div>
 
       <p className="text-[11px] text-white/35">
-        You can always re-run onboarding from Studio settings.
+        {t("onboarding.rerunHint")}
       </p>
     </div>
   );

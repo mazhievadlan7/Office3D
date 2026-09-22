@@ -4,6 +4,7 @@ import type { AgentAvatarProfile } from "@/lib/avatars/profile";
 
 import { buildAvatarDataUrl } from "@/lib/avatars/multiavatar";
 import { buildAgentAvatarPortraitDataUrl } from "@/lib/avatars/profilePortrait";
+import { t } from "@/lib/i18n";
 
 type AgentAvatarProps = {
   seed: string;
@@ -37,7 +38,7 @@ export const AgentAvatar = ({
       <Image
         className="pointer-events-none h-full w-full select-none"
         src={src}
-        alt={`Avatar for ${name}`}
+        alt={t("avatar.alt", { name })}
         width={size}
         height={size}
         unoptimized

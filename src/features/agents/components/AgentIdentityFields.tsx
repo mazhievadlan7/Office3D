@@ -1,5 +1,7 @@
 "use client";
 
+import { t } from "@/lib/i18n";
+
 export type AgentIdentityValues = {
   name: string;
   creature: string;
@@ -24,11 +26,11 @@ export function AgentIdentityFields({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-        Name
+        {t("identity.name")}
         <input
           className={inputClassName}
           value={values.name}
-          placeholder="e.g. Luke"
+          placeholder={t("identity.namePlaceholder")}
           disabled={disabled}
           onChange={(event) => {
             onChange("name", event.target.value);
@@ -36,11 +38,11 @@ export function AgentIdentityFields({
         />
       </label>
       <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-        Role
+        {t("identity.role")}
         <input
           className={inputClassName}
           value={values.creature}
-          placeholder="e.g. Product Designer"
+          placeholder={t("identity.rolePlaceholder")}
           disabled={disabled}
           onChange={(event) => {
             onChange("creature", event.target.value);
@@ -48,11 +50,11 @@ export function AgentIdentityFields({
         />
       </label>
       <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-        Vibe
+        {t("identity.vibe")}
         <input
           className={inputClassName}
           value={values.vibe}
-          placeholder="e.g. Calm, sharp, and helpful"
+          placeholder={t("identity.vibePlaceholder")}
           disabled={disabled}
           onChange={(event) => {
             onChange("vibe", event.target.value);
@@ -60,7 +62,7 @@ export function AgentIdentityFields({
         />
       </label>
       <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-        Emoji
+        {t("identity.emoji")}
         <input
           className={inputClassName}
           value={values.emoji}

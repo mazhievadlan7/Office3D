@@ -42,11 +42,15 @@ export const ru = {
   "agentSettings.advanced": "Дополнительно",
   "agentSettings.advancedOnly": "Только для опытных пользователей.",
   "agentSettings.ask": "Спрашивать",
+  "agentSettings.atSummary": "однократно: {at}",
+  "agentSettings.atTimeZone": "в {time} ({zone})",
   "agentSettings.auto": "Авто",
   "agentSettings.automationName": "Название автоматизации",
   "agentSettings.back": "Назад",
   "agentSettings.browserAutomation": "Управление браузером",
+  "agentSettings.chooseWhen": "Выберите, когда запускать.",
   "agentSettings.close": "Закрыть",
+  "agentSettings.comingSoon": "Скоро",
   "agentSettings.composer": "Конструктор автоматизации",
   "agentSettings.controlUiHint": "Открыть полный интерфейс управления OpenClaw вне Studio.",
   "agentSettings.controlUiUnavailable":
@@ -71,6 +75,7 @@ export const ru = {
   "agentSettings.deleteLabel": "Удалить автоматизацию «{name}»",
   "agentSettings.disabled": "Выключена",
   "agentSettings.every": "Каждые",
+  "agentSettings.everySummary": "каждые {amount} {unit}",
   "agentSettings.fileTools": "Работа с файлами",
   "agentSettings.fileToolsHint":
     "Разрешает агенту читать и править файлы в своём рабочем пространстве.",
@@ -105,6 +110,7 @@ export const ru = {
   "agentSettings.saveFailedWith": "Не удалось сохранить. {reason}",
   "agentSettings.saved": "Сохранено.",
   "agentSettings.saving": "Сохранение…",
+  "agentSettings.scheduleLabel": "Расписание:",
   "agentSettings.scheduleType": "Тип расписания",
   "agentSettings.skills": "Навыки",
   "agentSettings.stepChooseType": "Выбор типа",
@@ -133,6 +139,9 @@ export const ru = {
   "agentSettings.tplWeeklyDesc": "Регулярное обобщение за более длинный период.",
   "agentSettings.tplWeeklyTitle": "Недельный обзор",
   "agentSettings.unit": "Единица",
+  "agentSettings.unitDaysShort": "дн.",
+  "agentSettings.unitHoursShort": "ч",
+  "agentSettings.unitMinutesShort": "мин",
   "agentSettings.untitled": "Автоматизация без названия",
   "agentSettings.webAccess": "Доступ в интернет",
   "agentSettings.webAccessHint": "Разрешает агенту получать актуальные результаты из сети.",
@@ -250,6 +259,44 @@ export const ru = {
   "atm.usdEquivalent": "В долларах США",
   "atm.user": "Пользователь",
 
+  // --- Аватар ----------------------------------------------------------------
+  "avatar.accessories": "Аксессуары",
+  "avatar.alt": "Аватар: {name}",
+  "avatar.backpack": "Рюкзак",
+  "avatar.bottomColor": "Цвет низа",
+  "avatar.bottomStyle": "Низ",
+  "avatar.cancel": "Отмена",
+  "avatar.creator": "Редактор аватара",
+  "avatar.creatorLead": "Настройте этот аватар офиса локально, на этом компьютере.",
+  "avatar.customizeFor": "Настройка аватара: {name}",
+  "avatar.glasses": "Очки",
+  "avatar.hairColor": "Цвет волос",
+  "avatar.hairStyle": "Причёска",
+  "avatar.hat": "Головной убор",
+  "avatar.headset": "Гарнитура",
+  "avatar.loading": "Загрузка аватара…",
+  "avatar.randomize": "Случайный",
+  "avatar.reset": "Сбросить",
+  "avatar.save": "Сохранить аватар",
+  "avatar.saving": "Сохранение…",
+  "avatar.shoeColor": "Цвет обуви",
+  "avatar.skinTone": "Тон кожи",
+  "avatar.topColor": "Цвет верха",
+  "avatar.topStyle": "Верх",
+
+  // --- Файлы мышления агента -------------------------------------------------
+  "brain.cancel": "Отмена",
+  "brain.emptyFile": "Файл {name} у этого агента есть, но сейчас он пуст.",
+  "brain.file": "Файл:",
+  "brain.initMissing": "Создать недостающие файлы",
+  "brain.noCustomFile":
+    "У этого агента пока нет своего {name}. При сохранении здесь будет создан настоящий файл в рабочем пространстве.",
+  "brain.noFileYet": "{name} пока нет.",
+  "brain.renameFailed": "IDENTITY.md сохранён, но переименовать агента не удалось.",
+  "brain.renameHint": "Если изменить здесь имя, при сохранении агент будет переименован.",
+  "brain.save": "Сохранить",
+  "brain.workspace": "Рабочее пространство:",
+
   // --- Чат с агентом -------------------------------------------------------
   "chat.allOversized": "Все выбранные файлы больше допустимых 10 МБ.",
   "chat.allowAlways": "Разрешать всегда",
@@ -325,6 +372,7 @@ export const ru = {
   "chat.stopping": "Остановка",
   "chat.thinking": "Думает",
   "chat.thinkingInternal": "Размышления (внутренние)",
+  "chat.toolRead": "чтение {summary}",
   "chat.tools": "Инструменты",
   "chat.transcribing": "Расшифровываем голосовое сообщение.",
   "chat.unknown": "Неизвестно",
@@ -406,10 +454,36 @@ export const ru = {
   "company.waitNote": "Office3D сейчас использует подключённую среду. Дождитесь окончания.",
   "company.working": "Работаем над вашей компанией.",
 
+  // --- Подключение к шлюзу ---------------------------------------------------
+  "connection.backendCustom": "Свой бэкенд",
+  "connection.backendDemo": "Демо-бэкенд",
+  "connection.backendHermes": "Бэкенд Hermes",
+  "connection.backendLocal": "Локальная среда",
+  "connection.backendOffice3d": "Среда Office3D",
+  "connection.backendOpenclaw": "Бэкенд OpenClaw",
+  "connection.closePanel": "Закрыть панель подключения к шлюзу",
+  "connection.connect": "Подключиться",
+  "connection.disconnect": "Отключиться",
+  "connection.hintCustom":
+    "Свой бэкенд — универсальная точка подключения, а не адаптер конкретного поставщика.",
+  "connection.hintDemo":
+    "Демо может создать локального главного агента или подключиться к тестовому шлюзу.",
+  "connection.hintHermes": "Hermes сам выбирает поставщика и аккаунт за шлюзом.",
+  "connection.hintLocal": "Локальная среда ожидает прямое подключение к оркестратору.",
+  "connection.hintOffice3d":
+    "Среда Office3D сохраняет формат переписки Office3D поверх прямого HTTP.",
+  "connection.hintOpenclaw": "OpenClaw сам выбирает поставщика и модель за шлюзом.",
+  "connection.upstreamToken": "Токен шлюза",
+  "connection.upstreamTokenOptional": "Токен шлюза (необязательно)",
+  "connection.upstreamUrl": "Адрес шлюза",
+
   // --- Создание агента -------------------------------------------------------
+  "createAgent.authorityLater": "Полномочия можно настроить после запуска.",
+  "createAgent.chooseAvatar": "Выберите аватар",
   "createAgent.dialogLabel": "Создать агента",
   "createAgent.launch": "Запустить агента",
   "createAgent.launching": "Запуск…",
+  "createAgent.nameAndActivate": "Дайте имя и сразу запускайте.",
   "createAgent.nameLabel": "Имя агента",
   "createAgent.namePh": "Мой агент",
   "createAgent.renameHint": "Переименовать агента можно в заголовке основного чата.",
@@ -429,6 +503,20 @@ export const ru = {
   "editor.lead": "Меняйте аватар и настройки мышления агента прямо из офиса.",
   "editor.previous": "Назад",
   "editor.title": "Редактор агента",
+
+  // --- Список агентов --------------------------------------------------------
+  "fleet.creating": "Создание…",
+  "fleet.empty": "Агентов нет.",
+  "fleet.filterAll": "Все",
+  "fleet.filterApprovals": "Одобрения",
+  "fleet.filterRunning": "В работе",
+  "fleet.needsApproval": "Ждёт одобрения",
+  "fleet.newAgent": "Новый агент",
+  "fleet.selectAgent": "Выбрать агента: {name}",
+  "fleet.statusError": "Ошибка",
+  "fleet.statusIdle": "Свободен",
+  "fleet.statusRunning": "Работает",
+  "fleet.title": "Агенты ({count})",
 
   // --- Навигация по этажам -------------------------------------------------
   "floors.building": "Здание",
@@ -593,6 +681,13 @@ export const ru = {
   "github.submittingInline": "Отправка комментария к строке…",
   "github.summary": "Сводка",
 
+  // --- Шапка студии ----------------------------------------------------------
+  "header.connected": "Подключено",
+  "header.connecting": "Подключение",
+  "header.gatewayConnection": "Подключение к шлюзу",
+  "header.gatewayStatus": "Шлюз: {status}",
+  "header.openMenu": "Открыть меню студии",
+
   // --- История -------------------------------------------------------------
   "history.allAgents": "Все агенты",
   "history.allTriggers": "Все запуски",
@@ -628,6 +723,15 @@ export const ru = {
   "hq.tabKanban": "Канбан",
   "hq.tabPlaybooks": "Плейбуки",
 
+  // --- Личность агента -------------------------------------------------------
+  "identity.emoji": "Эмодзи",
+  "identity.name": "Имя",
+  "identity.namePlaceholder": "например, Лука",
+  "identity.role": "Роль",
+  "identity.rolePlaceholder": "например, продуктовый дизайнер",
+  "identity.vibe": "Характер",
+  "identity.vibePlaceholder": "например, спокойный, точный и отзывчивый",
+
   // --- Входящие ------------------------------------------------------------
   "inbox.daysAgo": "{count} дн. назад",
   "inbox.empty": "Готовых ответов ассистента пока нет.",
@@ -635,6 +739,9 @@ export const ru = {
   "inbox.justNow": "Только что",
   "inbox.minutesAgo": "{count} мин назад",
   "inbox.noOutput": "Ответов пока нет",
+
+  // --- Инспектор агента ------------------------------------------------------
+  "inspect.closePanel": "Закрыть панель",
 
   // --- Канбан (навык не установлен) ----------------------------------------
   "kanban.dismiss": "Закрыть",
@@ -673,6 +780,118 @@ export const ru = {
     "Сообщение уходит внутри утверждённого шаблона WhatsApp, а не обычным текстом. Получатель видит шаблон, в который подставлен этот текст.",
   "messaging.templateOf": "шаблон {name}",
   "messaging.title": "Сообщения офиса",
+
+  // --- Мастер первого запуска ------------------------------------------
+  "onboarding.agentsFound": "Найдено агентов: {count}",
+  "onboarding.back": "Назад",
+  "onboarding.close": "Закрыть мастер первого запуска",
+  "onboarding.companyCreated": "Компания «{name}» создана",
+  "onboarding.companyLead":
+    "Опишите, чем занимается ваша компания, и Office3D превратит это в полноценную оргструктуру: профильные агенты, рабочие файлы и инструкции для каждой роли.",
+  "onboarding.companyReady":
+    "Компания «{name}» готова. Новая команда создана в подключённой среде выполнения и рассажена по офису.",
+  "onboarding.companyRequirement":
+    "Подключитесь к среде выполнения и оставьте хотя бы одного агента-планировщика, чтобы ИИ мог собрать компанию.",
+  "onboarding.companyTitle": "Соберите компанию с помощью ИИ",
+  "onboarding.connect": "Подключиться",
+  "onboarding.connectFirst": "Сначала подключитесь",
+  "onboarding.connectFirstToDiscover": "Сначала подключитесь к шлюзу, чтобы найти агентов.",
+  "onboarding.connected": "Подключено!",
+  "onboarding.connectedLead": "Шлюз работает. Нажмите «Далее», чтобы продолжить.",
+  "onboarding.connecting": "Подключение…",
+  "onboarding.createAll": "Создать всё",
+  "onboarding.createAllLead":
+    "Файлы агентов записываются, а команда создаётся прямо в подключённой среде выполнения.",
+  "onboarding.enterOffice": "Войти в офис",
+  "onboarding.exploreOffice": "Осмотреть офис",
+  "onboarding.exploreOfficeLead": "Ходите по комнатам, наблюдайте за агентами и взаимодействуйте",
+  "onboarding.featureApprove": "Одобрение",
+  "onboarding.featureApproveLead": "Проверяйте и одобряйте запуск команд",
+  "onboarding.featureChat": "Чат",
+  "onboarding.featureChatLead": "Отправляйте сообщения и получайте ответы",
+  "onboarding.featureConfigure": "Настройка",
+  "onboarding.featureConfigureLead": "Редактируйте файлы мышления и параметры",
+  "onboarding.featureMonitor": "Наблюдение",
+  "onboarding.featureMonitorLead": "Следите за работой агентов в реальном времени",
+  "onboarding.gatewayReady":
+    "Шлюз подключён, агенты готовы. Заходите и осмотрите 3D-офис, где работает ваша ИИ-команда.",
+  "onboarding.gatewayToken": "Токен шлюза",
+  "onboarding.gatewayUrl": "Адрес шлюза",
+  "onboarding.generateTeam": "Собрать команду",
+  "onboarding.generateTeamLead": "Практичная оргструктура: роли, обязанности и передача работы.",
+  "onboarding.hideToken": "Скрыть токен",
+  "onboarding.hintLocal": "Локально?",
+  "onboarding.hintSsh": "SSH-туннель?",
+  "onboarding.hintSshLead": "Сначала пробросьте порт 18789, затем используйте localhost.",
+  "onboarding.hintTailscale": "Через Tailscale?",
+  "onboarding.improveBrief": "Улучшить описание",
+  "onboarding.improveBriefLead": "Подключённая среда выполнения доработает описание компании.",
+  "onboarding.joinDiscord": "вступите в Discord",
+  "onboarding.learnMore": "Подробнее",
+  "onboarding.meetTeam": "Знакомьтесь с командой",
+  "onboarding.meetTeamLead":
+    "Пройдитесь по офису, посмотрите новые роли и начните поручать работу.",
+  "onboarding.needHelp": "Нужна помощь? Загляните в",
+  "onboarding.next": "Далее",
+  "onboarding.noAgents": "Агенты не найдены",
+  "onboarding.noAgentsLead":
+    "Шлюз подключён, но агентов на нём пока нет. Создать их можно на боковой панели агентов Office3D после завершения мастера.",
+  "onboarding.notConnected": "Не подключено",
+  "onboarding.openCompanyBuilder": "Открыть конструктор компании",
+  "onboarding.or": "или",
+  "onboarding.preCredentials": "Адрес и токен шлюза",
+  "onboarding.preCredentialsLead":
+    "Есть в ~/.openclaw/openclaw.json или в настройках удалённого шлюза",
+  "onboarding.preGateway": "Шлюз запущен",
+  "onboarding.preGatewayLead": "Запуск: openclaw gateway start",
+  "onboarding.preInstallDocs": "Документация по установке",
+  "onboarding.preInstalled": "OpenClaw установлен",
+  "onboarding.preInstalledLead": "Установите через npm, pnpm или из исходников",
+  "onboarding.preLead":
+    "Подготовьте всё это перед подключением. Если OpenClaw уже запущен, этот шаг можно пропустить.",
+  "onboarding.preNodeDownload": "Скачать Node.js",
+  "onboarding.preNodeLead": "Нужен для локального запуска Office3D",
+  "onboarding.quickStart": "Быстрый старт:",
+  "onboarding.quickStep1": "1. Нажмите «+» на боковой панели агентов",
+  "onboarding.quickStep2": "2. Выберите имя и модель агента",
+  "onboarding.quickStep3": "3. Настройте навыки и характер",
+  "onboarding.quickStep4": "4. Смотрите, как агент садится за свой стол!",
+  "onboarding.rerunHint": "Мастер первого запуска всегда можно пройти заново в настройках Studio.",
+  "onboarding.showToken": "Показать токен",
+  "onboarding.skip": "Пропустить мастер первого запуска",
+  "onboarding.stepAgents": "Ваши агенты",
+  "onboarding.stepAgentsLead": "Знакомьтесь с ИИ-командой",
+  "onboarding.stepCompany": "Соберите компанию",
+  "onboarding.stepCompanyLead": "Создайте оргструктуру",
+  "onboarding.stepComplete": "Всё готово",
+  "onboarding.stepCompleteLead": "Начинайте осваиваться",
+  "onboarding.stepConnect": "Подключите шлюз",
+  "onboarding.stepConnectLead": "Связь с вашей средой выполнения",
+  "onboarding.stepPrereq": "Перед началом",
+  "onboarding.stepPrereqLead": "Что понадобится",
+  "onboarding.stepWelcome": "Добро пожаловать в Office3D",
+  "onboarding.stepWelcomeLead": "Ваш ИИ-офис в 3D",
+  "onboarding.teamReady": "Ваша ИИ-команда готова и ждёт в офисе.",
+  "onboarding.title": "Первый запуск",
+  "onboarding.tokenPlaceholder": "токен-вашего-шлюза",
+  "onboarding.use": "Используйте",
+  "onboarding.welcomeBuild": "Обустройте офис",
+  "onboarding.welcomeBuildLead": "Настраивайте комнаты, столы и планировку всего офиса",
+  "onboarding.welcomeChat": "Общайтесь и одобряйте",
+  "onboarding.welcomeChatLead": "Говорите с агентами, одобряйте команды, проверяйте их работу",
+  "onboarding.welcomeFleet": "Управляйте командой",
+  "onboarding.welcomeFleetLead": "Создавайте, настраивайте и отслеживайте агентов в одном месте",
+  "onboarding.welcomeLead1": "Office3D превращает автоматизацию на ИИ в",
+  "onboarding.welcomeLead2": "наглядное рабочее место",
+  "onboarding.welcomeLead3":
+    "— офис, где ИИ-агенты вместе пишут код, тестируют и выполняют задачи в общем 3D-пространстве.",
+  "onboarding.welcomeLead4":
+    "Мастер поможет подключиться к шлюзу среды выполнения и начать работу примерно за две минуты.",
+  "onboarding.welcomeOffice": "Добро пожаловать в ваш ИИ-офис",
+  "onboarding.welcomeWatch": "Наблюдайте за работой агентов",
+  "onboarding.welcomeWatchLead": "Ваши ИИ-агенты в реальном времени в общем 3D-офисе",
+  "onboarding.whatAgentsDo": "Что можно делать с агентами:",
+  "onboarding.yourCompany": "Ваша компания",
 
   // --- Телефон офиса -------------------------------------------------------
   "phone.agentLabel": "Агент",
@@ -1004,6 +1223,7 @@ export const ru = {
   // --- Настройка навыков -----------------------------------------------------
   "skillSetup.affectsAll": "Изменения касаются всех агентов этого шлюза.",
   "skillSetup.apiKeyFor": "API-ключ для {name}",
+  "skillSetup.blockedByPolicy": "Заблокирован политикой встроенных навыков (skills.allowBundled).",
   "skillSetup.close": "Закрыть",
   "skillSetup.confirmRemove": "Убрать {name} со шлюза для всех агентов?",
   "skillSetup.dialogLabel": "Настройка {name}",
@@ -1074,6 +1294,7 @@ export const ru = {
   "skills.source": "Источник",
 
   // --- Панель навыков --------------------------------------------------------
+  "skillsPanel.accessScope": "Настройки доступа к навыкам действуют для этого агента.",
   "skillsPanel.affectsAll": "Изменения здесь касаются всех агентов этого шлюза.",
   "skillsPanel.all": "Все",
   "skillsPanel.blockedByPolicy": "Заблокирован политикой встроенных навыков.",
@@ -1083,6 +1304,7 @@ export const ru = {
   "skillsPanel.disabledGloballyHint": "Выключен глобально. Включите его в системной настройке.",
   "skillsPanel.loading": "Загрузка навыков…",
   "skillsPanel.needsSetup": "Нужна настройка",
+  "skillsPanel.needsSetupCount": "Нужна настройка ({count})",
   "skillsPanel.noMatches": "Подходящих навыков нет.",
   "skillsPanel.notSupported": "Не поддерживается",
   "skillsPanel.notSupportedDot": "Не поддерживается.",
@@ -1095,6 +1317,8 @@ export const ru = {
   "skillsPanel.setUp": "Настроить",
   "skillsPanel.setupRequired": "Нужна настройка",
   "skillsPanel.skillLabel": "Навык {name}",
+  "skillsPanel.systemSetup": "Настройка системных навыков",
+  "skillsPanel.title": "Навыки",
   "skillsPanel.unavailable": "Недоступен",
   "skillsPanel.unavailableHere": "Недоступен в этой системе.",
 
@@ -1134,6 +1358,9 @@ export const ru = {
   "standup.stale": "устарело",
   "standup.title": "Доска планёрки",
   "standup.waiting": "Ожидание",
+
+  // --- Хранилище состояния ---------------------------------------------------
+  "store.missingProvider": "AgentStoreProvider не подключён.",
 
   // --- Канбан-доска -------------------------------------------------------
   "taskboard.arrowHint": "{title} — {status}. Стрелки перемещают между колонками.",
@@ -1192,6 +1419,8 @@ export const ru = {
   "wizard.boundariesPh": "например: Не блефовать. Говорить, когда что-то неясно.",
   "wizard.callThem": "Как обращаться",
   "wizard.close": "Закрыть",
+  "wizard.confirmNameFirst":
+    "Сначала подтвердите имя агента, затем заполните остальное в IDENTITY.md.",
   "wizard.context": "Контекст",
   "wizard.contextPh":
     "например: Делает Office3D, любит практичные улучшения интерфейса и прямую обратную связь.",

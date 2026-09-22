@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { Plug } from "lucide-react";
 import { resolveGatewayStatusBadgeClass } from "./colorSemantics";
+import { t } from "@/lib/i18n";
 
 type HeaderBarProps = {
   status: GatewayStatus;
@@ -47,9 +48,9 @@ export const HeaderBar = ({
               className={`ui-chip px-2 py-0.5 font-mono text-[9px] font-semibold tracking-[0.08em] ${resolveGatewayStatusBadgeClass(status)}`}
               data-testid="gateway-status-indicator"
               data-status={status}
-              aria-label={`Gateway ${status}`}
+              aria-label={t("header.gatewayStatus", { status: status === "connecting" ? t("header.connecting") : t("header.connected") })}
             >
-              {status === "connecting" ? "Connecting" : "Connected"}
+              {status === "connecting" ? t("header.connecting") : t("header.connected")}
             </span>
           ) : null}
           <ThemeToggle />
@@ -64,7 +65,7 @@ export const HeaderBar = ({
                 onClick={() => setMenuOpen((prev) => !prev)}
               >
                 <Plug className="h-3.5 w-3.5" />
-                <span className="sr-only">Open studio menu</span>
+                <span className="sr-only">{t("header.openMenu")}</span>
               </button>
               {menuOpen ? (
                 <div className="ui-card ui-menu-popover absolute right-0 top-9 z-[260] min-w-44 p-1">
@@ -77,7 +78,7 @@ export const HeaderBar = ({
                     }}
                     data-testid="gateway-settings-toggle"
                   >
-                    Gateway connection
+                    {t("header.gatewayConnection")}
                   </button>
                 </div>
               ) : null}

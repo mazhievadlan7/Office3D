@@ -8,6 +8,7 @@ import {
   stripTraceMarkdown,
 } from "@/lib/text/message-extract";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
+import { t } from "@/lib/i18n";
 
 type ItemMeta = {
   role: "user" | "assistant";
@@ -472,7 +473,7 @@ export const summarizeToolLabel = (
   const toolIsRead = toolName === "READ";
   if (toolIsRead && parsed.kind === "call" && argSummary) {
     return {
-      summaryText: `read ${argSummary}`,
+      summaryText: t("chat.toolRead", { summary: argSummary }),
       body: "",
       inlineOnly: true,
     };

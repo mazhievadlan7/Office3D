@@ -2,6 +2,7 @@
 
 import type { AgentAvatarProfile } from "@/lib/avatars/profile";
 import { AgentAvatarEditorPanel } from "@/features/agents/components/AgentAvatarEditorPanel";
+import { t } from "@/lib/i18n";
 
 type AgentAvatarCreatorModalProps = {
   open: boolean;
@@ -27,7 +28,7 @@ export const AgentAvatarCreatorModal = ({
       className="fixed inset-0 z-[140] flex items-center justify-center bg-background/85 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={`Customize avatar for ${agentName}`}
+      aria-label={t("avatar.customizeFor", { name: agentName })}
       onClick={onClose}
     >
       <div

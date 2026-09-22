@@ -195,6 +195,9 @@ const addKeys = (pairs) => {
 const apply = (specPath) => {
   const specs = JSON.parse(readFileSync(specPath, "utf8"));
   const pairs = [];
+  // What was replaced, English beside its key, for carrying the translation
+  // into the tests that look the old text up (scripts/i18n-tests.py).
+  const translated = [];
   for (const spec of specs) {
     const file = path.resolve(ROOT, spec.file);
     const { source, items } = collect(file);
@@ -208,6 +211,7 @@ const apply = (specPath) => {
       }
       // ["key"] alone reuses a phrase already in the dictionary.
       if (ru != null) pairs.push([key, ru]);
+      translated.push({ en: item.text, key });
       // A third element maps placeholders to expressions: {"name": "user.name"}.
       const args = vars
         ? `, { ${Object.entries(vars).map(([k, v]) => (k === v ? k : `${k}: ${v}`)).join(", ")} }`
@@ -237,8 +241,18 @@ const apply = (specPath) => {
     console.log(`${spec.file}: заменено ${edits.length}`);
   }
   console.log(`ключей добавлено: ${addKeys(pairs)}`);
+  const dict = readFileSync(DICT, "utf8");
+  const value = (key) => {
+    const m = dict.match(new RegExp(`^ {2}"${key.replace(/\./g, "\\.")}":\\s*("(?:[^"\\\\]|\\\\.)*"),`, "m"));
+    return m ? JSON.parse(m[1]) : null;
+  };
+  const entries = translated.map(({ en, key }) => ({ en, ru: value(key), key }));
+  writeFileSync(specPath.replace(/\.json$/, ".pairs.json"), JSON.stringify([{ entries }], null, 1));
 };
 
-const args = process.argv.slice(2);
-if (args[0] === "--apply") apply(args[1]);
-else list(args);
+// Only when run directly: other scripts import collect().
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const args = process.argv.slice(2);
+  if (args[0] === "--apply") apply(args[1]);
+  else list(args);
+}

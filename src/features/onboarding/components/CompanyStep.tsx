@@ -1,4 +1,5 @@
 import { Building2, Sparkles, Users, Wand2 } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export type CompanyStepProps = {
   connected: boolean;
@@ -21,10 +22,9 @@ export const CompanyStep = ({
             <Building2 className="h-5 w-5 text-amber-300" />
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-semibold text-white">Bootstrap your company with AI</p>
+            <p className="text-sm font-semibold text-white">{t("onboarding.companyTitle")}</p>
             <p className="text-xs leading-5 text-white/60">
-              Describe what your company does and Office3D can turn that into a full org structure
-              with specialized agents, working files, and role instructions.
+              {t("onboarding.companyLead")}
             </p>
           </div>
         </div>
@@ -34,18 +34,18 @@ export const CompanyStep = ({
         {[
           {
             icon: Sparkles,
-            title: "Improve the brief",
-            description: "Use your connected runtime to sharpen the company prompt.",
+            title: t("onboarding.improveBrief"),
+            description: t("onboarding.improveBriefLead"),
           },
           {
             icon: Users,
-            title: "Generate the team",
-            description: "Get a practical org chart with roles, responsibilities, and handoffs.",
+            title: t("onboarding.generateTeam"),
+            description: t("onboarding.generateTeamLead"),
           },
           {
             icon: Wand2,
-            title: "Create everything",
-            description: "Write agent files and create the team directly in the connected runtime.",
+            title: t("onboarding.createAll"),
+            description: t("onboarding.createAllLead"),
           },
         ].map(({ icon: Icon, title, description }) => (
           <div
@@ -68,13 +68,12 @@ export const CompanyStep = ({
               onClick={onOpenCompanyBuilder}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Open Company Builder
+              {t("onboarding.openCompanyBuilder")}
             </button>
           </div>
         ) : (
           <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100/80">
-            Connect to a runtime and keep at least one planning agent available to generate the
-            company with AI.
+            {t("onboarding.companyRequirement")}
           </div>
         )}
       </div>

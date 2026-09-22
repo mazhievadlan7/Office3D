@@ -143,12 +143,12 @@ export const AgentSkillsPanel = ({
   return (
     <section className="sidebar-section" data-testid="agent-settings-skills">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="sidebar-section-title">Skills</h3>
+        <h3 className="sidebar-section-title">{t("skillsPanel.title")}</h3>
         <div className="font-mono text-[10px] text-muted-foreground">
           {enabledCount}/{skillEntries.length}
         </div>
       </div>
-      <div className="mt-2 text-[11px] text-muted-foreground">Skill access controls apply to this agent.</div>
+      <div className="mt-2 text-[11px] text-muted-foreground">{t("skillsPanel.accessScope")}</div>
       {accessMode === "selected" ? (
         <div className="mt-2 text-[10px] text-muted-foreground/80">{t("skillsPanel.selectedOnly")}</div>
       ) : null}

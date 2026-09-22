@@ -171,7 +171,7 @@ export const SystemSkillsPanel = ({
   return (
     <section className="sidebar-section" data-testid="agent-settings-system-skills">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="sidebar-section-title">System skill setup</h3>
+        <h3 className="sidebar-section-title">{t("skillsPanel.systemSetup")}</h3>
         <div className="font-mono text-[10px] text-muted-foreground">{skillEntries.length}</div>
       </div>
       <div className="mt-2 text-[11px] text-muted-foreground">{t("skillsPanel.affectsAll")}</div>
@@ -182,7 +182,7 @@ export const SystemSkillsPanel = ({
       ) : null}
       {setupQueue.length > 0 ? (
         <div className="mt-3 rounded-md border border-border/60 bg-surface-1/65 px-3 py-3">
-          <div className="text-[10px] font-semibold text-foreground/85">Needs setup ({setupQueue.length})</div>
+          <div className="text-[10px] font-semibold text-foreground/85">{t("skillsPanel.needsSetupCount", { count: setupQueue.length })}</div>
           <div className="mt-2 flex flex-col gap-2">
             {setupQueue.slice(0, 5).map((entry) => (
               <div

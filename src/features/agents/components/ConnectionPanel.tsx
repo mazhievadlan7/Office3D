@@ -2,6 +2,7 @@ import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { X } from "lucide-react";
 import { resolveGatewayStatusBadgeClass, resolveGatewayStatusLabel } from "./colorSemantics";
+import { t } from "@/lib/i18n";
 
 type ConnectionPanelProps = {
   gatewayUrl: string;
@@ -64,16 +65,16 @@ export const ConnectionPanel = ({
   };
   const selectedAdapterHint =
     selectedAdapterType === "openclaw"
-      ? "OpenClaw owns provider/model routing behind the gateway."
+      ? t("connection.hintOpenclaw")
       : selectedAdapterType === "hermes"
-        ? "Hermes owns provider/account routing behind the gateway."
+        ? t("connection.hintHermes")
         : selectedAdapterType === "demo"
-          ? "Demo can seed a local main agent or connect to the mock gateway."
+          ? t("connection.hintDemo")
           : selectedAdapterType === "office3d"
-            ? "Office3D runtime keeps Office3D transcript semantics over direct HTTP."
+            ? t("connection.hintOffice3d")
             : selectedAdapterType === "local"
-              ? "Local runtime expects a direct orchestrator boundary."
-              : "Custom is a generic runtime endpoint, not a provider-native adapter.";
+              ? t("connection.hintLocal")
+              : t("connection.hintCustom");
 
   return (
     <div className="fade-up-delay flex flex-col gap-3">
@@ -91,7 +92,7 @@ export const ConnectionPanel = ({
             onClick={isConnected ? onDisconnect : onConnect}
             disabled={isConnecting || !gatewayUrl.trim()}
           >
-            {isConnected ? "Disconnect" : "Connect"}
+            {isConnected ? t("connection.disconnect") : t("connection.connect")}
           </button>
         </div>
         {onClose ? (
@@ -100,16 +101,16 @@ export const ConnectionPanel = ({
             type="button"
             onClick={onClose}
             data-testid="gateway-connection-close"
-            aria-label="Close gateway connection panel"
+            aria-label={t("connection.closePanel")}
           >
             <X className="h-3.5 w-3.5" />
-            Close
+            {t("common.close")}
           </button>
         ) : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
         <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          Upstream URL
+          {t("connection.upstreamUrl")}
           <input
             className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
             type="text"
@@ -120,21 +121,21 @@ export const ConnectionPanel = ({
           />
         </label>
         <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          {tokenOptional ? "Upstream token (optional)" : "Upstream token"}
+          {tokenOptional ? t("connection.upstreamTokenOptional") : t("connection.upstreamToken")}
           <input
             className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
             type="password"
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
-            placeholder={tokenOptional ? "optional token" : "gateway token"}
+            placeholder={tokenOptional ? t("settings.tokenOptional") : t("settings.gatewayToken")}
             spellCheck={false}
           />
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="font-mono">Selected backend: {selectedAdapterType}</span>
-        <span className="font-mono">Active backend: {activeAdapterType}</span>
-        <span>Each backend keeps its own saved URL and token.</span>
+        <span className="font-mono">{t("settings.selectedBackend", { name: selectedAdapterType })}</span>
+        <span className="font-mono">{t("settings.activeBackend", { name: activeAdapterType })}</span>
+        <span>{t("gateway.backendsKeepOwnSettings")}</span>
       </div>
       <div className="text-[11px] leading-snug text-muted-foreground">
         {selectedAdapterHint}
@@ -145,42 +146,42 @@ export const ConnectionPanel = ({
           type="button"
           onClick={applyDemoPreset}
         >
-          Demo backend
+          {t("connection.backendDemo")}
         </button>
         <button
           className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
           type="button"
           onClick={applyHermesPreset}
         >
-          Hermes backend
+          {t("connection.backendHermes")}
         </button>
         <button
           className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
           type="button"
           onClick={applyLocalPreset}
         >
-          Local runtime
+          {t("connection.backendLocal")}
         </button>
         <button
           className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
           type="button"
           onClick={applyOffice3dPreset}
         >
-          Office3D runtime
+          {t("connection.backendOffice3d")}
         </button>
         <button
           className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
           type="button"
           onClick={applyCustomPreset}
         >
-          Custom backend
+          {t("connection.backendCustom")}
         </button>
         <button
           className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
           type="button"
           onClick={applyOpenClawPreset}
         >
-          OpenClaw backend
+          {t("connection.backendOpenclaw")}
         </button>
       </div>
       {error ? (

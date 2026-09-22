@@ -19,6 +19,7 @@ import {
   type TranscriptAppendMeta,
   type TranscriptEntry,
 } from "@/features/agents/state/transcript";
+import { t } from "@/lib/i18n";
 
 export type AgentStatus = "idle" | "running" | "error";
 export type FocusFilter = "all" | "running" | "approvals";
@@ -580,7 +581,7 @@ export const AgentStoreProvider = ({ children }: { children: ReactNode }) => {
 export const useAgentStore = () => {
   const ctx = useContext(AgentStoreContext);
   if (!ctx) {
-    throw new Error("AgentStoreProvider is missing.");
+    throw new Error(t("store.missingProvider"));
   }
   return ctx;
 };

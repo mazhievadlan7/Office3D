@@ -165,7 +165,7 @@ describe("AgentSettingsPanel", () => {
       })
     );
 
-    expect(screen.getByLabelText("Close panel")).toBeInTheDocument();
+    expect(screen.getByLabelText("Закрыть панель")).toBeInTheDocument();
     expect(screen.getByTestId("agent-settings-close")).toBeInTheDocument();
   });
 
