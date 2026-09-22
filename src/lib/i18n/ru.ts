@@ -146,6 +146,53 @@ export const ru = {
   "agentSettings.webAccess": "Доступ в интернет",
   "agentSettings.webAccessHint": "Разрешает агенту получать актуальные результаты из сети.",
 
+  // --- Экран агентов ---------------------------------------------------------
+  "agents.addFirst": "Нажмите «Новый агент» на боковой панели, чтобы добавить первого агента.",
+  "agents.applyingConfig": "Применяется изменение конфигурации: {label}",
+  "agents.backToChat": "Назад к чату",
+  "agents.bootingStudio": "Запуск Studio…",
+  "agents.connectToLoad": "Подключитесь к шлюзу, чтобы загрузить агентов в студию.",
+  "agents.connectingGateway": "Подключение к шлюзу…",
+  "agents.createInProgress": "Идёт создание агента",
+  "agents.createTimedOut": "Создание агента не завершилось вовремя.",
+  "agents.creating": "Создание агента",
+  "agents.defaultModel": "По умолчанию",
+  "agents.deleteInProgress": "Идёт удаление агента",
+  "agents.deletingRestarting": "Удаление агента и перезапуск шлюза",
+  "agents.discardChanges": "Отменить изменения?",
+  "agents.heartbeatStopUnavailable":
+    "Эта задача выполняется как автоматическая проверка пульса. Останавливать такие запуски из Studio пока нельзя (скоро появится).",
+  "agents.loadingAgents": "Загрузка агентов…",
+  "agents.lockedUntilCreated": "Studio временно заблокирована до завершения создания.",
+  "agents.lockedUntilRestart": "Studio временно заблокирована до перезапуска шлюза.",
+  "agents.modelLabel": "Модель: {model}",
+  "agents.nameAllocFailed": "Не удалось подобрать уникальное имя агента.",
+  "agents.newAgentName": "Новый агент",
+  "agents.noAgents": "Агентов нет.",
+  "agents.noFilterMatch": "Под этот фильтр агенты не подходят.",
+  "agents.notFound": "Агент не найден.",
+  "agents.notFoundLead": "Вернитесь в чат и выберите доступного агента.",
+  "agents.queueNotReady": "Очередь изменений конфигурации не готова для «{kind}».",
+  "agents.queued": "Изменений конфигурации в очереди: {count}",
+  "agents.queuedWaitingGateway":
+    "Изменений конфигурации в очереди: {count}; ждём подключения к шлюзу",
+  "agents.queuedWaitingRuns":
+    "Изменений конфигурации в очереди: {count}; ждём завершения работающих агентов: {running}",
+  "agents.renameInProgress": "Идёт переименование агента",
+  "agents.renamingRestarting": "Переименование агента и перезапуск шлюза",
+  "agents.saved": "Сохранено ✓",
+  "agents.settingsTitle": "Настройки агента",
+  "agents.sharedSetup":
+    "Действия настройки общие для всех агентов. Установка идёт в общее рабочее пространство.",
+  "agents.sharedSetupOther":
+    "Действия настройки общие для всех агентов. Сейчас установка идёт в {shared} (общее рабочее пространство), а не в {agent}.",
+  "agents.submittingConfig": "Отправка изменения конфигурации",
+  "agents.tabChat": "Чат",
+  "agents.tabFleet": "Агенты",
+  "agents.thinkingLabel": "Рассуждение: {level}",
+  "agents.unsaved": "Не сохранено",
+  "agents.waitingRuns": "Ждём завершения активных запусков",
+
   // --- Аналитика -----------------------------------------------------------
   "analytics.alertThreshold": "Порог оповещения, %",
   "analytics.approvals": "Согласования",
@@ -771,16 +818,52 @@ export const ru = {
 
   // --- Музыкальный автомат ---------------------------------------------------
   "jukebox.clickToInstall": "Нажмите, чтобы установить SOUNDCLAW",
+  "jukebox.clientId": "Client ID приложения Spotify",
+  "jukebox.clientIdHint":
+    "Хранится только в вашем браузере и не отправляется никуда, кроме Spotify.",
   "jukebox.closeWindow": "Это окно можно закрыть, если оно не закрылось само.",
+  "jukebox.connect": "Подключить Spotify",
+  "jukebox.copy": "Скопировать",
+  "jukebox.disconnect": "Отключить Spotify",
   "jukebox.dismiss": "Закрыть",
   "jukebox.finishingSignIn": "Завершаем вход в Spotify",
   "jukebox.installLead1": "Установите навык",
   "jukebox.installLead2":
     "— и агенты смогут выбирать и включать музыку прямо на музыкальном автомате в офисе.",
   "jukebox.installSkill": "Установить навык SOUNDCLAW",
+  "jukebox.invalidUrl": "Введите правильный HTTPS-адрес ngrok, например",
+  "jukebox.keepOpen1": "Держите Office3D открытым на",
+  "jukebox.keepOpen2":
+    "Spotify перенаправит на ваш адрес ngrok, а он вернёт код авторизации в это окно.",
+  "jukebox.loadingPlayer": "Загрузка плеера…",
+  "jukebox.needBefore": "Что нужно перед подключением",
+  "jukebox.next": "Следующий",
+  "jukebox.ngrokHint":
+    "Используется только для обратного вызова OAuth от Spotify. Само приложение может оставаться на {origin}.",
+  "jukebox.ngrokUrl": "Публичный адрес ngrok",
+  "jukebox.noPlayback":
+    "Ничего не играет. Сначала откройте Spotify на устройстве и нажмите воспроизведение.",
   "jukebox.notInstalled": "Музыкальный автомат не установлен",
   "jukebox.notInstalledShort": "НЕ УСТАНОВЛЕН",
   "jukebox.nowPlaying": "♪  СЕЙЧАС ИГРАЕТ",
+  "jukebox.nowPlayingTitle": "Сейчас играет",
+  "jukebox.opening": "Открываем Spotify…",
+  "jukebox.pause": "Пауза",
+  "jukebox.play": "Играть",
+  "jukebox.previous": "Предыдущий",
+  "jukebox.redirecting": "Переходим в Spotify…",
+  "jukebox.searchPlaceholder": "Исполнитель, песня или альбом…",
+  "jukebox.searchTracks": "Поиск треков",
+  "jukebox.step1Create": "и создайте приложение (или возьмите существующее).",
+  "jukebox.step1Go": "Откройте",
+  "jukebox.step2": "В настройках приложения Spotify добавьте такой",
+  "jukebox.step3":
+    "Вставьте ниже свой публичный адрес ngrok и укажите в Spotify ровно тот адрес перенаправления, что показан здесь.",
+  "jukebox.step4":
+    "Не закрывайте эту вкладку офиса во время входа: всплывающее окно вернёт код на эту страницу.",
+  "jukebox.step5":
+    "Прежде чем управлять воспроизведением, откройте Spotify и включите музыку хотя бы на одном устройстве.",
+  "jukebox.title": "Музыкальный автомат офиса",
 
   // --- Канбан (навык не установлен) ----------------------------------------
   "kanban.dismiss": "Закрыть",

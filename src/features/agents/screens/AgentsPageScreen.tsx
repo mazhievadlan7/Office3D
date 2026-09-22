@@ -118,6 +118,7 @@ import {
   type SettingsRouteTab,
 } from "@/features/agents/operations/settingsRouteWorkflow";
 import { useSettingsRouteController } from "@/features/agents/operations/useSettingsRouteController";
+import { t } from "@/lib/i18n";
 
 const PENDING_EXEC_APPROVAL_PRUNE_GRACE_MS = 500;
 
@@ -185,7 +186,7 @@ const resolveControlUiUrl = (params: {
 };
 
 const resolveNextNewAgentName = (agents: AgentState[]) => {
-  const baseName = "New Agent";
+  const baseName = t("agents.newAgentName");
   const existingNames = new Set(
     agents.map((agent) => agent.name.trim().toLowerCase()).filter((name) => name.length > 0)
   );
@@ -202,7 +203,7 @@ const resolveNextNewAgentName = (agents: AgentState[]) => {
     if (existingIds.has(slugifyAgentName(candidate))) continue;
     return candidate;
   }
-  throw new Error("Unable to allocate a unique agent name.");
+  throw new Error(t("agents.nameAllocFailed"));
 };
 
 const AgentsPageScreen = () => {
@@ -304,7 +305,7 @@ const AgentsPageScreen = () => {
       run: () => Promise<void>;
       requiresIdleAgents?: boolean;
     }) => Promise<void>
-  >((input) => Promise.reject(new Error(`Config mutation queue not ready for "${input.kind}".`)));
+  >((input) => Promise.reject(new Error(t("agents.queueNotReady", { kind: input.kind }))));
   const approvalPausedRunIdByAgentRef = useRef<Map<string, string>>(new Map());
 
   const agents = state.agents;
@@ -334,7 +335,7 @@ const AgentsPageScreen = () => {
     if (focusedAgent.status !== "running") return null;
     const lastMessage = focusedAgent.lastUserMessage?.trim() ?? "";
     if (!lastMessage || !isHeartbeatPrompt(lastMessage)) return null;
-    return "This task is running as an automatic heartbeat check. Stopping heartbeat runs from Studio isn't available yet (coming soon).";
+    return t("agents.heartbeatStopUnavailable");
   }, [focusedAgent]);
   const inspectSidebarAgentId = inspectSidebar?.agentId ?? null;
   const inspectSidebarTab = inspectSidebar?.tab ?? null;
@@ -406,9 +407,9 @@ const AgentsPageScreen = () => {
   const settingsSkillScopeWarning = useMemo(() => {
     if (!inspectSidebarAgent) return null;
     if (inspectSidebarAgent.agentId === settingsDefaultAgentId) {
-      return "Setup actions are shared across agents. Installs run in this shared workspace.";
+      return t("agents.sharedSetup");
     }
-    return `Setup actions are shared across agents. Installs currently run in ${settingsDefaultAgentId} (shared workspace), not ${inspectSidebarAgent.agentId}.`;
+    return t("agents.sharedSetupOther", { shared: settingsDefaultAgentId, agent: inspectSidebarAgent.agentId });
   }, [inspectSidebarAgent, settingsDefaultAgentId]);
   const focusedPendingExecApprovals = useMemo(() => {
     if (!focusedAgentId) return unscopedPendingExecApprovals;
@@ -422,7 +423,7 @@ const AgentsPageScreen = () => {
     try {
       return resolveNextNewAgentName(state.agents);
     } catch {
-      return "New Agent";
+      return t("agents.newAgentName");
     }
   }, [state.agents]);
   const faviconSeed = useMemo(() => {
@@ -445,7 +446,7 @@ const AgentsPageScreen = () => {
     () => resolveControlUiUrl({ gatewayUrl, configSnapshot: gatewayConfigSnapshot }),
     [gatewayConfigSnapshot, gatewayUrl]
   );
-  const settingsHeaderModel = (inspectSidebarAgent?.model ?? "").trim() || "Default";
+  const settingsHeaderModel = (inspectSidebarAgent?.model ?? "").trim() || t("agents.defaultModel");
   const settingsHeaderThinkingRaw = (inspectSidebarAgent?.thinkingLevel ?? "").trim() || "low";
   const settingsHeaderThinking =
     settingsHeaderThinkingRaw.charAt(0).toUpperCase() + settingsHeaderThinkingRaw.slice(1);
@@ -907,7 +908,7 @@ const AgentsPageScreen = () => {
     setPersonalityHasUnsavedChanges,
     push: router.push,
     replace: router.replace,
-    confirmDiscard: () => window.confirm("Discard changes?"),
+    confirmDiscard: () => window.confirm(t("agents.discardChanges")),
   });
   const handleOpenSystemSkillSetup = useCallback(
     (skillKey?: string) => {
@@ -1069,7 +1070,7 @@ const AgentsPageScreen = () => {
       setCreateAgentBlock(null);
       setCreateAgentModalOpen(false);
       void loadAgents();
-      setError("Agent creation timed out.");
+      setError(t("agents.createTimedOut"));
     };
     if (timeoutNow) {
       handleTimeout();
@@ -1305,19 +1306,19 @@ const AgentsPageScreen = () => {
   const connectionPanelVisible = showConnectionPanel;
   const hasAnyAgents = agents.length > 0;
   const configMutationStatusLine = activeConfigMutation
-    ? `Applying config change: ${activeConfigMutation.label}`
+    ? t("agents.applyingConfig", { label: activeConfigMutation.label })
     : queuedConfigMutationCount > 0
       ? queuedBlockedByRunningAgents
-        ? `Queued ${queuedConfigMutationCount} config change${queuedConfigMutationCount === 1 ? "" : "s"}; waiting for ${runningAgentCount} running agent${runningAgentCount === 1 ? "" : "s"} to finish`
+        ? t("agents.queuedWaitingRuns", { count: queuedConfigMutationCount, running: runningAgentCount })
         : status !== "connected"
-          ? `Queued ${queuedConfigMutationCount} config change${queuedConfigMutationCount === 1 ? "" : "s"}; waiting for gateway connection`
-          : `Queued ${queuedConfigMutationCount} config change${queuedConfigMutationCount === 1 ? "" : "s"}`
+          ? t("agents.queuedWaitingGateway", { count: queuedConfigMutationCount })
+          : t("agents.queued", { count: queuedConfigMutationCount })
       : null;
   const createBlockStatusLine = createAgentBlock
     ? createAgentBlock.phase === "queued"
-      ? "Waiting for active runs to finish"
+      ? t("agents.waitingRuns")
       : createAgentBlock.phase === "creating"
-      ? "Submitting config change"
+      ? t("agents.submittingConfig")
       : null
     : null;
   const restartingMutationStatusLine = resolveConfigMutationStatusLine({
@@ -1336,13 +1337,13 @@ const AgentsPageScreen = () => {
     : null;
   const restartingMutationAriaLabel = restartingMutationBlock
     ? restartingMutationBlock.kind === "delete-agent"
-      ? "Deleting agent and restarting gateway"
-      : "Renaming agent and restarting gateway"
+      ? t("agents.deletingRestarting")
+      : t("agents.renamingRestarting")
     : null;
   const restartingMutationHeading = restartingMutationBlock
     ? restartingMutationBlock.kind === "delete-agent"
-      ? "Agent delete in progress"
-      : "Agent rename in progress"
+      ? t("agents.deleteInProgress")
+      : t("agents.renameInProgress")
     : null;
 
   useEffect(() => {
@@ -1374,7 +1375,7 @@ const AgentsPageScreen = () => {
               Office3D
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              {status === "connecting" ? "Connecting to gateway…" : "Booting Studio…"}
+              {status === "connecting" ? t("agents.connectingGateway") : t("agents.bootingStudio")}
             </div>
           </div>
         </div>
@@ -1403,7 +1404,7 @@ const AgentsPageScreen = () => {
                   className="ui-btn-secondary px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
                   onClick={handleBackToChat}
                 >
-                  Back to chat
+                  {t("agents.backToChat")}
                 </button>
               </div>
             ) : null}
@@ -1459,7 +1460,7 @@ const AgentsPageScreen = () => {
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Office3D
             </div>
-            <div className="mt-3 text-sm text-muted-foreground">Loading agents…</div>
+            <div className="mt-3 text-sm text-muted-foreground">{t("agents.loadingAgents")}</div>
           </div>
         </div>
       </div>
@@ -1471,7 +1472,7 @@ const AgentsPageScreen = () => {
       {state.loading ? (
         <div className="pointer-events-none fixed bottom-4 left-0 right-0 z-50 flex justify-center px-3">
           <div className="glass-panel ui-card px-6 py-3 font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
-            Loading agents…
+            {t("agents.loadingAgents")}
           </div>
         </div>
       ) : null}
@@ -1531,7 +1532,7 @@ const AgentsPageScreen = () => {
                     className="ui-btn-secondary w-full px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
                     onClick={handleBackToChat}
                   >
-                    Back to chat
+                    {t("agents.backToChat")}
                   </button>
                 </div>
                 <nav className="py-3">
@@ -1567,16 +1568,16 @@ const AgentsPageScreen = () => {
                 <div className="flex items-start justify-between border-b border-border/60 px-6 py-4">
                   <div>
                     <div className="text-lg font-semibold text-foreground">
-                      {inspectSidebarAgent?.name ?? settingsRouteAgentId ?? "Agent settings"}
+                      {inspectSidebarAgent?.name ?? settingsRouteAgentId ?? t("agents.settingsTitle")}
                     </div>
                     <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      Model: {settingsHeaderModel}{" "}
+                      {t("agents.modelLabel", { model: settingsHeaderModel })}{" "}
                       <span className="mx-2 text-border">|</span>
-                      Thinking: {settingsHeaderThinking}
+                      {t("agents.thinkingLabel", { level: settingsHeaderThinking })}
                     </div>
                   </div>
                   <div className="rounded-md border border-border/70 bg-surface-1 px-3 py-1 font-mono text-[11px] text-muted-foreground">
-                    [{personalityHasUnsavedChanges ? "Unsaved" : "Saved ✓"}]
+                    [{personalityHasUnsavedChanges ? t("agents.unsaved") : t("agents.saved")}]
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden">
@@ -1699,8 +1700,8 @@ const AgentsPageScreen = () => {
                     )
                   ) : (
                     <EmptyStatePanel
-                      title="Agent not found."
-                      description="Back to chat and select an available agent."
+                      title={t("agents.notFound")}
+                      description={t("agents.notFoundLead")}
                       fillHeight
                       className="items-center p-6 text-center text-sm"
                     />
@@ -1718,7 +1719,7 @@ const AgentsPageScreen = () => {
                     data-active={mobilePane === "fleet" ? "true" : "false"}
                     onClick={() => setMobilePane("fleet")}
                   >
-                    Fleet
+                    {t("agents.tabFleet")}
                   </button>
                   <button
                     type="button"
@@ -1726,7 +1727,7 @@ const AgentsPageScreen = () => {
                     data-active={mobilePane === "chat" ? "true" : "false"}
                     onClick={() => setMobilePane("chat")}
                   >
-                    Chat
+                    {t("agents.tabChat")}
                   </button>
                 </div>
               </div>
@@ -1801,13 +1802,13 @@ const AgentsPageScreen = () => {
                   </div>
                 ) : (
                   <EmptyStatePanel
-                    title={hasAnyAgents ? "No agents match this filter." : "No agents available."}
+                    title={hasAnyAgents ? t("agents.noFilterMatch") : t("agents.noAgents")}
                     description={
                       hasAnyAgents
                         ? undefined
                         : status === "connected"
-                          ? "Use New Agent in the sidebar to add your first agent."
-                          : "Connect to your gateway to load agents into the studio."
+                          ? t("agents.addFirst")
+                          : t("agents.connectToLoad")
                     }
                     fillHeight
                     className="items-center p-6 text-center text-sm"
@@ -1854,17 +1855,17 @@ const AgentsPageScreen = () => {
           data-testid="agent-create-restart-modal"
           role="dialog"
           aria-modal="true"
-          aria-label="Creating agent"
+          aria-label={t("agents.creating")}
         >
           <div className="ui-panel w-full max-w-md p-6">
             <div className="font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Agent create in progress
+              {t("agents.createInProgress")}
             </div>
             <div className="mt-2 text-base font-semibold text-foreground">
               {createAgentBlock.agentName}
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              Studio is temporarily locked until creation finishes.
+              {t("agents.lockedUntilCreated")}
             </div>
             {createBlockStatusLine ? (
               <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
@@ -1890,7 +1891,7 @@ const AgentsPageScreen = () => {
               {restartingMutationBlock.agentName}
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              Studio is temporarily locked until the gateway restarts.
+              {t("agents.lockedUntilRestart")}
             </div>
             {restartingMutationStatusLine ? (
               <div className="ui-card mt-4 px-3 py-2 font-mono text-[11px] tracking-[0.06em] text-foreground">
