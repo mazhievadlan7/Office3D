@@ -37,6 +37,7 @@ import {
   summarizeChecksTone,
 } from "./github/utils";
 import { t } from "@/lib/i18n";
+import { githubFileStatusLabel } from "@/lib/i18n/labels";
 
 type GithubImmersiveScreenProps = {
   agentName?: string | null;
@@ -836,7 +837,7 @@ export function GithubImmersiveScreen({
                         </div>
                         {file.status ? (
                           <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-white/40">
-                            {file.status}
+                            {githubFileStatusLabel(file.status)}
                           </div>
                         ) : null}
                       </button>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { shouldPreferBrowserScreenshot } from "@/lib/office/browserPreview";
 import type { OfficeDeskMonitor } from "@/lib/office/deskMonitor";
 import { LOCALE, t } from "@/lib/i18n";
+import { messageRoleLabel } from "@/lib/i18n/labels";
 
 type BrowserPreviewSnapshot = {
   mediaUrl: string | null;
@@ -437,7 +438,7 @@ export function MonitorImmersiveContent({
                         }`}
                       >
                         <div className="mb-2 text-[10px] uppercase tracking-[0.22em] text-white/28">
-                          {entry.kind}
+                          {messageRoleLabel(entry.kind)}
                           {entry.live ? ` · ${t("monitor.liveShort")}` : ""}
                         </div>
                         <div className="whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-white/76">

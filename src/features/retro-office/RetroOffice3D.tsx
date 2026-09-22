@@ -6894,7 +6894,11 @@ export function RetroOffice3D({
                 ).length;
                 const ratio = workingCount / Math.max(agents.length, 1);
                 const label =
-                  ratio < 0.2 ? "quiet" : ratio < 0.6 ? "active" : "buzzing";
+                  ratio < 0.2
+                    ? t("office.vibeQuiet")
+                    : ratio < 0.6
+                      ? t("office.vibeActive")
+                      : t("office.vibeBuzzing");
                 const animDur = ratio < 0.2 ? "1.8s" : ratio < 0.6 ? "1s" : "0.5s";
                 return (
                   <>

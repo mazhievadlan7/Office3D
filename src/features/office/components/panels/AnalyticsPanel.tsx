@@ -376,7 +376,7 @@ export function AnalyticsPanel({
                 className="flex items-center justify-between rounded border border-white/8 bg-black/25 px-3 py-2"
               >
                 <span className="font-mono text-[11px] text-white/80">
-                  {entry.provider ?? "unknown"} / {entry.model ?? "unknown"}
+                  {entry.provider ?? t("atm.unknown")} / {entry.model ?? t("atm.unknown")}
                 </span>
                 <span className="font-mono text-[11px] text-white/55">
                   {formatCurrency(entry.totals.totalCost)}

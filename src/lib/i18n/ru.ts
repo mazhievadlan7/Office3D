@@ -1115,6 +1115,21 @@ export const ru = {
   "kanbanScreen.subtitle": "Маршрутизация задач штаба, расписания и проверка.",
   "kanbanScreen.title": "Канбан-доска",
 
+  // --- Подписи служебных значений --------------------------------------------
+  "labels.fileAdded": "добавлен",
+  "labels.fileChanged": "изменён",
+  "labels.fileCopied": "скопирован",
+  "labels.fileModified": "изменён",
+  "labels.fileRemoved": "удалён",
+  "labels.fileRenamed": "переименован",
+  "labels.fileUnchanged": "без изменений",
+  "labels.roleAssistant": "ассистент",
+  "labels.roleSystem": "система",
+  "labels.roleThinking": "рассуждение",
+  "labels.roleTool": "инструмент",
+  "labels.roleUser": "пользователь",
+  "labels.sourceManual": "вручную",
+
   // --- Состояние агентов -----------------------------------------------------
   "libAgentState.agentIdRequired": "Не указан agentId.",
   "libAgentState.invalidAgentId": "Некорректный agentId: {agentId}.",
@@ -1885,6 +1900,9 @@ export const ru = {
   "office.unknownError": "неизвестная ошибка",
   "office.unserializable": "[данные не сериализуются: {error}]",
   "office.userText": "Пользователь / текст сообщения",
+  "office.vibeActive": "оживлённо",
+  "office.vibeBuzzing": "кипит работа",
+  "office.vibeQuiet": "тихо",
   "office.viewFrontDesk": "Ресепшен",
   "office.viewLounge": "Зона отдыха",
   "office.viewOverview": "Обзор",

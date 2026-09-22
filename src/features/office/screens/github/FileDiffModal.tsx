@@ -12,6 +12,7 @@ import {
 } from "./diff";
 import { maskGitHubRecordingText } from "./utils";
 import { t } from "@/lib/i18n";
+import { githubFileStatusLabel } from "@/lib/i18n/labels";
 
 type FileDiffModalProps = {
   file: GitHubDiffFile;
@@ -120,7 +121,7 @@ export function FileDiffModal({
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/50">
               {file.status ? (
                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                  {file.status}
+                  {githubFileStatusLabel(file.status)}
                 </span>
               ) : null}
               <span className="rounded-full border border-emerald-400/18 bg-emerald-400/10 px-2.5 py-1 text-emerald-100/88">

@@ -24,7 +24,8 @@ const walk = (dir, out = []) => {
 };
 
 const source = walk(SRC)
-  .filter((file) => !file.includes(path.join("lib", "i18n")))
+  // Everything but the dictionary itself: a key that only ru.ts mentions is unused.
+  .filter((file) => file !== DICT)
   .map((file) => readFileSync(file, "utf8"))
   .join("\n");
 

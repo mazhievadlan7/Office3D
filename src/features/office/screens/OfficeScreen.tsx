@@ -215,6 +215,7 @@ import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
 import { matchesPhrase, t } from "@/lib/i18n";
+import { messageRoleLabel } from "@/lib/i18n/labels";
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -5230,7 +5231,7 @@ export function OfficeScreen({
                               : "bg-cyan-400/10 text-cyan-200/80"
                           }`}
                         >
-                          {entry.role}
+                          {messageRoleLabel(entry.role)}
                         </span>
                       ) : null}
                     </div>

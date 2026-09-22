@@ -4,6 +4,7 @@ import { ExternalLink, X } from "lucide-react";
 
 import type { StandupMeeting } from "@/lib/office/standup/types";
 import { t } from "@/lib/i18n";
+import { standupSourceLabel } from "@/lib/i18n/labels";
 import { standupPhaseLabel } from "@/lib/office/standup/labels";
 
 const sourceTone = (ready: boolean, stale: boolean) => {
@@ -222,7 +223,7 @@ export function StandupImmersiveScreen({
                               source.stale
                             )}`}
                           >
-                            {source.kind}
+                            {standupSourceLabel(source.kind)}
                             {source.error ? ` · ${source.error}` : source.stale ? ` · ${t("standup.stale")}` : ""}
                           </div>
                         ))}
