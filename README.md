@@ -1,129 +1,134 @@
-# Office3D — A 3D Workspace for AI Agents
+# Office3D — 3D-офис для ИИ-агентов
 
 <p align="center">
     <img src="assets/branding/office3d-hero.png" alt="Office3D" width="700">
 </p>
 
 <p align="center">
-  <strong>AN OFFICE FOR YOUR AI TEAM!</strong>
+  <strong>ОФИС ДЛЯ ВАШЕЙ ИИ-КОМАНДЫ!</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/mazhievadlan7/Office3D/actions/workflows/docker-publish.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/mazhievadlan7/Office3D/docker-publish.yml?branch=main&style=for-the-badge" alt="CI status"></a>
-  <a href="https://github.com/mazhievadlan7/Office3D/releases"><img src="https://img.shields.io/github/v/release/mazhievadlan7/Office3D?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/mazhievadlan7/Office3D/actions/workflows/docker-publish.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/mazhievadlan7/Office3D/docker-publish.yml?branch=main&style=for-the-badge" alt="Статус CI"></a>
+  <a href="https://github.com/mazhievadlan7/Office3D/releases"><img src="https://img.shields.io/github/v/release/mazhievadlan7/Office3D?include_prereleases&style=for-the-badge" alt="Релиз на GitHub"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="Лицензия MIT"></a>
 </p>
 
-**Office3D** is a _3D virtual office for AI agents_ you run on your own infrastructure.
-Instead of watching automation through dashboards and logs, you walk through a live 3D office where your agents collaborate, review code, run standups, ship pull requests, and execute tasks side by side. The Gateway is just the control plane — the product is the office.
+**Office3D** — это _виртуальный 3D-офис для ИИ-агентов_, который работает на вашей собственной инфраструктуре.
+Вместо того чтобы следить за автоматизацией через дашборды и логи, вы ходите по живому 3D-офису, где агенты вместе работают, проверяют код, проводят планёрки, выпускают пул-реквесты и выполняют задачи бок о бок. Шлюз — лишь панель управления, а сам продукт — это офис.
 
-If you want a personal, self-hosted workspace that turns your AI workforce into something you can actually _see_, this is it.
+Если вам нужно личное рабочее пространство на своём сервере, которое превращает ИИ-команду в то, что можно по-настоящему _увидеть_, — это оно.
 
-Supported runtimes include: OpenClaw Gateway, Hermes, a direct HTTP `custom` runtime provider for orchestrator-backed stacks, and a built-in demo gateway for office exploration without a real agent framework.
+Поддерживаемые среды выполнения: шлюз OpenClaw, Hermes, прямое HTTP-подключение `custom` для стеков с собственным оркестратором и встроенный демо-шлюз, чтобы осмотреть офис без настоящего фреймворка агентов.
 
-[Vision](VISION.md) · [Architecture](ARCHITECTURE.md) · [Tutorial](TUTORIAL.md) · [Getting Started](#quick-start) · [Deployment](docs/deployment.md) · [Runtime Profiles](docs/runtime-profiles.md) · [Multi-Agent Beta](docs/multi-agent-beta.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Видение](VISION.md) · [Архитектура](ARCHITECTURE.md) · [Руководство](TUTORIAL.md) · [Быстрый старт](#быстрый-старт) · [Развёртывание](docs/deployment.md) · [Профили сред](docs/runtime-profiles.md) · [Мультиагентная бета](docs/multi-agent-beta.md) · [Участие](CONTRIBUTING.md) · [Безопасность](SECURITY.md)
 
-> **Unofficial project.** Office3D is an independent, community-driven project and is not affiliated with, endorsed by, or maintained by the OpenClaw team. OpenClaw is a separate project, and this repository is not the official OpenClaw repository.
+> **Неофициальный проект.** Office3D — независимый проект сообщества. Он не связан с командой OpenClaw, не одобрен и не поддерживается ею. OpenClaw — отдельный проект, и этот репозиторий не является официальным репозиторием OpenClaw.
 
-Office3D is a private fork of [Claw3D](https://github.com/iamlukethedev/Claw3D), originally created by **LukeTheDev** and released under the MIT License. It is maintained independently by [@mazhievadlan7](https://github.com/mazhievadlan7) and is not affiliated with the upstream project.
+Office3D — приватный форк [Claw3D](https://github.com/iamlukethedev/Claw3D), созданного **LukeTheDev** и выпущенного под лицензией MIT. Форк независимо поддерживает [@mazhievadlan7](https://github.com/mazhievadlan7); с исходным проектом он не связан.
 
-## What you can do with Office3D
+## Язык
 
-- **Watch your AI agents work in real time** inside a shared 3D office.
-- **Run standups** with agents connected to GitHub and Jira.
-- **Review pull requests** from inside the office.
-- **Monitor QA pipelines** and logs without leaving the workspace.
-- **Train agents in the gym** to develop new skills.
-- **Reset sessions and clean context** with the janitor system.
+Интерфейс Office3D полностью на русском. Все фразы собраны в одном словаре — [`src/lib/i18n/ru.ts`](src/lib/i18n/ru.ts) — и выводятся через `t("область.ключ")` из `@/lib/i18n`. Даты, время и числа форматируются в локали `ru-RU` независимо от языка браузера.
 
-## What Office3D Is
+Агенты тоже работают по-русски: инструкции, которые им отправляет офис, и упакованные навыки написаны на русском, а команды вроде «иди к своему столу», «проверь пул-реквесты», «напиши тесты» или «давайте проведём планёрку» офис понимает наравне с английскими.
 
-Office3D is the visualization and interaction layer.
+Документация в каталоге `docs/` и остальные файлы в корне репозитория пока на английском.
 
-Today it can sit on top of:
+## Что можно делать в Office3D
 
-- OpenClaw through the existing gateway flow
-- Hermes through the bundled WebSocket adapter
-- a direct HTTP `custom` runtime provider for orchestrator-backed stacks
-- a built-in demo gateway for office exploration without a real agent framework
+- **Наблюдать за работой ИИ-агентов в реальном времени** в общем 3D-офисе.
+- **Проводить планёрки** с агентами, подключёнными к GitHub и Jira.
+- **Проверять пул-реквесты** прямо в офисе.
+- **Следить за QA-конвейерами** и логами, не выходя из рабочего пространства.
+- **Тренировать агентов в спортзале**, чтобы они осваивали новые навыки.
+- **Сбрасывать сессии и очищать контекст** с помощью системы уборщиков.
 
-In practical terms, this app gives you:
+## Что такое Office3D
 
-- a live `/office` retro-office environment where agents appear as workers moving through a shared 3D world
-- an `/office/builder` surface for editing and publishing office layouts
-- a gateway-first architecture that keeps runtime state in the connected backend while Studio stores local UI preferences
-- a backend-neutral runtime seam inside Studio so additional providers can be integrated without rewriting the whole UI
+Office3D — это слой визуализации и взаимодействия.
 
-This repository does not build the upstream runtimes themselves. It is the frontend, Studio, and adapter/proxy layer that connects to a runtime speaking the Office3D gateway protocol.
+Сегодня он может работать поверх:
 
-## Why It Exists
+- OpenClaw — через существующий шлюз;
+- Hermes — через встроенный WebSocket-адаптер;
+- прямого HTTP-подключения `custom` для стеков с собственным оркестратором;
+- встроенного демо-шлюза, чтобы осмотреть офис без настоящего фреймворка агентов.
 
-AI systems are becoming more capable, but their work is still usually hidden behind logs, terminal output, and dashboards.
+На практике приложение даёт:
 
-Office3D exists to make agent systems visible:
+- живой ретро-офис `/office`, где агенты появляются как сотрудники, которые перемещаются по общему 3D-миру;
+- конструктор `/office/builder` для редактирования и публикации планировок офиса;
+- архитектуру «сначала шлюз»: состояние среды выполнения хранится в подключённом бэкенде, а Studio хранит только локальные настройки интерфейса;
+- независимый от бэкенда слой среды выполнения внутри Studio, так что новых поставщиков можно подключать, не переписывая весь интерфейс.
 
-- inspect what agents are doing in real time
-- monitor runs, approvals, history, and activity from one place
-- interact with agents through chat and immersive UI surfaces
-- move toward a world where AI systems are understandable through space, motion, and presence
+Этот репозиторий не собирает сами среды выполнения. Это фронтенд, Studio и слой адаптеров и прокси, который подключается к среде, говорящей на протоколе шлюза Office3D.
 
-For the broader direction of the project, see [`VISION.md`](VISION.md).
+## Зачем он нужен
 
-## What Exists Today
+ИИ-системы становятся всё способнее, но их работа обычно по-прежнему спрятана в логах, выводе терминала и дашбордах.
 
-The current app already includes a substantial Office3D surface:
+Office3D делает системы агентов видимыми:
 
-- Fleet management and agent chat with runtime updates streamed from the gateway.
-- Agent creation, settings, session controls, approvals, and gateway-backed configuration editing.
-- A 3D retro office with desks, rooms, navigation, animations, and event-driven activity cues.
-- Immersive operational spaces for standups, GitHub review flows, analytics, and system monitoring.
-- Local Studio persistence for gateway connection details, focused-agent preferences, desk assignments, office state, and related UI settings.
-- A custom same-origin WebSocket proxy so the browser talks to Studio, and Studio talks to the upstream OpenClaw Gateway.
+- смотреть, что делают агенты, в реальном времени;
+- следить за запусками, одобрениями, историей и активностью в одном месте;
+- общаться с агентами через чат и иммерсивные экраны;
+- двигаться к миру, где ИИ-системы понятны через пространство, движение и присутствие.
 
-## Quick Start
+Общее направление проекта описано в [`VISION.md`](VISION.md).
 
-Requirements:
+## Что уже есть
 
-- Node.js 20+ recommended.
-- npm 10+ recommended.
-- One of:
-  - a working OpenClaw installation with a reachable Gateway URL and token
-  - Hermes with the bundled adapter
-  - the built-in demo gateway for local exploration
+Текущее приложение уже включает большую часть Office3D:
 
-Prerequisite:
+- Управление командой и чат с агентами; обновления среды выполнения приходят потоком от шлюза.
+- Создание агентов, настройки, управление сессиями, одобрения и редактирование конфигурации через шлюз.
+- 3D-ретро-офис со столами, комнатами, навигацией, анимациями и подсказками об активности по событиям.
+- Иммерсивные рабочие пространства для планёрок, код-ревью в GitHub, аналитики и мониторинга системы.
+- Локальное хранение в Studio: подключение к шлюзу, выбранный агент, закрепление столов, состояние офиса и связанные настройки интерфейса.
+- Собственный WebSocket-прокси на том же origin: браузер общается со Studio, а Studio — с вышестоящим шлюзом OpenClaw.
 
-- Office3D does not install or build OpenClaw or Hermes for you.
-- Before starting Office3D against a real backend, make sure your chosen runtime is already running and that you know the gateway URL and token Studio should use.
-- For a no-framework local office demo, run the bundled demo gateway instead.
-- If you need a full cross-machine setup guide (OpenClaw + Tailscale + Office3D), follow [`TUTORIAL.md`](TUTORIAL.md).
+## Быстрый старт
 
-Run from source:
+Требования:
+
+- Node.js 20+ (рекомендуется).
+- npm 10+ (рекомендуется).
+- Одно из:
+  - рабочая установка OpenClaw с доступным адресом шлюза и токеном;
+  - Hermes со встроенным адаптером;
+  - встроенный демо-шлюз для локального знакомства.
+
+Перед началом:
+
+- Office3D не устанавливает и не собирает за вас OpenClaw или Hermes.
+- Прежде чем запускать Office3D с настоящим бэкендом, убедитесь, что выбранная среда выполнения уже работает и что вы знаете адрес шлюза и токен для Studio.
+- Чтобы посмотреть офис локально без фреймворка, запустите встроенный демо-шлюз.
+- Полное руководство по настройке на нескольких машинах (OpenClaw + Tailscale + Office3D) — в [`TUTORIAL.md`](TUTORIAL.md).
+
+Запуск из исходников:
 
 ```bash
-git clone <your-public-repo-url> office3d
+git clone <адрес-вашего-репозитория> office3d
 cd office3d
 npm install
 cp .env.example .env
 npm run dev
 ```
 
-Then open `http://localhost:3000` and configure the gateway URL and token in Studio.
-Studio now also persists the selected backend mode (`OpenClaw`, `Hermes`, `Demo`, `Local`, `Office3D`, or `Custom`) and
-shows the active backend reported by the connected gateway.
+Затем откройте `http://localhost:3000` и укажите в Studio адрес шлюза и токен.
+Studio также сохраняет выбранный режим бэкенда («Бэкенд OpenClaw», «Бэкенд Hermes», «Демо-бэкенд», «Локальная среда», «Среда Office3D» или «Свой бэкенд») и показывает активный бэкенд, о котором сообщает подключённый шлюз.
 
-### Runtime profiles
+### Профили сред выполнения
 
-If you are integrating an orchestrator-backed runtime through the direct
-HTTP runtime seam, start your runtime first, then start Office3D:
+Если вы подключаете среду с собственным оркестратором через прямое HTTP-подключение, сначала запустите её, затем Office3D:
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000`, choose `Local runtime`, `Office3D runtime`,
-or `Custom backend`, and point the upstream URL at your runtime boundary.
-Typical examples:
+Затем откройте `http://localhost:3000`, выберите «Локальная среда», «Среда Office3D» или «Свой бэкенд» и укажите адрес вашей среды выполнения.
+Типичные примеры:
 
 ```text
 http://127.0.0.1:7770
@@ -133,222 +138,226 @@ http://127.0.0.1:7770
 http://localhost:3000/api/runtime/custom
 ```
 
-Current direct-runtime expectations:
+Что сейчас ожидается от среды при прямом подключении:
 
 - `GET /health`
 - `GET /state`
 - `GET /registry`
 - `POST /v1/chat/completions`
 
-The browser does not call that runtime directly. Office3D proxies the
-`custom` provider through its own same-origin route at
-`/api/runtime/custom`, which avoids browser-side CORS problems and keeps
-the provider transport separate from the OpenClaw/Hermes gateway path.
+Браузер не обращается к этой среде напрямую. Office3D проксирует поставщика `custom` через собственный маршрут на том же origin — `/api/runtime/custom`. Это избавляет от проблем с CORS в браузере и отделяет транспорт поставщика от пути через шлюз OpenClaw/Hermes.
 
-### Demo mode
+### Демо-режим
 
-If you only want to see the office and agent interactions without installing OpenClaw or Hermes:
+Если хочется просто посмотреть на офис и работу агентов, не устанавливая OpenClaw или Hermes:
 
 ```bash
 npm run demo-gateway
 npm run dev
 ```
 
-Then connect Studio to:
+Затем подключите Studio к:
 
 ```text
 ws://localhost:18789
 ```
 
-This starts a mock local gateway with demo agents, streaming chat, session previews, and office presence.
-In the connect screen, choose `Demo backend`, then connect.
+Так запускается локальный тестовый шлюз с демо-агентами, потоковым чатом, превью сессий и присутствием в офисе. Демо-агенты отвечают по-русски.
+На экране подключения выберите «Демо-бэкенд» и нажмите «Подключиться».
 
-### Hermes adapter
+### Адаптер Hermes
 
-If you want to use Hermes instead of OpenClaw:
+Если вы хотите использовать Hermes вместо OpenClaw:
 
 ```bash
 npm run hermes-adapter
 npm run dev
 ```
 
-See [`docs/hermes-gateway.md`](docs/hermes-gateway.md) for setup details and current scope.
+Настройка и текущие возможности описаны в [`docs/hermes-gateway.md`](docs/hermes-gateway.md). Координатор Hermes получает указание отвечать пользователю и называть агентов по-русски.
 
-For a local gateway on the same machine, the usual upstream URL is:
+Для шлюза на той же машине обычный адрес такой:
 
 ```text
 ws://localhost:18789
 ```
 
-In the connect screen, choose `Hermes backend`, then connect.
+На экране подключения выберите «Бэкенд Hermes» и нажмите «Подключиться».
 
-## How It Connects
+## Как устроено подключение
 
-Office3D uses two separate network hops:
+Office3D использует два отдельных сетевых участка:
 
-1. Browser -> Studio over HTTP and a same-origin WebSocket at `/api/gateway/ws`.
-2. Studio -> OpenClaw Gateway over a second WebSocket opened by the Studio server.
+1. Браузер → Studio по HTTP и через WebSocket на том же origin по адресу `/api/gateway/ws`.
+2. Studio → шлюз OpenClaw через второй WebSocket, который открывает сервер Studio.
 
-That means `ws://localhost:18789` always refers to the gateway reachable from the Studio host, not necessarily from the browser device.
+Поэтому `ws://localhost:18789` всегда означает шлюз, доступный с хоста Studio, а не обязательно с устройства, на котором открыт браузер.
 
-This design keeps gateway settings persisted on the Studio host and lets Studio open the upstream connection server-side. The current UI still loads the configured upstream URL/token into browser memory at runtime, so treat the browser as part of the active trust boundary.
+Такая схема хранит настройки шлюза на хосте Studio и позволяет Studio открывать соединение со шлюзом на стороне сервера. Текущий интерфейс всё ещё загружает настроенный адрес и токен шлюза в память браузера во время работы, поэтому считайте браузер частью активной границы доверия.
 
-## Common Setups
+## Типичные конфигурации
 
-### Gateway local, Studio local
+### Шлюз локально, Studio локально
 
-1. Start Studio with `npm run dev`.
-2. Open `http://localhost:3000`.
-3. Use `ws://localhost:18789` plus your OpenClaw gateway token.
+1. Запустите Studio командой `npm run dev`.
+2. Откройте `http://localhost:3000`.
+3. Укажите `ws://localhost:18789` и токен шлюза OpenClaw.
 
-### Gateway remote, Studio local
+### Шлюз удалённо, Studio локально
 
-Use any gateway URL your machine can reach.
+Подойдёт любой адрес шлюза, доступный с вашей машины.
 
-Recommended with Tailscale:
+Рекомендуемый вариант — Tailscale:
 
-1. On the gateway host, run `tailscale serve --yes --bg --https 443 http://127.0.0.1:18789`.
-2. In Studio, use `wss://<gateway-host>.ts.net`.
+1. На хосте шлюза выполните `tailscale serve --yes --bg --https 443 http://127.0.0.1:18789`.
+2. В Studio укажите `wss://<хост-шлюза>.ts.net`.
 
-Alternative with SSH:
+Вариант через SSH:
 
-1. Run `ssh -L 18789:127.0.0.1:18789 user@<gateway-host>`.
-2. In Studio, use `ws://localhost:18789`.
+1. Выполните `ssh -L 18789:127.0.0.1:18789 user@<хост-шлюза>`.
+2. В Studio укажите `ws://localhost:18789`.
 
-### Studio remote, Gateway remote
+### Studio удалённо, шлюз удалённо
 
-1. Run Studio on the remote host.
-2. Expose Studio on a private network or over Tailscale.
-3. Set `STUDIO_ACCESS_TOKEN` if Studio binds to a public host.
-4. Configure the gateway URL and token inside Studio.
+1. Запустите Studio на удалённом хосте.
+2. Откройте доступ к Studio в частной сети или через Tailscale.
+3. Задайте `STUDIO_ACCESS_TOKEN`, если Studio слушает публичный адрес.
+4. Укажите адрес шлюза и токен в самой Studio.
 
-### Studio on LAN or Tailscale for other devices
+### Studio в локальной сети или Tailscale для других устройств
 
-1. Start Studio with `HOST=0.0.0.0` (or a specific LAN/Tailscale host).
-2. Set `STUDIO_ACCESS_TOKEN` before exposing Studio beyond localhost.
-3. Open Office3D from the LAN/Tailscale address instead of `localhost`.
-4. If you are connecting to a remote OpenClaw gateway, remember device approval is per browser/device. A new browser may still require:
+1. Запустите Studio с `HOST=0.0.0.0` (или с конкретным адресом в локальной сети или Tailscale).
+2. Задайте `STUDIO_ACCESS_TOKEN`, прежде чем открывать Studio за пределы localhost.
+3. Открывайте Office3D по адресу в локальной сети или Tailscale, а не по `localhost`.
+4. Если вы подключаетесь к удалённому шлюзу OpenClaw, помните: одобрение устройства выдаётся отдельно для каждого браузера или устройства. Новому браузеру может понадобиться:
 
 ```bash
 openclaw devices approve --latest
 ```
 
-## Tech Stack
+## Технологии
 
-- Next.js App Router, React, and TypeScript for the main web application.
-- A custom Node server for the Studio-side WebSocket proxy.
-- Three.js, React Three Fiber, and Drei for the 3D office experience.
-- Phaser for office/viewer-builder workflows and related interactive surfaces.
-- Vitest for unit tests and Playwright for end-to-end coverage.
+- Next.js App Router, React и TypeScript — основное веб-приложение.
+- Собственный Node-сервер — WebSocket-прокси на стороне Studio.
+- Three.js, React Three Fiber и Drei — 3D-офис.
+- Phaser — просмотр и конструктор офиса и связанные интерактивные экраны.
+- Vitest — модульные тесты, Playwright — сквозные тесты.
 
-## Configuration
+## Настройка
 
-Important runtime paths:
+Важные пути:
 
-- OpenClaw config: `~/.openclaw/openclaw.json`
-- Studio settings: `~/.openclaw/office3d/settings.json`
+- Конфигурация OpenClaw: `~/.openclaw/openclaw.json`
+- Настройки Studio: `~/.openclaw/office3d/settings.json`
 
-Common environment variables:
+Основные переменные окружения:
 
-- `HOST` and `PORT` control the Studio server bind address and port.
-- `STUDIO_ACCESS_TOKEN` protects Studio when binding to a public host.
-- `UPSTREAM_ALLOWLIST` restricts which upstream gateway hosts Studio may proxy to. Set this in production.
-- `CUSTOM_RUNTIME_ALLOWLIST` restricts which hosts `/api/runtime/custom` may fetch. If unset, it falls back to `UPSTREAM_ALLOWLIST`.
-- `NEXT_PUBLIC_GATEWAY_URL` provides the default upstream gateway URL when Studio settings are empty. **Note:** this is a build-time variable — changes require `npm run build` to take effect.
-- `OFFICE3D_GATEWAY_URL` and `OFFICE3D_GATEWAY_TOKEN` provide a runtime alternative to `NEXT_PUBLIC_GATEWAY_URL` that takes effect on server restart without a rebuild.
-- `OFFICE3D_GATEWAY_ADAPTER_TYPE` can pair with `OFFICE3D_GATEWAY_URL` to mark those runtime defaults as `openclaw`, `hermes`, `demo`, `local`, `office3d`, or `custom`.
-- If `OFFICE3D_GATEWAY_URL` is not set, Studio can still surface local Hermes or demo adapter defaults from `HERMES_ADAPTER_PORT` / `DEMO_ADAPTER_PORT`.
-- OpenClaw file defaults still come from `~/.openclaw/openclaw.json` when present.
-- `OPENCLAW_STATE_DIR` and `OPENCLAW_CONFIG_PATH` override the default OpenClaw paths.
-- `OPENCLAW_GATEWAY_SSH_TARGET`, `OPENCLAW_GATEWAY_SSH_USER`, `OPENCLAW_GATEWAY_SSH_PORT`, and `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING` support advanced gateway-host operations over SSH when needed.
-- `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, and `ELEVENLABS_MODEL_ID` enable voice reply integration.
+- `HOST` и `PORT` — адрес и порт, которые слушает сервер Studio.
+- `STUDIO_ACCESS_TOKEN` защищает Studio, когда она слушает публичный адрес.
+- `UPSTREAM_ALLOWLIST` ограничивает, к каким хостам шлюзов Studio может проксировать соединения. Задайте её в продакшене.
+- `CUSTOM_RUNTIME_ALLOWLIST` ограничивает, к каким хостам может обращаться `/api/runtime/custom`. Если не задана, используется `UPSTREAM_ALLOWLIST`.
+- `NEXT_PUBLIC_GATEWAY_URL` задаёт адрес шлюза по умолчанию, когда настройки Studio пусты. **Внимание:** это переменная времени сборки — изменения вступают в силу только после `npm run build`.
+- `OFFICE3D_GATEWAY_URL` и `OFFICE3D_GATEWAY_TOKEN` — альтернатива `NEXT_PUBLIC_GATEWAY_URL`, которая применяется при перезапуске сервера без пересборки.
+- `OFFICE3D_GATEWAY_ADAPTER_TYPE` вместе с `OFFICE3D_GATEWAY_URL` указывает тип этих значений по умолчанию: `openclaw`, `hermes`, `demo`, `local`, `office3d` или `custom`.
+- Если `OFFICE3D_GATEWAY_URL` не задана, Studio всё равно может предложить локальные адаптеры Hermes или демо по `HERMES_ADAPTER_PORT` / `DEMO_ADAPTER_PORT`.
+- Значения OpenClaw по умолчанию по-прежнему берутся из `~/.openclaw/openclaw.json`, если файл есть.
+- `OPENCLAW_STATE_DIR` и `OPENCLAW_CONFIG_PATH` переопределяют стандартные пути OpenClaw.
+- `OPENCLAW_GATEWAY_SSH_TARGET`, `OPENCLAW_GATEWAY_SSH_USER`, `OPENCLAW_GATEWAY_SSH_PORT` и `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING` нужны для расширенных операций на хосте шлюза через SSH.
+- `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` и `ELEVENLABS_MODEL_ID` включают голосовые ответы. Язык речи голосового агента ElevenLabs переключается в его панели: русский промпт сам язык не меняет.
 
-See [`.env.example`](.env.example) for the full local development template.
+Полный шаблон для локальной разработки — в [`.env.example`](.env.example).
 
-## Scripts
+## Скрипты
 
-- `npm run dev` starts the Studio dev server.
-- `npm run hermes-adapter` starts the Hermes WebSocket adapter.
-- `npm run demo-gateway` starts the built-in mock gateway for demo mode.
-- `npm run build` builds the production Next.js app.
-- `npm run start` starts the production server.
-- `npm run lint` runs ESLint.
-- `npm run typecheck` runs TypeScript without emitting output.
-- `npm run test` runs unit tests with Vitest.
-- `npm run e2e` runs Playwright tests.
-- `npm run studio:setup` prepares common local Studio prerequisites.
-- `npm run smoke:dev-server` runs a basic dev-server smoke check.
+- `npm run dev` — запустить сервер разработки Studio.
+- `npm run hermes-adapter` — запустить WebSocket-адаптер Hermes.
+- `npm run demo-gateway` — запустить встроенный тестовый шлюз для демо-режима.
+- `npm run build` — собрать продакшен-версию Next.js.
+- `npm run start` — запустить продакшен-сервер.
+- `npm run lint` — проверить код ESLint.
+- `npm run typecheck` — проверить типы TypeScript без сборки.
+- `npm run test` — запустить модульные тесты Vitest (для однократного прогона: `npm run test -- --run`).
+- `npm run e2e` — запустить тесты Playwright.
+- `npm run studio:setup` — подготовить типичные локальные зависимости Studio.
+- `npm run smoke:dev-server` — базовая дымовая проверка сервера разработки.
 
-## Documentation
+Для словаря переводов:
 
-- [`VISION.md`](VISION.md): project direction and long-term guardrails.
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries, data flow, and major trade-offs.
-- [`TUTORIAL.md`](TUTORIAL.md): detailed step-by-step setup for OpenClaw + Tailscale + Office3D.
-- [`docs/multi-agent-beta.md`](docs/multi-agent-beta.md): remote office beta setup, connection modes, and limitations.
-- [`docs/runtime-profiles.md`](docs/runtime-profiles.md): saved backend/runtime profiles and the current HTTP runtime seam.
-- [`CODE_DOCUMENTATION.md`](CODE_DOCUMENTATION.md): practical code map, extension points, and contributor onboarding order.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): local workflow, testing, and PR expectations.
-- [`SUPPORT.md`](SUPPORT.md): where to ask for help and how to route reports.
-- [`ROADMAP.md`](ROADMAP.md): near-term priorities and contributor-friendly work areas.
-- [`docs/pi-chat-streaming.md`](docs/pi-chat-streaming.md): gateway runtime streaming and transcript rendering.
-- [`docs/permissions-sandboxing.md`](docs/permissions-sandboxing.md): Studio permissions and OpenClaw behavior.
-- [`docs/hermes-gateway.md`](docs/hermes-gateway.md): Hermes adapter setup, capabilities, and current limitations.
+- `node scripts/i18n-check.mjs` — показать число фраз, неиспользуемые ключи и нарушения порядка (`--sort` сортирует словарь, `--prune` удаляет неиспользуемое).
+- `node scripts/i18n-extract.mjs <файл>` — найти в файле оставшийся английский текст интерфейса.
 
-## Current Limitations
+## Документация
 
-- The immersive retro office (`/office`) and the Phaser builder (`/office/builder`) are related but still separate stacks.
-- The app keeps gateway secrets out of browser persistent storage, but the current connection flow still loads the upstream URL/token into browser memory at runtime.
-- Local Spotify auth for `SOUNDCLAW` currently stores an access token only. Refresh-token handling is not implemented yet, so local Spotify auth may need to be repeated after the token expires.
+Документы ниже пока на английском.
 
-## Troubleshooting
+- [`VISION.md`](VISION.md): направление проекта и долгосрочные ориентиры.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): границы системы, потоки данных и основные компромиссы.
+- [`TUTORIAL.md`](TUTORIAL.md): подробная пошаговая настройка OpenClaw + Tailscale + Office3D.
+- [`docs/multi-agent-beta.md`](docs/multi-agent-beta.md): бета удалённого офиса — настройка, режимы подключения и ограничения.
+- [`docs/runtime-profiles.md`](docs/runtime-profiles.md): сохранённые профили бэкендов и текущее HTTP-подключение сред.
+- [`CODE_DOCUMENTATION.md`](CODE_DOCUMENTATION.md): карта кода, точки расширения и порядок знакомства для участников.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): локальный процесс работы, тестирование и требования к PR.
+- [`SUPPORT.md`](SUPPORT.md): где просить помощи и куда отправлять сообщения о проблемах.
+- [`ROADMAP.md`](ROADMAP.md): ближайшие приоритеты и задачи для участников.
+- [`docs/pi-chat-streaming.md`](docs/pi-chat-streaming.md): потоковая передача среды выполнения и отображение переписки.
+- [`docs/permissions-sandboxing.md`](docs/permissions-sandboxing.md): права в Studio и поведение OpenClaw.
+- [`docs/hermes-gateway.md`](docs/hermes-gateway.md): настройка адаптера Hermes, возможности и текущие ограничения.
 
-If the UI loads but Connect fails, the problem is usually on the Studio -> Gateway side:
+## Текущие ограничения
 
-- Confirm the upstream URL and token in Studio settings.
-- `EPROTO` or `wrong version number` usually means `wss://` was used against a non-TLS endpoint.
-- `INVALID_REQUEST` errors mentioning `minProtocol` or `maxProtocol` usually mean the gateway is too old for Office3D protocol v3. Upgrade OpenClaw, use the Hermes adapter, or run `npm run demo-gateway`.
-- `401 Studio access token required` usually means `STUDIO_ACCESS_TOKEN` is enabled and the request is missing the expected `studio_access` cookie.
-- If `/api/runtime/custom` returns a blocked-host error in production, set `CUSTOM_RUNTIME_ALLOWLIST` or include the runtime host in `UPSTREAM_ALLOWLIST`.
-- Helpful proxy error codes include `studio.gateway_url_missing`, `studio.gateway_token_missing`, `studio.upstream_error`, and `studio.upstream_closed`.
+- Иммерсивный ретро-офис (`/office`) и конструктор на Phaser (`/office/builder`) связаны, но пока остаются отдельными стеками.
+- Приложение не хранит секреты шлюза в постоянном хранилище браузера, но текущая схема подключения всё ещё загружает адрес и токен шлюза в память браузера во время работы.
+- Локальная авторизация Spotify для `SOUNDCLAW` пока хранит только токен доступа. Обновление токена не реализовано, поэтому после истечения токена вход в Spotify может понадобиться повторить.
 
-Marketplace skill installs now use a gateway-native workspace flow and do not require enabling SSH on the user machine.
+## Решение проблем
 
-### Spotify auth on localhost
+Если интерфейс загружается, но подключиться не удаётся, проблема обычно на участке Studio → шлюз:
 
-If you are testing the `SOUNDCLAW` jukebox locally and Spotify OAuth does not accept your `localhost` callback, use an `ngrok` callback bridge:
+- Проверьте адрес шлюза и токен в настройках Studio.
+- `EPROTO` или `wrong version number` обычно означают, что `wss://` использован для адреса без TLS.
+- Ошибки `INVALID_REQUEST` с упоминанием `minProtocol` или `maxProtocol` обычно означают, что шлюз слишком старый для протокола Office3D v3. Обновите OpenClaw, используйте адаптер Hermes или запустите `npm run demo-gateway`.
+- Ответ `401` с сообщением «Нужен токен доступа к Studio» обычно означает, что включён `STUDIO_ACCESS_TOKEN`, а в запросе нет ожидаемой cookie `studio_access`.
+- Если `/api/runtime/custom` в продакшене возвращает ошибку заблокированного хоста, задайте `CUSTOM_RUNTIME_ALLOWLIST` или добавьте хост среды в `UPSTREAM_ALLOWLIST`.
+- Полезные коды ошибок прокси: `studio.gateway_url_missing`, `studio.gateway_token_missing`, `studio.upstream_error` и `studio.upstream_closed`.
 
-1. Keep Office3D running locally on `http://localhost:3000`.
-2. Start `ngrok` for the local Studio server, for example `ngrok http 3000`.
-3. In the jukebox setup UI, paste your public `ngrok` URL into the `ngrok Public URL` field.
-4. In the Spotify developer dashboard, register `https://<your-ngrok-host>/spotify/callback` as the redirect URI.
-5. Complete Spotify sign-in from the jukebox panel.
+Навыки из маркета устанавливаются через рабочее пространство шлюза, и включать SSH на машине пользователя для этого не нужно.
 
-How it works:
+### Авторизация Spotify на localhost
 
-- The main Office3D app stays on `localhost`, so your normal local office state and agent state remain intact.
-- Spotify redirects to the `ngrok` callback URL.
-- The callback page passes the auth code back to the open local Office3D window.
+Если вы проверяете музыкальный автомат `SOUNDCLAW` локально, а Spotify OAuth не принимает адрес обратного вызова на `localhost`, используйте мост через `ngrok`:
 
-Current local limitation:
+1. Оставьте Office3D запущенным локально на `http://localhost:3000`.
+2. Запустите `ngrok` для локального сервера Studio, например `ngrok http 3000`.
+3. В настройке музыкального автомата вставьте публичный адрес `ngrok` в поле «Публичный адрес ngrok».
+4. В панели разработчика Spotify зарегистрируйте `https://<ваш-хост-ngrok>/spotify/callback` как адрес перенаправления (Redirect URI).
+5. Завершите вход в Spotify из панели музыкального автомата.
 
-- Because only the Spotify access token is stored right now, you may need to repeat the `ngrok` auth flow when that token expires during local development.
+Как это работает:
 
-If you use other advanced gateway-host operations over SSH:
+- Основное приложение Office3D остаётся на `localhost`, так что обычное состояние офиса и агентов не теряется.
+- Spotify перенаправляет на адрес обратного вызова `ngrok`.
+- Страница обратного вызова передаёт код авторизации в открытое локальное окно Office3D.
 
-- macOS: enable `System Settings` -> `General` -> `Sharing` -> `Remote Login`, and make sure the target user is allowed.
-- Windows: enable the `OpenSSH Server` optional feature, start the `sshd` service, and allow it through the firewall.
-- Linux: make sure `sshd` is installed, running, and reachable from the Studio machine.
+Текущее локальное ограничение:
 
-For first-time SSH connections, Office3D uses `StrictHostKeyChecking=accept-new` by default so a new host key can be trusted automatically. If you need stricter behavior, set `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING=yes`, or set it to `no` only if you explicitly want to skip host key checks.
+- Поскольку сейчас хранится только токен доступа Spotify, после его истечения процедуру входа через `ngrok` может понадобиться повторить.
 
-## Contributing
+Если вы используете другие расширенные операции на хосте шлюза через SSH:
 
-Keep pull requests focused, run `npm run lint`, `npm run typecheck`, and `npm run test` before opening a PR, and update docs when behavior or architecture changes.
+- macOS: включите «Системные настройки» → «Основные» → «Общий доступ» → «Удалённый вход» и убедитесь, что нужному пользователю он разрешён.
+- Windows: включите дополнительный компонент «Сервер OpenSSH», запустите службу `sshd` и разрешите её в брандмауэре.
+- Linux: убедитесь, что `sshd` установлен, запущен и доступен с машины Studio.
 
-## AI Editing Guardrails
+При первом SSH-подключении Office3D по умолчанию использует `StrictHostKeyChecking=accept-new`, чтобы автоматически доверять новому ключу хоста. Для более строгого поведения задайте `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING=yes`; значение `no` используйте, только если вы сознательно хотите пропускать проверку ключа хоста.
 
-If you use Cursor or another AI-assisted workflow, review the committed project guardrails in [`.cursor/rules/office3d-project-guardrails.mdc`](.cursor/rules/office3d-project-guardrails.mdc).
+## Участие в разработке
 
-That rule file captures the shared editing expectations for this repository, including the Office3D-vs-OpenClaw boundary, code placement conventions, office-stack distinctions, and documentation/test update expectations.
+Делайте пул-реквесты сфокусированными, перед открытием PR запускайте `npm run lint`, `npm run typecheck` и `npm run test -- --run`, а при изменении поведения или архитектуры обновляйте документацию. Новый текст интерфейса добавляйте в словарь `src/lib/i18n/ru.ts`, а не прямо в компоненты.
 
-Community expectations live in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Security reporting instructions live in [`SECURITY.md`](SECURITY.md).
+## Правила для ИИ-редактирования
+
+Если вы используете Cursor или другой процесс с участием ИИ, ознакомьтесь с правилами проекта в [`.cursor/rules/office3d-project-guardrails.mdc`](.cursor/rules/office3d-project-guardrails.mdc).
+
+В этом файле собраны общие требования к правкам репозитория: граница между Office3D и OpenClaw, соглашения о размещении кода, различия между стеками офиса и ожидания по обновлению документации и тестов.
+
+Правила поведения сообщества — в [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Как сообщать о проблемах безопасности — в [`SECURITY.md`](SECURITY.md).
