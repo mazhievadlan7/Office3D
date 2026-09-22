@@ -223,6 +223,7 @@ import {
 } from "@/features/retro-office/systems/visualSystems";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
 import { t } from "@/lib/i18n";
+import { gatewayStatusLabel } from "@/lib/i18n/labels";
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
 type RenderAgentUiSnapshot = Pick<RenderAgent, "state" | "status">;
@@ -6691,9 +6692,9 @@ export function RetroOffice3D({
                   ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
                   : "border-rose-400/25 bg-rose-500/10 text-rose-100"
             }`}
-            title={t("office.runtimeTitle", { adapter: activeAdapterType, status: gatewayStatus })}
+            title={t("office.runtimeTitle", { adapter: activeAdapterType, status: gatewayStatusLabel(gatewayStatus) })}
           >
-            {activeAdapterType} • {gatewayStatus}
+            {activeAdapterType} • {gatewayStatusLabel(gatewayStatus)}
           </div>
           {/* New Idea 7: Heatmap toggle. */}
           <button

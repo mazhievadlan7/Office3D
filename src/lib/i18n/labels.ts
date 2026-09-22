@@ -37,3 +37,12 @@ const STANDUP_SOURCES: Record<string, () => string> = {
 };
 
 export const standupSourceLabel = (kind: string): string => STANDUP_SOURCES[kind]?.() ?? kind;
+
+const GATEWAY_STATUSES: Record<string, () => string> = {
+  connected: () => t("settings.gatewayStatusConnected"),
+  connecting: () => t("settings.gatewayStatusConnecting"),
+  disconnected: () => t("settings.gatewayStatusDisconnected"),
+};
+
+export const gatewayStatusLabel = (status: string): string =>
+  GATEWAY_STATUSES[status]?.() ?? status;

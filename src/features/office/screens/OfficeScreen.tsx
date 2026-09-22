@@ -5103,10 +5103,10 @@ export function OfficeScreen({
 
       {showOpenClawConsole ? (
         <section className="pointer-events-auto fixed bottom-3 left-3 z-30 flex w-[520px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-cyan-500/25 bg-black/78 shadow-2xl backdrop-blur">
-          <div className="flex items-center justify-between border-b border-cyan-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-            <span>{t("office.eventConsole")}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-cyan-100/45">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-cyan-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
+            <span className="whitespace-nowrap">{t("office.eventConsole")}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap text-[10px] text-cyan-100/45">
                 {t("office.consoleCounts", { agents: state.agents.length })}{" "}
                 {filteredOpenClawLogEntries.length}/{openClawLogEntries.length}
               </span>
@@ -5115,7 +5115,7 @@ export function OfficeScreen({
                 onClick={() => {
                   void handleCopyOpenClawConsoleJson();
                 }}
-                className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
+                className="whitespace-nowrap rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
                 {openClawConsoleCopyStatus === "copied"
                   ? t("common.copied")
@@ -5126,14 +5126,14 @@ export function OfficeScreen({
               <button
                 type="button"
                 onClick={handleDownloadOpenClawConsoleJson}
-                className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
+                className="whitespace-nowrap rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
                 {t("office.downloadJson")}
               </button>
               <button
                 type="button"
                 onClick={handleClearOpenClawConsole}
-                className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
+                className="whitespace-nowrap rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
                 {t("office.clear")}
               </button>
@@ -5142,7 +5142,7 @@ export function OfficeScreen({
                 onClick={() =>
                   setOpenClawConsoleCollapsed((previous) => !previous)
                 }
-                className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
+                className="whitespace-nowrap rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
                 {openClawConsoleCollapsed ? t("office.expand") : t("office.minimize")}
               </button>
