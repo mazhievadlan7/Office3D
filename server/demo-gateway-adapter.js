@@ -79,40 +79,53 @@ function broadcastEvent(frame) {
   }
 }
 
+// Roles stay English internally (buildDemoReply branches on them); this is
+// what the office shows. A role created through agents.create is shown as given.
+const ROLE_LABELS = {
+  Orchestrator: "Координатор",
+  Research: "Исследователь",
+  Builder: "Разработчик",
+};
+
+const roleLabel = (role) => ROLE_LABELS[role] || role;
+
 function agentListPayload() {
   return [...agents.values()].map((agent) => ({
     id: agent.id,
     name: agent.name,
     workspace: agent.workspace,
     identity: { name: agent.name, emoji: "🤖" },
-    role: agent.role,
+    role: roleLabel(agent.role),
   }));
 }
 
 function buildDemoReply(agent, message) {
   const normalized = message.trim();
   const compactMessage = normalized.replace(/\s+/g, " ").trim();
-  const greetingOnly = /^(hi|hello|hey|yo|sup|what'?s up|how are you)[!.? ]*$/i.test(compactMessage);
+  const greetingOnly =
+    /^(hi|hello|hey|yo|sup|what'?s up|how are you|привет|приветствую|здравствуй|здравствуйте|добрый (день|вечер)|доброе утро|хай|как дела)[!.?, ]*$/iu.test(
+      compactMessage,
+    );
   const opening =
     agent.role === "Orchestrator"
-      ? `${agent.name} here. Demo office is live and the team is synced.`
-      : `${agent.name} checking in from the ${agent.role.toLowerCase()} desk.`;
+      ? `На связи ${agent.name}. Демо-офис работает, команда на месте.`
+      : `${agent.name} на связи, отдел: ${roleLabel(agent.role).toLowerCase()}.`;
   if (greetingOnly) {
     return agent.role === "Orchestrator"
-      ? `${opening} I can coordinate the room, sketch a plan, or hand work to Research and Builder.`
-      : `${opening} Give me a concrete task and I will respond in-character with a focused next step.`;
+      ? `${opening} Могу скоординировать команду, набросать план или передать работу исследователю и разработчику.`
+      : `${opening} Дайте конкретную задачу — отвечу по своей роли и предложу следующий шаг.`;
   }
   const focusLine =
     compactMessage.length > 160
-      ? `${compactMessage.slice(0, 160).trimEnd()}...`
+      ? `${compactMessage.slice(0, 160).trimEnd()}…`
       : compactMessage;
   const action =
     agent.role === "Research"
-      ? "I would turn this into source checks, constraints, and follow-up questions."
+      ? "Я бы превратил это в проверку источников, ограничения и уточняющие вопросы."
       : agent.role === "Builder"
-        ? "I would translate this into implementation steps, edge cases, and validation."
-        : "I would route the work, keep the team aligned, and summarize the next move.";
-  return `${opening} Focus: ${focusLine}. ${action}`;
+        ? "Я бы разложил это на шаги реализации, крайние случаи и проверку."
+        : "Я бы распределил работу, держал команду в курсе и подвёл итог следующего шага.";
+  return `${opening} Задача: ${focusLine}. ${action}`;
 }
 
 async function handleMethod(method, params, id, sendEvent) {
@@ -123,7 +136,7 @@ async function handleMethod(method, params, id, sendEvent) {
       return resOk(id, { defaultId: "demo-orchestrator", mainKey: MAIN_KEY, agents: agentListPayload() });
 
     case "agents.create": {
-      const name = typeof p.name === "string" && p.name.trim() ? p.name.trim() : "Demo Agent";
+      const name = typeof p.name === "string" && p.name.trim() ? p.name.trim() : "Демо-агент";
       const role = typeof p.role === "string" ? p.role.trim() : "";
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "demo-agent";
       const agentId = `${slug}-${randomId().slice(0, 6)}`;
@@ -209,7 +222,7 @@ async function handleMethod(method, params, id, sendEvent) {
     case "cron.add":
     case "cron.run":
     case "cron.remove":
-      return resErr(id, "unsupported_method", `Demo runtime does not support ${method}.`);
+      return resErr(id, "unsupported_method", `Демо-среда не поддерживает метод ${method}.`);
 
     case "sessions.list": {
       const sessions = [...agents.values()].map((agent) => {
@@ -493,7 +506,7 @@ function startAdapter() {
       }
 
       if (!connected) {
-        send(resErr(id, "not_connected", "Send connect first."));
+        send(resErr(id, "not_connected", "Сначала отправьте connect."));
         return;
       }
 

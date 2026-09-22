@@ -86,7 +86,7 @@ describe("createAccessGate", () => {
     );
 
     expect(limited.statusCode).toBe(429);
-    expect(limited.body).toContain("Too many failed studio access attempts");
+    expect(limited.body).toContain("Слишком много неудачных попыток входа в Studio");
   });
 
   it("recovers immediately when a valid cookie is sent after throttling", async () => {
@@ -147,6 +147,6 @@ describe("createAccessGate", () => {
     );
 
     expect(afterReset.statusCode).toBe(401);
-    expect(afterReset.body).toContain("Studio access token required");
+    expect(afterReset.body).toContain("Нужен токен доступа к Studio");
   });
 });

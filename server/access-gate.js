@@ -114,8 +114,8 @@ function createAccessGate(options) {
         res.end(
           JSON.stringify({
             error: auth.limited
-              ? "Too many failed studio access attempts. Wait a minute and retry."
-              : "Studio access token required. Send the configured Studio access cookie and retry.",
+              ? "Слишком много неудачных попыток входа в Studio. Подождите минуту и повторите."
+              : "Нужен токен доступа к Studio. Передайте настроенную cookie доступа и повторите.",
           })
         );
       } else {
@@ -123,8 +123,8 @@ function createAccessGate(options) {
         res.setHeader("Content-Type", "text/plain");
         res.end(
           auth.limited
-            ? "Too many failed studio access attempts. Wait a minute and retry."
-            : "Studio access token required. Set the studio_access cookie to access this page."
+            ? "Слишком много неудачных попыток входа в Studio. Подождите минуту и повторите."
+            : "Нужен токен доступа к Studio. Установите cookie studio_access, чтобы открыть эту страницу."
         );
       }
       return true;

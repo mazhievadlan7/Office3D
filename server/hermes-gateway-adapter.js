@@ -86,29 +86,49 @@ const MAX_SKILLS_PROMPT_CHARS = 60000;
 const MAX_TOOL_ROUNDS = 8;
 
 // ---------------------------------------------------------------------------
+// Agent ids
+// ---------------------------------------------------------------------------
+
+// Russian → Latin, so a Russian name gives a readable id and workspace folder
+// («Аналитик» → analitik) instead of an empty slug. Mirrors
+// src/lib/text/transliterate.ts, which this plain-JS server cannot import.
+const CYRILLIC_TO_LATIN = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y",
+  к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f",
+  х: "kh", ц: "ts", ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  є: "ye", і: "i", ї: "yi", ґ: "g", ў: "u",
+};
+
+function slugifyAgentName(name) {
+  const latin = [...String(name).toLowerCase()].map((ch) => CYRILLIC_TO_LATIN[ch] ?? ch).join("");
+  return latin.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent";
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator system prompt
 // ---------------------------------------------------------------------------
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are ${HERMES_AGENT_NAME}, an AI orchestrator managing a team of sub-agents in a virtual 3D office.
+const ORCHESTRATOR_SYSTEM_PROMPT = `Ты — ${HERMES_AGENT_NAME}, ИИ-координатор, который управляет командой агентов в виртуальном 3D-офисе.
 
-You have tools to build and manage your team autonomously:
+Для самостоятельной сборки и управления командой у тебя есть инструменты:
 
-- **spawn_agent**: Create a new specialist agent with a name, role, instructions, and settings (wipe/continuity/boundaries).
-- **delegate_task**: Send a task to a specific agent and receive their response.
-- **list_team**: See all current team members and their IDs, names, and roles.
-- **configure_agent**: Update an agent's name, role/title, instructions, or settings.
-- **dismiss_agent**: Remove an agent from the team.
-- **read_agent_context**: Read the recent conversation history of another agent to understand what they are currently working on, what they have already done, or what their status is. Use this for coordination — before delegating a task, check if the agent already has relevant context.
+- **spawn_agent**: создать нового агента-специалиста с именем, ролью, инструкциями и настройками (wipe/continuity/boundaries).
+- **delegate_task**: отправить задачу конкретному агенту и получить его ответ.
+- **list_team**: посмотреть всех участников команды: их ID, имена и роли.
+- **configure_agent**: изменить имя, роль, инструкции или настройки агента.
+- **dismiss_agent**: убрать агента из команды.
+- **read_agent_context**: прочитать недавнюю переписку другого агента, чтобы понять, над чем он работает, что уже сделал и в каком он состоянии. Используй это для координации: прежде чем передать задачу, проверь, нет ли у агента нужного контекста.
 
-When given a goal:
-1. Analyse what specialist roles are needed.
-2. spawn_agent for each specialist.
-3. delegate_task to assign work and coordinate.
-4. Use read_agent_context to check what an agent has done or is doing before re-delegating.
-5. Synthesise results into a final answer for the user.
+Когда получаешь цель:
+1. Определи, какие специалисты нужны.
+2. Создай каждого через spawn_agent.
+3. Раздай работу и координируй через delegate_task.
+4. Прежде чем передавать задачу повторно, проверь через read_agent_context, что агент уже сделал или делает.
+5. Сведи результаты в итоговый ответ пользователю.
 
-Each spawned agent will appear as an animated character in the 3D office — walking when active, standing when idle.
-Be concise in your responses to the user; do the heavy lifting via tool calls.`;
+Каждый созданный агент появляется в 3D-офисе как анимированный персонаж: ходит, когда работает, и стоит, когда свободен.
+Всегда отвечай пользователю на русском языке, а агентам давай имена, роли и инструкции на русском.
+Отвечай пользователю кратко; основную работу делай через вызовы инструментов.`;
 
 // ---------------------------------------------------------------------------
 // Team management tools definition (OpenAI tool-calling format)
@@ -588,11 +608,12 @@ async function execSpawnAgent(args) {
   const model = typeof args.model === "string" && args.model.trim() ? args.model.trim() : HERMES_MODEL;
   const wipe = Boolean(args.wipe);
   const continuity = args.continuity !== false;
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = slugifyAgentName(name);
   const newId = `${slug}-${randomId().slice(0, 6)}`;
 
-  let systemPrompt = instructions || `You are ${name}, a ${role || "specialist"} agent.`;
-  if (boundaries) systemPrompt += `\n\nBoundaries: ${boundaries}`;
+  let systemPrompt =
+    instructions || `Ты — ${name}, агент, твоя роль: ${role || "специалист"}. Отвечай на русском языке.`;
+  if (boundaries) systemPrompt += `\n\nОграничения: ${boundaries}`;
 
   agentRegistry.set(newId, {
     id: newId, name, workspace: `${HOME}/.hermes/workspace-${slug}`,
@@ -621,10 +642,10 @@ async function execSpawnAgent(args) {
 async function execDelegateTask(args) {
   const targetId = typeof args.agent_id === "string" ? args.agent_id.trim() : "";
   const message = typeof args.message === "string" ? args.message.trim() : "";
-  if (!targetId || !message) return JSON.stringify({ ok: false, error: "agent_id and message required" });
+  if (!targetId || !message) return JSON.stringify({ ok: false, error: "Нужны agent_id и message" });
 
   const agent = agentRegistry.get(targetId);
-  if (!agent) return JSON.stringify({ ok: false, error: `Agent ${targetId} not found` });
+  if (!agent) return JSON.stringify({ ok: false, error: `Агент ${targetId} не найден` });
 
   const sessionKey = `agent:${targetId}:${MAIN_KEY}`;
   const history = getHistory(sessionKey);
@@ -689,7 +710,7 @@ function execListTeam() {
 function execConfigureAgent(args) {
   const targetId = typeof args.agent_id === "string" ? args.agent_id.trim() : "";
   const agent = agentRegistry.get(targetId);
-  if (!agent) return JSON.stringify({ ok: false, error: `Agent ${targetId} not found` });
+  if (!agent) return JSON.stringify({ ok: false, error: `Агент ${targetId} не найден` });
   if (typeof args.name === "string" && args.name.trim()) agent.name = args.name.trim();
   if (typeof args.role === "string") agent.role = args.role.trim();
   if (typeof args.instructions === "string") agent.systemPrompt = args.instructions;
@@ -720,9 +741,9 @@ function execConfigureAgent(args) {
 
 function execDismissAgent(args) {
   const targetId = typeof args.agent_id === "string" ? args.agent_id.trim() : "";
-  if (!targetId || targetId === AGENT_ID) return JSON.stringify({ ok: false, error: "Cannot dismiss the main orchestrator." });
+  if (!targetId || targetId === AGENT_ID) return JSON.stringify({ ok: false, error: "Нельзя убрать главного координатора." });
   const agent = agentRegistry.get(targetId);
-  if (!agent) return JSON.stringify({ ok: false, error: `Agent ${targetId} not found` });
+  if (!agent) return JSON.stringify({ ok: false, error: `Агент ${targetId} не найден` });
   agentRegistry.delete(targetId);
   clearHistory(`agent:${targetId}:${MAIN_KEY}`);
   console.log(`[hermes-adapter] Dismissed agent: ${agent.name} (${targetId})`);
@@ -732,7 +753,7 @@ function execDismissAgent(args) {
 function execReadAgentContext(args) {
   const targetId = typeof args.agent_id === "string" ? args.agent_id.trim() : "";
   const agent = agentRegistry.get(targetId);
-  if (!agent) return JSON.stringify({ ok: false, error: `Agent ${targetId} not found` });
+  if (!agent) return JSON.stringify({ ok: false, error: `Агент ${targetId} не найден` });
   const lastN = Math.min(40, Math.max(1, typeof args.last_n === "number" ? Math.floor(args.last_n) : 10));
   const sessionKey = `agent:${targetId}:${MAIN_KEY}`;
   const history = getHistory(sessionKey);
@@ -765,7 +786,7 @@ async function executeToolCall(tc, sendEvent) {
     case "configure_agent":      return execConfigureAgent(tc.args);
     case "dismiss_agent":        return execDismissAgent(tc.args);
     case "read_agent_context":   return execReadAgentContext(tc.args);
-    default:                     return JSON.stringify({ ok: false, error: `Unknown tool: ${tc.name}` });
+    default:                     return JSON.stringify({ ok: false, error: `Неизвестный инструмент: ${tc.name}` });
   }
 }
 
@@ -888,7 +909,7 @@ function loadInstalledSkills() {
 
 function buildSkillsPromptBlock(skills) {
   if (skills.length === 0) return "";
-  const parts = ["", "# Installed skills", "", "You have these skills available. Follow a skill's instructions when the task matches it."];
+  const parts = ["", "# Установленные навыки", "", "Тебе доступны эти навыки. Следуй инструкциям навыка, когда задача ему соответствует."];
   let budget = MAX_SKILLS_PROMPT_CHARS;
   for (const skill of skills) {
     const section = `\n## ${skill.name}\n\n${skill.contents.trim()}\n`;
@@ -957,14 +978,14 @@ async function handleMethod(method, params, id, sendEvent) {
     }
 
     case "agents.create": {
-      const agentName = (typeof p.name === "string" && p.name.trim()) ? p.name.trim() : "Agent";
-      const slug = agentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const agentName = (typeof p.name === "string" && p.name.trim()) ? p.name.trim() : "Агент";
+      const slug = slugifyAgentName(agentName);
       const newId = `${slug}-${randomId().slice(0, 6)}`;
       const workspace = (typeof p.workspace === "string" && p.workspace)
         ? p.workspace : `${HOME}/.hermes/workspace-${slug}`;
       agentRegistry.set(newId, {
         id: newId, name: agentName, workspace,
-        role: "", systemPrompt: `You are ${agentName}.`,
+        role: "", systemPrompt: `Ты — ${agentName}. Отвечай на русском языке.`,
         settings: { wipe: false, continuity: true, model: HERMES_MODEL },
       });
       return resOk(id, { agentId: newId, name: agentName, workspace });

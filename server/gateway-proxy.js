@@ -238,7 +238,7 @@ function createGatewayProxy(options) {
       if (requiresToken && !upstreamToken && !browserHasAuth) {
         sendConnectError(
           "studio.gateway_token_missing",
-          "Upstream gateway token is not configured on the Studio host."
+          "Токен шлюза не настроен на хосте Studio."
         );
         return;
       }
@@ -298,7 +298,7 @@ function createGatewayProxy(options) {
         logError("Failed to load upstream gateway settings.", err);
         pendingUpstreamSetupError = {
           code: "studio.settings_load_failed",
-          message: "Failed to load Studio gateway settings.",
+          message: "Не удалось загрузить настройки шлюза Studio.",
         };
         return;
       }
@@ -306,7 +306,7 @@ function createGatewayProxy(options) {
       if (!upstreamUrl) {
         pendingUpstreamSetupError = {
           code: "studio.gateway_url_missing",
-          message: "Upstream gateway URL is not configured on the Studio host.",
+          message: "Адрес шлюза не настроен на хосте Studio.",
         };
         return;
       }
@@ -314,7 +314,7 @@ function createGatewayProxy(options) {
       if (!isUpstreamAllowed(upstreamUrl)) {
         pendingUpstreamSetupError = {
           code: "studio.gateway_url_blocked",
-          message: "Upstream gateway URL is not in the allowed hosts list.",
+          message: "Адреса шлюза нет в списке разрешённых хостов.",
         };
         return;
       }
@@ -325,7 +325,7 @@ function createGatewayProxy(options) {
       } catch {
         pendingUpstreamSetupError = {
           code: "studio.gateway_url_invalid",
-          message: "Upstream gateway URL is invalid on the Studio host.",
+          message: "Адрес шлюза на хосте Studio указан неверно.",
         };
         return;
       }
@@ -338,7 +338,7 @@ function createGatewayProxy(options) {
       upstreamHandshakeTimeoutId = setTimeout(() => {
         const timeoutError = {
           code: "studio.upstream_timeout",
-          message: "Timed out connecting Studio to the upstream gateway WebSocket.",
+          message: "Studio не дождалась подключения к шлюзу по WebSocket.",
         };
         pendingUpstreamSetupError = timeoutError;
         try {
@@ -388,7 +388,7 @@ function createGatewayProxy(options) {
         if (!connectRequestId) {
           pendingUpstreamSetupError ||= {
             code: "studio.upstream_closed",
-            message: `Upstream gateway closed (${code}): ${reason}`,
+            message: `Шлюз закрыл соединение (${code}): ${reason}`,
           };
           return;
         }
@@ -400,7 +400,7 @@ function createGatewayProxy(options) {
               code === 1008 ? "studio.upstream_rejected" : "studio.upstream_closed",
               code === 1008
                 ? `Upstream gateway rejected connect (${code}): ${reason || "no reason provided"}`
-                : `Upstream gateway closed (${code}): ${reason}`
+                : `Шлюз закрыл соединение (${code}): ${reason}`
             )
           );
           return;
@@ -417,7 +417,7 @@ function createGatewayProxy(options) {
         if (!connectRequestId) {
           pendingUpstreamSetupError ||= {
             code: "studio.upstream_error",
-            message: "Failed to connect to upstream gateway WebSocket.",
+            message: "Не удалось подключиться к шлюзу по WebSocket.",
           };
           return;
         }
@@ -430,7 +430,7 @@ function createGatewayProxy(options) {
         }
         sendConnectError(
           "studio.upstream_error",
-          "Failed to connect to upstream gateway WebSocket."
+          "Не удалось подключиться к шлюзу по WebSocket."
         );
       });
 
