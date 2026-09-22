@@ -8,13 +8,15 @@ type PackagedSkillFile = {
 // Keep this string synchronized with assets/skills/todo-board/SKILL.md.
 const TODO_BOARD_SKILL_MD = `---
 name: todo
-description: Maintain a shared workspace TODO list with blocked tasks.
+description: Ведёт общий список дел рабочего пространства, включая заблокированные задачи.
 metadata: {"openclaw":{"skillKey":"todo-board"}}
 ---
 
-# TODO Board
+# Список дел
 
-Use this skill when the user wants to manage a shared task list for the current workspace.
+Всегда отвечай пользователю на русском языке, даже если файлы, поля и команды названы по-английски.
+
+Используй этот навык, когда пользователь хочет вести общий список задач текущего рабочего пространства.
 
 ## Trigger
 
@@ -27,7 +29,20 @@ Use this skill when the user wants to manage a shared task list for the current 
       "blocked task",
       "blocked tasks",
       "add to my todo",
-      "show my todo"
+      "show my todo",
+      "список дел",
+      "списка дел",
+      "списке дел",
+      "списку дел",
+      "в список дел",
+      "добавь в список дел",
+      "покажи список дел",
+      "мои дела",
+      "покажи мои дела",
+      "заблокированн",
+      "заблокированные задачи",
+      "разблокируй задачу",
+      "туду"
     ]
   },
   "movement": {
@@ -37,44 +52,44 @@ Use this skill when the user wants to manage a shared task list for the current 
 }
 \`\`\`
 
-When this skill is activated, the agent should return to its assigned desk before handling the request.
+Когда навык активирован, агент должен вернуться за свой рабочий стол и только потом заняться запросом.
 
-- If the user asks from Telegram or any other external surface to add, block, unblock, remove, or read TODO items, treat that as a trigger for this skill.
-- The physical behavior for this skill is: go sit at the assigned desk, then perform the TODO board workflow.
-- If the agent is already at the desk, continue without adding extra movement narration.
+- Если пользователь из Telegram или любого другого внешнего канала просит добавить, заблокировать, разблокировать, удалить или показать задачи из списка дел, считай это срабатыванием этого навыка.
+- Физическое поведение для этого навыка: дойди до своего рабочего стола, сядь за него, затем выполни работу со списком дел.
+- Если агент уже за столом, продолжай, не описывая лишний раз своё перемещение.
 
-## Storage location
+## Где хранятся данные
 
-The authoritative task file is \`todo-skill/todo-list.json\` in the workspace root.
+Основной файл задач — \`todo-skill/todo-list.json\` в корне рабочего пространства.
 
-- Always treat that file as the source of truth.
-- Never rely on chat memory alone for the latest task state.
-- Create the \`todo-skill\` directory and \`todo-list.json\` file if they do not exist.
+- Всегда считай этот файл единственным источником истины.
+- Никогда не полагайся только на память чата, чтобы узнать текущее состояние задач.
+- Если каталога \`todo-skill\` или файла \`todo-list.json\` нет, создай их.
 
-## Required workflow
+## Обязательный порядок работы
 
-1. Read \`todo-skill/todo-list.json\` before answering any task-management request.
-2. If the file does not exist, create it with the schema in this document before continuing.
-3. After every add, remove, block, or unblock action, write the full updated JSON back to disk.
-4. If the file exists but is invalid JSON or does not match the schema, repair it into a valid structure, preserve any recoverable items, and mention that repair in your response.
-5. If the user request is ambiguous, ask a clarifying question instead of guessing.
+1. Прежде чем отвечать на любой запрос по задачам, прочитай \`todo-skill/todo-list.json\`.
+2. Если файла нет, создай его по схеме из этого документа и только потом продолжай.
+3. После каждого добавления, удаления, блокировки или разблокировки записывай на диск весь обновлённый JSON целиком.
+4. Если файл существует, но содержит некорректный JSON или не соответствует схеме, приведи его к правильной структуре, сохрани все задачи, которые можно восстановить, и упомяни это исправление в ответе.
+5. Если запрос пользователя неоднозначен, задай уточняющий вопрос, а не угадывай.
 
-## Supported actions
+## Поддерживаемые действия
 
-- Add a task.
-  Create a new item unless an equivalent active item already exists.
-- Block a task.
-  Change the matching item to \`status: "blocked"\`. If the task does not exist and the request is clear, create it directly as blocked.
-- Unblock a task.
-  Change the matching item back to \`status: "todo"\` and clear \`blockReason\`.
-- Remove a task.
-  Delete only the matching item. If multiple items could match, ask for clarification.
-- Read the list.
-  Summarize tasks grouped into \`TODO\` and \`BLOCKED\`.
+- Добавить задачу.
+  Создай новую запись, если такой же активной задачи ещё нет.
+- Заблокировать задачу.
+  Переведи подходящую запись в \`status: "blocked"\`. Если такой задачи нет, а запрос понятен, сразу создай её заблокированной.
+- Разблокировать задачу.
+  Верни подходящей записи \`status: "todo"\` и очисти \`blockReason\`.
+- Удалить задачу.
+  Удали только подходящую запись. Если под запрос подходят несколько записей, попроси уточнить.
+- Показать список.
+  Кратко перечисли задачи, сгруппировав их на «К выполнению» (\`todo\`) и «Заблокировано» (\`blocked\`).
 
-## File format
+## Формат файла
 
-Use this JSON shape:
+Используй такую структуру JSON:
 
 \`\`\`json
 {
@@ -83,7 +98,7 @@ Use this JSON shape:
   "items": [
     {
       "id": "task-1",
-      "title": "Example task",
+      "title": "Пример задачи",
       "status": "todo",
       "createdAt": "2026-03-22T00:00:00.000Z",
       "updatedAt": "2026-03-22T00:00:00.000Z",
@@ -93,28 +108,28 @@ Use this JSON shape:
 }
 \`\`\`
 
-## Field rules
+## Правила для полей
 
-- Keep \`version\` at \`1\`.
-- Generate stable, human-readable IDs such as \`prepare-demo\` or \`task-2\`.
-- Keep titles concise and preserve the user's intent.
-- Use only \`todo\` or \`blocked\` for \`status\`.
-- Use ISO timestamps for \`createdAt\`, item \`updatedAt\`, and top-level \`updatedAt\`.
-- Keep \`blockReason\` as \`null\` unless the user gave a reason or a short precise reason is clearly implied.
+- Оставляй \`version\` равным \`1\`.
+- Придумывай стабильные и понятные человеку идентификаторы, например \`prepare-demo\` или \`task-2\`.
+- Делай названия краткими и сохраняй в них смысл запроса пользователя.
+- В поле \`status\` используй только \`todo\` или \`blocked\`.
+- Для \`createdAt\`, \`updatedAt\` у задачи и \`updatedAt\` верхнего уровня используй метки времени в формате ISO.
+- Оставляй \`blockReason\` равным \`null\`, если пользователь не назвал причину и короткая точная причина не следует из контекста очевидным образом.
 
-## Mutation rules
+## Правила изменения
 
-- Avoid duplicate active items that describe the same work.
-- Preserve existing IDs and \`createdAt\` values for unchanged items.
-- Update the touched item's \`updatedAt\` whenever you modify it.
-- Update the top-level \`updatedAt\` on every write.
-- Keep untouched items in their original order unless there is a strong reason to reorder them.
+- Не допускай дублей: две активные задачи не должны описывать одну и ту же работу.
+- Сохраняй существующие \`id\` и значения \`createdAt\` у неизменённых задач.
+- При каждом изменении задачи обновляй её \`updatedAt\`.
+- При каждой записи обновляй \`updatedAt\` верхнего уровня.
+- Сохраняй исходный порядок незатронутых задач, если нет веской причины его менять.
 
-## Response style
+## Стиль ответа
 
-- After each mutation, say what changed.
-- When showing the list, group tasks into \`TODO\` and \`BLOCKED\`.
-- Include each blocked task's reason when one exists.
+- После каждого изменения сообщай, что именно изменилось.
+- Показывая список, группируй задачи на «К выполнению» (\`todo\`) и «Заблокировано» (\`blocked\`).
+- Для каждой заблокированной задачи указывай причину, если она есть.
 `;
 
 // Keep this string synchronized with assets/skills/todo-board/todo-list.example.json.
@@ -124,7 +139,7 @@ const TODO_BOARD_EXAMPLE_JSON = `{
   "items": [
     {
       "id": "draft-roadmap",
-      "title": "Draft the TODO skill roadmap",
+      "title": "Набросать план развития навыка списка дел",
       "status": "todo",
       "createdAt": "2026-03-22T00:00:00.000Z",
       "updatedAt": "2026-03-22T00:00:00.000Z",
@@ -132,11 +147,11 @@ const TODO_BOARD_EXAMPLE_JSON = `{
     },
     {
       "id": "gateway-access",
-      "title": "Confirm gateway install access",
+      "title": "Подтвердить доступ к установке на шлюз",
       "status": "blocked",
       "createdAt": "2026-03-22T00:00:00.000Z",
       "updatedAt": "2026-03-22T00:00:00.000Z",
-      "blockReason": "Waiting for gateway credentials"
+      "blockReason": "Ждём учётные данные шлюза"
     }
   ]
 }
@@ -145,13 +160,15 @@ const TODO_BOARD_EXAMPLE_JSON = `{
 // Keep this string synchronized with assets/skills/task-manager/SKILL.md.
 const TASK_MANAGER_SKILL_MD = `---
 name: task-manager
-description: Capture actionable user requests as persistent tasks, update task status as work progresses, and keep a shared task store in sync. Use when a user asks an agent to do work, check progress, block a task, complete a task, or manage the Kanban board.
+description: Превращает рабочие запросы пользователя в постоянные задачи, обновляет их статус по ходу работы и поддерживает общее хранилище задач в актуальном состоянии. Используй, когда пользователь просит агента что-то сделать, узнать о ходе работы, заблокировать или завершить задачу либо управлять канбан-доской.
 metadata: {"openclaw":{"skillKey":"task-manager"}}
 ---
 
-# Task Manager
+# Менеджер задач
 
-Use this skill for task capture and task lifecycle updates.
+Всегда отвечай пользователю на русском языке, даже если файлы, поля и статусы названы по-английски.
+
+Используй этот навык, чтобы заводить задачи и обновлять их на протяжении всего жизненного цикла.
 
 ## Trigger
 
@@ -165,7 +182,24 @@ Use this skill for task capture and task lifecycle updates.
       "task status",
       "mark this done",
       "block this task",
-      "what tasks do we have"
+      "what tasks do we have",
+      "добавь задачу",
+      "добавить задачу",
+      "создай задачу",
+      "создать задачу",
+      "заведи задачу",
+      "новая задача",
+      "новую задачу",
+      "отслеживай эту задачу",
+      "статус задачи",
+      "статус задач",
+      "отметь как выполненн",
+      "отметь как сделанн",
+      "заблокируй задачу",
+      "заблокируй эту задачу",
+      "какие задачи",
+      "какие у нас задачи",
+      "канбан"
     ]
   },
   "movement": {
@@ -175,37 +209,37 @@ Use this skill for task capture and task lifecycle updates.
 }
 \`\`\`
 
-Also use this skill even when those exact phrases are absent if the latest user message is an actionable work request. If the user asks the agent to do something, that request must become a task before the agent proceeds.
+Используй этот навык, даже если ни одной из этих фраз нет, но последнее сообщение пользователя — это запрос на выполнение работы. Если пользователь просит агента что-то сделать, этот запрос должен стать задачей до того, как агент приступит к работе.
 
-## Storage location
+## Где хранятся данные
 
-The authoritative task file is:
+Основной файл задач:
 
-- \`\${OPENCLAW_STATE_DIR}/office3d/task-manager/tasks.json\` when \`OPENCLAW_STATE_DIR\` is set.
-- \`~/.openclaw/office3d/task-manager/tasks.json\` otherwise.
+- \`\${OPENCLAW_STATE_DIR}/office3d/task-manager/tasks.json\`, если задана переменная \`OPENCLAW_STATE_DIR\`;
+- \`~/.openclaw/office3d/task-manager/tasks.json\` в остальных случаях.
 
-Always treat that file as the shared source of truth for the Kanban board.
+Всегда считай этот файл общим источником истины для канбан-доски.
 
-## Required workflow
+## Обязательный порядок работы
 
-1. Read the task file before handling an actionable request.
-2. If the file does not exist, create it with the schema in this document.
-3. If the latest user message is actionable and no matching active task exists, create one immediately.
-4. Before starting execution, ensure the task is \`todo\` or move it to \`in_progress\`.
-5. If work cannot continue, set the task to \`blocked\` and record a short reason in \`notes\`.
-6. When work is finished, set the task to \`done\`.
-7. When work needs user review or confirmation, set the task to \`review\`.
-8. After every mutation, write the full updated JSON back to disk.
+1. Прежде чем браться за рабочий запрос, прочитай файл задач.
+2. Если файла нет, создай его по схеме из этого документа.
+3. Если последнее сообщение пользователя — рабочий запрос и подходящей активной задачи нет, сразу создай её.
+4. Перед началом работы убедись, что задача находится в статусе \`todo\`, или переведи её в \`in_progress\`.
+5. Если продолжить работу невозможно, переведи задачу в \`blocked\` и запиши короткую причину в \`notes\`.
+6. Когда работа закончена, переведи задачу в \`done\`.
+7. Когда работа требует проверки или подтверждения пользователем, переведи задачу в \`review\`.
+8. После каждого изменения записывай на диск весь обновлённый JSON целиком.
 
-## Matching rules
+## Правила сопоставления
 
-- Match first by \`externalThreadId\` when the request comes from a stable thread or conversation.
-- Otherwise match by a concise normalized title that preserves user intent.
-- Avoid creating duplicate active tasks for the same request.
+- Если запрос пришёл из постоянной ветки или беседы, сначала ищи задачу по \`externalThreadId\`.
+- Иначе ищи по краткому нормализованному названию, сохраняющему смысл запроса пользователя.
+- Не создавай повторных активных задач для одного и того же запроса.
 
-## Task fields
+## Поля задачи
 
-Each task must include:
+Каждая задача должна содержать:
 
 - \`id\`
 - \`title\`
@@ -226,15 +260,15 @@ Each task must include:
 - \`isInferred\`
 - \`history\`
 
-## Status rules
+## Правила статусов
 
-- New actionable requests start as \`todo\` unless work has already begun.
-- Move to \`in_progress\` when the agent is actively working.
-- Move to \`blocked\` when progress depends on missing input, credentials, approvals, or failures.
-- Move to \`review\` when the work is ready for inspection or handoff.
-- Move to \`done\` only when the requested work is complete.
+- Новые рабочие запросы начинаются со статуса \`todo\`, если работа ещё не началась.
+- Переводи в \`in_progress\`, когда агент активно работает над задачей.
+- Переводи в \`blocked\`, когда продвижение зависит от недостающих данных, учётных данных, согласований или сбоев.
+- Переводи в \`review\`, когда работа готова к проверке или передаче.
+- Переводи в \`done\`, только когда запрошенная работа полностью выполнена.
 
-## File format
+## Формат файла
 
 \`\`\`json
 {
@@ -243,8 +277,8 @@ Each task must include:
   "tasks": [
     {
       "id": "research-mtulsa-com",
-      "title": "Research mtulsa.com",
-      "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
+      "title": "Изучить mtulsa.com",
+      "description": "Просмотреть mtulsa.com и кратко описать сайт, позиционирование и возможности для улучшения.",
       "status": "in_progress",
       "source": "office3d_manual",
       "sourceEventId": null,
@@ -263,7 +297,7 @@ Each task must include:
         {
           "at": "2026-03-30T00:00:00.000Z",
           "type": "created",
-          "note": "Task created.",
+          "note": "Задача создана.",
           "fromStatus": null,
           "toStatus": "todo"
         },
@@ -280,11 +314,11 @@ Each task must include:
 }
 \`\`\`
 
-## Response rules
+## Правила ответа
 
-- Briefly confirm which task was created or updated.
-- If the request is ambiguous, ask a clarifying question instead of guessing.
-- Do not claim work is complete without updating the task status.
+- Кратко подтверди, какая задача создана или обновлена.
+- Если запрос неоднозначен, задай уточняющий вопрос, а не угадывай.
+- Не заявляй, что работа выполнена, пока не обновил статус задачи.
 `;
 
 // Keep this string synchronized with assets/skills/task-manager/tasks.example.json.
@@ -294,8 +328,8 @@ const TASK_MANAGER_EXAMPLE_JSON = `{
   "tasks": [
     {
       "id": "research-mtulsa-com",
-      "title": "Research mtulsa.com",
-      "description": "Review mtulsa.com and summarize the site, positioning, and improvement opportunities.",
+      "title": "Изучить mtulsa.com",
+      "description": "Просмотреть mtulsa.com и кратко описать сайт, позиционирование и возможности для улучшения.",
       "status": "in_progress",
       "source": "office3d_manual",
       "sourceEventId": null,
@@ -314,7 +348,7 @@ const TASK_MANAGER_EXAMPLE_JSON = `{
         {
           "at": "2026-03-30T00:00:00.000Z",
           "type": "created",
-          "note": "Task created.",
+          "note": "Задача создана.",
           "fromStatus": null,
           "toStatus": "todo"
         },
@@ -334,13 +368,15 @@ const TASK_MANAGER_EXAMPLE_JSON = `{
 // Keep this string synchronized with assets/skills/soundclaw/SKILL.md.
 const SOUNDCLAW_SKILL_MD = `---
 name: soundclaw
-description: Control Spotify playback, search music, and return shareable music links.
+description: Управляет воспроизведением в Spotify, ищет музыку и возвращает ссылки на неё, которыми можно поделиться.
 metadata: {"openclaw":{"skillKey":"soundclaw"}}
 ---
 
 # SOUNDCLAW
 
-Use this skill when the user wants an agent to search for music, play a song or playlist, control Spotify playback, or send back a shareable Spotify link on the same channel the request came from.
+Всегда отвечай пользователю на русском языке, даже если названия треков, команды и методы API указаны по-английски.
+
+Используй этот навык, когда пользователь хочет, чтобы агент нашёл музыку, включил песню или плейлист, управлял воспроизведением в Spotify или прислал ссылку на Spotify в тот же канал, из которого пришёл запрос.
 
 ## Trigger
 
@@ -355,7 +391,23 @@ Use this skill when the user wants an agent to search for music, play a song or 
       "play a playlist",
       "find a song",
       "queue this song",
-      "music link"
+      "music link",
+      "спотифай",
+      "включи музыку",
+      "поставь музыку",
+      "включи песню",
+      "поставь песню",
+      "найди песню",
+      "включи трек",
+      "поставь трек",
+      "найди трек",
+      "плейлист",
+      "песню в очередь",
+      "трек в очередь",
+      "ссылку на песню",
+      "ссылку на трек",
+      "ссылка на песню",
+      "ссылка на трек"
     ]
   },
   "movement": {
@@ -365,65 +417,65 @@ Use this skill when the user wants an agent to search for music, play a song or 
 }
 \`\`\`
 
-When this skill is activated, the agent should walk to the office jukebox before handling the request.
+Когда навык активирован, агент должен дойти до музыкального автомата в офисе и только потом заняться запросом.
 
-- Treat requests from Telegram or any other external surface as valid triggers when they ask for Spotify playback, search, queueing, or music-link sharing.
-- The physical behavior for this skill is: go to the jukebox, perform the music-selection workflow, then report the result.
-- If the agent is already at the jukebox, continue without adding extra movement narration.
+- Запросы из Telegram или любого другого внешнего канала считаются срабатыванием навыка, если в них просят включить музыку в Spotify, найти её, добавить в очередь или поделиться ссылкой на музыку.
+- Физическое поведение для этого навыка: дойди до музыкального автомата, подбери музыку, затем сообщи о результате.
+- Если агент уже у музыкального автомата, продолжай, не описывая лишний раз своё перемещение.
 
-## Channel behavior
+## Поведение в каналах
 
-- Reply on the same active channel or session that received the request.
-- If playback cannot start but a matching track, album, or playlist is found, send back the best Spotify link instead of failing silently.
-- If multiple matches are plausible, ask a clarifying question instead of guessing.
+- Отвечай в том же активном канале или сеансе, откуда пришёл запрос.
+- Если воспроизведение запустить не удалось, но подходящий трек, альбом или плейлист найден, пришли лучшую ссылку на Spotify, а не молчи о неудаче.
+- Если подходят несколько вариантов, задай уточняющий вопрос, а не угадывай.
 
 ---
 
-## OpenClaw Gateway Skill Contract
+## Контракт навыка для OpenClaw Gateway
 
-> This section is for developers implementing the backend skill handler in OpenClaw.
-> The Office3D UI handles authentication via Spotify PKCE OAuth in the browser.
-> The gateway skill handles agent-driven requests via the \`soundclaw.*\` RPC namespace.
+> Этот раздел предназначен для разработчиков, которые реализуют серверный обработчик навыка в OpenClaw.
+> Интерфейс Office3D проводит аутентификацию в браузере через Spotify PKCE OAuth.
+> Навык на шлюзе обрабатывает запросы от агентов через пространство имён RPC \`soundclaw.*\`.
 
-### Authentication model
+### Модель аутентификации
 
-The user authenticates directly in the browser (PKCE, no secret required).
-The access token is stored in browser \`localStorage\` under the key \`soundclaw_token\`.
+Пользователь проходит аутентификацию прямо в браузере (PKCE, секрет не нужен).
+Токен доступа хранится в \`localStorage\` браузера под ключом \`soundclaw_token\`.
 
-For **agent-driven** playback (e.g. "play Jazz for me"), the gateway skill should either:
-- Use a server-side Spotify app token (Client Credentials) for search-only actions, or
-- Instruct the agent to tell the user to use the jukebox panel for actual playback
+Для воспроизведения **по запросу агента** (например, «включи мне джаз») навык на шлюзе должен:
+- либо использовать серверный токен приложения Spotify (Client Credentials) для действий, связанных только с поиском;
+- либо поручить агенту попросить пользователя включить музыку через панель музыкального автомата.
 
-### RPC methods the gateway skill should expose
+### RPC-методы, которые должен предоставлять навык на шлюзе
 
 \`\`\`ts
-// Search for tracks. Returns a list of { name, artist, album, uri, spotifyUrl }.
+// Поиск треков. Возвращает список { name, artist, album, uri, spotifyUrl }.
 soundclaw.search({ query: string }): SpotifySearchResult[]
 
-// Get a shareable Spotify link for a query (for Telegram/chat replies).
+// Получить ссылку на Spotify по запросу (для ответов в Telegram и чатах).
 soundclaw.getLink({ query: string }): { url: string; title: string }
 
-// Report current playback state (reads from Spotify API).
+// Текущее состояние воспроизведения (читается из Spotify API).
 soundclaw.playerStatus(): PlayerStatus | null
 
-// Request playback of a URI (requires user to be authenticated in browser).
+// Запросить воспроизведение URI (пользователь должен быть авторизован в браузере).
 soundclaw.play({ uri: string }): { ok: boolean; message?: string }
 
-// Pause / resume / skip.
+// Пауза / продолжение / переключение треков.
 soundclaw.pause(): void
 soundclaw.resume(): void
 soundclaw.next(): void
 soundclaw.previous(): void
 \`\`\`
 
-### Agent workflow
+### Порядок работы агента
 
-1. Agent receives a music request ("play some jazz", "find this song", etc.)
-2. Agent walks to the jukebox (\`movement.target: "jukebox"\`)
-3. Agent calls \`soundclaw.search\` to find the best match
-4. If the request came from a chat channel (Telegram, etc.): call \`soundclaw.getLink\` and reply with the link
-5. If the request came from the office UI: call \`soundclaw.play\` to start playback
-6. Agent reports back what was played or linked
+1. Агент получает музыкальный запрос («включи джаз», «найди эту песню» и т. п.).
+2. Агент идёт к музыкальному автомату (\`movement.target: "jukebox"\`).
+3. Агент вызывает \`soundclaw.search\`, чтобы найти лучшее совпадение.
+4. Если запрос пришёл из чата (Telegram и т. п.), агент вызывает \`soundclaw.getLink\` и отвечает ссылкой.
+5. Если запрос пришёл из интерфейса офиса, агент вызывает \`soundclaw.play\`, чтобы запустить воспроизведение.
+6. Агент сообщает, что было включено или какая ссылка отправлена.
 `;
 
 const PACKAGED_SKILL_FILES: Record<string, PackagedSkillFile[]> = {

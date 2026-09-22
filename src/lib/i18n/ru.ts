@@ -446,6 +446,9 @@ export const ru = {
   "atm.pinSetupLead": "Задайте безопасный код для своей финансовой выписки",
   "atm.pinTooShort": "PIN-код должен быть не короче 4 цифр",
   "atm.pinUnlockLead": "Для просмотра выписки нужна аутентификация",
+  "atm.range30d": "30 дн.",
+  "atm.range7d": "7 дн.",
+  "atm.rangeMtd": "С начала месяца",
   "atm.recentSessions": "Недавние сессии",
   "atm.recentSessionsLead": "Последние сессии с суммами расходов и токенов.",
   "atm.routeRow": "Маршрут {index} · {provider} / {model}",
@@ -808,6 +811,7 @@ export const ru = {
   "floors.select": "Выбрать {label}",
 
   // --- Мебель ----------------------------------------------------------------
+  "furniture.atm": "Банкомат",
   "furniture.beanbag": "Кресло-мешок",
   "furniture.bookshelf": "Книжный шкаф",
   "furniture.cabinet": "Шкафчик",

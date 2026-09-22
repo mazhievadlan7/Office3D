@@ -229,9 +229,9 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {[
-                { label: "7D", value: 7 },
-                { label: "30D", value: 30 },
-                { label: "MTD", value: "mtd" as const },
+                { label: t("atm.range7d"), value: 7 },
+                { label: t("atm.range30d"), value: 30 },
+                { label: t("atm.rangeMtd"), value: "mtd" as const },
               ].map((range) => (
                 <button
                   key={range.label}

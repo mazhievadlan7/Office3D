@@ -325,7 +325,7 @@ const PALETTE: PaletteEntry[] = [
   { type: "coffee_machine", label: t("furniture.coffee"), icon: "☕", defaults: {} },
   { type: "fridge", label: t("furniture.fridge"), icon: "🧊", defaults: { w: 40, h: 80 } },
   { type: "water_cooler", label: t("furniture.water"), icon: "💧", defaults: {} },
-  { type: "atm", label: "ATM", icon: "🏧", defaults: { facing: 270 } },
+  { type: "atm", label: t("furniture.atm"), icon: "🏧", defaults: { facing: 270 } },
   { type: "jukebox", label: t("furniture.jukebox"), icon: "🎵", defaults: { facing: 0 } },
   {
     type: "kanban_board",
