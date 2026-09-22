@@ -1,6 +1,6 @@
-# Security Policy
+# Политика безопасности
 
-If you discover a security vulnerability in Office3D, please report it privately.
-Do NOT open a public issue.
-Use GitHub's private vulnerability reporting or contact the maintainers directly.
-Thank you for helping keep Office3D secure.
+Если вы обнаружили уязвимость в Office3D, сообщите о ней приватно.
+НЕ открывайте публичное issue.
+Воспользуйтесь приватными сообщениями об уязвимостях на GitHub или свяжитесь с сопровождающими напрямую.
+Спасибо, что помогаете сделать Office3D безопаснее.

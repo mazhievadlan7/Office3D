@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Questions / Help
+  - name: Вопросы и помощь
     url: https://github.com/mazhievadlan7/Office3D/discussions
-    about: Please ask questions in Discussions instead of opening an issue.
+    about: Пожалуйста, задавайте вопросы в Discussions, а не открывайте issue.

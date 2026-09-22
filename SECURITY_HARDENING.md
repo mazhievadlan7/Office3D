@@ -1,51 +1,51 @@
-# Security Hardening
+# Усиление безопасности
 
-Changes applied to the upstream Office3D codebase for production use.
+Изменения, внесённые в исходный код Office3D для использования в продакшене.
 
-## Critical Fixes
+## Критические исправления
 
-### 1. Telemetry Removed
-- `@vercel/otel` dependency removed from package.json
-- `src/instrumentation.ts` replaced with no-op
-- No data is sent to Vercel or any external telemetry service
+### 1. Телеметрия удалена
+- Зависимость `@vercel/otel` удалена из package.json
+- `src/instrumentation.ts` заменён заглушкой, которая ничего не делает
+- Никакие данные не отправляются в Vercel или другие внешние сервисы телеметрии
 
-### 2. Constant-Time Token Comparison
-- `server/access-gate.js` now uses `crypto.timingSafeEqual()` for
-  token validation, preventing timing attacks
+### 2. Сравнение токенов за постоянное время
+- `server/access-gate.js` теперь использует `crypto.timingSafeEqual()` для
+  проверки токенов, что защищает от атак по времени
 
-### 3. Auth Rate Limiting
-- In-memory rate limiter added to access gate for failed auth attempts
-  only (10 failures per IP per 60 seconds)
-- Prevents brute-force token guessing
+### 3. Ограничение частоты попыток аутентификации
+- В проверку доступа добавлен ограничитель частоты в памяти, который учитывает
+  только неудачные попытки аутентификации (10 неудач с одного IP за 60 секунд)
+- Защищает от подбора токена перебором
 
-### 4. WebSocket Frame Validation
-- Maximum frame size: 256 KB (prevents resource exhaustion)
-- Per-connection rate limit: 30 frames/second
-- Connections closed on violation
+### 4. Проверка кадров WebSocket
+- Максимальный размер кадра: 256 КБ (защищает от исчерпания ресурсов)
+- Ограничение частоты на одно соединение: 30 кадров в секунду
+- При нарушении соединение закрывается
 
-### 5. Upstream URL Allowlist
-- `UPSTREAM_ALLOWLIST` env var restricts which gateway hosts the
-  WebSocket proxy can connect to
-- Prevents DNS hijacking or SSRF through the proxy
-- Required in production; empty allowlist is permitted in dev only
+### 5. Список разрешённых URL вышестоящего шлюза
+- Переменная окружения `UPSTREAM_ALLOWLIST` ограничивает хосты шлюзов, к которым
+  может подключаться WebSocket-прокси
+- Защищает от перехвата DNS и SSRF через прокси
+- Обязательна в продакшене; пустой список допускается только при разработке
 
-### 6. Custom Runtime Proxy Allowlist
-- `/api/runtime/custom` now enforces `CUSTOM_RUNTIME_ALLOWLIST`
-- Falls back to `UPSTREAM_ALLOWLIST` if no custom-specific allowlist is set
-- Required in production; empty allowlist is permitted in dev only
+### 6. Список разрешённых адресов для прокси пользовательской среды выполнения
+- `/api/runtime/custom` теперь применяет `CUSTOM_RUNTIME_ALLOWLIST`
+- Если отдельный список для custom не задан, используется `UPSTREAM_ALLOWLIST`
+- Обязателен в продакшене; пустой список допускается только при разработке
 
-### 7. Security Headers
-- Baseline response headers now set from `next.config.ts`
-- Includes CSP, `X-Content-Type-Options`, `Referrer-Policy`,
-  `Permissions-Policy`, and cross-origin isolation headers
+### 7. Заголовки безопасности
+- Базовые заголовки ответов теперь задаются в `next.config.ts`
+- Включают CSP, `X-Content-Type-Options`, `Referrer-Policy`,
+  `Permissions-Policy` и заголовки межсайтовой изоляции (cross-origin isolation)
 
-### 8. Media Route Symlink Rejection
-- `/api/gateway/media` now rejects symlinked local files
-- Realpath is verified inside the allowed root before reading bytes
+### 8. Отклонение символических ссылок в маршруте медиа
+- `/api/gateway/media` теперь отклоняет локальные файлы, являющиеся символическими ссылками
+- Перед чтением байтов проверяется, что реальный путь (realpath) находится внутри разрешённого корня
 
-## Remaining Items (Phase 2)
+## Оставшиеся задачи (этап 2)
 
-- Encrypt gateway tokens at rest
-- Add Zod schema validation for all API inputs
-- Implement secure cookie flags (HttpOnly, Secure, SameSite)
-- Sanitize error messages before sending to clients
+- Шифровать токены шлюза при хранении
+- Добавить проверку по Zod-схемам для всех входных данных API
+- Включить безопасные флаги cookie (HttpOnly, Secure, SameSite)
+- Очищать сообщения об ошибках перед отправкой клиентам

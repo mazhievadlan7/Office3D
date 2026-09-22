@@ -1,154 +1,154 @@
-# Office3D Vision
+# Видение Office3D
 
-Office3D is an open-source 3D environment for visualizing and interacting with AI agents powered by OpenClaw.
+Office3D — это 3D-среда с открытым исходным кодом для визуализации ИИ-агентов на базе OpenClaw и взаимодействия с ними.
 
-The long-term goal of Office3D is to build a living 3D world where AI agents and humans collaborate: a kind of digital city where agents operate, communicate, and perform tasks in a shared visual space.
+Долгосрочная цель Office3D — построить живой 3D-мир, где ИИ-агенты и люди работают вместе: своего рода цифровой город, в котором агенты действуют, общаются и выполняют задачи в общем визуальном пространстве.
 
-OpenClaw acts as the intelligence and orchestration engine, while Office3D provides the visual layer and interactive environment that makes agent activity understandable, inspectable, and collaborative.
+OpenClaw выступает движком интеллекта и оркестрации, а Office3D даёт визуальный слой и интерактивную среду, которые делают активность агентов понятной, доступной для изучения и совместной работы.
 
-This document explains the direction of the project and the guardrails guiding its development.
+В этом документе описаны направление проекта и ориентиры, которыми руководствуется его разработка.
 
-Project overview and developer documentation can be found in:
+Обзор проекта и документация для разработчиков:
 
 - [`README.md`](README.md)
 - [`ROADMAP.md`](ROADMAP.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
-## Why Office3D Exists
+## Зачем нужен Office3D
 
-AI systems are becoming increasingly capable, but their behavior is often invisible or difficult to understand.
+ИИ-системы становятся всё более способными, но их поведение часто невидимо или трудно для понимания.
 
-Office3D aims to solve this by providing a visual interface for AI systems, allowing people to:
+Office3D стремится решить эту проблему, предоставляя визуальный интерфейс для ИИ-систем, который позволяет людям:
 
-- observe AI agents operating in real time
-- understand system behavior visually
-- collaborate with AI in shared environments
-- debug and inspect complex agent interactions
+- наблюдать за работой ИИ-агентов в реальном времени
+- понимать поведение системы визуально
+- работать вместе с ИИ в общих средах
+- отлаживать и изучать сложные взаимодействия агентов
 
-The ultimate vision is a 3D city of AI agents, where:
+Конечная цель — 3D-город ИИ-агентов, где:
 
-- agents represent services, tasks, and workflows
-- humans can explore, monitor, and interact with them
-- systems become understandable through spatial interaction
+- агенты представляют сервисы, задачи и рабочие процессы
+- люди могут исследовать их, наблюдать за ними и взаимодействовать с ними
+- системы становятся понятными благодаря пространственному взаимодействию
 
-## Relationship to OpenClaw
+## Связь с OpenClaw
 
-Office3D is designed to work with OpenClaw, not replace it.
+Office3D создан для работы вместе с OpenClaw, а не для его замены.
 
-OpenClaw provides:
+OpenClaw обеспечивает:
 
-- agent orchestration
-- tools and integrations
-- communication channels
-- task execution
-- model provider integrations
+- оркестрацию агентов
+- инструменты и интеграции
+- каналы связи
+- выполнение задач
+- интеграции с поставщиками моделей
 
-Office3D provides:
+Office3D обеспечивает:
 
-- visualization
-- interaction
-- spatial representation of agents and systems
-- collaborative environments for humans and AI
+- визуализацию
+- взаимодействие
+- пространственное представление агентов и систем
+- среды для совместной работы людей и ИИ
 
-In simple terms:
+Проще говоря:
 
 ```text
-OpenClaw -> intelligence and task execution
-Office3D   -> visualization and interaction layer
+OpenClaw -> интеллект и выполнение задач
+Office3D   -> слой визуализации и взаимодействия
 ```
 
-Maintaining compatibility with OpenClaw is an important design goal.
+Сохранение совместимости с OpenClaw — важная цель проектирования.
 
-Features that require breaking OpenClaw integration will generally not be accepted unless there is a strong architectural reason.
+Возможности, которые требуют нарушить интеграцию с OpenClaw, как правило, не принимаются, если для этого нет веской архитектурной причины.
 
-## Current Priorities
+## Текущие приоритеты
 
-Office3D is still in an early stage of development.
+Office3D всё ещё находится на ранней стадии разработки.
 
-Current priorities include:
+Текущие приоритеты:
 
-### Stability and Reliability
+### Стабильность и надёжность
 
-- bug fixes
-- predictable rendering behavior
-- improving the developer experience
+- исправление ошибок
+- предсказуемое поведение отрисовки
+- улучшение удобства для разработчиков
 
-### Core Architecture
+### Базовая архитектура
 
-- defining how agents map to visual entities
-- building a scalable world model
-- establishing a clean integration path with OpenClaw
+- определение того, как агенты соотносятся с визуальными сущностями
+- построение масштабируемой модели мира
+- выстраивание чистого пути интеграции с OpenClaw
 
-### Developer Ergonomics
+### Удобство для разработчиков
 
-- clear APIs for extending the environment
-- easy local setup
-- straightforward contribution paths
+- понятные API для расширения среды
+- простая локальная установка
+- ясные способы участия в разработке
 
-### Visualization Primitives
+### Примитивы визуализации
 
-- representing agents
-- representing workflows
-- representing system activity in spatial form
+- представление агентов
+- представление рабочих процессов
+- представление активности системы в пространственной форме
 
-## Contribution Rules
+## Правила участия
 
-To keep the project maintainable:
+Чтобы проект оставался поддерживаемым:
 
-- One PR = one topic. Avoid bundling unrelated changes.
-- Very large PRs may be declined or split into smaller pieces.
-- Architectural changes should be discussed in issues before implementation.
-- Contributors should respect the project's direction and scope.
+- Один пул-реквест — одна тема. Не объединяйте несвязанные изменения.
+- Очень большие пул-реквесты могут быть отклонены или разделены на части поменьше.
+- Архитектурные изменения следует обсуждать в issue до реализации.
+- Участники должны уважать направление и рамки проекта.
 
-Office3D is still evolving quickly, so iteration is expected.
+Office3D всё ещё быстро развивается, поэтому итерации ожидаемы.
 
-## Architecture Direction
+## Направление архитектуры
 
-Office3D is designed as a visual layer on top of agent systems.
+Office3D задуман как визуальный слой поверх систем агентов.
 
-The system should remain:
+Система должна оставаться:
 
-- modular
-- extensible
-- easy to experiment with
+- модульной
+- расширяемой
+- удобной для экспериментов
 
-The current stack focuses on:
+Текущий стек сосредоточен на:
 
 - Three.js
 - WebGL
-- browser-based rendering
-- integration with OpenClaw runtime systems
+- отрисовке в браузере
+- интеграции с системами среды выполнения OpenClaw
 
-The goal is to keep the environment accessible to developers and contributors.
+Цель — сохранить среду доступной для разработчиков и участников.
 
-## What We Will Not Merge (For Now)
+## Что мы не будем принимать (пока)
 
-To maintain focus, the following types of contributions are generally avoided:
+Чтобы сохранить фокус, мы, как правило, избегаем следующих видов вклада:
 
-- features that break compatibility with OpenClaw
-- major architectural rewrites without prior discussion
-- replacing the rendering stack without strong technical justification
-- heavy framework layers that reduce hackability
-- extremely large PRs without prior coordination
-- unrelated product experiments that do not advance the Office3D vision
+- возможностей, которые ломают совместимость с OpenClaw
+- крупных архитектурных переписываний без предварительного обсуждения
+- замены стека отрисовки без веского технического обоснования
+- тяжёлых слоёв фреймворков, которые затрудняют доработку кода под себя
+- очень больших пул-реквестов без предварительного согласования
+- несвязанных продуктовых экспериментов, которые не продвигают видение Office3D
 
-This list is a directional guardrail, not a permanent restriction.
+Этот список — ориентир направления, а не постоянное ограничение.
 
-Strong technical arguments or user demand may change these decisions.
+Весомые технические аргументы или запросы пользователей могут изменить эти решения.
 
-## Long-Term Direction
+## Долгосрочное направление
 
-The long-term vision for Office3D is ambitious:
+Долгосрочное видение Office3D амбициозно:
 
-**A 3D city of AI agents.**
+**3D-город ИИ-агентов.**
 
-In this environment:
+В этой среде:
 
-- AI agents operate as visible entities
-- systems become spatially understandable
-- humans can interact with agent systems in real time
-- collaboration between humans and AI becomes natural
+- ИИ-агенты действуют как видимые сущности
+- системы становятся понятными в пространстве
+- люди могут взаимодействовать с системами агентов в реальном времени
+- совместная работа людей и ИИ становится естественной
 
-Instead of interacting with invisible systems through logs and dashboards, users will be able to walk through and interact with the systems themselves.
+Вместо того чтобы взаимодействовать с невидимыми системами через логи и дашборды, пользователи смогут ходить по самим системам и взаимодействовать с ними.
 
-Office3D is an early step toward that future.
+Office3D — первый шаг к этому будущему.

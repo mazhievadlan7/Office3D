@@ -1,155 +1,155 @@
-# Office3D + OpenClaw + Tailscale Setup Tutorial
+# Руководство по настройке Office3D + OpenClaw + Tailscale
 
-This guide is a step-by-step runbook for the most common production-like setup:
+Это пошаговая инструкция для самой распространённой конфигурации, близкой к продакшену:
 
-- **Machine A** runs **OpenClaw Gateway**.
-- **Machine B** runs **Office3D**.
-- **Tailscale** connects both machines securely.
+- **Машина A** запускает **шлюз OpenClaw**.
+- **Машина B** запускает **Office3D**.
+- **Tailscale** безопасно соединяет обе машины.
 
-If you follow this exactly, people should avoid the most common confusion: **Office3D does not install or run OpenClaw for you.**
-
----
-
-## 0) Architecture and Responsibilities
-
-- **OpenClaw** is the runtime and Gateway.
-- **Office3D** is the UI and Studio proxy.
-- Office3D connects to an already running OpenClaw Gateway.
-- In this tutorial, the Gateway lives on a different machine from Office3D.
+Если в точности следовать этой инструкции, можно избежать самого частого недоразумения: **Office3D не устанавливает и не запускает OpenClaw за вас.**
 
 ---
 
-## 1) Prerequisites
+## 0) Архитектура и зоны ответственности
 
-### Machine A (Gateway host)
-
-- macOS, Linux, or WSL2.
-- Internet access.
-- Ability to install OpenClaw and Tailscale.
-
-### Machine B (Office3D host)
-
-- Node.js `20+` recommended for this repo.
-- npm `10+` recommended.
-- Internet access.
-- Ability to install Tailscale.
-
-### Accounts and permissions
-
-- A Tailscale account for your tailnet.
-- If your tailnet uses device approval, you need Owner/Admin/IT admin access in Tailscale admin.
+- **OpenClaw** — это среда выполнения и шлюз.
+- **Office3D** — это интерфейс и прокси Studio.
+- Office3D подключается к уже запущенному шлюзу OpenClaw.
+- В этом руководстве шлюз работает на другой машине, не на той, где Office3D.
 
 ---
 
-## 2) Install and Start OpenClaw on Machine A
+## 1) Предварительные требования
 
-OpenClaw official install docs are here: [Install](https://docs.openclaw.ai/install/index.md) and [Getting Started](https://docs.openclaw.ai/start/getting-started.md).
+### Машина A (хост шлюза)
 
-### 2.1 Install OpenClaw
+- macOS, Linux или WSL2.
+- Доступ в интернет.
+- Возможность установить OpenClaw и Tailscale.
 
-On **Machine A**:
+### Машина B (хост Office3D)
+
+- Для этого репозитория рекомендуется Node.js `20+`.
+- Рекомендуется npm `10+`.
+- Доступ в интернет.
+- Возможность установить Tailscale.
+
+### Учётные записи и права
+
+- Учётная запись Tailscale для вашего tailnet.
+- Если в вашем tailnet включено одобрение устройств, вам нужен доступ Owner/Admin/IT admin в админ-панели Tailscale.
+
+---
+
+## 2) Установка и запуск OpenClaw на машине A
+
+Официальная документация OpenClaw по установке: [Install](https://docs.openclaw.ai/install/index.md) и [Getting Started](https://docs.openclaw.ai/start/getting-started.md).
+
+### 2.1 Установка OpenClaw
+
+На **машине A**:
 
 ```bash
 curl -fsSL https://openclaw.ai/install.sh | bash
 ```
 
-### 2.2 Run onboarding and install daemon
+### 2.2 Первоначальная настройка и установка демона
 
 ```bash
 openclaw onboard --install-daemon
 ```
 
-### 2.3 Verify Gateway health
+### 2.3 Проверка состояния шлюза
 
 ```bash
 openclaw gateway status
 openclaw status
 ```
 
-You want a healthy result such as runtime running and RPC probe ok.
+Нужен здоровый результат: например, среда выполнения запущена, а RPC-проверка проходит успешно (RPC probe ok).
 
-### 2.4 Get your Gateway token
+### 2.4 Получение токена шлюза
 
-You will need this token in Office3D:
+Этот токен понадобится в Office3D:
 
 ```bash
 openclaw config get gateway.auth.token
 ```
 
-Store it securely.
+Храните его в надёжном месте.
 
 ---
 
-## 3) Install and Authorize Tailscale on Both Machines
+## 3) Установка и авторизация Tailscale на обеих машинах
 
-Tailscale docs: [Serve overview](https://tailscale.com/kb/1312/serve), [Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve), and [Device approval](https://tailscale.com/kb/1099/device-approval).
+Документация Tailscale: [Serve overview](https://tailscale.com/kb/1312/serve), [Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve) и [Device approval](https://tailscale.com/kb/1099/device-approval).
 
-### 3.1 Install Tailscale
+### 3.1 Установка Tailscale
 
-Install Tailscale on **Machine A** and **Machine B** using official installers: [Tailscale downloads](https://tailscale.com/download).
+Установите Tailscale на **машину A** и **машину B** с помощью официальных установщиков: [Tailscale downloads](https://tailscale.com/download).
 
-### 3.2 Join both machines to the same tailnet
+### 3.2 Подключение обеих машин к одному tailnet
 
-On each machine:
+На каждой машине:
 
 ```bash
 tailscale up
 tailscale status
 ```
 
-Confirm both machines appear in the same tailnet.
+Убедитесь, что обе машины видны в одном и том же tailnet.
 
-### 3.3 If your tailnet requires approval, approve devices
+### 3.3 Если tailnet требует одобрения, одобрите устройства
 
-In Tailscale admin:
+В админ-панели Tailscale:
 
-1. Open [Machines](https://login.tailscale.com/admin/machines).
-2. Find devices marked **Needs approval**.
-3. Approve both Machine A and Machine B.
+1. Откройте [Machines](https://login.tailscale.com/admin/machines).
+2. Найдите устройства с пометкой **Needs approval**.
+3. Одобрите машину A и машину B.
 
-Without this, the machines cannot communicate over tailnet traffic.
+Без этого машины не смогут обмениваться трафиком через tailnet.
 
 ---
 
-## 4) Expose OpenClaw Gateway Through Tailscale on Machine A
+## 4) Публикация шлюза OpenClaw через Tailscale на машине A
 
-You have two valid ways. Pick one.
+Есть два рабочих способа. Выберите один.
 
-### Option A (simple and explicit): Tailscale Serve command
+### Вариант A (простой и явный): команда Tailscale Serve
 
-On **Machine A**, keep Gateway bound locally (`127.0.0.1:18789`) and publish through Serve:
+На **машине A** оставьте шлюз привязанным к локальному адресу (`127.0.0.1:18789`) и опубликуйте его через Serve:
 
 ```bash
 tailscale serve --yes --bg --https=443 http://127.0.0.1:18789
 tailscale serve status
 ```
 
-Notes:
+Примечания:
 
-- Newer Tailscale CLI uses `--https=443`.
-- If you are on older docs/commands, you may see syntax like `--https 443`. Use `tailscale serve --help` on your installed version.
+- Новые версии Tailscale CLI используют `--https=443`.
+- В старой документации и командах может встретиться синтаксис вида `--https 443`. Проверьте `tailscale serve --help` для установленной у вас версии.
 
-### Option B (OpenClaw-managed Tailscale mode)
+### Вариант B (режим Tailscale под управлением OpenClaw)
 
-OpenClaw can manage Tailscale mode itself:
+OpenClaw может сам управлять режимом Tailscale:
 
 ```bash
 openclaw gateway --tailscale serve
 ```
 
-OpenClaw Tailscale docs: [Gateway Tailscale](https://docs.openclaw.ai/gateway/tailscale.md).
+Документация OpenClaw по Tailscale: [Gateway Tailscale](https://docs.openclaw.ai/gateway/tailscale.md).
 
-### 4.1 Confirm the public tailnet URL
+### 4.1 Проверка публичного URL в tailnet
 
-You need the `https://<gateway-host>.<tailnet>.ts.net` host.
+Вам нужен хост `https://<gateway-host>.<tailnet>.ts.net`.
 
-This host is what Office3D will use as `wss://<gateway-host>.<tailnet>.ts.net`.
+Именно его Office3D будет использовать в виде `wss://<gateway-host>.<tailnet>.ts.net`.
 
 ---
 
-## 5) Install and Run Office3D on Machine B
+## 5) Установка и запуск Office3D на машине B
 
-On **Machine B**:
+На **машине B**:
 
 ```bash
 git clone https://github.com/mazhievadlan7/Office3D.git office3d
@@ -159,42 +159,42 @@ cp .env.example .env
 npm run dev
 ```
 
-Then open:
+Затем откройте:
 
 - `http://localhost:3000`
 
 ---
 
-## 6) Connect Office3D to OpenClaw
+## 6) Подключение Office3D к OpenClaw
 
-In Office3D connection UI:
+На экране подключения к шлюзу в Office3D:
 
-1. Set **Gateway URL** to:
+1. В поле **Адрес шлюза** укажите:
    - `wss://<gateway-host>.<tailnet>.ts.net`
-2. Paste the token from Machine A (`openclaw config get gateway.auth.token`).
-3. Click **Connect**.
+2. Вставьте в поле **Токен шлюза** токен с машины A (`openclaw config get gateway.auth.token`).
+3. Нажмите **Подключиться**.
 
-Important:
+Важно:
 
-- Use `wss://` for Tailscale HTTPS endpoints.
-- Use `ws://localhost:18789` only when Gateway is local to the same machine as Office3D or when using an SSH tunnel.
+- Для HTTPS-эндпоинтов Tailscale используйте `wss://`.
+- Используйте `ws://localhost:18789` только когда шлюз работает на той же машине, что и Office3D, или при подключении через SSH-туннель.
 
 ---
 
-## 7) Required Device-Pairing Approval Step
+## 7) Обязательный шаг: одобрение сопряжения устройства
 
-This is the step people often miss.
+Этот шаг чаще всего пропускают.
 
-After Office3D is running and tries to connect for the first time, approve pending device pairing on **Machine A**:
+Когда Office3D запущен и впервые пытается подключиться, одобрите ожидающий запрос на сопряжение устройства на **машине A**:
 
 ```bash
 openclaw devices list
 openclaw devices approve --latest
 ```
 
-OpenClaw devices docs: [openclaw devices](https://docs.openclaw.ai/cli/devices.md).
+Документация OpenClaw по устройствам: [openclaw devices](https://docs.openclaw.ai/cli/devices.md).
 
-If multiple requests are pending, approve by id instead:
+Если ожидают несколько запросов, одобряйте по id:
 
 ```bash
 openclaw devices approve <requestId>
@@ -202,75 +202,75 @@ openclaw devices approve <requestId>
 
 ---
 
-## 8) Verification Checklist
+## 8) Контрольный список проверки
 
-Run this checklist in order:
+Пройдите этот список по порядку:
 
-1. `openclaw gateway status` on Machine A shows healthy runtime.
-2. `tailscale status` on both machines shows connected devices in same tailnet.
-3. `tailscale serve status` on Machine A shows active Serve config for port `443` to `127.0.0.1:18789`.
-4. Office3D connect UI uses `wss://...ts.net` plus valid token.
-5. `openclaw devices approve --latest` has been run after first connect attempt.
-6. Office3D UI shows gateway connected and loads agents.
+1. `openclaw gateway status` на машине A показывает здоровую среду выполнения.
+2. `tailscale status` на обеих машинах показывает подключённые устройства в одном tailnet.
+3. `tailscale serve status` на машине A показывает активную конфигурацию Serve для порта `443` на `127.0.0.1:18789`.
+4. На экране подключения Office3D указан `wss://...ts.net` и действительный токен.
+5. После первой попытки подключения выполнена команда `openclaw devices approve --latest`.
+6. Интерфейс Office3D показывает, что шлюз подключён, и загружает агентов.
 
 ---
 
-## 9) Troubleshooting
+## 9) Решение проблем
 
-### `EPROTO` or `wrong version number`
+### `EPROTO` или `wrong version number`
 
-- Usually means protocol mismatch.
-- Fix: if your endpoint is HTTPS/Tailscale Serve, use `wss://...`.
-- Do not use `wss://` against a plain `ws://` endpoint.
+- Обычно означает несоответствие протоколов.
+- Решение: если ваш эндпоинт — HTTPS/Tailscale Serve, используйте `wss://...`.
+- Не используйте `wss://` для обычного эндпоинта `ws://`.
 
-### `401` or auth errors from Office3D
+### `401` или ошибки аутентификации в Office3D
 
-- Re-copy token from Machine A:
+- Скопируйте токен с машины A заново:
   - `openclaw config get gateway.auth.token`.
-- Confirm Gateway auth mode and token are current.
+- Убедитесь, что режим аутентификации шлюза и токен актуальны.
 
-### Office3D still cannot connect after token is correct
+### Office3D не подключается, хотя токен правильный
 
-- Approve pending device:
+- Одобрите ожидающее устройство:
   - `openclaw devices approve --latest`.
-- Check pending requests:
+- Проверьте ожидающие запросы:
   - `openclaw devices list`.
 
-### Tailscale URL works nowhere
+### URL Tailscale нигде не открывается
 
-- Confirm both devices are approved in Tailscale admin if device approval is enabled.
-- Re-run:
+- Если одобрение устройств включено, убедитесь, что оба устройства одобрены в админ-панели Tailscale.
+- Выполните снова:
   - `tailscale status`.
   - `tailscale serve status`.
-- Recreate serve config if needed:
+- При необходимости пересоздайте конфигурацию Serve:
   - `tailscale serve reset`.
   - `tailscale serve --yes --bg --https=443 http://127.0.0.1:18789`.
 
-### Gateway itself is unhealthy
+### Сам шлюз неисправен
 
-- Run:
+- Выполните:
   - `openclaw doctor`.
   - `openclaw gateway restart`.
   - `openclaw gateway status`.
 
 ---
 
-## 10) Security Notes
+## 10) Замечания по безопасности
 
-- Keep Gateway bound to loopback unless you have a deliberate reason not to.
-- Do not commit tokens into git or `.env` files intended for sharing.
-- Prefer Tailscale Serve over exposing raw Gateway ports publicly.
-- Treat OpenClaw device pairing approval as a security gate, not a one-time annoyance.
+- Держите шлюз привязанным к loopback-интерфейсу, если у вас нет осознанной причины поступить иначе.
+- Не коммитьте токены в git или в файлы `.env`, предназначенные для передачи другим.
+- Предпочитайте Tailscale Serve публичному открытию портов шлюза напрямую.
+- Относитесь к одобрению сопряжения устройств в OpenClaw как к рубежу безопасности, а не как к разовой помехе.
 
 ---
 
-## References
+## Ссылки
 
-- OpenClaw install: [docs.openclaw.ai/install/index.md](https://docs.openclaw.ai/install/index.md).
-- OpenClaw getting started: [docs.openclaw.ai/start/getting-started.md](https://docs.openclaw.ai/start/getting-started.md).
-- OpenClaw gateway runbook: [docs.openclaw.ai/gateway/index.md](https://docs.openclaw.ai/gateway/index.md).
-- OpenClaw devices CLI: [docs.openclaw.ai/cli/devices.md](https://docs.openclaw.ai/cli/devices.md).
-- OpenClaw tailscale gateway mode: [docs.openclaw.ai/gateway/tailscale.md](https://docs.openclaw.ai/gateway/tailscale.md).
+- Установка OpenClaw: [docs.openclaw.ai/install/index.md](https://docs.openclaw.ai/install/index.md).
+- Начало работы с OpenClaw: [docs.openclaw.ai/start/getting-started.md](https://docs.openclaw.ai/start/getting-started.md).
+- Инструкция по шлюзу OpenClaw: [docs.openclaw.ai/gateway/index.md](https://docs.openclaw.ai/gateway/index.md).
+- CLI устройств OpenClaw: [docs.openclaw.ai/cli/devices.md](https://docs.openclaw.ai/cli/devices.md).
+- Режим шлюза OpenClaw с Tailscale: [docs.openclaw.ai/gateway/tailscale.md](https://docs.openclaw.ai/gateway/tailscale.md).
 - Tailscale Serve: [tailscale.com/kb/1312/serve](https://tailscale.com/kb/1312/serve).
-- Tailscale serve CLI: [tailscale.com/docs/reference/tailscale-cli/serve](https://tailscale.com/docs/reference/tailscale-cli/serve).
-- Tailscale device approval: [tailscale.com/kb/1099/device-approval](https://tailscale.com/kb/1099/device-approval).
+- CLI Tailscale serve: [tailscale.com/docs/reference/tailscale-cli/serve](https://tailscale.com/docs/reference/tailscale-cli/serve).
+- Одобрение устройств в Tailscale: [tailscale.com/kb/1099/device-approval](https://tailscale.com/kb/1099/device-approval).

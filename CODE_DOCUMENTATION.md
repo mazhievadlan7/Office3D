@@ -1,79 +1,79 @@
-# Code Documentation
+# Документация по коду
 
-This file is the practical code map for Office3D contributors.
+Этот файл — практическая карта кода Office3D для участников разработки.
 
-Use it alongside `README.md` for setup and `ARCHITECTURE.md` for system boundaries. This document is intentionally more hands-on: where code lives, which files matter first, and how to extend the main systems without fighting the current structure.
+Используйте его вместе с `README.md` (установка) и `ARCHITECTURE.md` (границы системы). Этот документ намеренно более прикладной: где лежит код, какие файлы важны в первую очередь и как расширять основные системы, не борясь с текущей структурой.
 
-## Repo Mental Model
+## Мысленная модель репозитория
 
-Office3D is the UI and local Studio/proxy layer around an existing OpenClaw Gateway.
+Office3D — это слой интерфейса и локального Studio/прокси вокруг существующего шлюза OpenClaw.
 
-- OpenClaw owns agent execution, sessions, tools, config, and runtime events.
-- Office3D owns visualization, local Studio settings, UI workflows, office rendering, and the same-origin WebSocket/API bridge.
-- When a feature needs authoritative runtime state, prefer Gateway data over local UI state.
-- When a feature is only a local preference, it usually belongs in Studio settings.
-- Before publishing new bundled assets or vendored code, also update `THIRD_PARTY_ASSETS.md` or `THIRD_PARTY_CODE.md`.
+- OpenClaw владеет выполнением агентов, сессиями, инструментами, конфигурацией и событиями среды выполнения.
+- Office3D владеет визуализацией, локальными настройками Studio, рабочими процессами интерфейса, отрисовкой офиса и мостом WebSocket/API с того же источника (same-origin).
+- Когда возможности нужно авторитетное состояние среды выполнения, предпочитайте данные шлюза локальному состоянию интерфейса.
+- Когда речь идёт только о локальной настройке, ей обычно место в настройках Studio.
+- Прежде чем публиковать новые встроенные ресурсы или вендорный код, обновите также `THIRD_PARTY_ASSETS.md` или `THIRD_PARTY_CODE.md`.
 
-## Top-Level Code Map
+## Карта кода верхнего уровня
 
 ### `src/app`
 
-Next.js App Router entry points and API routes.
+Точки входа Next.js App Router и API-маршруты.
 
-- Route pages such as `src/app/office/page.tsx` and `src/app/office/builder/page.tsx` are composition roots.
-- `src/app/api/*` contains server-side boundaries for Studio settings, gateway-backed helpers, office flows, and path suggestions.
-- Keep heavy feature logic out of route files when possible. Route files should mostly compose feature modules and server boundaries.
+- Страницы маршрутов, такие как `src/app/office/page.tsx` и `src/app/office/builder/page.tsx`, — это корни композиции.
+- `src/app/api/*` содержит серверные границы для настроек Studio, помощников на основе шлюза, процессов офиса и подсказок путей.
+- По возможности не держите тяжёлую логику возможностей в файлах маршрутов. Файлы маршрутов должны в основном собирать модули возможностей и серверные границы.
 
 ### `src/features`
 
-Vertical slices for UI and feature-specific state.
+Вертикальные срезы интерфейса и состояния отдельных возможностей.
 
-- `src/features/agents`: fleet UI, chat, approvals, runtime event workflows, hydration, history sync, and settings-related operations.
-- `src/features/office`: office screens, panels, builder surfaces, standup/GitHub/voice flows, and office-facing hooks.
-- `src/features/retro-office`: the immersive React Three Fiber office runtime, including 3D objects, navigation, persistence, scene systems, and actor behavior.
+- `src/features/agents`: интерфейс команды агентов, чат, одобрения, обработка событий среды выполнения, гидратация, синхронизация истории и операции, связанные с настройками.
+- `src/features/office`: экраны офиса, панели, разделы конструктора, сценарии планёрок/GitHub/голоса и хуки для офиса.
+- `src/features/retro-office`: иммерсивная среда выполнения офиса на React Three Fiber, включая 3D-объекты, навигацию, сохранение, системы сцены и поведение персонажей.
 
-When you are changing a user-facing workflow, start in `src/features` before reaching for `src/lib`.
+Меняя пользовательский сценарий, начинайте с `src/features`, прежде чем обращаться к `src/lib`.
 
 ### `src/lib`
 
-Shared domain logic, adapters, and pure helpers.
+Общая предметная логика, адаптеры и чистые вспомогательные функции.
 
-- `src/lib/gateway`: the browser gateway client and session-key helpers.
-- `src/lib/office`: office intent parsing, animation trigger derivation, desk monitor helpers, janitor reset logic, builder schema, and related office domain code.
-- `src/lib/studio`: local Studio settings persistence and the client coordinator.
-- Other areas such as `text`, `cron`, `skills`, `ssh`, and `avatars` hold reusable cross-feature logic.
+- `src/lib/gateway`: браузерный клиент шлюза и помощники для ключей сессий.
+- `src/lib/office`: разбор намерений в офисе, вывод триггеров анимации, помощники мониторов на столах, логика сброса уборщиками, схема конструктора и связанный предметный код офиса.
+- `src/lib/studio`: сохранение локальных настроек Studio и клиентский координатор.
+- Другие области, такие как `text`, `cron`, `skills`, `ssh` и `avatars`, содержат переиспользуемую логику, общую для разных возможностей.
 
-If a module is reused by more than one feature or represents a stable domain contract, it probably belongs in `src/lib`.
+Если модуль используется более чем одной возможностью или представляет стабильный предметный контракт, его место, скорее всего, в `src/lib`.
 
 ### `server`
 
-Custom Studio server and WebSocket proxy.
+Собственный сервер Studio и WebSocket-прокси.
 
-- `server/index.js` boots the app.
-- `server/gateway-proxy.js` bridges browser WebSocket traffic to the upstream OpenClaw Gateway.
-- `server/studio-settings.js` loads the local Studio gateway settings on the server side.
+- `server/index.js` запускает приложение.
+- `server/gateway-proxy.js` связывает браузерный WebSocket-трафик с вышестоящим шлюзом OpenClaw.
+- `server/studio-settings.js` загружает локальные настройки шлюза Studio на стороне сервера.
 
-This layer exists so gateway credentials stay server-side and browser traffic can always target the same-origin Studio server.
+Этот слой существует для того, чтобы учётные данные шлюза оставались на сервере, а браузерный трафик всегда шёл на сервер Studio с того же источника.
 
 ### `tests`
 
-Automated coverage.
+Автоматические тесты.
 
-- `tests/unit`: the main source of regression coverage.
-- Playwright covers end-to-end behavior from the app boundary.
+- `tests/unit`: основной источник защиты от регрессий.
+- Playwright проверяет сквозное поведение от границы приложения.
 
-For architecture-sensitive changes, read the nearest unit tests before editing the implementation.
+Перед изменениями, затрагивающими архитектуру, прочитайте ближайшие модульные тесты, прежде чем править реализацию.
 
 ### `scripts`
 
-Repository utilities and generated-asset workflows.
+Утилиты репозитория и процессы для сгенерированных ресурсов.
 
-- `scripts/sync-openclaw-gateway-client.ts` updates the vendored gateway client helpers.
-- `scripts/studio-setup.js` prepares common local Studio prerequisites.
+- `scripts/sync-openclaw-gateway-client.ts` обновляет вендорные помощники клиента шлюза.
+- `scripts/studio-setup.js` готовит типичные локальные предварительные требования Studio.
 
-## Read These First
+## Что прочитать в первую очередь
 
-If you are new to the codebase, this order gives the fastest payoff:
+Если вы впервые знакомитесь с кодовой базой, этот порядок даёт самую быструю отдачу:
 
 1. `README.md`.
 2. `ARCHITECTURE.md`.
@@ -86,53 +86,53 @@ If you are new to the codebase, this order gives the fastest payoff:
 9. `src/features/retro-office/RetroOffice3D.tsx`.
 10. `src/features/retro-office/core/navigation.ts`.
 
-## Main Runtime Flow
+## Основной поток среды выполнения
 
-At a high level:
+В общих чертах:
 
-1. The browser connects to Studio at `/api/gateway/ws`.
-2. Studio proxies that connection to the upstream OpenClaw Gateway.
-3. `GatewayClient` receives runtime events.
-4. `src/app/office/page.tsx` installs the main runtime subscription.
-5. `gatewayRuntimeEventHandler.ts` classifies and routes runtime events.
-6. Runtime workflow modules plan state updates and effect commands.
-7. History sync pulls canonical `chat.history` when live streams are incomplete or transport-specific.
-8. Agent UI and office UI both consume the resulting agent/session state.
+1. Браузер подключается к Studio по адресу `/api/gateway/ws`.
+2. Studio проксирует это соединение на вышестоящий шлюз OpenClaw.
+3. `GatewayClient` получает события среды выполнения.
+4. `src/app/office/page.tsx` устанавливает основную подписку на среду выполнения.
+5. `gatewayRuntimeEventHandler.ts` классифицирует и маршрутизирует события среды выполнения.
+6. Модули процессов среды выполнения планируют обновления состояния и команды побочных эффектов.
+7. Синхронизация истории подтягивает каноническую `chat.history`, когда живые потоки неполны или зависят от транспорта.
+8. Интерфейс агентов и интерфейс офиса используют получившееся состояние агентов и сессий.
 
-Important runtime files:
+Важные файлы среды выполнения:
 
-- `src/lib/gateway/GatewayClient.ts`: transport contract and session-key helpers.
-- `src/features/agents/state/gatewayRuntimeEventHandler.ts`: runtime event orchestrator.
-- `src/features/agents/state/runtimeChatEventWorkflow.ts`: chat stream planning.
-- `src/features/agents/state/runtimeAgentEventWorkflow.ts`: agent/lifecycle stream planning.
-- `src/features/agents/state/runtimeTerminalWorkflow.ts`: terminal and closed-run handling.
-- `src/features/agents/state/runtimeEventCoordinatorWorkflow.ts`: reducer/effect bridge for runtime commands.
-- `src/features/agents/operations/historySyncOperation.ts`: canonical history reconciliation.
-- `src/features/agents/state/transcript.ts`: transcript entry model and history merge logic.
+- `src/lib/gateway/GatewayClient.ts`: контракт транспорта и помощники для ключей сессий.
+- `src/features/agents/state/gatewayRuntimeEventHandler.ts`: оркестратор событий среды выполнения.
+- `src/features/agents/state/runtimeChatEventWorkflow.ts`: планирование потока чата.
+- `src/features/agents/state/runtimeAgentEventWorkflow.ts`: планирование потока агента и жизненного цикла.
+- `src/features/agents/state/runtimeTerminalWorkflow.ts`: обработка завершения и закрытых запусков.
+- `src/features/agents/state/runtimeEventCoordinatorWorkflow.ts`: мост между редьюсером и эффектами для команд среды выполнения.
+- `src/features/agents/operations/historySyncOperation.ts`: согласование с канонической историей.
+- `src/features/agents/state/transcript.ts`: модель записей переписки и логика слияния истории.
 
-## Office Architecture
+## Архитектура офиса
 
-There are two office-related stacks in this repository:
+В этом репозитории два стека, связанных с офисом:
 
-- The immersive live office at `/office`, powered by React Three Fiber and `src/features/retro-office`.
-- The builder/editor stack at `/office/builder`, powered by Phaser and `src/features/office`.
+- Иммерсивный живой офис на `/office`, работающий на React Three Fiber и `src/features/retro-office`.
+- Стек конструктора/редактора на `/office/builder`, работающий на Phaser и `src/features/office`.
 
-These systems are related, but they are not the same runtime.
+Эти системы связаны, но это не одна и та же среда выполнения.
 
-### Immersive Office Stack
+### Стек иммерсивного офиса
 
-Key files:
+Ключевые файлы:
 
-- `src/features/office/screens/OfficeScreen.tsx`: office composition root. It connects gateway state, debug/export tools, standup state, desk assignment persistence, and the 3D scene.
-- `src/lib/office/eventTriggers.ts`: derives office animation/interaction holds from runtime events and agent transcript state.
-- `src/lib/office/deskDirectives.ts`: parses user text into a unified office intent snapshot.
-- `src/features/retro-office/RetroOffice3D.tsx`: renders the 3D world and consumes the derived animation state.
-- `src/features/retro-office/core/navigation.ts`: builds nav grids, resolves destinations, and exports specialized route helpers.
-- `src/features/retro-office/core/furnitureDefaults.ts`: default room/object layout plus migration-style ensure helpers.
+- `src/features/office/screens/OfficeScreen.tsx`: корень композиции офиса. Связывает состояние шлюза, инструменты отладки и экспорта, состояние планёрки, сохранение назначений столов и 3D-сцену.
+- `src/lib/office/eventTriggers.ts`: выводит удержания анимаций и взаимодействий в офисе из событий среды выполнения и состояния переписки агента.
+- `src/lib/office/deskDirectives.ts`: разбирает текст пользователя в единый снимок намерения в офисе.
+- `src/features/retro-office/RetroOffice3D.tsx`: отрисовывает 3D-мир и использует производное состояние анимации.
+- `src/features/retro-office/core/navigation.ts`: строит навигационные сетки, определяет пункты назначения и экспортирует специализированные помощники маршрутов.
+- `src/features/retro-office/core/furnitureDefaults.ts`: планировка комнат и объектов по умолчанию и ensure-помощники в стиле миграций.
 
-### Builder Stack
+### Стек конструктора
 
-Key files:
+Ключевые файлы:
 
 - `src/features/office/components/OfficeBuilderPanel.tsx`.
 - `src/features/office/components/OfficePhaserCanvas.tsx`.
@@ -140,72 +140,72 @@ Key files:
 - `src/features/office/phaser/OfficeViewerScene.ts`.
 - `src/lib/office/schema.ts`.
 
-The builder uses the `OfficeMap` schema. The immersive retro office still has its own furniture/defaults/persistence pipeline. When touching office code, confirm which stack you are actually changing.
+Конструктор использует схему `OfficeMap`. У иммерсивного ретро-офиса по-прежнему свой конвейер мебели, значений по умолчанию и сохранения. Затрагивая код офиса, убедитесь, какой именно стек вы меняете.
 
-## Office Intent Layer
+## Слой намерений в офисе
 
-`src/lib/office/deskDirectives.ts` is the single entry point for natural-language office directives.
+`src/lib/office/deskDirectives.ts` — единая точка входа для директив офиса на естественном языке.
 
-This is one of the most important conventions in the repo:
+Это одно из важнейших соглашений в репозитории:
 
-- New room or behavior triggers should be parsed here first.
-- Runtime events from Telegram, WhatsApp, UI chat, or other transport-specific sessions should not require separate directive parsers.
-- Consumers should prefer `resolveOfficeIntentSnapshot()` over adding one-off regex checks elsewhere.
+- Новые триггеры комнат или поведения нужно сначала разбирать здесь.
+- События среды выполнения из Telegram, WhatsApp, чата в интерфейсе или других сессий, привязанных к транспорту, не должны требовать отдельных разборщиков директив.
+- Потребителям лучше использовать `resolveOfficeIntentSnapshot()`, чем добавлять где-то ещё разовые проверки регулярными выражениями.
 
-Current intent categories include:
+Текущие категории намерений:
 
-- Desk holds and releases.
-- GitHub or server-room review holds.
-- Gym commands and skill-building gym intents.
-- QA lab holds and releases.
-- Standup meeting requests.
+- Удержание за столом и освобождение.
+- Удержания для ревью в GitHub или серверной.
+- Команды спортзала и намерения по тренировке навыков в спортзале.
+- Удержание в QA-лаборатории и освобождение.
+- Запросы на проведение планёрки.
 
-If you add another room or action, first ask: can it be expressed as another field in `OfficeIntentSnapshot`?
+Если вы добавляете ещё одну комнату или действие, сначала спросите себя: можно ли выразить это ещё одним полем в `OfficeIntentSnapshot`?
 
-## How Office Motion Works
+## Как устроено движение в офисе
 
-Office motion is derived, not pushed directly into the scene.
+Движение в офисе выводится из состояния, а не передаётся в сцену напрямую.
 
-1. Runtime events arrive from the gateway.
-2. `reduceOfficeAnimationTriggerEvent()` records immediate latches such as working, streaming, thinking, and fresh user directives.
-3. `reconcileOfficeAnimationTriggerState()` re-derives durable holds from current agent state and transcript history.
-4. `buildOfficeAnimationState()` collapses the trigger state into the smaller shape consumed by the scene.
-5. `RetroOffice3D` turns that state into concrete destinations, paths, overlays, and temporary actors.
+1. События среды выполнения приходят из шлюза.
+2. `reduceOfficeAnimationTriggerEvent()` фиксирует мгновенные защёлки, такие как работа, потоковая передача, размышление и свежие директивы пользователя.
+3. `reconcileOfficeAnimationTriggerState()` заново выводит устойчивые удержания из текущего состояния агента и истории переписки.
+4. `buildOfficeAnimationState()` сворачивает состояние триггеров в более компактную форму, которую использует сцена.
+5. `RetroOffice3D` превращает это состояние в конкретные пункты назначения, пути, оверлеи и временных персонажей.
 
-This separation is important because it keeps transport-specific runtime details out of the 3D scene.
+Это разделение важно, потому что не пускает детали среды выполнения, зависящие от транспорта, в 3D-сцену.
 
-## How To Add A New 3D Object
+## Как добавить новый 3D-объект
 
-For a new static or interactive object:
+Для нового статичного или интерактивного объекта:
 
-1. Add geometry and footprint rules in `src/features/retro-office/core/geometry.ts` if the object needs sizing, bounds, snapping, or rotation support.
-2. Add default placement in `src/features/retro-office/core/furnitureDefaults.ts` if the object should exist in the default office.
-3. Add rendering support in one of:
+1. Добавьте правила геометрии и занимаемой площади в `src/features/retro-office/core/geometry.ts`, если объекту нужны размеры, границы, привязка или поддержка поворота.
+2. Добавьте размещение по умолчанию в `src/features/retro-office/core/furnitureDefaults.ts`, если объект должен присутствовать в офисе по умолчанию.
+3. Добавьте поддержку отрисовки в один из файлов:
    - `src/features/retro-office/objects/furniture.tsx`.
    - `src/features/retro-office/objects/primitives.tsx`.
    - `src/features/retro-office/objects/machines.tsx`.
-   - Another focused object file if the object family deserves its own module.
-4. Wire the item type into the `RetroOffice3D.tsx` render switch if needed.
-5. If the object affects navigation, add its type to the blocking/target logic in `src/features/retro-office/core/navigation.ts`.
+   - Другой специализированный файл объектов, если семейство объектов заслуживает собственного модуля.
+4. При необходимости подключите тип элемента в switch отрисовки в `RetroOffice3D.tsx`.
+5. Если объект влияет на навигацию, добавьте его тип в логику препятствий и целей в `src/features/retro-office/core/navigation.ts`.
 
-Good examples:
+Хорошие примеры:
 
-- Server-room objects in `src/features/retro-office/objects/machines.tsx`.
-- Environment primitives in `src/features/retro-office/objects/primitives.tsx`.
+- Объекты серверной в `src/features/retro-office/objects/machines.tsx`.
+- Примитивы окружения в `src/features/retro-office/objects/primitives.tsx`.
 
-## How To Add A New Room Or Activity
+## Как добавить новую комнату или активность
 
-For a new room that agents can intentionally visit:
+Для новой комнаты, которую агенты могут намеренно посещать:
 
-1. Add room objects and defaults in `src/features/retro-office/core/furnitureDefaults.ts`.
-2. Add navigation targets in `src/features/retro-office/core/navigation.ts`.
-3. If the room needs staged entry behavior, add a dedicated helper under `src/features/retro-office/core/navigation/`.
-4. Extend `OfficeIntentSnapshot` in `src/lib/office/deskDirectives.ts`.
-5. Update `src/lib/office/eventTriggers.ts` so the new intent becomes a derived hold or request.
-6. Update `RetroOffice3D.tsx` so `useAgentTick()` maps that hold to a real target and interaction state.
-7. Add or update unit tests around the new intent and trigger behavior.
+1. Добавьте объекты комнаты и значения по умолчанию в `src/features/retro-office/core/furnitureDefaults.ts`.
+2. Добавьте навигационные цели в `src/features/retro-office/core/navigation.ts`.
+3. Если комнате нужно поэтапное поведение при входе, добавьте отдельный помощник в `src/features/retro-office/core/navigation/`.
+4. Расширьте `OfficeIntentSnapshot` в `src/lib/office/deskDirectives.ts`.
+5. Обновите `src/lib/office/eventTriggers.ts`, чтобы новое намерение превращалось в производное удержание или запрос.
+6. Обновите `RetroOffice3D.tsx`, чтобы `useAgentTick()` сопоставлял это удержание с реальной целью и состоянием взаимодействия.
+7. Добавьте или обновите модульные тесты для нового намерения и поведения триггеров.
 
-Current examples to follow:
+Текущие примеры, на которые стоит ориентироваться:
 
 - `navigation/gymRoute.ts`.
 - `navigation/serverRoomRoute.ts`.
@@ -213,61 +213,61 @@ Current examples to follow:
 - `tests/unit/deskDirectives.test.ts`.
 - `tests/unit/officeEventTriggers.test.ts`.
 
-## How Desk Assignment Works
+## Как работает назначение столов
 
-Desk ownership is explicit now.
+Владение столами теперь явное.
 
-- Desk assignments are stored in Studio settings, not inferred sequentially.
-- `OfficeScreen.tsx` loads and persists `deskAssignmentByDeskUid`.
-- `RetroOffice3D.tsx` resolves assigned desk indexes from those persisted mappings.
-- Unassigned agents are intentionally safe and should not wander to random desks.
+- Назначения столов хранятся в настройках Studio, а не вычисляются по порядку.
+- `OfficeScreen.tsx` загружает и сохраняет `deskAssignmentByDeskUid`.
+- `RetroOffice3D.tsx` определяет индексы назначенных столов по этим сохранённым соответствиям.
+- Агенты без назначения намеренно ведут себя безопасно и не должны бродить к случайным столам.
 
-If you change desk semantics, make sure the Studio settings contract and the retro-office consumer stay aligned.
+Если вы меняете семантику столов, убедитесь, что контракт настроек Studio и потребитель в ретро-офисе остаются согласованными.
 
-## API Route Inventory
+## Перечень API-маршрутов
 
-Current `src/app/api` routes:
+Текущие маршруты `src/app/api`:
 
-- `studio/route.ts`: load and patch local Studio settings.
-- `path-suggestions/route.ts`: local filesystem path suggestions.
-- `office/route.ts`: office layout/builder persistence.
-- `office/publish/route.ts`: publish office maps.
-- `office/github/route.ts`: GitHub-related office flow helpers.
-- `office/browser-preview/route.ts`: browser preview helpers for office experiences.
-- `office/presence/route.ts`: office presence/state helpers.
-- `office/voice/transcribe/route.ts`: voice transcription.
-- `office/voice/reply/route.ts`: voice reply generation.
-- `office/standup/config/route.ts`: standup config persistence.
-- `office/standup/meeting/route.ts`: standup meeting state helpers.
-- `office/standup/run/route.ts`: standup run execution.
-- `gateway/media/route.ts`: gateway-backed media access.
-- `gateway/agent-state/route.ts`: gateway-backed agent state operations.
-- `gateway/skills/remove/route.ts`: gateway-backed skill removal flow.
+- `studio/route.ts`: загрузка и частичное обновление локальных настроек Studio.
+- `path-suggestions/route.ts`: подсказки путей локальной файловой системы.
+- `office/route.ts`: сохранение планировки офиса и данных конструктора.
+- `office/publish/route.ts`: публикация карт офиса.
+- `office/github/route.ts`: помощники для сценариев офиса, связанных с GitHub.
+- `office/browser-preview/route.ts`: помощники браузерного предпросмотра для офиса.
+- `office/presence/route.ts`: помощники присутствия и состояния офиса.
+- `office/voice/transcribe/route.ts`: расшифровка голоса.
+- `office/voice/reply/route.ts`: генерация голосовых ответов.
+- `office/standup/config/route.ts`: сохранение конфигурации планёрки.
+- `office/standup/meeting/route.ts`: помощники состояния собрания-планёрки.
+- `office/standup/run/route.ts`: проведение планёрки.
+- `gateway/media/route.ts`: доступ к медиа через шлюз.
+- `gateway/agent-state/route.ts`: операции с состоянием агентов через шлюз.
+- `gateway/skills/remove/route.ts`: удаление навыков через шлюз.
 
-When adding a new API route, keep it narrow and put shared business logic in `src/lib` or a feature operation module instead of the route handler itself.
+Добавляя новый API-маршрут, делайте его узким, а общую бизнес-логику размещайте в `src/lib` или в модуле операций возможности, а не в самом обработчике маршрута.
 
-## Scripts Worth Knowing
+## Полезные скрипты
 
-- `npm run dev`: starts the Studio dev server.
-- `npm run build`: production build.
-- `npm run start`: production server.
+- `npm run dev`: запускает сервер разработки Studio.
+- `npm run build`: продакшен-сборка.
+- `npm run start`: продакшен-сервер.
 - `npm run lint`: ESLint.
-- `npm run typecheck`: TypeScript without emit.
+- `npm run typecheck`: TypeScript без генерации файлов.
 - `npm run test`: Vitest.
 - `npm run e2e`: Playwright.
-- `npm run studio:setup`: local Studio prerequisites.
-- `npm run sync:gateway-client`: sync the vendored gateway browser client.
-- `npm run smoke:dev-server`: basic dev-server smoke check.
+- `npm run studio:setup`: локальные предварительные требования Studio.
+- `npm run sync:gateway-client`: синхронизация вендорного браузерного клиента шлюза.
+- `npm run smoke:dev-server`: базовая дымовая проверка сервера разработки.
 
-## Testing Map
+## Карта тестов
 
-Start with the tests closest to the subsystem you are touching.
+Начинайте с тестов, ближайших к подсистеме, которую вы затрагиваете.
 
-Useful examples:
+Полезные примеры:
 
-- `tests/unit/deskDirectives.test.ts`: office intent parsing.
-- `tests/unit/officeEventTriggers.test.ts`: office trigger derivation.
-- `tests/unit/janitorActors.test.ts` and `tests/unit/janitorReset.test.ts`: janitor and reset cues.
+- `tests/unit/deskDirectives.test.ts`: разбор намерений в офисе.
+- `tests/unit/officeEventTriggers.test.ts`: вывод триггеров офиса.
+- `tests/unit/janitorActors.test.ts` и `tests/unit/janitorReset.test.ts`: сигналы уборщиков и сброса.
 - `tests/unit/gatewayRuntimeEventHandler.chat.test.ts`.
 - `tests/unit/gatewayRuntimeEventHandler.agent.test.ts`.
 - `tests/unit/runtimeEventCoordinatorWorkflow.test.ts`.
@@ -276,40 +276,40 @@ Useful examples:
 - `tests/unit/transcript.test.ts`.
 - `tests/unit/studioDeskAssignments.test.ts`.
 
-If you introduce a new intent, route, or runtime reduction rule, add unit coverage in the same area before relying on manual testing.
+Если вы вводите новое намерение, маршрут или правило свёртки среды выполнения, добавьте модульные тесты в той же области, прежде чем полагаться на ручное тестирование.
 
-## Folder Structure Conventions
+## Соглашения о структуре каталогов
 
-A few patterns are used repeatedly in the repo:
+В репозитории повторяется несколько шаблонов:
 
-- Route files in `src/app/*` compose feature modules but should not become the main home for business logic.
-- `src/features/<area>/operations` usually contains orchestration logic with side effects.
-- `src/features/<area>/state` usually contains reducers, workflow planners, and state models.
-- `src/lib/<domain>` usually contains pure helpers, adapters, contracts, and persistence helpers shared across features.
-- In `src/features/retro-office/core/navigation/`, each route helper gets its own file when the path logic becomes room-specific.
+- Файлы маршрутов в `src/app/*` собирают модули возможностей, но не должны становиться основным местом для бизнес-логики.
+- `src/features/<area>/operations` обычно содержит логику оркестрации с побочными эффектами.
+- `src/features/<area>/state` обычно содержит редьюсеры, планировщики процессов и модели состояния.
+- `src/lib/<domain>` обычно содержит чистые помощники, адаптеры, контракты и помощники сохранения, общие для разных возможностей.
+- В `src/features/retro-office/core/navigation/` каждый помощник маршрута получает собственный файл, когда логика пути становится специфичной для комнаты.
 
-## Contributor Footguns
+## Подводные камни для участников
 
-- The immersive retro office and the Phaser builder are separate systems. Verify which one you need before editing.
-- The Gateway is the source of truth for runtime state. Avoid inventing local parallel state for sessions, runs, or transcripts.
-- Studio settings are local and per-workspace/gateway. Use them for UI preferences, desk assignments, and connection details only.
-- Transport-specific session keys such as Telegram sessions still need to map back to the correct agent. Reuse session-key helpers instead of writing ad-hoc parsing.
-- The immersive retro office now uses procedural furniture geometry instead of bundled third-party model assets.
-- This repo is not the OpenClaw runtime. Do not modify upstream OpenClaw source code from here.
+- Иммерсивный ретро-офис и конструктор на Phaser — отдельные системы. Прежде чем что-то править, убедитесь, какая из них вам нужна.
+- Шлюз — источник истины для состояния среды выполнения. Не придумывайте локальное параллельное состояние для сессий, запусков или переписки.
+- Настройки Studio локальны и привязаны к рабочему пространству или шлюзу. Используйте их только для настроек интерфейса, назначения столов и параметров подключения.
+- Ключи сессий, зависящие от транспорта (например, сессии Telegram), всё равно должны сопоставляться с правильным агентом. Переиспользуйте помощники для ключей сессий вместо разового разбора.
+- Иммерсивный ретро-офис теперь использует процедурную геометрию мебели вместо встроенных сторонних моделей.
+- Этот репозиторий — не среда выполнения OpenClaw. Не изменяйте отсюда исходный код вышестоящего OpenClaw.
 
-## When You Need Upstream OpenClaw Context
+## Когда нужен контекст вышестоящего OpenClaw
 
-Sometimes Office3D behavior depends on the upstream event contract or session behavior. In those cases:
+Иногда поведение Office3D зависит от контракта событий или поведения сессий в вышестоящем OpenClaw. В таких случаях:
 
-1. Inspect the relevant client or gateway contract in `src/lib/gateway`.
-2. If the answer is not in this repo, inspect your separate local OpenClaw checkout.
-3. Apply changes in Office3D unless the user explicitly asked for upstream OpenClaw work.
+1. Изучите соответствующий контракт клиента или шлюза в `src/lib/gateway`.
+2. Если ответа нет в этом репозитории, изучите свою отдельную локальную рабочую копию OpenClaw.
+3. Вносите изменения в Office3D, если пользователь явно не попросил работать над вышестоящим OpenClaw.
 
-## Documentation Philosophy
+## Принципы документации
 
-Keep these docs useful by preferring:
+Чтобы эта документация оставалась полезной, предпочитайте:
 
-- File paths over vague descriptions.
-- Extension points over exhaustive inventories of every component.
-- Stable contracts over temporary implementation details.
-- Focused inline comments in hard-to-read architecture hotspots instead of comment-heavy code everywhere.
+- Пути к файлам — расплывчатым описаниям.
+- Точки расширения — исчерпывающим перечням всех компонентов.
+- Стабильные контракты — временным деталям реализации.
+- Точечные встроенные комментарии в трудных для понимания местах архитектуры — коду, перегруженному комментариями повсюду.

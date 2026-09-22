@@ -1,5 +1,5 @@
-# Multi-Agent Beta
+# Мультиагентная бета
 
-Moved to [docs/multi-agent-beta.md](docs/multi-agent-beta.md).
+Перенесено в [docs/multi-agent-beta.md](docs/multi-agent-beta.md).
 
-This stub stays in place so older links and issue references do not break.
+Эта заглушка остаётся на месте, чтобы старые ссылки и упоминания в issue не сломались.

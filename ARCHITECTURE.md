@@ -1,129 +1,129 @@
-# Architecture
+# Архитектура
 
-## Overview
-Office3D is a gateway-first Next.js application for visualizing and operating AI agents powered by OpenClaw using Three.JS framework.
+## Обзор
+Office3D — это Next.js-приложение, построенное вокруг шлюза (gateway-first), для визуализации ИИ-агентов на базе OpenClaw и управления ими; 3D-часть построена на фреймворке Three.JS.
 
-It is the UI and proxy layer, not the OpenClaw runtime itself. OpenClaw remains the system of record for agents, sessions, and execution, while Office3D provides:
+Это слой интерфейса и прокси, а не сама среда выполнения OpenClaw. OpenClaw остаётся основной системой учёта агентов, сессий и выполнения, а Office3D предоставляет:
 
-- an `/agents` workspace for chat, approvals, settings, and runtime monitoring,
-- an `/office` 3D environment for spatializing agent activity,
-- an `/office/builder` surface for editing office layouts,
-- a Studio-side settings and proxy layer that connects the browser to an upstream OpenClaw gateway.
+- рабочее пространство `/agents` для чата, одобрений, настроек и наблюдения за средой выполнения,
+- 3D-среду `/office`, которая переносит активность агентов в пространство,
+- раздел `/office/builder` для редактирования планировок офиса,
+- слой настроек и прокси на стороне Studio, который соединяет браузер с вышестоящим шлюзом OpenClaw.
 
-## Goals
-- Keep OpenClaw as the source of truth for runtime state.
-- Keep local Studio state limited to UI preferences and connection settings.
-- Support both local and remote gateway setups.
-- Preserve clear boundaries between browser code, server code, and gateway-owned data.
-- Favor feature-focused modules over large shared abstractions.
+## Цели
+- Оставлять OpenClaw источником истины для состояния среды выполнения.
+- Ограничивать локальное состояние Studio настройками интерфейса и параметрами подключения.
+- Поддерживать как локальные, так и удалённые конфигурации шлюза.
+- Сохранять чёткие границы между браузерным кодом, серверным кодом и данными, которыми владеет шлюз.
+- Предпочитать модули, сосредоточенные на отдельных возможностях, крупным общим абстракциям.
 
-## Non-goals
-- Multi-user or multi-tenant coordination.
-- Replacing OpenClaw as the execution engine.
-- Moving gateway-owned agent state into local frontend storage.
+## Не цели
+- Многопользовательская или мультиарендная координация.
+- Замена OpenClaw в роли движка выполнения.
+- Перенос состояния агентов, которым владеет шлюз, в локальное хранилище фронтенда.
 
-## System Model
-Office3D is split into four main parts:
+## Модель системы
+Office3D состоит из четырёх основных частей:
 
-1. Browser UI.
-   The Next.js client renders the agents workspace, the office, and the builder.
-2. Studio API routes.
-   Server routes handle local settings and other server-only operations.
-3. Studio WebSocket proxy.
-   A custom Node server terminates browser WebSocket connections at `/api/gateway/ws` and forwards them to the upstream OpenClaw gateway.
-4. OpenClaw gateway.
-   The gateway owns agent records, sessions, config, approvals, and runtime events.
+1. Браузерный интерфейс.
+   Клиент Next.js отрисовывает рабочее пространство агентов, офис и конструктор.
+2. API-маршруты Studio.
+   Серверные маршруты обрабатывают локальные настройки и другие операции, доступные только на сервере.
+3. WebSocket-прокси Studio.
+   Собственный Node-сервер принимает браузерные WebSocket-соединения на `/api/gateway/ws` и перенаправляет их на вышестоящий шлюз OpenClaw.
+4. Шлюз OpenClaw.
+   Шлюз владеет записями агентов, сессиями, конфигурацией, одобрениями и событиями среды выполнения.
 
-## Core Boundaries
-### 1. Gateway-owned state
-Agent records, sessions, approvals, runtime streams, and agent files belong to OpenClaw.
+## Основные границы
+### 1. Состояние, которым владеет шлюз
+Записи агентов, сессии, одобрения, потоки среды выполнения и файлы агентов принадлежат OpenClaw.
 
-Office3D may read and mutate that state through gateway APIs, but it should not create a competing local source of truth.
+Office3D может читать и изменять это состояние через API шлюза, но не должен создавать конкурирующий локальный источник истины.
 
-### 2. Studio-owned local state
-Studio stores local settings such as:
+### 2. Локальное состояние, которым владеет Studio
+Studio хранит локальные настройки, такие как:
 
-- gateway URL and token,
-- focused agent and related UI preferences,
-- office layout and local presentation state.
+- URL и токен шлюза,
+- выбранный агент и связанные настройки интерфейса,
+- планировка офиса и локальное состояние отображения.
 
-These settings live under the local OpenClaw state directory and are accessed through server routes, not directly from the browser.
+Эти настройки хранятся в локальном каталоге состояния OpenClaw, и доступ к ним идёт через серверные маршруты, а не напрямую из браузера.
 
-### 3. Client-server boundary
-Client components should not read or write the local filesystem directly.
+### 3. Граница между клиентом и сервером
+Клиентские компоненты не должны напрямую читать или записывать локальную файловую систему.
 
-Anything that touches files, environment-backed settings, or SSH helpers belongs on the server side.
+Всё, что затрагивает файлы, настройки из окружения или SSH-помощники, относится к серверной стороне.
 
-### 4. Browser-gateway boundary
-The browser does not connect directly to the upstream gateway. It connects to Studio over a same-origin WebSocket, and Studio opens the upstream gateway connection on the server.
+### 4. Граница между браузером и шлюзом
+Браузер не подключается к вышестоящему шлюзу напрямую. Он подключается к Studio по WebSocket с того же источника (same-origin), а Studio открывает соединение с вышестоящим шлюзом на сервере.
 
-This keeps the upstream connection server-managed and makes local, remote, and tunneled setups easier to support. The current UI still loads the configured upstream URL/token into browser memory at runtime, so the browser remains part of the active trust boundary.
+Так соединение с вышестоящим шлюзом управляется сервером, и проще поддерживать локальные, удалённые и туннелированные конфигурации. Текущий интерфейс всё ещё загружает настроенные URL и токен вышестоящего шлюза в память браузера во время работы, поэтому браузер остаётся частью активной границы доверия.
 
-## Main Flows
-### Connection flow
-1. The UI loads Studio settings from `/api/studio`.
-2. The browser opens a WebSocket to `/api/gateway/ws`.
-3. The Studio proxy loads the upstream gateway URL and token server-side.
-4. Studio opens the upstream gateway connection and forwards frames between browser and gateway.
+## Основные потоки
+### Поток подключения
+1. Интерфейс загружает настройки Studio из `/api/studio`.
+2. Браузер открывает WebSocket к `/api/gateway/ws`.
+3. Прокси Studio загружает URL и токен вышестоящего шлюза на стороне сервера.
+4. Studio открывает соединение с вышестоящим шлюзом и пересылает кадры между браузером и шлюзом.
 
-### Agent runtime flow
-1. The UI connects through the Studio proxy and requests gateway state.
-2. Runtime events stream from the gateway into the agents UI.
-3. The agents workspace derives chat, status, approvals, and summaries from that event stream.
-4. The office view derives animation and room activity from the same underlying runtime signals.
+### Поток среды выполнения агентов
+1. Интерфейс подключается через прокси Studio и запрашивает состояние шлюза.
+2. События среды выполнения передаются потоком из шлюза в интерфейс агентов.
+3. Рабочее пространство агентов выводит из этого потока событий чат, статусы, одобрения и сводки.
+4. Вид офиса выводит анимацию и активность в комнатах из тех же сигналов среды выполнения.
 
-### Office flow
-1. The office subscribes to agent runtime state.
-2. Event-trigger logic converts runtime activity into spatial cues.
-3. The 3D scene renders agent movement, room activity, and temporary janitor/reset behavior from derived state.
+### Поток офиса
+1. Офис подписывается на состояние среды выполнения агентов.
+2. Логика триггеров событий превращает активность среды выполнения в пространственные сигналы.
+3. 3D-сцена отрисовывает перемещение агентов, активность в комнатах и временное поведение уборщиков и сброса на основе производного состояния.
 
-## Repo Shape
-- `src/app`: routes, layouts, and API endpoints.
-- `src/features/agents`: agents workspace UI and agent-runtime state handling.
-- `src/features/office`: office screens, panels, and builder UI.
-- `src/features/retro-office`: 3D scene, navigation, actors, and rendering helpers.
-- `src/lib`: gateway adapters, Studio settings, office derivation logic, and shared utilities.
-- `server`: custom Studio server and WebSocket proxy.
+## Структура репозитория
+- `src/app`: маршруты, макеты и API-эндпоинты.
+- `src/features/agents`: интерфейс рабочего пространства агентов и обработка состояния среды выполнения агентов.
+- `src/features/office`: экраны офиса, панели и интерфейс конструктора.
+- `src/features/retro-office`: 3D-сцена, навигация, персонажи и вспомогательные функции отрисовки.
+- `src/lib`: адаптеры шлюза, настройки Studio, логика вывода состояния офиса и общие утилиты.
+- `server`: собственный сервер Studio и WebSocket-прокси.
 
-For a practical contributor code map and extension guide, see `CODE_DOCUMENTATION.md`.
+Практическую карту кода и руководство по расширению для участников см. в `CODE_DOCUMENTATION.md`.
 
-## Design Principles
-- Gateway first.
-  If data belongs to the runtime, it should live in OpenClaw, not in a local frontend file.
-- Derived UI state over duplicated state.
-  The UI should derive views from gateway events and local preferences instead of creating parallel records.
-- Feature-first organization.
-  Keep most UI logic inside feature modules and move only true shared utilities into `src/lib`.
-- Narrow server boundaries.
-  Filesystem access, SSH helpers, and token handling should stay on the server side.
-- Stable architecture docs.
-  This document should describe boundaries and intent, not every helper, hook, or workflow file.
+## Принципы проектирования
+- Шлюз прежде всего.
+  Если данные относятся к среде выполнения, они должны жить в OpenClaw, а не в локальном файле фронтенда.
+- Производное состояние интерфейса вместо дублирования.
+  Интерфейс должен выводить представления из событий шлюза и локальных настроек, а не создавать параллельные записи.
+- Организация по возможностям.
+  Держите бо́льшую часть логики интерфейса внутри модулей возможностей и выносите в `src/lib` только действительно общие утилиты.
+- Узкие серверные границы.
+  Доступ к файловой системе, SSH-помощники и обработка токенов должны оставаться на стороне сервера.
+- Стабильная архитектурная документация.
+  Этот документ должен описывать границы и замысел, а не каждый помощник, хук или файл рабочего процесса.
 
-## Important Decisions
-- Local settings use a JSON-backed store rather than a database.
-  This keeps the app simple and local-first, at the cost of multi-user support.
-- Browser traffic goes through a same-origin Studio proxy rather than directly to the gateway.
-  This adds one hop, but keeps credentials server-side and improves deployment flexibility.
-- Agent configuration and files are managed through gateway APIs.
-  This avoids drift between Office3D and the upstream runtime.
-- Office behavior is driven from derived event state rather than imperative scene mutations.
-  This keeps the 3D layer more reproducible and testable.
+## Важные решения
+- Локальные настройки хранятся в JSON-хранилище, а не в базе данных.
+  Это делает приложение простым и ориентированным на локальную работу ценой отказа от многопользовательского режима.
+- Трафик браузера идёт через прокси Studio с того же источника, а не напрямую к шлюзу.
+  Это добавляет один переход, но оставляет учётные данные на сервере и делает развёртывание гибче.
+- Конфигурация и файлы агентов управляются через API шлюза.
+  Это предотвращает расхождение между Office3D и вышестоящей средой выполнения.
+- Поведение офиса управляется производным состоянием событий, а не императивными изменениями сцены.
+  Благодаря этому 3D-слой лучше воспроизводится и тестируется.
 
-## Constraints
-- Do not store gateway tokens or secrets in client-side persistent storage.
-- Do not read or write local files from client components.
-- Do not add a second source of truth for agent records outside the gateway.
-- Do not write gateway-owned agent config directly to local OpenClaw config files.
-- Do not add parallel Studio settings endpoints when `/api/studio` already owns that responsibility.
-- Do not add heavyweight abstractions without a clear need.
+## Ограничения
+- Не храните токены шлюза и секреты в постоянном хранилище на стороне клиента.
+- Не читайте и не записывайте локальные файлы из клиентских компонентов.
+- Не создавайте второй источник истины для записей агентов вне шлюза.
+- Не записывайте конфигурацию агентов, которой владеет шлюз, напрямую в локальные файлы конфигурации OpenClaw.
+- Не добавляйте параллельные эндпоинты настроек Studio, когда эту обязанность уже выполняет `/api/studio`.
+- Не добавляйте тяжеловесные абстракции без явной необходимости.
 
-## Future Direction
-- If multi-user support becomes important, replace the local settings store with a service-backed persistence layer and add authentication at the API boundary.
-- If the gateway protocol changes, keep the impact isolated inside `src/lib/gateway` and the Studio proxy boundary.
+## Направление развития
+- Если многопользовательский режим станет важен, замените локальное хранилище настроек слоем хранения на основе сервиса и добавьте аутентификацию на границе API.
+- Если протокол шлюза изменится, изолируйте последствия внутри `src/lib/gateway` и границы прокси Studio.
 
-See `KNOWN_ISSUES.md` for the current publication caveats and unresolved follow-up items.
+Текущие оговорки к публикации и нерешённые задачи см. в `KNOWN_ISSUES.md`.
 
-## Diagram
+## Диаграмма
 ```mermaid
 flowchart LR
   U[User] --> B[Browser UI]

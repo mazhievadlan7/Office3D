@@ -1,32 +1,32 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Сообщение об ошибке
+about: Сообщите об ошибке, чтобы помочь нам стать лучше
 title: "[BUG]"
 labels: bug
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Описание ошибки**
+Понятное и краткое описание того, в чём заключается ошибка.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Как воспроизвести**
+Шаги для воспроизведения:
+1. Перейдите в «…»
+2. Нажмите «…»
+3. Прокрутите вниз до «…»
+4. Увидите ошибку
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Ожидаемое поведение**
+Понятное и краткое описание того, что должно было произойти.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Скриншоты**
+Если возможно, приложите скриншоты, которые помогут объяснить проблему.
 
-**Environment (please complete the following information):**
- - Browser [e.g. chrome, safari]
- - Office3D version / commit:
- - Build method (source / binary):
+**Окружение (заполните, пожалуйста):**
+ - Браузер [например, Chrome, Safari]
+ - Версия / коммит Office3D:
+ - Способ сборки (из исходников / бинарный файл):
 
-**Additional context**
-Add any other context about the problem here.
+**Дополнительный контекст**
+Добавьте здесь любой другой контекст о проблеме.

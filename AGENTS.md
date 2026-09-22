@@ -1,41 +1,41 @@
-# Agent Instructions
+# Инструкции для агентов
 
-Keep repository instructions generic and safe for open source.
+Инструкции в репозитории должны оставаться общими и безопасными для open source.
 
-This repo is a frontend for OpenClaw. Keep any OpenClaw runtime checkout separate from this repository.
+Этот репозиторий — фронтенд для OpenClaw. Любую рабочую копию среды выполнения OpenClaw держите отдельно от этого репозитория.
 
-Do not modify the OpenClaw source code. When the user asks for changes, they are asking for changes to this app. Your solutions should be applied to this app but to understand the full context of implementing your solution, you will need to search through OpenClaw's source code.
+Не изменяйте исходный код OpenClaw. Когда пользователь просит внести изменения, он просит изменить это приложение. Ваши решения должны применяться к этому приложению, но, чтобы понять полный контекст реализации решения, вам нужно будет изучать исходный код OpenClaw.
 
-If you use local private overlay instructions, keep them outside the repository and do not commit them here.
+Если вы используете локальные приватные дополнительные инструкции, храните их вне репозитория и не коммитьте их сюда.
 
-Do not commit personal, environment-specific, or secret instructions to this repository.
+Не коммитьте в этот репозиторий личные, привязанные к конкретному окружению или секретные инструкции.
 
-## Cursor Cloud specific instructions
+## Инструкции для Cursor Cloud
 
-### Service overview
+### Обзор сервиса
 
-Office3D is a Next.js 16 frontend (TypeScript, React 19, Three.js, Phaser) for OpenClaw. It runs a custom Node.js server (`server/index.js`) that bundles a same-origin WebSocket proxy to the upstream OpenClaw Gateway. No database or Docker is required. The only hard system dependency is Node.js 20+ with npm 10+.
+Office3D — фронтенд на Next.js 16 (TypeScript, React 19, Three.js, Phaser) для OpenClaw. Он запускает собственный сервер на Node.js (`server/index.js`), в который встроен WebSocket-прокси с того же источника (same-origin) к вышестоящему шлюзу OpenClaw. База данных и Docker не нужны. Единственная обязательная системная зависимость — Node.js 20+ с npm 10+.
 
-### Running the app
+### Запуск приложения
 
-- `npm run dev` starts the dev server on port 3000 via the custom server (`node server/index.js --dev`).
-- The app requires a running OpenClaw Gateway to show agent data. Without one, the UI loads but shows the gateway connection form. This is expected and not an error.
-- `.env` is copied from `.env.example`; see `README.md` "Configuration" for variable descriptions.
+- `npm run dev` запускает сервер разработки на порту 3000 через собственный сервер (`node server/index.js --dev`).
+- Чтобы показывать данные агентов, приложению нужен запущенный шлюз OpenClaw. Без него интерфейс загружается, но показывает форму подключения к шлюзу. Это ожидаемое поведение, а не ошибка.
+- `.env` копируется из `.env.example`; описание переменных — в разделе «Настройка» файла `README.md`.
 
-### Lint, typecheck, and tests
+### Линтер, проверка типов и тесты
 
-- `npm run lint` — ESLint. Clean of errors; a small number of warnings remain. Treat a new error as yours.
-- `npm run typecheck` — `tsc --noEmit`. Clean.
-- `npm run test -- --run` — Vitest unit tests (use `--run` for single-run mode). All pass; a failure is a regression, not a known one.
-- `npm run e2e` — Playwright E2E tests; requires `npx playwright install` first.
-- `npm run smoke:dev-server` — starts the dev server on a random port and verifies HTTP response.
+- `npm run lint` — ESLint. Ошибок нет; осталось небольшое число предупреждений. Любую новую ошибку считайте своей.
+- `npm run typecheck` — `tsc --noEmit`. Чисто.
+- `npm run test -- --run` — модульные тесты Vitest (используйте `--run` для однократного запуска). Все проходят; падение теста — это регрессия, а не известная проблема.
+- `npm run e2e` — E2E-тесты Playwright; сначала нужно выполнить `npx playwright install`.
+- `npm run smoke:dev-server` — запускает сервер разработки на случайном порту и проверяет HTTP-ответ.
 
-### Build
+### Сборка
 
-- `npm run build` — Next.js production build. Expect a non-blocking warning about `Can't resolve 'openclaw'`; the `openclaw` npm package is resolved optionally at runtime and is not bundled.
+- `npm run build` — продакшен-сборка Next.js. Ожидайте неблокирующее предупреждение `Can't resolve 'openclaw'`; npm-пакет `openclaw` подключается опционально во время выполнения и не входит в сборку.
 
-### Gotchas
+### Подводные камни
 
-- The `openclaw` npm package is not a dependency of this repo. The build warning about it is harmless.
-- `npm run studio:setup` is interactive (TTY prompts) — avoid running it in non-interactive cloud environments.
-- Vitest runs in watch mode by default; always pass `--run` for CI/cloud agent use.
+- npm-пакет `openclaw` не является зависимостью этого репозитория. Предупреждение сборки о нём безвредно.
+- `npm run studio:setup` интерактивен (запросы в TTY) — не запускайте его в неинтерактивных облачных окружениях.
+- По умолчанию Vitest запускается в режиме наблюдения (watch); в CI и облачных агентах всегда передавайте `--run`.

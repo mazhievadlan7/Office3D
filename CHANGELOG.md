@@ -1,129 +1,129 @@
-# Changelog
+# Журнал изменений
 
 ## [0.1.4] - 2026-04-23
 
-Runtime Profiles, Multi-Floor Offices, Remote Collaboration, and Diagnostics.
+Профили сред выполнения, многоэтажные офисы, удалённая совместная работа и диагностика.
 
-This release converges the runtime-profiles, office-systems, office3doctor, and selective `vera_lane` work into one branch. Backends become named profiles, the office becomes a multi-floor building, remote offices gain server-backed messaging and handoffs, and a new diagnostics CLI makes setup and troubleshooting first-class.
+Этот релиз объединяет в одной ветке работу над профилями сред выполнения, офисными системами, office3doctor и выборочные изменения из `vera_lane`. Бэкенды становятся именованными профилями, офис — многоэтажным зданием, удалённые офисы получают обмен сообщениями и передачу задач через сервер, а новый диагностический CLI делает настройку и поиск неисправностей полноценной частью продукта.
 
-### Added
+### Добавлено
 
-- Named runtime profiles for `openclaw`, `hermes`, `demo`, `local`, `office3d`, and `custom` backends, each storing its own URL and token in Studio settings instead of a single global pair (`docs/runtime-profiles.md`, `src/lib/runtime/*`).
-- Multi-floor office runtime model with one runtime binding per floor and persistent per-floor state, including `lobby`, `openclaw-ground`, `hermes-first`, `local-runtime`, `office3d-runtime`, `custom-second`, `training`, `traders-floor`, and `campus` (`src/lib/office/floors.ts`, `docs/office_sys/multi-floor-runtime-architecture.md`).
-- Floor roster persistence and a floor navigation HUD for moving between runtime-backed floors in a single session (`src/lib/office/floorRoster.ts`, `src/features/office/components/OfficeFloorNav.tsx`, `src/features/office/hooks/useOfficeFloorRuntimePersistence.ts`).
-- Remote office messaging API for cross-office direct messages with structured assistant-history reply resolution (`src/app/api/office/remote-message/route.ts`).
-- Remote office handoff API for sending task / context / deliverables / acceptance criteria to a remote agent through the runtime layer (`src/app/api/office/remote-handoff/route.ts`, `src/lib/runtime/agentMessaging.ts`).
-- Local file upload route for chat attachments with allowlisted MIME types and a 10 MB upload cap (`src/app/api/files/upload/route.ts`).
-- `office3doctor` diagnostics CLI with profile-scoped and `--all-profiles` runs, OpenClaw / Hermes / demo / custom-runtime probes, gateway failure classification, JSON output, and a `npm run doctor` script (`scripts/office3doctor.mjs`, `scripts/lib/office3doctor-core.mjs`, `package.json`).
-- New product and architecture docs covering runtime profiles, multi-floor architecture, the office3doctor spec, runtime profile architecture, the refreshed roadmap, multi-agent beta, and the bulletin-board, desk-progression, hierarchy-and-teams, meeting-room-workflow, QA-department, and whiteboard specs (`docs/`).
+- Именованные профили сред выполнения для бэкендов `openclaw`, `hermes`, `demo`, `local`, `office3d` и `custom`; каждый хранит собственные URL и токен в настройках Studio вместо одной глобальной пары (`docs/runtime-profiles.md`, `src/lib/runtime/*`).
+- Многоэтажная модель офиса: у каждого этажа своя привязка к среде выполнения и собственное сохраняемое состояние, включая `lobby`, `openclaw-ground`, `hermes-first`, `local-runtime`, `office3d-runtime`, `custom-second`, `training`, `traders-floor` и `campus` (`src/lib/office/floors.ts`, `docs/office_sys/multi-floor-runtime-architecture.md`).
+- Сохранение состава этажей и навигационная панель HUD для перехода между этажами с разными средами выполнения в рамках одной сессии (`src/lib/office/floorRoster.ts`, `src/features/office/components/OfficeFloorNav.tsx`, `src/features/office/hooks/useOfficeFloorRuntimePersistence.ts`).
+- API обмена сообщениями между удалёнными офисами для личных сообщений между офисами со структурированным поиском ответа в истории ассистента (`src/app/api/office/remote-message/route.ts`).
+- API передачи задач удалённому офису: отправка задачи, контекста, ожидаемых результатов и критериев приёмки удалённому агенту через слой среды выполнения (`src/app/api/office/remote-handoff/route.ts`, `src/lib/runtime/agentMessaging.ts`).
+- Маршрут загрузки локальных файлов для вложений в чате со списком разрешённых MIME-типов и ограничением размера 10 МБ (`src/app/api/files/upload/route.ts`).
+- Диагностический CLI `office3doctor` с запусками для отдельного профиля и `--all-profiles`, проверками OpenClaw / Hermes / demo / пользовательской среды выполнения, классификацией сбоев шлюза, выводом в JSON и скриптом `npm run doctor` (`scripts/office3doctor.mjs`, `scripts/lib/office3doctor-core.mjs`, `package.json`).
+- Новая продуктовая и архитектурная документация: профили сред выполнения, многоэтажная архитектура, спецификация office3doctor, архитектура профилей сред выполнения, обновлённая дорожная карта, мультиагентная бета, а также спецификации доски объявлений, развития столов, иерархии и команд, работы переговорной, QA-отдела и маркерной доски (`docs/`).
 
-### Changed
+### Изменено
 
-- Runtime provider selection is now profile-aware across `openclaw`, `hermes`, `demo`, `local`, `office3d`, and `custom` instead of collapsing into one generic path (`src/lib/runtime/createRuntimeProvider.ts`, `src/lib/runtime/{openclaw,hermes,demo,custom}/provider.ts`).
-- Studio settings now persist per-profile URL/token entries and an active profile selection, with coordinated bootstrap and hydration paths (`src/lib/studio/settings.ts`, `src/lib/studio/settings-store.ts`, `src/lib/studio/coordinator.ts`).
-- Remote agent chat panel and remote office presence flows updated for the new server-backed delivery and reply behavior (`src/features/office/components/RemoteAgentChatPanel.tsx`, `src/features/office/hooks/useRemoteOfficePresence.ts`).
-- Hardened production security headers: strict CSP with `'unsafe-eval'` only in dev, `Referrer-Policy`, `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, restrictive `Permissions-Policy`, `Cross-Origin-Resource-Policy: same-origin`, and HSTS in production (`next.config.ts`).
-- Access gate rewritten with constant-time token comparison, a per-IP rate limiter (10 attempts / 60s), and `TRUSTED_PROXY=1`-gated `X-Forwarded-For` handling to prevent IP spoofing (`server/access-gate.js`).
-- Custom runtime provider and proxy URL handling tightened around runtime boundaries and allowlists (`src/lib/runtime/custom/provider.ts`, `src/lib/gateway/proxy-url.ts`).
+- Выбор поставщика среды выполнения теперь учитывает профили `openclaw`, `hermes`, `demo`, `local`, `office3d` и `custom`, а не сводится к одному общему пути (`src/lib/runtime/createRuntimeProvider.ts`, `src/lib/runtime/{openclaw,hermes,demo,custom}/provider.ts`).
+- Настройки Studio теперь сохраняют URL и токен для каждого профиля и выбранный активный профиль, а начальная загрузка и гидратация согласованы между собой (`src/lib/studio/settings.ts`, `src/lib/studio/settings-store.ts`, `src/lib/studio/coordinator.ts`).
+- Панель чата с удалённым агентом и отслеживание присутствия в удалённом офисе обновлены под новую доставку через сервер и новое поведение ответов (`src/features/office/components/RemoteAgentChatPanel.tsx`, `src/features/office/hooks/useRemoteOfficePresence.ts`).
+- Усилены заголовки безопасности в продакшене: строгий CSP с `'unsafe-eval'` только при разработке, `Referrer-Policy`, `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, ограничительный `Permissions-Policy`, `Cross-Origin-Resource-Policy: same-origin` и HSTS в продакшене (`next.config.ts`).
+- Проверка доступа переписана: сравнение токенов за постоянное время, ограничение частоты по IP (10 попыток за 60 с) и обработка `X-Forwarded-For` только при `TRUSTED_PROXY=1`, чтобы предотвратить подмену IP (`server/access-gate.js`).
+- Ужесточена обработка URL в поставщике пользовательской среды выполнения и прокси с учётом границ среды выполнения и списков разрешённых адресов (`src/lib/runtime/custom/provider.ts`, `src/lib/gateway/proxy-url.ts`).
 
-### Fixed
+### Исправлено
 
-- Repaired merge-corrupted files and removed tracked merge artifacts left over from the earlier overlapping branch stack.
-- Resolved a UTF-8 / Turbopack parsing issue and cleaned up Turbopack root and optional `openclaw` resolution warnings (`next.config.ts`).
-- Office navigation and pathfinding behavior tightened around floor-aware routing and runtime persistence (`src/features/office/screens/OfficeScreen.tsx`, `src/features/retro-office/RetroOffice3D.tsx`).
+- Восстановлены файлы, повреждённые при слиянии, и удалены отслеживаемые артефакты слияния, оставшиеся от прежнего набора пересекающихся веток.
+- Устранена проблема разбора UTF-8 в Turbopack и убраны предупреждения о корне Turbopack и опциональном разрешении `openclaw` (`next.config.ts`).
+- Уточнено поведение навигации и поиска пути в офисе с учётом маршрутизации по этажам и сохранения среды выполнения (`src/features/office/screens/OfficeScreen.tsx`, `src/features/retro-office/RetroOffice3D.tsx`).
 
-### Tests
+### Тесты
 
-- Added unit coverage for `office3doctor`, office floors, floor roster, runtime connection, gateway connection, office floor runtime persistence, agent fleet hydration derivation, and studio settings coordinator behavior (`tests/unit/`).
+- Добавлены модульные тесты для `office3doctor`, этажей офиса, состава этажей, подключения к среде выполнения, подключения к шлюзу, сохранения среды выполнения этажей офиса, вывода гидратации команды агентов и поведения координатора настроек Studio (`tests/unit/`).
 
-### Docs
+### Документация
 
-- Replaced top-level `MULTI_AGENT_BETA.md` and `ROADMAP.md` with stubs that point to canonical docs under `docs/`, and added a runtime profiles reference from `README.md`.
-- Expanded `README.md` to describe `Local` and `Office3D` runtime modes and persistent backend profile configuration, including the additional `local` and `office3d` values for `OFFICE3D_GATEWAY_ADAPTER_TYPE`.
+- `MULTI_AGENT_BETA.md` и `ROADMAP.md` в корне заменены заглушками, указывающими на основную документацию в `docs/`, а в `README.md` добавлена ссылка на справку по профилям сред выполнения.
+- `README.md` дополнен описанием режимов среды выполнения `Local` и `Office3D` и сохраняемой настройки профилей бэкендов, включая дополнительные значения `local` и `office3d` для `OFFICE3D_GATEWAY_ADAPTER_TYPE`.
 
-### Notes
+### Примечания
 
-- This release bumps the in-repo app version to `0.1.4`. After merging, cut the GitHub release/tag as `v0.1.4`.
-- This is still an early-stage release. Remote office workflows, runtime profiles, multi-floor offices, and the diagnostics CLI will continue to iterate quickly in upcoming versions.
+- Этот релиз повышает версию приложения в репозитории до `0.1.4`. После слияния создайте релиз и тег на GitHub `v0.1.4`.
+- Это по-прежнему ранний релиз. Процессы работы с удалёнными офисами, профили сред выполнения, многоэтажные офисы и диагностический CLI будут быстро развиваться в следующих версиях.
 
 ## [0.1.3] - 2026-03-28
 
-Remote Offices, Skills Marketplace, and Company Builder.
+Удалённые офисы, маркет навыков и конструктор компании.
 
-This release expands Office3D from a single-office viewer into a more complete AI workplace, with guided setup, richer agent operations, remote office support, and stronger security hardening.
+Этот релиз превращает Office3D из просмотрщика одного офиса в более полноценное рабочее место для ИИ: с пошаговой настройкой, расширенным управлением агентами, поддержкой удалённых офисов и усиленной безопасностью.
 
-### Added
+### Добавлено
 
-- New onboarding wizard for first-time setup, including gateway connection, prerequisites, company details, and initial agent configuration.
-- New packaged skills marketplace with trigger-driven office routing, including starter skills like Todo Board and SOUNDCLAW.
-- New office agent management wizard for creating and managing agents directly from the office experience.
-- New multi-agent beta support for remote office layouts, presence sync, and remote messaging.
-- New company builder wizard with AI-assisted organization generation and bootstrap planning.
-- Runtime gateway URL fallback through `/api/studio` for more reliable environment-specific setup.
+- Новый мастер первоначальной настройки: подключение к шлюзу, предварительные требования, сведения о компании и начальная настройка агентов.
+- Новый маркет упакованных навыков с маршрутизацией по офису на основе триггеров, включая стартовые навыки вроде Todo Board и SOUNDCLAW.
+- Новый мастер управления агентами офиса для создания агентов и управления ими прямо из офиса.
+- Новая мультиагентная бета с поддержкой планировок удалённых офисов, синхронизации присутствия и удалённого обмена сообщениями.
+- Новый мастер-конструктор компании с генерацией структуры организации с помощью ИИ и планированием начальной настройки.
+- Резервное получение URL шлюза во время выполнения через `/api/studio` для более надёжной настройки в разных окружениях.
 
-### Changed
+### Изменено
 
-- Improved UI polish, responsiveness, and accessibility across the main app and office surfaces.
-- Hardened access control so gating applies across all routes, not only `/api`.
-- Enforced voice upload size limits before buffering.
+- Улучшены отделка интерфейса, отзывчивость и доступность в основном приложении и в офисе.
+- Усилен контроль доступа: проверка теперь применяется ко всем маршрутам, а не только к `/api`.
+- Ограничения размера загружаемых голосовых записей теперь применяются до буферизации.
 
-### Fixed
+### Исправлено
 
-- Closed multiple path traversal and file-path validation gaps in local file operations.
-- Resolved symlink handling issues in path suggestions.
-- Improved office navigation and pathfinding by fixing diagonal corner-cutting, metadata-driven blockers, collision-aware routing, and A* failure behavior.
-- Removed a TypeScript TS2367 build blocker in `skillGymDirective`.
+- Закрыто несколько уязвимостей обхода пути и пробелов в проверке путей файлов при локальных файловых операциях.
+- Исправлена обработка символических ссылок в подсказках путей.
+- Улучшены навигация и поиск пути в офисе: исправлено срезание углов по диагонали, препятствия на основе метаданных, маршрутизация с учётом столкновений и поведение A* при неудаче.
+- Устранена ошибка TypeScript TS2367 в `skillGymDirective`, блокировавшая сборку.
 
-### Docs
+### Документация
 
-- Added an Agent Bus integration guide for visualizing AI sessions in Office3D.
-- Refreshed the public roadmap.
+- Добавлено руководство по интеграции с Agent Bus для визуализации ИИ-сессий в Office3D.
+- Обновлена публичная дорожная карта.
 
-### Notes
+### Примечания
 
-- This is still an early-stage release. The platform is moving quickly, especially around remote office workflows, skills, and guided setup, so expect rapid iteration in upcoming versions.
+- Это по-прежнему ранний релиз. Платформа быстро развивается, особенно в части работы с удалёнными офисами, навыков и пошаговой настройки, поэтому в следующих версиях ожидайте быстрых изменений.
 
 ## [0.1.2] - 2026-03-20
 
-### Added
+### Добавлено
 
-- An in-app avatar creator for agents with live 3D preview, appearance presets, and accessory controls for customizing office avatars.
-- A unified agent editor modal in the office that lets you edit avatars alongside agent brain files such as `IDENTITY.md`, `SOUL.md`, `AGENTS.md`, `USER.md`, `TOOLS.md`, `MEMORY.md`, and `HEARTBEAT.md`.
-- Structured avatar profile persistence and normalization so studio settings can store full avatar appearance data per gateway and agent instead of only avatar seeds.
-- A `DEBUG` environment toggle for controlling the OpenClaw event console in the office UI.
+- Встроенный редактор аватаров агентов с живым 3D-предпросмотром, пресетами внешности и настройкой аксессуаров для аватаров в офисе.
+- Единое модальное окно редактора агента в офисе, где можно редактировать аватары вместе с файлами «мозга» агента, такими как `IDENTITY.md`, `SOUL.md`, `AGENTS.md`, `USER.md`, `TOOLS.md`, `MEMORY.md` и `HEARTBEAT.md`.
+- Структурированное сохранение и нормализация профилей аватаров: настройки Studio теперь могут хранить полные данные о внешности аватара для каждого шлюза и агента, а не только seed аватара.
+- Переключатель окружения `DEBUG` для управления консолью событий OpenClaw в интерфейсе офиса.
 
-### Changed
+### Изменено
 
-- Reworked office avatar rendering so 3D agents reflect saved appearance profiles, including hair, clothing, hats, glasses, headsets, backpacks, and other visual variations.
-- Replaced avatar shuffle entry points in the chat and office surfaces with avatar customization flows that open the editor directly.
-- Updated the office HUD with a compact agent roster, overflow handling, and direct shortcuts into per-agent editing from the 3D office view.
-- Expanded the brain editor so `IDENTITY.md` fields are edited in structured form and agent renames can be applied to the live gateway agent after saving.
-- Defaulted the OpenClaw event console to a collapsed state and made it optional from environment configuration.
-- Updated hydration and store state to carry full avatar profiles through agent loading, persistence, and rendering.
+- Переработана отрисовка аватаров в офисе: 3D-агенты отражают сохранённые профили внешности, включая волосы, одежду, головные уборы, очки, гарнитуры, рюкзаки и другие визуальные варианты.
+- Точки входа для случайной смены аватара в чате и офисе заменены на настройку аватара, которая сразу открывает редактор.
+- Обновлена панель HUD офиса: компактный список агентов, обработка переполнения и быстрые переходы к редактированию отдельного агента прямо из 3D-офиса.
+- Расширен редактор «мозга»: поля `IDENTITY.md` редактируются в структурированной форме, а переименование агента после сохранения можно применить к работающему агенту шлюза.
+- Консоль событий OpenClaw по умолчанию свёрнута и может быть отключена через конфигурацию окружения.
+- Гидратация и состояние хранилища обновлены, чтобы полные профили аватаров проходили через загрузку, сохранение и отрисовку агентов.
 
-### Fixed
+### Исправлено
 
-- Fixed WebSocket gateway authentication during the upgrade handshake by wiring access control through the `ws` `verifyClient` flow.
-- Fixed the gym release directive TypeScript error by adding explicit `"release"` support to office gym directives and aligning release-hold logic.
-- Corrected studio settings merging and normalization for avatar data so saved office appearances survive reloads and patch updates.
-- Kept skill gym hold state active for release directives during office animation trigger reconciliation.
+- Исправлена аутентификация WebSocket-шлюза во время рукопожатия upgrade: контроль доступа подключён через механизм `verifyClient` библиотеки `ws`.
+- Исправлена ошибка TypeScript в директиве освобождения в спортзале: в директивы спортзала офиса добавлена явная поддержка `"release"`, а логика удержания и освобождения согласована.
+- Исправлены слияние и нормализация настроек Studio для данных аватаров, чтобы сохранённая внешность в офисе переживала перезагрузки и частичные обновления.
+- Состояние удержания в спортзале навыков остаётся активным для директив освобождения при согласовании триггеров анимации офиса.
 
-### Tests
+### Тесты
 
-- Added unit coverage for avatar profile persistence, studio settings normalization, and fleet hydration with structured avatar data.
-- Expanded end-to-end coverage for avatar settings fixtures, office header and sidebar flows, voice reply settings persistence, disconnected office settings surfaces, and office route expectations.
+- Добавлены модульные тесты для сохранения профилей аватаров, нормализации настроек Studio и гидратации команды агентов со структурированными данными аватаров.
+- Расширено сквозное тестирование: фикстуры настроек аватаров, сценарии заголовка и боковой панели офиса, сохранение настроек голосовых ответов, настройки офиса без подключения и ожидания для маршрутов офиса.
 
 ## [0.1.1] - 2026-03-19
 
-### Added
+### Добавлено
 
-- Uploaded entire repo
+- Загружен весь репозиторий
 
 ## [0.1.0] - 2026-03-16
 
-### Added
+### Добавлено
 
-- Initial public Office3D project documentation, including `README.md`, `VISION.md`, and `ARCHITECTURE.md`.
-- A gateway-first web UI for connecting to OpenClaw agents, monitoring runtime activity, and managing agent workflows.
-- A retro-office 3D environment for visualizing agent activity, spatial interactions, and immersive operational surfaces.
-- An office builder flow for editing and publishing office layouts.
+- Первая публичная документация проекта Office3D, включая `README.md`, `VISION.md` и `ARCHITECTURE.md`.
+- Веб-интерфейс с упором на шлюз для подключения к агентам OpenClaw, наблюдения за активностью среды выполнения и управления процессами агентов.
+- 3D-среда ретро-офиса для визуализации активности агентов, пространственных взаимодействий и иммерсивных рабочих поверхностей.
+- Конструктор офиса для редактирования и публикации планировок офиса.

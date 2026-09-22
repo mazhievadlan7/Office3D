@@ -1,20 +1,20 @@
-# Support
+# Поддержка
 
-Use the following routes so questions and reports land in the right place.
+Пользуйтесь следующими каналами, чтобы вопросы и сообщения попадали по адресу.
 
-## Public Help
+## Публичная помощь
 
-- Bug reports: open a GitHub issue using the bug report template.
-- Feature requests: open a GitHub issue using the feature request template.
-- Contribution questions: start with `README.md`, `CODE_DOCUMENTATION.md`, `CONTRIBUTING.md`, and `ROADMAP.md`.
+- Сообщения об ошибках: откройте issue на GitHub по шаблону сообщения об ошибке.
+- Запросы новых возможностей: откройте issue на GitHub по шаблону запроса возможности.
+- Вопросы об участии в разработке: начните с `README.md`, `CODE_DOCUMENTATION.md`, `CONTRIBUTING.md` и `ROADMAP.md`.
 
-## Sensitive Reports
+## Конфиденциальные сообщения
 
-- Security issues: follow `SECURITY.md` and avoid posting exploit details in public issues.
-- Code of conduct concerns: follow `CODE_OF_CONDUCT.md`.
+- Проблемы безопасности: следуйте `SECURITY.md` и не публикуйте детали эксплойтов в публичных issue.
+- Вопросы, связанные с кодексом поведения: следуйте `CODE_OF_CONDUCT.md`.
 
-## Maintainer Contact Notes
+## Как связаться с сопровождающими
 
-- This repository currently routes most public support through GitHub issues and documentation.
-- If you need a private maintainer response and the repository hosting platform exposes private vulnerability reporting, use that path first.
-- If private vulnerability reporting is not available, open a minimal public issue requesting a private contact channel and do not include sensitive details.
+- Сейчас бо́льшая часть публичной поддержки в этом репозитории идёт через issue на GitHub и документацию.
+- Если вам нужен приватный ответ сопровождающего и платформа хостинга репозитория поддерживает приватные сообщения об уязвимостях, используйте в первую очередь этот способ.
+- Если приватные сообщения об уязвимостях недоступны, откройте минимальное публичное issue с просьбой предоставить приватный канал связи и не включайте в него конфиденциальные подробности.

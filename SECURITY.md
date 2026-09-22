@@ -1,45 +1,45 @@
-# Security Policy
+# Политика безопасности
 
-## Reporting A Vulnerability
+## Как сообщить об уязвимости
 
-Please do not open public GitHub issues for security vulnerabilities.
+Пожалуйста, не открывайте публичные issue на GitHub для сообщений об уязвимостях.
 
-Preferred path:
+Предпочтительный способ:
 
-- If the repository host exposes private vulnerability reporting or GitHub Security Advisories for this repo, use that path first.
+- Если хостинг репозитория поддерживает приватные сообщения об уязвимостях или GitHub Security Advisories для этого репозитория, используйте в первую очередь этот способ.
 
-Fallback path:
+Запасной способ:
 
-- If no private reporting channel is available, open a minimal public issue requesting a private contact channel and do not include exploit details, tokens, or proof-of-concept payloads in that issue.
+- Если приватного канала для сообщений нет, откройте минимальное публичное issue с просьбой предоставить приватный канал связи и не включайте в него детали эксплойта, токены или proof-of-concept-нагрузки.
 
-When reporting a vulnerability, include:
+Сообщая об уязвимости, укажите:
 
-- A clear description of the issue.
-- Impact and affected areas.
-- Reproduction steps or a proof of concept.
-- Any suggested mitigation if you have one.
+- Понятное описание проблемы.
+- Последствия и затронутые области.
+- Шаги воспроизведения или proof of concept.
+- Предлагаемые меры защиты, если они у вас есть.
 
-We aim to acknowledge reports promptly, investigate them, and coordinate a fix and disclosure timeline with the reporter.
+Мы стараемся оперативно подтверждать получение сообщений, расследовать их и согласовывать с автором сроки исправления и раскрытия информации.
 
-## Current Security Limitations
+## Текущие ограничения безопасности
 
-- Studio gateway settings are stored on disk in plaintext under the local OpenClaw state directory.
-- The current UI loads the configured upstream gateway URL/token into browser memory at runtime, even though those values are not stored in browser persistent storage.
-- There is currently no built-in cookie issuance/login flow for `STUDIO_ACCESS_TOKEN`; deployments that enable the access gate must provision the `studio_access` cookie outside the app.
+- Настройки шлюза Studio хранятся на диске в открытом виде в локальном каталоге состояния OpenClaw.
+- Текущий интерфейс во время работы загружает URL и токен настроенного вышестоящего шлюза в память браузера, хотя эти значения не сохраняются в постоянном хранилище браузера.
+- Сейчас нет встроенной выдачи cookie и процедуры входа для `STUDIO_ACCESS_TOKEN`; развёртывания, в которых включена проверка доступа, должны выдавать cookie `studio_access` вне приложения.
 
-## Scope
+## Область охвата
 
-Please report issues related to:
+Пожалуйста, сообщайте о проблемах, связанных с:
 
-- Authentication or access-control bypasses.
-- Secret handling or token exposure.
-- Remote code execution or privilege escalation paths.
-- Unsafe filesystem, proxy, or network behavior.
-- Dependency vulnerabilities that materially affect this project.
+- Обходом аутентификации или контроля доступа.
+- Обращением с секретами или утечкой токенов.
+- Удалённым выполнением кода или путями повышения привилегий.
+- Небезопасным поведением файловой системы, прокси или сети.
+- Уязвимостями зависимостей, которые существенно затрагивают этот проект.
 
-## Deployment Notes
+## Замечания по развёртыванию
 
-- In production, set `UPSTREAM_ALLOWLIST` for the Studio gateway proxy.
-- In production, set `CUSTOM_RUNTIME_ALLOWLIST` if you use `/api/runtime/custom`. If unset, it falls back to `UPSTREAM_ALLOWLIST`.
-- Empty allowlists are intended for local development only.
-- If you enable `STUDIO_ACCESS_TOKEN`, you must also provision the `studio_access` cookie through your deployment/auth layer.
+- В продакшене задайте `UPSTREAM_ALLOWLIST` для прокси шлюза Studio.
+- В продакшене задайте `CUSTOM_RUNTIME_ALLOWLIST`, если используете `/api/runtime/custom`. Если переменная не задана, используется `UPSTREAM_ALLOWLIST`.
+- Пустые списки разрешённых адресов предназначены только для локальной разработки.
+- Если вы включаете `STUDIO_ACCESS_TOKEN`, вы также должны выдавать cookie `studio_access` через свой слой развёртывания или аутентификации.

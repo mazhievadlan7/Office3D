@@ -1,36 +1,36 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
+name: Запрос возможности
+about: Предложите идею для этого проекта
 title: "[FEATURE]"
 labels: enhancement
 assignees: ''
 
 ---
 
-**Problem description**
-Is your feature request related to a problem? Please describe.
+**Описание проблемы**
+Связан ли ваш запрос с какой-либо проблемой? Опишите её.
 
-A clear and concise description of what the problem is.  
-Example: "I'm always frustrated when..."
+Понятное и краткое описание проблемы.  
+Пример: «Меня всегда раздражает, когда…»
 
-**Proposed solution**
-Describe the solution you'd like.
+**Предлагаемое решение**
+Опишите решение, которое вы хотели бы получить.
 
-A clear and concise description of what you want to happen.
+Понятное и краткое описание того, что должно происходить.
 
-**Alternatives considered**
-Describe alternatives you've considered.
+**Рассмотренные альтернативы**
+Опишите альтернативы, которые вы рассматривали.
 
-A clear and concise description of any alternative solutions or features you've considered.
+Понятное и краткое описание альтернативных решений или возможностей, которые вы рассматривали.
 
-**OpenClaw compatibility**
-Office3D depends on **OpenClaw**. Any proposed feature must remain compatible with OpenClaw and should not break the integration between the two projects.
+**Совместимость с OpenClaw**
+Office3D зависит от **OpenClaw**. Любая предлагаемая возможность должна оставаться совместимой с OpenClaw и не должна ломать интеграцию между двумя проектами.
 
-If this feature affects OpenClaw, please describe:
+Если возможность затрагивает OpenClaw, опишите:
 
-- How it interacts with OpenClaw
-- Whether changes to OpenClaw would be required
-- Any compatibility considerations
+- Как она взаимодействует с OpenClaw
+- Потребуются ли изменения в OpenClaw
+- Любые соображения по совместимости
 
-**Additional context**
-Add any other context, screenshots, references, or examples about the feature request here.
+**Дополнительный контекст**
+Добавьте сюда любой другой контекст, скриншоты, ссылки или примеры, относящиеся к запросу.

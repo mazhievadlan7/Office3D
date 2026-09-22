@@ -1,17 +1,17 @@
-# Contributing
+# Участие в разработке
 
-Thanks for helping improve Office3D.
+Спасибо, что помогаете улучшать Office3D.
 
-Please use GitHub Issues for bugs, feature requests, and questions about planned work.
+Для сообщений об ошибках, запросов новых возможностей и вопросов о запланированной работе используйте GitHub Issues.
 
-## Before you start
-- Install OpenClaw and confirm the gateway runs locally.
-- This repo is UI-only and reads config from `~/.openclaw` with legacy fallback to `~/.moltbot` or `~/.clawdbot`.
-- It does not run or build the gateway from source.
-- Read `CODE_DOCUMENTATION.md` for the repo code map, extension points, and the recommended onboarding order through the codebase.
-- Use `ROADMAP.md` if you are looking for starter work or near-term priorities.
+## Прежде чем начать
+- Установите OpenClaw и убедитесь, что шлюз работает локально.
+- Этот репозиторий содержит только интерфейс и читает конфигурацию из `~/.openclaw`, а для совместимости со старыми версиями — из `~/.moltbot` или `~/.clawdbot`.
+- Он не запускает и не собирает шлюз из исходников.
+- Прочитайте `CODE_DOCUMENTATION.md`: там карта кода репозитория, точки расширения и рекомендуемый порядок знакомства с кодовой базой.
+- Загляните в `ROADMAP.md`, если ищете задачи для начала или ближайшие приоритеты.
 
-## Local setup
+## Локальная установка
 ```bash
 git clone https://github.com/mazhievadlan7/Office3D.git
 cd Office3D
@@ -20,35 +20,35 @@ cp .env.example .env
 npm run dev
 ```
 
-## Support And Routing
-- Use the GitHub bug and feature templates for normal public contributions.
-- Use `SUPPORT.md` for help-routing and maintainer contact guidance.
-- Use `SECURITY.md` for sensitive security reports, and avoid posting exploit details in public issues.
+## Поддержка и куда обращаться
+- Для обычного публичного участия используйте шаблоны GitHub для сообщений об ошибках и запросов возможностей.
+- В `SUPPORT.md` описано, куда обращаться за помощью и как связаться с сопровождающими.
+- Для конфиденциальных сообщений о безопасности используйте `SECURITY.md` и не публикуйте детали эксплойтов в публичных issue.
 
-## Testing
+## Тестирование
 - `npm run lint`
 - `npm run typecheck`
 - `npm run test`
-- `npm run e2e` (requires `npx playwright install`)
+- `npm run e2e` (требует `npx playwright install`)
 
-If your change touches generated UX audit artifacts, clean them before committing with `npm run cleanup:ux-artifacts`.
+Если ваше изменение затрагивает сгенерированные артефакты UX-аудита, очистите их перед коммитом командой `npm run cleanup:ux-artifacts`.
 
-## Pull requests
-- Keep PRs focused and small.
-- Prefer one task per PR.
-- Include the tests you ran.
-- Link to the relevant issue when possible.
-- If you changed gateway behavior, call it out explicitly.
-- Update docs when the user-facing behavior or architecture changes.
-- If you touched bundled assets, vendored code, or dependency/licensing posture, update the relevant `THIRD_PARTY_*` documentation in the same PR.
+## Пул-реквесты
+- Делайте пул-реквесты сфокусированными и небольшими.
+- Лучше одна задача на пул-реквест.
+- Укажите, какие тесты вы запускали.
+- По возможности дайте ссылку на соответствующее issue.
+- Если вы изменили поведение шлюза, явно укажите это.
+- Обновляйте документацию, когда меняется поведение для пользователя или архитектура.
+- Если вы затронули встроенные ресурсы, вендорный код, зависимости или лицензионную политику, обновите соответствующую документацию `THIRD_PARTY_*` в том же пул-реквесте.
 
-## Reporting issues
-When filing an issue, please include:
-- Reproduction steps
-- OS and Node version
-- Any relevant logs or screenshots
+## Сообщения о проблемах
+Создавая issue, укажите:
+- Шаги воспроизведения
+- ОС и версию Node
+- Относящиеся к делу логи или скриншоты
 
-## Minimal PR template
+## Минимальный шаблон пул-реквеста
 ```md
 ## Summary
 - 
@@ -64,7 +64,7 @@ When filing an issue, please include:
 - [ ] AI-assisted (briefly describe what and include prompts/logs if helpful)
 ```
 
-## Minimal issue template
+## Минимальный шаблон issue
 ```md
 ## Summary
 
