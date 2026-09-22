@@ -96,10 +96,10 @@ describe("AgentChatPanel scrolling", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Jump to latest" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "К последним" })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Jump to latest" }));
+    fireEvent.click(screen.getByRole("button", { name: "К последним" }));
 
     expect(
       (Element.prototype as unknown as { scrollIntoView: ReturnType<typeof vi.fn> })

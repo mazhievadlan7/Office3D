@@ -73,11 +73,11 @@ describe("skills presentation helpers", () => {
     );
 
     expect(details).toEqual([
-      "Missing tools: playwright",
-      "Missing one-of tools (install any): chromium | chrome",
-      "Missing env vars (set in gateway env): GITHUB_TOKEN",
-      "Missing config values (set in openclaw.json): browser.enabled",
-      "Requires OS: Linux",
+      "Не хватает инструментов: playwright",
+      "Не хватает одного из инструментов (подойдёт любой): chromium | chrome",
+      "Не хватает переменных окружения (задайте в окружении шлюза): GITHUB_TOKEN",
+      "Не хватает значений конфигурации (задайте в openclaw.json): browser.enabled",
+      "Нужна ОС: Linux",
     ]);
   });
 

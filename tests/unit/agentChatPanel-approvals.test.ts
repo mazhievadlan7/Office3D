@@ -83,10 +83,10 @@ describe("AgentChatPanel exec approvals", () => {
     );
 
     expect(screen.getByTestId("exec-approval-card-approval-1")).toBeInTheDocument();
-    expect(screen.getByText("Exec approval required")).toBeInTheDocument();
+    expect(screen.getByText("Требуется согласие на выполнение")).toBeInTheDocument();
     expect(screen.getByText("npm run test")).toBeInTheDocument();
-    expect(screen.getByText("Host: gateway")).toBeInTheDocument();
-    expect(screen.getByText("CWD: /repo")).toBeInTheDocument();
+    expect(screen.getByText("Хост: gateway")).toBeInTheDocument();
+    expect(screen.getByText("Рабочая папка: /repo")).toBeInTheDocument();
   });
 
   it("renders pending approvals after transcript content", () => {
@@ -139,9 +139,9 @@ describe("AgentChatPanel exec approvals", () => {
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Allow once for exec approval approval-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Always allow for exec approval approval-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Deny exec approval approval-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Разрешить один раз выполнение approval-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Всегда разрешать выполнение approval-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Запретить выполнение approval-1" }));
 
     expect(onResolveExecApproval).toHaveBeenNthCalledWith(1, "approval-1", "allow-once");
     expect(onResolveExecApproval).toHaveBeenNthCalledWith(2, "approval-1", "allow-always");
@@ -169,8 +169,8 @@ describe("AgentChatPanel exec approvals", () => {
       })
     );
 
-    expect(screen.getByRole("button", { name: "Allow once for exec approval approval-1" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Always allow for exec approval approval-1" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Deny exec approval approval-1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Разрешить один раз выполнение approval-1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Всегда разрешать выполнение approval-1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Запретить выполнение approval-1" })).toBeDisabled();
   });
 });

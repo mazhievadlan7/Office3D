@@ -20,6 +20,7 @@ import {
   type AgentAvatarProfile,
 } from "@/lib/avatars/profile";
 import { randomUUID } from "@/lib/uuid";
+import { t } from "@/lib/i18n";
 
 type AgentCreateWizardModalProps = {
   open: boolean;
@@ -58,49 +59,49 @@ type WizardStepId =
 const wizardSteps: Array<{ id: WizardStepId; label: string; hint: string }> = [
   {
     id: "identity",
-    label: "Identity",
-    hint: "Create the live agent first, then fill in the rest step by step.",
+    label: t("wizard.stepIdentity"),
+    hint: t("wizard.stepIdentityHint"),
   },
   {
     id: "avatar",
-    label: "Avatar",
-    hint: "Customize the office appearance before writing the rest of the profile.",
+    label: t("wizard.stepAvatar"),
+    hint: t("wizard.stepAvatarHint"),
   },
   {
     id: "SOUL.md",
-    label: "Soul",
+    label: t("wizard.stepSoul"),
     hint: AGENT_FILE_META["SOUL.md"].hint,
   },
   {
     id: "AGENTS.md",
-    label: "Agents",
+    label: t("wizard.stepAgents"),
     hint: AGENT_FILE_META["AGENTS.md"].hint,
   },
   {
     id: "USER.md",
-    label: "User",
+    label: t("wizard.stepUser"),
     hint: AGENT_FILE_META["USER.md"].hint,
   },
   {
     id: "TOOLS.md",
-    label: "Tools",
+    label: t("wizard.stepTools"),
     hint: AGENT_FILE_META["TOOLS.md"].hint,
   },
   {
     id: "MEMORY.md",
-    label: "Memory",
+    label: t("wizard.stepMemory"),
     hint: AGENT_FILE_META["MEMORY.md"].hint,
   },
   {
     id: "HEARTBEAT.md",
-    label: "Heartbeat",
+    label: t("wizard.stepHeartbeat"),
     hint: AGENT_FILE_META["HEARTBEAT.md"].hint,
   },
 ];
 
 const buildInitialDraft = (suggestedName: string): PersonalityBuilderDraft => {
   const draft = createEmptyPersonalityDraft();
-  draft.identity.name = suggestedName.trim() || "New Agent";
+  draft.identity.name = suggestedName.trim() || t("wizard.defaultName");
   return draft;
 };
 
@@ -186,7 +187,7 @@ export function AgentCreateWizardModal({
   const activeStep = wizardSteps[activeStepIndex] ?? wizardSteps[0];
   const isWorking = busy || finishing;
   const isFinalStep = step === "HEARTBEAT.md";
-  const statusCopy = finishing ? "Saving the agent files and avatar." : statusLine;
+  const statusCopy = finishing ? t("wizard.savingFiles") : statusLine;
 
   const updateDraft = <K extends keyof PersonalityBuilderDraft>(
     key: K,
@@ -237,13 +238,13 @@ export function AgentCreateWizardModal({
   const stepActionLabel =
     step === "identity" && !createdAgentId
       ? busy
-        ? "Creating..."
-        : "Create and continue"
+        ? t("wizard.creating")
+        : t("wizard.createContinue")
       : isFinalStep
         ? isWorking
-          ? "Saving..."
-          : "Finish wizard"
-        : "Next";
+          ? t("wizard.saving")
+          : t("wizard.finish")
+        : t("wizard.next");
 
   if (!open) return null;
 
@@ -252,7 +253,7 @@ export function AgentCreateWizardModal({
       className="fixed inset-0 z-[140] flex items-center justify-center bg-background/84 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Create agent wizard"
+      aria-label={t("wizard.dialogLabel")}
       onClick={() => {
         if (!isWorking) {
           onClose(createdAgentId);
@@ -266,15 +267,9 @@ export function AgentCreateWizardModal({
         <div className="border-b border-border/40 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">
-                New agent wizard
-              </div>
-              <div className="mt-1 text-lg font-semibold text-foreground">
-                Create an agent step by step
-              </div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                Start with identity, then build the rest of the profile before finishing.
-              </div>
+              <div className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">{t("wizard.title")}</div>
+              <div className="mt-1 text-lg font-semibold text-foreground">{t("wizard.heading")}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t("wizard.lead")}</div>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -284,9 +279,7 @@ export function AgentCreateWizardModal({
                 onClick={() => {
                   onClose(createdAgentId);
                 }}
-              >
-                Close
-              </button>
+              >{t("wizard.close")}</button>
               {activeStepIndex > 0 ? (
                 <button
                   type="button"
@@ -298,9 +291,7 @@ export function AgentCreateWizardModal({
                       setStep(previousStep.id);
                     }
                   }}
-                >
-                  Back
-                </button>
+                >{t("wizard.back")}</button>
               ) : null}
               <button
                 type="button"
@@ -351,7 +342,7 @@ export function AgentCreateWizardModal({
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
               <section className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">Identity</h3>
+                <h3 className="text-sm font-medium text-foreground">{t("wizard.stepIdentity")}</h3>
                 <div className="text-xs text-muted-foreground">
                   Confirm the live agent name first, then fill in the rest of `IDENTITY.md`.
                 </div>
@@ -368,8 +359,7 @@ export function AgentCreateWizardModal({
               </section>
 
               <div className="mt-6 rounded-xl border border-border/45 bg-muted/20 p-4 text-sm text-muted-foreground">
-                Creating the agent in this step makes it available in OpenClaw immediately so the
-                wizard can save the full profile through the gateway in later steps.
+                {t("wizard.createNote")}
               </div>
             </div>
           </div>
@@ -378,7 +368,7 @@ export function AgentCreateWizardModal({
             {step === "avatar" ? (
               <AgentAvatarEditorPanel
                 agentId={createdAgentId}
-                agentName={draft.identity.name.trim() || "New Agent"}
+                agentName={draft.identity.name.trim() || t("wizard.defaultName")}
                 initialProfile={draftAvatarProfile}
                 showActions={false}
                 onDraftChange={(profile) => {
@@ -392,12 +382,12 @@ export function AgentCreateWizardModal({
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
                 <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 pb-8">
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">Soul</h3>
+                    <h3 className="text-sm font-medium text-foreground">{t("wizard.stepSoul")}</h3>
                     <div className="grid gap-4">
                       <WizardTextAreaField
-                        label="Core truths"
+                        label={t("wizard.coreTruths")}
                         value={draft.soul.coreTruths}
-                        placeholder="e.g. Protect the user's time. Prefer clarity over theatrics."
+                        placeholder={t("wizard.coreTruthsPh")}
                         disabled={isWorking}
                         rows={5}
                         onChange={(value) => {
@@ -405,9 +395,9 @@ export function AgentCreateWizardModal({
                         }}
                       />
                       <WizardTextAreaField
-                        label="Boundaries"
+                        label={t("wizard.boundaries")}
                         value={draft.soul.boundaries}
-                        placeholder="e.g. Do not bluff. Say when something is uncertain."
+                        placeholder={t("wizard.boundariesPh")}
                         disabled={isWorking}
                         rows={5}
                         onChange={(value) => {
@@ -415,9 +405,9 @@ export function AgentCreateWizardModal({
                         }}
                       />
                       <WizardTextAreaField
-                        label="Vibe"
+                        label={t("wizard.vibe")}
                         value={draft.soul.vibe}
-                        placeholder="e.g. Friendly, direct, and lightly playful."
+                        placeholder={t("wizard.vibePh")}
                         disabled={isWorking}
                         rows={4}
                         onChange={(value) => {
@@ -425,9 +415,9 @@ export function AgentCreateWizardModal({
                         }}
                       />
                       <WizardTextAreaField
-                        label="Continuity"
+                        label={t("wizard.continuity")}
                         value={draft.soul.continuity}
-                        placeholder="e.g. Keep naming, preferences, and previous decisions consistent."
+                        placeholder={t("wizard.continuityPh")}
                         disabled={isWorking}
                         rows={4}
                         onChange={(value) => {
@@ -442,39 +432,39 @@ export function AgentCreateWizardModal({
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
                 <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 pb-8">
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">User</h3>
+                    <h3 className="text-sm font-medium text-foreground">{t("wizard.stepUser")}</h3>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <WizardField
-                        label="Name"
+                        label={t("wizard.name")}
                         value={draft.user.name}
-                        placeholder="e.g. Luke"
+                        placeholder={t("wizard.namePh")}
                         disabled={isWorking}
                         onChange={(value) => {
                           updateDraft("user", { ...draft.user, name: value });
                         }}
                       />
                       <WizardField
-                        label="What to call them"
+                        label={t("wizard.callThem")}
                         value={draft.user.callThem}
-                        placeholder="e.g. Luke"
+                        placeholder={t("wizard.namePh")}
                         disabled={isWorking}
                         onChange={(value) => {
                           updateDraft("user", { ...draft.user, callThem: value });
                         }}
                       />
                       <WizardField
-                        label="Pronouns"
+                        label={t("wizard.pronouns")}
                         value={draft.user.pronouns}
-                        placeholder="e.g. he/him"
+                        placeholder={t("wizard.pronounsPh")}
                         disabled={isWorking}
                         onChange={(value) => {
                           updateDraft("user", { ...draft.user, pronouns: value });
                         }}
                       />
                       <WizardField
-                        label="Timezone"
+                        label={t("wizard.timezone")}
                         value={draft.user.timezone}
-                        placeholder="e.g. America/Chicago"
+                        placeholder={t("wizard.timezonePh")}
                         disabled={isWorking}
                         onChange={(value) => {
                           updateDraft("user", { ...draft.user, timezone: value });
@@ -482,9 +472,9 @@ export function AgentCreateWizardModal({
                       />
                       <div className="sm:col-span-2">
                         <WizardField
-                          label="Notes"
+                          label={t("wizard.notes")}
                           value={draft.user.notes}
-                          placeholder="e.g. Prefers concise answers and fast iteration."
+                          placeholder={t("wizard.notesPh")}
                           disabled={isWorking}
                           onChange={(value) => {
                             updateDraft("user", { ...draft.user, notes: value });
@@ -493,9 +483,9 @@ export function AgentCreateWizardModal({
                       </div>
                       <div className="sm:col-span-2">
                         <WizardTextAreaField
-                          label="Context"
+                          label={t("wizard.context")}
                           value={draft.user.context}
-                          placeholder="e.g. Building Office3D, likes practical UI improvements, and wants direct feedback."
+                          placeholder={t("wizard.contextPh")}
                           disabled={isWorking}
                           rows={7}
                           onChange={(value) => {

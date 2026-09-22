@@ -119,7 +119,7 @@ describe("AgentChatPanel composer autoresize", () => {
       expect(textarea.style.height).toBe("200px");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
 
     await waitFor(() => {
       expect(textarea.value).toBe("");

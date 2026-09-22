@@ -9,6 +9,7 @@ import {
   type SkillReadinessState,
 } from "@/lib/skills/presentation";
 import type { SkillStatusReport } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 type SkillSetupMessage = { kind: "success" | "error"; message: string };
 
@@ -35,18 +36,18 @@ type SystemSkillsPanelProps = {
 };
 
 const READINESS_FILTERS: Array<{ id: ReadinessFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "ready", label: "Ready" },
-  { id: "needs-setup", label: "Needs setup" },
-  { id: "unavailable", label: "Unavailable" },
-  { id: "disabled-globally", label: "Disabled globally" },
+  { id: "all", label: t("skillsPanel.all") },
+  { id: "ready", label: t("skillsPanel.ready") },
+  { id: "needs-setup", label: t("skillsPanel.needsSetup") },
+  { id: "unavailable", label: t("skillsPanel.unavailable") },
+  { id: "disabled-globally", label: t("skillsPanel.disabledGlobally") },
 ];
 
 const READINESS_LABELS = {
-  ready: "Ready",
-  "needs-setup": "Needs setup",
-  unavailable: "Unavailable",
-  "disabled-globally": "Disabled globally",
+  ready: t("skillsPanel.ready"),
+  "needs-setup": t("skillsPanel.needsSetup"),
+  unavailable: t("skillsPanel.unavailable"),
+  "disabled-globally": t("skillsPanel.disabledGlobally"),
 } as const;
 
 const READINESS_CLASSES = {
@@ -64,15 +65,15 @@ const resolveReadinessHint = (
     return null;
   }
   if (readiness === "disabled-globally") {
-    return "Disabled globally for all agents.";
+    return t("skillsPanel.disabledForAll");
   }
   if (readiness === "unavailable") {
     if (skill.blockedByAllowlist) {
-      return "Blocked by bundled skills policy.";
+      return t("skillsPanel.blockedByPolicy");
     }
-    return buildSkillMissingDetails(skill)[0] ?? "Unavailable on this system.";
+    return buildSkillMissingDetails(skill)[0] ?? t("skillsPanel.unavailableHere");
   }
-  return buildSkillMissingDetails(skill)[0] ?? "Requires setup.";
+  return buildSkillMissingDetails(skill)[0] ?? t("skillsPanel.requiresSetup");
 };
 
 export const SystemSkillsPanel = ({
@@ -173,9 +174,7 @@ export const SystemSkillsPanel = ({
         <h3 className="sidebar-section-title">System skill setup</h3>
         <div className="font-mono text-[10px] text-muted-foreground">{skillEntries.length}</div>
       </div>
-      <div className="mt-2 text-[11px] text-muted-foreground">
-        Changes here affect all agents on this gateway.
-      </div>
+      <div className="mt-2 text-[11px] text-muted-foreground">{t("skillsPanel.affectsAll")}</div>
       {defaultAgentScopeWarning ? (
         <div className="mt-3 rounded-md border border-border/60 bg-surface-1/65 px-3 py-2 text-[10px] text-muted-foreground/82">
           {defaultAgentScopeWarning}
@@ -199,9 +198,7 @@ export const SystemSkillsPanel = ({
                     onInitialSkillKeyHandled?.();
                     setSetupSkillKey(entry.skill.skillKey);
                   }}
-                >
-                  Set up
-                </button>
+                >{t("skillsPanel.setUp")}</button>
               </div>
             ))}
           </div>
@@ -211,9 +208,9 @@ export const SystemSkillsPanel = ({
         <input
           value={skillsFilter}
           onChange={(event) => setSkillsFilter(event.target.value)}
-          placeholder="Search skills"
+          placeholder={t("skillsPanel.search")}
           className="w-full rounded-md border border-border/60 bg-surface-1 px-3 py-2 text-[11px] text-foreground outline-none transition focus:border-border"
-          aria-label="Search skills"
+          aria-label={t("skillsPanel.search")}
         />
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -235,12 +232,12 @@ export const SystemSkillsPanel = ({
           );
         })}
       </div>
-      {skillsLoading ? <div className="mt-3 text-[11px] text-muted-foreground">Loading skills...</div> : null}
+      {skillsLoading ? <div className="mt-3 text-[11px] text-muted-foreground">{t("skillsPanel.loading")}</div> : null}
       {!skillsLoading && skillsError ? (
         <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">{skillsError}</div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length === 0 ? (
-        <div className="mt-3 text-[11px] text-muted-foreground">No matching skills.</div>
+        <div className="mt-3 text-[11px] text-muted-foreground">{t("skillsPanel.noMatches")}</div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length > 0 ? (
         <div className="mt-3 flex flex-col gap-2">
@@ -288,9 +285,7 @@ export const SystemSkillsPanel = ({
                       onInitialSkillKeyHandled?.();
                       setSetupSkillKey(entry.skill.skillKey);
                     }}
-                  >
-                    Configure
-                  </button>
+                  >{t("skillsPanel.configure")}</button>
                 </div>
               </div>
             );

@@ -71,21 +71,21 @@ if (unused.length) console.log("  " + unused.join("\n  "));
 if (misordered.length) console.log(`не по алфавиту, первый: ${misordered[0]}`);
 
 if (process.argv.includes("--sort")) {
-  // Sorts entries inside each section AND the sections themselves, so a new
-  // area appended at the end lands where a reader would look for it. A
-  // multi-line value travels with its key; the "--- ... ---" comment travels
-  // with its section.
+  // Groups every entry by its area (the part before the first dot), sorts
+  // globally, and gives each area one "--- … ---" heading. Grouping by prefix
+  // rather than by where an entry happens to sit means a key appended at the
+  // end still lands in its own area.
   const lines = readFileSync(DICT, "utf8").split("\n");
   const open = lines.findIndex((line) => line.startsWith("export const ru = {"));
   const close = lines.findIndex((line) => line.trim() === "} as const;");
 
-  const sections = [];
-  let current = null;
+  const headings = new Map();
+  const entries = [];
+  let pendingHeading = null;
   for (let i = open + 1; i < close; i += 1) {
     const line = lines[i];
     if (/^ {2}\/\/ ---/.test(line)) {
-      current = { comment: line, entries: [] };
-      sections.push(current);
+      pendingHeading = line;
       continue;
     }
     const match = /^ {2}"([^"]+)":/.exec(line);
@@ -95,25 +95,27 @@ if (process.argv.includes("--sort")) {
       entry.push(lines[i + 1]);
       i += 1;
     }
-    if (!current) {
-      current = { comment: null, entries: [] };
-      sections.push(current);
-    }
-    current.entries.push([match[1], entry]);
+    const area = match[1].split(".")[0];
+    if (pendingHeading && !headings.has(area)) headings.set(area, pendingHeading);
+    pendingHeading = null;
+    entries.push([match[1], entry]);
   }
 
-  const byKey = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  for (const section of sections) {
-    section.entries.sort((a, b) => byKey(a[0], b[0]));
-  }
-  sections.sort((a, b) => byKey(a.entries[0]?.[0] ?? "", b.entries[0]?.[0] ?? ""));
+  entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
   const body = [];
-  sections.forEach((section, index) => {
-    if (index > 0) body.push("");
-    if (section.comment) body.push(section.comment);
-    for (const [, entry] of section.entries) body.push(...entry);
-  });
+  let currentArea = null;
+  for (const [key, entry] of entries) {
+    const area = key.split(".")[0];
+    if (area !== currentArea) {
+      if (currentArea !== null) body.push("");
+      const heading =
+        headings.get(area) ?? `  // --- ${area} ${"-".repeat(Math.max(3, 70 - area.length))}`;
+      body.push(heading);
+      currentArea = area;
+    }
+    body.push(...entry);
+  }
 
   writeFileSync(
     DICT,

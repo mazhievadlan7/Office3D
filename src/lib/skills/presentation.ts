@@ -3,6 +3,7 @@ import type {
   SkillInstallOption,
   SkillStatusEntry,
 } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 export type SkillSourceGroupId = "workspace" | "built-in" | "installed" | "extra" | "other";
 
@@ -23,10 +24,10 @@ export type AgentSkillDisplayState = "ready" | "setup-required" | "not-supported
 export type AgentSkillsAccessMode = "all" | "none" | "selected";
 
 const GROUP_DEFINITIONS: Array<{ id: Exclude<SkillSourceGroupId, "other">; label: string }> = [
-  { id: "workspace", label: "Workspace Skills" },
-  { id: "built-in", label: "Built-in Skills" },
-  { id: "installed", label: "Installed Skills" },
-  { id: "extra", label: "Extra Skills" },
+  { id: "workspace", label: t("skillGroups.workspace") },
+  { id: "built-in", label: t("skillGroups.builtIn") },
+  { id: "installed", label: t("skillGroups.installed") },
+  { id: "extra", label: t("skillGroups.extra") },
 ];
 
 const WORKSPACE_SOURCES = new Set(["openclaw-workspace", "agents-skills-personal", "agents-skills-project"]);
@@ -98,7 +99,7 @@ export const groupSkillsBySource = (skills: SkillStatusEntry[]): SkillSourceGrou
   for (const def of GROUP_DEFINITIONS) {
     grouped.set(def.id, { id: def.id, label: def.label, skills: [] });
   }
-  grouped.set("other", { id: "other", label: "Other Skills", skills: [] });
+  grouped.set("other", { id: "other", label: t("skillGroups.other"), skills: [] });
 
   for (const skill of skills) {
     const groupId = resolveGroupId(skill);
@@ -135,27 +136,27 @@ export const buildSkillMissingDetails = (skill: SkillStatusEntry): string[] => {
   const details: string[] = [];
   const bins = normalizeStringList(skill.missing.bins);
   if (bins.length > 0) {
-    details.push(`Missing tools: ${bins.join(", ")}`);
+    details.push(t("skillDetails.missingTools", { list: bins.join(", ") }));
   }
 
   const anyBins = normalizeStringList(skill.missing.anyBins);
   if (anyBins.length > 0) {
-    details.push(`Missing one-of tools (install any): ${anyBins.join(" | ")}`);
+    details.push(t("skillDetails.missingAnyTools", { list: anyBins.join(" | ") }));
   }
 
   const env = normalizeStringList(skill.missing.env);
   if (env.length > 0) {
-    details.push(`Missing env vars (set in gateway env): ${env.join(", ")}`);
+    details.push(t("skillDetails.missingEnv", { list: env.join(", ") }));
   }
 
   const config = normalizeStringList(skill.missing.config);
   if (config.length > 0) {
-    details.push(`Missing config values (set in openclaw.json): ${config.join(", ")}`);
+    details.push(t("skillDetails.missingConfig", { list: config.join(", ") }));
   }
 
   const os = normalizeStringList(skill.missing.os);
   if (os.length > 0) {
-    details.push(`Requires OS: ${os.map((value) => toOsLabel(value)).join(", ")}`);
+    details.push(`${t("skillDetails.requiresOsPrefix")} ${os.map((value) => toOsLabel(value)).join(", ")}`);
   }
 
   return details;

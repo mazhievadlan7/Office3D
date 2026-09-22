@@ -11,6 +11,7 @@ import {
   deriveSkillReadinessState,
   type AgentSkillDisplayState,
 } from "@/lib/skills/presentation";
+import { t } from "@/lib/i18n";
 
 type SkillRowFilter = "all" | AgentSkillDisplayState;
 
@@ -26,16 +27,16 @@ type AgentSkillsPanelProps = {
 };
 
 const FILTERS: Array<{ id: SkillRowFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "ready", label: "Ready" },
-  { id: "setup-required", label: "Setup required" },
-  { id: "not-supported", label: "Not supported" },
+  { id: "all", label: t("skillsPanel.all") },
+  { id: "ready", label: t("skillsPanel.ready") },
+  { id: "setup-required", label: t("skillsPanel.setupRequired") },
+  { id: "not-supported", label: t("skillsPanel.notSupported") },
 ];
 
 const DISPLAY_LABELS: Record<AgentSkillDisplayState, string> = {
-  ready: "Ready",
-  "setup-required": "Setup required",
-  "not-supported": "Not supported",
+  ready: t("skillsPanel.ready"),
+  "setup-required": t("skillsPanel.setupRequired"),
+  "not-supported": t("skillsPanel.notSupported"),
 };
 
 const DISPLAY_CLASSES: Record<AgentSkillDisplayState, string> = {
@@ -53,15 +54,15 @@ const resolveHint = (
   }
   if (displayState === "not-supported") {
     if (skill.blockedByAllowlist) {
-      return "Blocked by bundled skills policy.";
+      return t("skillsPanel.blockedByPolicy");
     }
-    return buildSkillMissingDetails(skill).find((line) => line.startsWith("Requires OS:")) ?? "Not supported.";
+    return buildSkillMissingDetails(skill).find((line) => line.startsWith(t("skillDetails.requiresOsPrefix"))) ?? t("skillsPanel.notSupportedDot");
   }
   const readiness = deriveSkillReadinessState(skill);
   if (readiness === "disabled-globally") {
-    return "Disabled globally. Enable it in System setup.";
+    return t("skillsPanel.disabledGloballyHint");
   }
-  return buildSkillMissingDetails(skill)[0] ?? "Requires setup in System setup.";
+  return buildSkillMissingDetails(skill)[0] ?? t("skillsPanel.requiresSetupHint");
 };
 
 export const AgentSkillsPanel = ({
@@ -149,17 +150,15 @@ export const AgentSkillsPanel = ({
       </div>
       <div className="mt-2 text-[11px] text-muted-foreground">Skill access controls apply to this agent.</div>
       {accessMode === "selected" ? (
-        <div className="mt-2 text-[10px] text-muted-foreground/80">
-          This agent is using selected skills only.
-        </div>
+        <div className="mt-2 text-[10px] text-muted-foreground/80">{t("skillsPanel.selectedOnly")}</div>
       ) : null}
       <div className="mt-3">
         <input
           value={skillsFilter}
           onChange={(event) => setSkillsFilter(event.target.value)}
-          placeholder="Search skills"
+          placeholder={t("skillsPanel.search")}
           className="w-full rounded-md border border-border/60 bg-surface-1 px-3 py-2 text-[11px] text-foreground outline-none transition focus:border-border"
-          aria-label="Search skills"
+          aria-label={t("skillsPanel.search")}
         />
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -181,12 +180,12 @@ export const AgentSkillsPanel = ({
           );
         })}
       </div>
-      {skillsLoading ? <div className="mt-3 text-[11px] text-muted-foreground">Loading skills...</div> : null}
+      {skillsLoading ? <div className="mt-3 text-[11px] text-muted-foreground">{t("skillsPanel.loading")}</div> : null}
       {!skillsLoading && skillsError ? (
         <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">{skillsError}</div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length === 0 ? (
-        <div className="mt-3 text-[11px] text-muted-foreground">No matching skills.</div>
+        <div className="mt-3 text-[11px] text-muted-foreground">{t("skillsPanel.noMatches")}</div>
       ) : null}
       {!skillsLoading && !skillsError && filteredRows.length > 0 ? (
         <div className="mt-3 flex flex-col gap-2">
@@ -223,7 +222,7 @@ export const AgentSkillsPanel = ({
                   <button
                     type="button"
                     role="switch"
-                    aria-label={`Skill ${entry.skill.name}`}
+                    aria-label={t("skillsPanel.skillLabel", { name: entry.skill.name })}
                     aria-checked={entry.allowed}
                     className={`ui-switch self-start ${entry.allowed ? "ui-switch--on" : ""}`}
                     disabled={switchDisabled}
@@ -240,9 +239,7 @@ export const AgentSkillsPanel = ({
                       onClick={() => {
                         onOpenSystemSetup(entry.skill.skillKey);
                       }}
-                    >
-                      Open System Setup
-                    </button>
+                    >{t("skillsPanel.openSystemSetup")}</button>
                   ) : null}
                 </div>
               </div>

@@ -13,7 +13,7 @@ const openModal = (overrides?: {
   render(
     createElement(AgentCreateModal, {
       open: true,
-      suggestedName: "New Agent",
+      suggestedName: "Новый агент",
       busy: overrides?.busy,
       onClose,
       onSubmit,
@@ -31,10 +31,10 @@ describe("AgentCreateModal", () => {
     const onSubmit = vi.fn();
     openModal({ onSubmit });
 
-    fireEvent.change(screen.getByLabelText("Agent name"), {
+    fireEvent.change(screen.getByLabelText("Имя агента"), {
       target: { value: "Execution Operator" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Launch agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Запустить агента" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -48,7 +48,7 @@ describe("AgentCreateModal", () => {
     const onSubmit = vi.fn();
     openModal({ onSubmit });
 
-    fireEvent.change(screen.getByLabelText("Agent name"), {
+    fireEvent.change(screen.getByLabelText("Имя агента"), {
       target: { value: "Keyboard Agent" },
     });
     fireEvent.submit(screen.getByTestId("agent-create-modal"));
@@ -63,23 +63,23 @@ describe("AgentCreateModal", () => {
   it("renders one-step create form without guided wizard copy", () => {
     openModal();
 
-    expect(screen.getByRole("button", { name: "Launch agent" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Agent name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Запустить агента" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Имя агента")).toBeInTheDocument();
     expect(screen.getByText("Choose avatar")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Shuffle avatar selection" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Перемешать выбор аватара" })).toBeInTheDocument();
     expect(screen.queryByText("Define Ownership")).not.toBeInTheDocument();
     expect(screen.queryByText("Set Authority Level")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Далее" })).not.toBeInTheDocument();
   });
 
   it("disables launch when the name is blank", () => {
     const onSubmit = vi.fn();
     openModal({ onSubmit });
 
-    fireEvent.change(screen.getByLabelText("Agent name"), {
+    fireEvent.change(screen.getByLabelText("Имя агента"), {
       target: { value: "   " },
     });
-    const launchButton = screen.getByRole("button", { name: "Launch agent" });
+    const launchButton = screen.getByRole("button", { name: "Запустить агента" });
     expect(launchButton).toBeDisabled();
     fireEvent.click(launchButton);
     expect(onSubmit).not.toHaveBeenCalled();
@@ -88,15 +88,15 @@ describe("AgentCreateModal", () => {
   it("shows launching state while busy", () => {
     openModal({ busy: true });
 
-    expect(screen.getByRole("button", { name: "Launching..." })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Запуск…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Закрыть" })).toBeDisabled();
   });
 
   it("calls onClose when close is pressed", () => {
     const onClose = vi.fn();
     openModal({ onClose });
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -106,13 +106,13 @@ describe("AgentCreateModal", () => {
     const view = render(
       createElement(AgentCreateModal, {
         open: true,
-        suggestedName: "New Agent",
+        suggestedName: "Новый агент",
         onClose,
         onSubmit,
       })
     );
 
-    fireEvent.change(screen.getByLabelText("Agent name"), {
+    fireEvent.change(screen.getByLabelText("Имя агента"), {
       target: { value: "My Draft Name" },
     });
 
@@ -125,6 +125,6 @@ describe("AgentCreateModal", () => {
       })
     );
 
-    expect(screen.getByLabelText("Agent name")).toHaveValue("My Draft Name");
+    expect(screen.getByLabelText("Имя агента")).toHaveValue("My Draft Name");
   });
 });

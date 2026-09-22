@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
+
+// Spelled out rather than looked up by building a key: a key assembled at
+// runtime is invisible to the check that finds unused and missing phrases.
+const GATEWAY_STATUS_LABELS: Record<string, string> = {
+  connected: t("settings.gatewayStatusConnected"),
+  connecting: t("settings.gatewayStatusConnecting"),
+  disconnected: t("settings.gatewayStatusDisconnected"),
+};
 
 type SettingsPanelProps = {
   gatewayStatus?: string;
@@ -80,8 +89,8 @@ export function SettingsPanel({
   const normalizedGatewayUrl = gatewayUrl?.trim() ?? "";
   const normalizedGatewayToken = gatewayToken ?? "";
   const gatewayStateLabel = gatewayStatus
-    ? gatewayStatus.charAt(0).toUpperCase() + gatewayStatus.slice(1)
-    : "Unknown";
+    ? (GATEWAY_STATUS_LABELS[gatewayStatus] ?? gatewayStatus)
+    : t("settings.unknown");
   const isGatewayConnected = gatewayStatus === "connected";
   const gatewayDisconnectDisabled = !isGatewayConnected;
   const gatewayConnectDisabled = normalizedGatewayUrl.length === 0;
@@ -98,13 +107,11 @@ export function SettingsPanel({
       <div className="rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Studio title</div>
-            <div className="mt-1 text-[10px] text-white/75">
-              Customize the banner shown at the top of the office.
-            </div>
+            <div className="text-[11px] font-medium text-white">{t("settings.studioTitle")}</div>
+            <div className="mt-1 text-[10px] text-white/75">{t("settings.studioTitleLead")}</div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-            {officeTitleLoaded ? "Ready" : "Loading"}
+            {officeTitleLoaded ? t("settings.ready") : t("settings.loading")}
           </span>
         </div>
         <input
@@ -113,20 +120,16 @@ export function SettingsPanel({
           maxLength={48}
           disabled={!officeTitleLoaded}
           onChange={(event) => onOfficeTitleChange(event.target.value)}
-          placeholder="Office3D Headquarters"
+          placeholder={t("settings.titlePh")}
           className="mt-3 w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <div className="mt-2 text-[10px] text-white/50">
-          Used in the office scene header.
-        </div>
+        <div className="mt-2 text-[10px] text-white/50">{t("settings.titleHint")}</div>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Gateway</div>
-            <div className="mt-1 text-[10px] text-white/75">
-              Switch the active backend and update its saved endpoint details.
-            </div>
+            <div className="text-[11px] font-medium text-white">{t("settings.gateway")}</div>
+            <div className="mt-1 text-[10px] text-white/75">{t("settings.gatewayLead")}</div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
             {gatewayStateLabel}
@@ -135,11 +138,11 @@ export function SettingsPanel({
         <div className="mt-3 flex flex-wrap gap-2">
           {(
             [
-              ["demo", "Demo"],
+              ["demo", t("settings.backendDemo")],
               ["hermes", "Hermes"],
-              ["local", "Local"],
+              ["local", t("settings.backendLocal")],
               ["office3d", "Office3D"],
-              ["custom", "Custom"],
+              ["custom", t("settings.backendCustom")],
               ["openclaw", "OpenClaw"],
             ] as const
           ).map(([adapterType, label]) => {
@@ -162,9 +165,7 @@ export function SettingsPanel({
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              Upstream URL
-            </div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("gateway.upstreamUrl")}</div>
             <input
               type="text"
               value={gatewayUrl ?? ""}
@@ -182,7 +183,7 @@ export function SettingsPanel({
           </div>
           <div>
             <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              {tokenOptional ? "Upstream token (optional)" : "Upstream token"}
+              {tokenOptional ? t("gateway.upstreamTokenOptional") : t("gateway.upstreamToken")}
             </div>
             <input
               type="password"
@@ -200,12 +201,10 @@ export function SettingsPanel({
           <span className="font-mono">
             Active backend: {activeAdapterType}
           </span>
-          <span>Each backend keeps its own saved URL and token.</span>
+          <span>{t("gateway.backendsKeepOwnSettings")}</span>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="text-[10px] text-white/60">
-            Connect to apply the selected backend, or disconnect to return to the connection screen.
-          </div>
+          <div className="text-[10px] text-white/60">{t("settings.connectHint")}</div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -213,29 +212,25 @@ export function SettingsPanel({
               disabled={gatewayConnectDisabled}
               className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-50 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {gatewayStatus === "connecting" ? "Connecting..." : "Connect"}
+              {gatewayStatus === "connecting" ? t("gateway.connecting") : t("gateway.connect")}
             </button>
             <button
               type="button"
               onClick={() => onGatewayDisconnect?.()}
               disabled={gatewayDisconnectDisabled}
               className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Disconnect gateway
-            </button>
+            >{t("settings.disconnect")}</button>
           </div>
         </div>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Remote office</div>
-            <div className="mt-1 text-[10px] text-white/75">
-              Attach a second read-only office from either another Office3D or a remote OpenClaw gateway.
-            </div>
+            <div className="text-[11px] font-medium text-white">{t("settings.remoteOffice")}</div>
+            <div className="mt-1 text-[10px] text-white/75">{t("settings.remoteOfficeLead")}</div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-            {remoteOfficeEnabled ? "Enabled" : "Disabled"}
+            {remoteOfficeEnabled ? t("settings.enabled") : t("settings.disabled")}
           </span>
         </div>
         <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-cyan-500/10 bg-black/15 px-4 py-3">
@@ -243,7 +238,7 @@ export function SettingsPanel({
             <button
               type="button"
               role="switch"
-              aria-label="Remote office"
+              aria-label={t("settings.remoteOffice")}
               aria-checked={remoteOfficeEnabled}
               className={`ui-switch self-center ${remoteOfficeEnabled ? "ui-switch--on" : ""}`}
               onClick={() => onRemoteOfficeEnabledChange(!remoteOfficeEnabled)}
@@ -251,21 +246,17 @@ export function SettingsPanel({
               <span className="ui-switch-thumb" />
             </button>
             <div className="flex flex-col">
-              <span className="text-[11px] font-medium text-white">Show second office</span>
-              <span className="text-[10px] text-white/80">
-                Remote agents stay visible but non-interactive.
-              </span>
+              <span className="text-[11px] font-medium text-white">{t("settings.showSecondOffice")}</span>
+              <span className="text-[10px] text-white/80">{t("settings.remoteReadOnly")}</span>
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-            {remoteOfficeTokenConfigured ? "Token set" : "No token"}
+            {remoteOfficeTokenConfigured ? t("settings.tokenSet") : t("settings.noToken")}
           </span>
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              Source type
-            </div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.sourceType")}</div>
             <select
               value={remoteOfficeSourceKind}
               onChange={(event) =>
@@ -275,32 +266,28 @@ export function SettingsPanel({
               }
               className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors focus:border-cyan-400/30"
             >
-              <option value="presence_endpoint">Remote Office3D presence endpoint</option>
-              <option value="openclaw_gateway">Remote OpenClaw gateway</option>
+              <option value="presence_endpoint">{t("settings.sourcePresence")}</option>
+              <option value="openclaw_gateway">{t("settings.sourceGateway")}</option>
             </select>
             <div className="mt-1 text-[10px] text-white/50">
               Use a presence endpoint when the other machine runs Office3D. Use gateway mode when the other machine only runs OpenClaw.
             </div>
           </div>
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              Label
-            </div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.label")}</div>
             <input
               type="text"
               value={remoteOfficeLabel}
               maxLength={48}
               onChange={(event) => onRemoteOfficeLabelChange(event.target.value)}
-              placeholder="Remote Office"
+              placeholder={t("settings.remotePh")}
               className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
             />
           </div>
           {remoteOfficeSourceKind === "presence_endpoint" ? (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-                  Presence URL
-                </div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.presenceUrl")}</div>
                 <input
                   type="url"
                   value={remoteOfficePresenceUrl}
@@ -313,15 +300,13 @@ export function SettingsPanel({
                 </div>
               </div>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-                  Optional token
-                </div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.optionalToken")}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="password"
                     value={remoteOfficeTokenDraft}
                     onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
-                    placeholder={remoteOfficeTokenConfigured ? "Token configured. Enter a new one to replace it." : "Enter token"}
+                    placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
                     className="min-w-0 flex-1 rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                   />
                   <button
@@ -331,9 +316,7 @@ export function SettingsPanel({
                       setRemoteOfficeTokenDraft("");
                     }}
                     className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
-                  >
-                    Save
-                  </button>
+                  >{t("settings.save")}</button>
                   {remoteOfficeTokenConfigured ? (
                     <button
                       type="button"
@@ -342,9 +325,7 @@ export function SettingsPanel({
                         setRemoteOfficeTokenDraft("");
                       }}
                       className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15"
-                    >
-                      Clear
-                    </button>
+                    >{t("settings.clear")}</button>
                   ) : null}
                 </div>
               </div>
@@ -352,9 +333,7 @@ export function SettingsPanel({
           ) : (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-                  Gateway URL
-                </div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.gatewayUrl")}</div>
                 <input
                   type="text"
                   value={remoteOfficeGatewayUrl}
@@ -367,15 +346,13 @@ export function SettingsPanel({
                 </div>
               </div>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-                  Shared gateway token
-                </div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.sharedToken")}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="password"
                     value={remoteOfficeTokenDraft}
                     onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
-                    placeholder={remoteOfficeTokenConfigured ? "Token configured. Enter a new one to replace it." : "Enter token"}
+                    placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
                     className="min-w-0 flex-1 rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                   />
                   <button
@@ -385,9 +362,7 @@ export function SettingsPanel({
                       setRemoteOfficeTokenDraft("");
                     }}
                     className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
-                  >
-                    Save
-                  </button>
+                  >{t("settings.save")}</button>
                   {remoteOfficeTokenConfigured ? (
                     <button
                       type="button"
@@ -396,14 +371,10 @@ export function SettingsPanel({
                         setRemoteOfficeTokenDraft("");
                       }}
                       className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15"
-                    >
-                      Clear
-                    </button>
+                    >{t("settings.clear")}</button>
                   ) : null}
                 </div>
-                <div className="mt-1 text-[10px] text-white/50">
-                  Optional. Browser-based remote presence and messaging can work without it when the remote gateway already allows your Control UI origin.
-                </div>
+                <div className="mt-1 text-[10px] text-white/50">{t("settings.sharedTokenHint")}</div>
               </div>
             </>
           )}
@@ -412,18 +383,14 @@ export function SettingsPanel({
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Onboarding</div>
-            <div className="mt-1 text-[10px] text-white/75">
-              Re-open the onboarding wizard to test the new-user flow.
-            </div>
+            <div className="text-[11px] font-medium text-white">{t("settings.onboarding")}</div>
+            <div className="mt-1 text-[10px] text-white/75">{t("settings.onboardingLead")}</div>
           </div>
           <button
             type="button"
             onClick={() => onOpenOnboarding?.()}
             className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-100 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
-          >
-            Launch wizard
-          </button>
+          >{t("settings.launchWizard")}</button>
         </div>
       </div>
       <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
@@ -431,7 +398,7 @@ export function SettingsPanel({
           <button
             type="button"
             role="switch"
-            aria-label="Voice replies"
+            aria-label={t("settings.voiceReplies")}
             aria-checked={voiceRepliesEnabled}
             className={`ui-switch self-center ${voiceRepliesEnabled ? "ui-switch--on" : ""}`}
             onClick={() => onVoiceRepliesToggle(!voiceRepliesEnabled)}
@@ -440,21 +407,17 @@ export function SettingsPanel({
             <span className="ui-switch-thumb" />
           </button>
           <div className="flex flex-col">
-            <span className="text-[11px] font-medium text-white">Voice replies</span>
-            <span className="text-[10px] text-white/80">
-              Play finalized assistant replies with a natural voice.
-            </span>
+            <span className="text-[11px] font-medium text-white">{t("settings.voiceReplies")}</span>
+            <span className="text-[10px] text-white/80">{t("settings.voiceRepliesLead")}</span>
           </div>
         </div>
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
-          {voiceRepliesLoaded ? (voiceRepliesEnabled ? "On" : "Off") : "Loading"}
+          {voiceRepliesLoaded ? (voiceRepliesEnabled ? t("settings.on") : t("settings.off")) : t("settings.loading")}
         </span>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
-        <div className="text-[11px] font-medium text-white">Voice</div>
-        <div className="mt-1 text-[10px] text-white/75">
-          Choose the voice used for spoken agent replies.
-        </div>
+        <div className="text-[11px] font-medium text-white">{t("settings.voice")}</div>
+        <div className="mt-1 text-[10px] text-white/75">{t("settings.voiceLead")}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {CURATED_ELEVENLABS_VOICES.map((voice) => {
             const selected = voice.id === voiceRepliesVoiceId;
@@ -483,10 +446,8 @@ export function SettingsPanel({
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Speed</div>
-            <div className="mt-1 text-[10px] text-white/75">
-              Adjust how fast the selected voice speaks.
-            </div>
+            <div className="text-[11px] font-medium text-white">{t("settings.speed")}</div>
+            <div className="mt-1 text-[10px] text-white/75">{t("settings.speedLead")}</div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
             {voiceRepliesSpeed.toFixed(2)}x
@@ -505,8 +466,8 @@ export function SettingsPanel({
           className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-cyan-500/15 accent-cyan-400"
         />
         <div className="mt-1 flex items-center justify-between text-[10px] text-white/45">
-          <span>Slower</span>
-          <span>Faster</span>
+          <span>{t("settings.slower")}</span>
+          <span>{t("settings.faster")}</span>
         </div>
       </div>
     </div>

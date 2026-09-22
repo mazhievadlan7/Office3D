@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export const AGENT_FILE_NAMES = [
   "AGENTS.md",
   "SOUL.md",
@@ -20,10 +22,10 @@ export const PERSONALITY_FILE_NAMES = [
 export type PersonalityFileName = (typeof PERSONALITY_FILE_NAMES)[number];
 
 export const PERSONALITY_FILE_LABELS: Record<PersonalityFileName, string> = {
-  "SOUL.md": "Persona",
-  "AGENTS.md": "Directives",
-  "USER.md": "Context",
-  "IDENTITY.md": "Identity",
+  "SOUL.md": t("agentFiles.labelPersona"),
+  "AGENTS.md": t("agentFiles.labelDirectives"),
+  "USER.md": t("agentFiles.labelContext"),
+  "IDENTITY.md": t("agentFiles.labelIdentity"),
 };
 
 export const isAgentFileName = (value: string): value is AgentFileName =>
@@ -32,42 +34,42 @@ export const isAgentFileName = (value: string): value is AgentFileName =>
 export const AGENT_FILE_META: Record<AgentFileName, { title: string; hint: string }> = {
   "AGENTS.md": {
     title: "AGENTS.md",
-    hint: "Operating instructions, priorities, and rules.",
+    hint: t("agentFiles.hintAgents"),
   },
   "SOUL.md": {
     title: "SOUL.md",
-    hint: "Persona, tone, and boundaries.",
+    hint: t("agentFiles.hintSoul"),
   },
   "IDENTITY.md": {
     title: "IDENTITY.md",
-    hint: "Name, vibe, and emoji.",
+    hint: t("agentFiles.hintIdentity"),
   },
   "USER.md": {
     title: "USER.md",
-    hint: "User profile and preferences.",
+    hint: t("agentFiles.hintUser"),
   },
   "TOOLS.md": {
     title: "TOOLS.md",
-    hint: "Local tool notes and conventions.",
+    hint: t("agentFiles.hintTools"),
   },
   "HEARTBEAT.md": {
     title: "HEARTBEAT.md",
-    hint: "Small checklist for heartbeat runs.",
+    hint: t("agentFiles.hintHeartbeat"),
   },
   "MEMORY.md": {
     title: "MEMORY.md",
-    hint: "Durable memory for this agent.",
+    hint: t("agentFiles.hintMemory"),
   },
 };
 
 export const AGENT_FILE_PLACEHOLDERS: Record<AgentFileName, string> = {
-  "AGENTS.md": "How should this agent work? Priorities, rules, and habits.",
-  "SOUL.md": "Tone, personality, boundaries, and how it should sound.",
-  "IDENTITY.md": "Name, vibe, emoji, and a one-line identity.",
-  "USER.md": "How should it address you? Preferences and context.",
-  "TOOLS.md": "Local tool notes, conventions, and shortcuts.",
-  "HEARTBEAT.md": "A tiny checklist for periodic runs.",
-  "MEMORY.md": "Durable facts, decisions, and preferences to remember.",
+  "AGENTS.md": t("agentFiles.phAgents"),
+  "SOUL.md": t("agentFiles.phSoul"),
+  "IDENTITY.md": t("agentFiles.phIdentity"),
+  "USER.md": t("agentFiles.phUser"),
+  "TOOLS.md": t("agentFiles.phTools"),
+  "HEARTBEAT.md": t("agentFiles.phHeartbeat"),
+  "MEMORY.md": t("agentFiles.phMemory"),
 };
 
 export const createAgentFilesState = () =>

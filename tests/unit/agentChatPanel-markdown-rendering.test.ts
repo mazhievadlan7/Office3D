@@ -83,7 +83,7 @@ describe("AgentChatPanel markdown rendering", () => {
     expect(screen.queryByText(/^Output$/)).not.toBeInTheDocument();
     expect(screen.queryByText("Extract output")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Thinking (internal)"));
+    fireEvent.click(screen.getByText("Размышления (внутренние)"));
     const toolSummary = screen.getByText("SHELL · ok");
     const toolDetails = toolSummary.closest("details");
     expect(toolDetails).toBeTruthy();
@@ -130,9 +130,9 @@ describe("AgentChatPanel markdown rendering", () => {
       })
     );
 
-    const thinkingDetails = screen.getByText("Thinking (internal)").closest("details");
+    const thinkingDetails = screen.getByText("Размышления (внутренние)").closest("details");
     expect(thinkingDetails).toBeTruthy();
-    fireEvent.click(screen.getByText("Thinking (internal)"));
+    fireEvent.click(screen.getByText("Размышления (внутренние)"));
     expect(within(thinkingDetails as HTMLElement).getByText(/proposing multi-lane tracking system/i)).toBeInTheDocument();
 
     const memorySearchSummaries = screen.getAllByText(/MEMORY_SEARCH/);
@@ -170,7 +170,7 @@ describe("AgentChatPanel markdown rendering", () => {
       })
     );
 
-    fireEvent.click(screen.getByText("Thinking (internal)"));
+    fireEvent.click(screen.getByText("Размышления (внутренние)"));
     expect(screen.getByText("read /tmp/README.md")).toBeInTheDocument();
     expect(screen.queryByText("read /tmp/README.md", { selector: "summary" })).toBeNull();
     expect(screen.queryByText(/"file_path"/)).toBeNull();

@@ -8,6 +8,7 @@ import {
 } from "@/lib/skills/presentation";
 import { getPackagedSkillBySkillKey } from "@/lib/skills/catalog";
 import type { SkillStatusEntry } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 export type SkillMarketplaceCollectionId =
   | "office3d"
@@ -47,73 +48,73 @@ const SKILL_MARKETPLACE_OVERRIDES: Record<
   Partial<SkillMarketplaceMetadata>
 > = {
   github: {
-    category: "Engineering",
-    tagline: "Turns repository operations into a one-step teammate workflow.",
+    category: t("skillMeta.catEngineering"),
+    tagline: t("skillMeta.githubTagline"),
     capabilities: [
-      "Pull request support",
-      "Issue context",
-      "Repository operations",
+      t("skillMeta.capPrSupport"),
+      t("skillMeta.capIssueContext"),
+      t("skillMeta.capRepoOps"),
     ],
     featured: true,
-    editorBadge: "Popular",
+    editorBadge: t("skillMeta.badgePopular"),
   },
   figma: {
-    category: "Design",
-    tagline: "Connects design files, specs, and implementation context.",
-    capabilities: ["Design context", "Asset lookup", "Spec handoff"],
+    category: t("skillMeta.catDesign"),
+    tagline: t("skillMeta.figmaTagline"),
+    capabilities: [t("skillMeta.capDesignContext"), t("skillMeta.capAssetLookup"), t("skillMeta.capSpecHandoff")],
     featured: true,
-    editorBadge: "Editor pick",
+    editorBadge: t("skillMeta.badgeEditorPick"),
   },
   slack: {
-    category: "Communication",
-    tagline: "Keeps agents plugged into team channels and notifications.",
+    category: t("skillMeta.catCommunication"),
+    tagline: t("skillMeta.slackTagline"),
     capabilities: [
-      "Channel updates",
-      "Message drafting",
-      "Notification routing",
+      t("skillMeta.capChannelUpdates"),
+      t("skillMeta.capMessageDrafting"),
+      t("skillMeta.capNotificationRouting"),
     ],
     featured: true,
   },
   linear: {
-    category: "Planning",
+    category: t("skillMeta.catPlanning"),
     tagline:
-      "Brings issue tracking and execution loops directly into agent workflows.",
-    capabilities: ["Issue lookup", "Status updates", "Planning workflows"],
+      t("skillMeta.linearTagline"),
+    capabilities: [t("skillMeta.capIssueLookup"), t("skillMeta.capStatusUpdates"), t("skillMeta.capPlanningWorkflows")],
     featured: true,
   },
   "todo-board": {
-    category: "Productivity",
+    category: t("skillMeta.catProductivity"),
     tagline:
-      "Gives agents a shared workspace TODO board with blocked-task tracking.",
+      t("skillMeta.todoTagline"),
     capabilities: [
-      "Task capture",
-      "Blocked tracking",
-      "Shared workspace state",
+      t("skillMeta.capTaskCapture"),
+      t("skillMeta.capBlockedTracking"),
+      t("skillMeta.capSharedState"),
     ],
     featured: true,
-    editorBadge: "Office3D test",
+    editorBadge: t("skillMeta.badgeOfficeTest"),
     hideStats: true,
   },
   "task-manager": {
-    category: "Productivity",
+    category: t("skillMeta.catProductivity"),
     tagline:
-      "Turns actionable requests into persistent shared tasks that power the Office3D Kanban board.",
+      t("skillMeta.taskManagerTagline"),
     capabilities: [
-      "Automatic task capture",
-      "Task lifecycle tracking",
-      "Shared Kanban state",
+      t("skillMeta.capAutoCapture"),
+      t("skillMeta.capLifecycle"),
+      t("skillMeta.capSharedKanban"),
     ],
     featured: true,
-    editorBadge: "Kanban core",
+    editorBadge: t("skillMeta.badgeKanbanCore"),
     hideStats: true,
   },
   soundclaw: {
-    category: "Audio",
+    category: t("skillMeta.catAudio"),
     tagline:
-      "Lets agents search Spotify, control playback, and return music links on the current channel.",
-    capabilities: ["Spotify search", "Playback control", "Same-channel link sharing"],
+      t("skillMeta.spotifyTagline"),
+    capabilities: [t("skillMeta.capSpotifySearch"), t("skillMeta.capPlayback"), t("skillMeta.capLinkSharing")],
     featured: true,
-    editorBadge: "Office demo",
+    editorBadge: t("skillMeta.badgeOfficeDemo"),
     hideStats: true,
   },
 };
@@ -128,19 +129,19 @@ const titleCaseWords = (value: string): string =>
 const buildFallbackCapabilities = (skill: SkillStatusEntry): string[] => {
   const capabilities: string[] = [];
   if (skill.primaryEnv) {
-    capabilities.push(`Uses ${skill.primaryEnv}.`);
+    capabilities.push(t("skillMeta.usesEnv", { env: skill.primaryEnv }));
   }
   if (skill.install.length > 0) {
-    capabilities.push("Supports guided dependency install.");
+    capabilities.push(t("skillMeta.guidedInstall"));
   }
   if (skill.always) {
-    capabilities.push("Always available by policy.");
+    capabilities.push(t("skillMeta.alwaysAvailable"));
   }
   if (skill.homepage) {
-    capabilities.push("Has external docs.");
+    capabilities.push(t("skillMeta.externalDocs"));
   }
   if (capabilities.length === 0) {
-    capabilities.push("Reusable operational workflow.");
+    capabilities.push(t("skillMeta.reusableWorkflow"));
   }
   return capabilities.slice(0, 3);
 };
@@ -151,27 +152,27 @@ const buildFallbackMetadata = (
   const source = skill.source.trim();
   const category =
     skill.bundled || source === "openclaw-bundled"
-      ? "Built-in"
+      ? t("skillMeta.catBuiltIn")
       : source === "openclaw-managed"
-        ? "Installed"
+        ? t("skillMeta.catInstalled")
         : source === "openclaw-workspace"
-          ? "Workspace"
+          ? t("skillMeta.catWorkspace")
           : source === "openclaw-extra"
-            ? "Community"
-            : "Automation";
+            ? t("skillMeta.catCommunity")
+            : t("skillMeta.catAutomation");
   const trustLabel =
     skill.bundled || source === "openclaw-bundled"
-      ? "Verified"
+      ? t("skillMeta.trustVerified")
       : source === "openclaw-managed"
-        ? "Managed"
+        ? t("skillMeta.trustManaged")
         : source === "openclaw-workspace"
-          ? "Workspace"
-          : "Community";
+          ? t("skillMeta.catWorkspace")
+          : t("skillMeta.catCommunity");
   return {
     category,
     tagline:
       skill.description.trim() ||
-      `${titleCaseWords(skill.name)} capability pack.`,
+      t("skillMeta.capabilityPack", { name: titleCaseWords(skill.name) }),
     trustLabel,
     capabilities: buildFallbackCapabilities(skill),
     featured: skill.bundled || source === "openclaw-managed",
@@ -273,7 +274,7 @@ export const buildSkillMarketplaceCollections = (
   if (installed.length > 0) {
     collections.push({
       id: "installed",
-      label: "Installed",
+      label: t("skillMeta.catInstalled"),
       entries: installed,
     });
   }

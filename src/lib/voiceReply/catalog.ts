@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export type CuratedVoiceOption = {
   id: string | null;
   label: string;
@@ -8,31 +10,31 @@ export const CURATED_ELEVENLABS_VOICES: CuratedVoiceOption[] = [
   {
     id: null,
     label: "Rachel",
-    description: "Balanced and conversational.",
+    description: t("voices.balanced"),
   },
   {
     id: "EXAVITQu4vr4xnSDxMaL",
     label: "Bella",
-    description: "Warm and friendly.",
+    description: t("voices.warm"),
   },
   {
     id: "MF3mGyEYCl7XYWbV9V6O",
     label: "Elli",
-    description: "Clear and upbeat.",
+    description: t("voices.clear"),
   },
   {
     id: "ErXwobaYiN019PkySvjV",
     label: "Antoni",
-    description: "Calm and professional.",
+    description: t("voices.calm"),
   },
   {
     id: "TxGEqnHWrfWFTfGW9XjX",
     label: "Josh",
-    description: "Steady and confident.",
+    description: t("voices.steady"),
   },
   {
     id: "pNInz6obpgDQGcFmaJgB",
     label: "Adam",
-    description: "Deep and authoritative.",
+    description: t("voices.deep"),
   },
 ];
