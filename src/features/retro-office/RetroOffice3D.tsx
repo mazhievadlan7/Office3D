@@ -222,6 +222,7 @@ import {
   TrailSystem as AgentTrailSystem,
 } from "@/features/retro-office/systems/visualSystems";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
+import { t } from "@/lib/i18n";
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
 type RenderAgentUiSnapshot = Pick<RenderAgent, "state" | "status">;
@@ -259,116 +260,116 @@ type PaletteEntry = {
 const PALETTE: PaletteEntry[] = [
   {
     type: "wall",
-    label: "Wall",
+    label: t("furniture.wall"),
     icon: "🧱",
     defaults: { w: 80, h: WALL_THICKNESS },
   },
   {
     type: "door",
-    label: "Door",
+    label: t("furniture.door"),
     icon: "🚪",
     defaults: { w: DOOR_LENGTH, h: DOOR_THICKNESS, facing: 0 },
   },
   {
     type: "desk_cubicle",
-    label: "Desk",
+    label: t("furniture.desk"),
     icon: "🖥️",
     defaults: { w: 100, h: 55 },
   },
-  { type: "chair", label: "Chair", icon: "🪑", defaults: { facing: 0 } },
+  { type: "chair", label: t("furniture.chair"), icon: "🪑", defaults: { facing: 0 } },
   {
     type: "round_table",
-    label: "Round Table",
+    label: t("furniture.roundTable"),
     icon: "⭕",
     defaults: { r: 60 },
   },
   {
     type: "executive_desk",
-    label: "Exec Desk",
+    label: t("furniture.execDesk"),
     icon: "📋",
     defaults: { w: 130, h: 65 },
   },
-  { type: "couch", label: "Couch", icon: "🛋️", defaults: { w: 100, h: 40 } },
+  { type: "couch", label: t("furniture.couch"), icon: "🛋️", defaults: { w: 100, h: 40 } },
   {
     type: "couch_v",
-    label: "Couch (V)",
+    label: t("furniture.couchV"),
     icon: "🛋️",
     defaults: { w: 40, h: 80, vertical: true },
   },
   {
     type: "bookshelf",
-    label: "Bookshelf",
+    label: t("furniture.bookshelf"),
     icon: "📚",
     defaults: { w: 80, h: 120 },
   },
-  { type: "plant", label: "Plant", icon: "🪴", defaults: {} },
+  { type: "plant", label: t("furniture.plant"), icon: "🪴", defaults: {} },
   {
     type: "beanbag",
-    label: "Beanbag",
+    label: t("furniture.beanbag"),
     icon: "🟠",
     defaults: { color: "#e65100" },
   },
   {
     type: "pingpong",
-    label: "Ping Pong",
+    label: t("furniture.pingPong"),
     icon: "🏓",
     defaults: { w: 100, h: 60 },
   },
   {
     type: "table_rect",
-    label: "Table",
+    label: t("furniture.table"),
     icon: "🟫",
     defaults: { w: 80, h: 40 },
   },
-  { type: "coffee_machine", label: "Coffee", icon: "☕", defaults: {} },
-  { type: "fridge", label: "Fridge", icon: "🧊", defaults: { w: 40, h: 80 } },
-  { type: "water_cooler", label: "Water", icon: "💧", defaults: {} },
+  { type: "coffee_machine", label: t("furniture.coffee"), icon: "☕", defaults: {} },
+  { type: "fridge", label: t("furniture.fridge"), icon: "🧊", defaults: { w: 40, h: 80 } },
+  { type: "water_cooler", label: t("furniture.water"), icon: "💧", defaults: {} },
   { type: "atm", label: "ATM", icon: "🏧", defaults: { facing: 270 } },
-  { type: "jukebox", label: "Jukebox", icon: "🎵", defaults: { facing: 0 } },
+  { type: "jukebox", label: t("furniture.jukebox"), icon: "🎵", defaults: { facing: 0 } },
   {
     type: "kanban_board",
-    label: "Kanban Board",
+    label: t("furniture.kanban"),
     icon: "📌",
     defaults: { w: 130, h: 65, facing: 90 },
   },
   {
     type: "whiteboard",
-    label: "Whiteboard",
+    label: t("furniture.whiteboard"),
     icon: "📝",
     defaults: { w: 10, h: 60 },
   },
   {
     type: "cabinet",
-    label: "Cabinet",
+    label: t("furniture.cabinet"),
     icon: "🗄️",
     defaults: { w: 200, h: 40 },
   },
   {
     type: "dishwasher",
-    label: "Dishwasher",
+    label: t("furniture.dishwasher"),
     icon: "🧼",
     defaults: { w: 40, h: 40 },
   },
   {
     type: "stove",
-    label: "Stove",
+    label: t("furniture.stove"),
     icon: "🍳",
     defaults: { w: 40, h: 40 },
   },
   {
     type: "microwave",
-    label: "Microwave",
+    label: t("furniture.microwave"),
     icon: "⏲️",
     defaults: { w: 30, h: 20 },
   },
   {
     type: "wall_cabinet",
-    label: "Wall Cabinet",
+    label: t("furniture.wallCabinet"),
     icon: "🗄️",
     defaults: { w: 80, h: 20, elevation: 0.9 },
   },
-  { type: "computer", label: "Computer", icon: "🖥️", defaults: {} },
-  { type: "lamp", label: "Lamp", icon: "💡", defaults: {} },
+  { type: "computer", label: t("furniture.computer"), icon: "🖥️", defaults: {} },
+  { type: "lamp", label: t("furniture.lamp"), icon: "💡", defaults: {} },
 ];
 
 // ============================================================
@@ -2209,14 +2210,14 @@ export function RetroOffice3D({
   githubSkill = null,
   taskManagerEnabled = false,
   soundclawEnabled = false,
-  officeTitle = "Office3D Headquarters",
+  officeTitle = t("office.defaultTitle"),
   officeTitleLoaded = false,
   remoteOfficeEnabled = false,
   remoteOfficeSourceKind = "presence_endpoint",
-  remoteOfficeLabel = "Remote Office",
+  remoteOfficeLabel = t("office.remoteLabel"),
   remoteOfficePresenceUrl = "",
   remoteOfficeGatewayUrl = "",
-  remoteOfficeStatusText = "Remote office disabled.",
+  remoteOfficeStatusText = t("office.remoteDisabled"),
   remoteLayoutSnapshot = null,
   remoteOfficeTokenConfigured = false,
   voiceRepliesEnabled = false,
@@ -4598,7 +4599,7 @@ export function RetroOffice3D({
   }, [onDeskAssignmentChange, selectedItem, selectedUid]);
 
   const handleReset = () => {
-    if (!window.confirm("Reset the office to the default layout?")) return;
+    if (!window.confirm(t("office.resetLayoutConfirm"))) return;
     onDeskAssignmentsReset?.(
       furniture
         .filter((item) => item.type === "desk_cubicle")
@@ -5537,17 +5538,17 @@ export function RetroOffice3D({
                 {
                   key: "overview",
                   icon: <Maximize size={12} />,
-                  title: "Overview",
+                  title: t("office.viewOverview"),
                 },
                 {
                   key: "frontDesk",
                   icon: <Monitor size={12} />,
-                  title: "Front desk",
+                  title: t("office.viewFrontDesk"),
                 },
                 {
                   key: "lounge",
                   icon: <Armchair size={12} />,
-                  title: "Lounge",
+                  title: t("office.viewLounge"),
                 },
               ] as const
             ).map(({ key, icon, title }) => (
@@ -5570,18 +5571,20 @@ export function RetroOffice3D({
               className="rounded-xl border border-emerald-500/20 bg-[#0b1410]/90 px-3 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-emerald-400/35 hover:bg-[#102017]/95"
             >
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-200/80">
-                Standup
+                {t("standup.title3d")}
               </div>
               <div className="mt-1 text-[11px] font-semibold text-white/90">
                 {standupMeeting.phase === "gathering"
-                  ? "Gathering in meeting room."
+                  ? t("standup.gatheringShort")
                   : standupMeeting.phase === "in_progress"
-                    ? `Speaking: ${standupSpeakerCard?.agentName ?? "Team"}`
+                    ? t("standup.speakingName", { name: standupSpeakerCard?.agentName ?? t("standup.team") })
                     : ""}
               </div>
               <div className="mt-1 font-mono text-[10px] text-white/50">
-                {standupMeeting.arrivedAgentIds.length}/
-                {standupMeeting.participantOrder.length} arrived
+                {t("standup.arrivedCount", {
+                  arrived: standupMeeting.arrivedAgentIds.length,
+                  total: standupMeeting.participantOrder.length,
+                })}
               </div>
             </button>
           ) : null}
@@ -5592,7 +5595,7 @@ export function RetroOffice3D({
               className="rounded-xl border border-cyan-500/22 bg-[#09111a]/90 px-3 py-2 text-left shadow-lg backdrop-blur-sm transition-colors hover:border-cyan-300/40 hover:bg-[#0d1b28]/95"
             >
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200/80">
-                Kanban board
+                {t("office.kanbanBoard")}
               </div>
             </button>
           ) : null}
@@ -5685,7 +5688,7 @@ export function RetroOffice3D({
             >
               <Users className="h-3.5 w-3.5" />
               <span>{agents.length}</span>
-              <span className="hidden sm:inline">agents</span>
+              <span className="hidden sm:inline">{t("office.agentsWord")}</span>
             </button>
           </div>
 
@@ -5694,17 +5697,17 @@ export function RetroOffice3D({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-500/70">
-                    Team roster
+                    {t("office.roster")}
                   </div>
                   <div className="mt-1 text-sm font-semibold text-amber-100">
-                    Compact view for larger fleets.
+                    {t("office.rosterLead")}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAgentRosterOpen(false)}
                   className="rounded-full border border-amber-900/25 p-2 text-amber-200 transition-colors hover:border-amber-500/35 hover:text-white"
-                  aria-label="Close roster"
+                  aria-label={t("office.closeRoster")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -5752,9 +5755,13 @@ export function RetroOffice3D({
                             {agent.name}
                           </div>
                           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-500/70">
-                            {isError ? "error" : working ? "working" : "idle"}
-                            {isRemoteAgent ? " · remote" : ""}
-                            {runCount > 0 ? ` · ${runCount} runs` : ""}
+                            {isError
+                              ? t("office.statusError")
+                              : working
+                                ? t("office.statusWorking")
+                                : t("office.statusIdle")}
+                            {isRemoteAgent ? t("office.remoteSuffix") : ""}
+                            {runCount > 0 ? t("office.runsSuffix", { count: runCount }) : ""}
                           </div>
                         </div>
                       </button>
@@ -5762,8 +5769,8 @@ export function RetroOffice3D({
                         type="button"
                         title={
                           followAgentId === agent.id
-                            ? "Exit follow cam"
-                            : "Follow cam"
+                            ? t("office.exitFollowCam")
+                            : t("office.followCam")
                         }
                         onClick={() =>
                           setFollowAgentId((prev) =>
@@ -5782,10 +5789,10 @@ export function RetroOffice3D({
                         type="button"
                         title={
                           isRemoteAgent
-                            ? "Remote office is view only"
+                            ? t("office.remoteViewOnly")
                             : monitorAgentId === agent.id
-                              ? "Close desk monitor"
-                              : "Open desk monitor"
+                              ? t("office.closeDeskMonitor")
+                              : t("office.openDeskMonitor")
                         }
                         disabled={isRemoteAgent}
                         onClick={() => {
@@ -5808,7 +5815,7 @@ export function RetroOffice3D({
                       {onAgentDelete && !isRemoteAgent ? (
                         <button
                           type="button"
-                          title="Delete agent"
+                          title={t("office.deleteAgent")}
                           onClick={() => {
                             onAgentDelete(agent.id);
                             setAgentRosterOpen(false);
@@ -5868,7 +5875,7 @@ export function RetroOffice3D({
                     if (mins <= 0) return null;
                     return (
                       <div className="text-[9px] text-amber-700/70">
-                        last active {mins}m ago
+                        {t("office.lastActive", { mins })}
                       </div>
                     );
                   })()}
@@ -5882,7 +5889,11 @@ export function RetroOffice3D({
                         : "bg-yellow-900/30 text-yellow-500 ring-1 ring-yellow-800/30"
                   }`}
                 >
-                  {isError ? "error" : working ? "working" : "idle"}
+                  {isError
+                              ? t("office.statusError")
+                              : working
+                                ? t("office.statusWorking")
+                                : t("office.statusIdle")}
                 </div>
               </div>
             </div>
@@ -5948,7 +5959,7 @@ export function RetroOffice3D({
                   setContextMenu(null);
                 }}
               >
-                Copy ID
+                {t("office.copyId")}
               </button>
             </div>
           );
@@ -5962,7 +5973,7 @@ export function RetroOffice3D({
           >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-500/70">
-                Desk actions
+                {t("office.deskActions")}
               </div>
               <button
                 type="button"
@@ -5972,20 +5983,20 @@ export function RetroOffice3D({
                 }}
                 className="rounded border border-amber-900/25 px-2 py-0.5 text-[10px] text-amber-200/70 transition-colors hover:border-amber-600/40 hover:text-amber-100"
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
             <div className="mt-2 rounded-md border border-amber-900/20 bg-[#1a120b] px-2.5 py-2 text-[11px] text-amber-100/90">
               {selectedDeskActionAssignedAgent ? (
                 <>
-                  Assigned agent:{" "}
+                  {t("office.assignedAgent")}{" "}
                   <span className="font-semibold text-white">
                     {selectedDeskActionAssignedAgent.name}
                   </span>
                   .
                 </>
               ) : (
-                "Assigned agent: Unassigned."
+                t("office.assignedNone")
               )}
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -5995,7 +6006,7 @@ export function RetroOffice3D({
                 disabled={!selectedDeskActionAssignedAgentId}
                 className="rounded-md border border-emerald-700/35 bg-emerald-900/20 px-2 py-2 text-[11px] font-semibold text-emerald-100 transition-colors hover:bg-emerald-800/30 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Go to desk
+                {t("office.goToDesk")}
               </button>
               <button
                 type="button"
@@ -6003,7 +6014,7 @@ export function RetroOffice3D({
                 disabled={!onDeskAssignmentChange}
                 className="rounded-md border border-amber-700/35 bg-amber-900/18 px-2 py-2 text-[11px] font-semibold text-amber-100 transition-colors hover:bg-amber-800/30 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Assign agent
+                {t("office.assignAgent")}
               </button>
             </div>
             {deskAssignPickerOpen && onDeskAssignmentChange ? (
@@ -6019,7 +6030,7 @@ export function RetroOffice3D({
                   }}
                   className="w-full rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-2 text-[11px] text-amber-100 outline-none transition-colors focus:border-amber-500/50"
                 >
-                  <option value="">Unassigned desk.</option>
+                  <option value="">{t("office.unassignedDesk")}</option>
                   {agents.map((agent) => (
                     <option key={agent.id} value={agent.id}>
                       {agent.name}
@@ -6041,10 +6052,10 @@ export function RetroOffice3D({
             <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#120e08]/90 backdrop-blur-sm border border-amber-700/40 rounded-full px-3 py-1 z-20 pointer-events-none select-none">
               <Camera size={10} className="text-amber-400" />
               <span className="text-[10px] font-bold text-amber-300 tracking-widest uppercase">
-                {followed?.name ?? "Agent"}
+                {followed?.name ?? t("office.agentFallback")}
               </span>
               <span className="text-[9px] text-amber-600/60">
-                · click 📷 to exit
+                {t("office.clickToExitFollow")}
               </span>
             </div>
           );
@@ -6055,7 +6066,7 @@ export function RetroOffice3D({
       !githubCommandArrived ? (
         <div className="pointer-events-none absolute top-16 left-1/2 z-20 -translate-x-1/2">
           <div className="rounded-full border border-cyan-300/18 bg-[#06101f]/88 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-100/78 backdrop-blur-sm">
-            Agent walking to the Code Review room.
+            {t("office.walkingToReview")}
           </div>
         </div>
       ) : null}
@@ -6063,7 +6074,7 @@ export function RetroOffice3D({
       {!immersiveOverlayActive && qaTestingAgentId && !qaCommandArrived ? (
         <div className="pointer-events-none absolute top-28 left-1/2 z-20 -translate-x-1/2">
           <div className="rounded-full border border-violet-300/20 bg-[#12091d]/88 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-violet-100/80 backdrop-blur-sm">
-            Agent walking to the QA Lab.
+            {t("office.walkingToQa")}
           </div>
         </div>
       ) : null}
@@ -6096,14 +6107,14 @@ export function RetroOffice3D({
           <div className="pointer-events-auto absolute right-[7vw] top-[7vh] flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-2 backdrop-blur-sm">
             <div className="h-2 w-2 rounded-full bg-emerald-400" />
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/90">
-              Monitor View
+              {t("office.monitorView")}
             </div>
             <button
               type="button"
               onClick={() => onMonitorSelect?.(null)}
               className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white/70 transition-colors hover:border-white/20 hover:text-white"
             >
-              Exit
+              {t("office.exit")}
             </button>
           </div>
         </div>
@@ -6170,7 +6181,7 @@ export function RetroOffice3D({
                   onGithubReviewDismiss?.();
                 }
               }}
-              aria-label="Close GitHub view"
+              aria-label={t("office.closeGithubView")}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/20 bg-[#05111f]/82 text-[18px] leading-none text-cyan-100/78 backdrop-blur-sm transition-colors hover:border-cyan-200/40 hover:text-white"
             >
               X
@@ -6196,34 +6207,34 @@ export function RetroOffice3D({
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-violet-300/10 bg-[#0d0718]/95 px-8 py-5 backdrop-blur-sm">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-200/72">
-                    QA Lab
+                    {t("qa.lab")}
                   </div>
                   <div className="mt-2 text-2xl font-semibold text-white/94">
-                    Testing Console
+                    {t("qa.console")}
                   </div>
                 </div>
                 <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/88">
-                  Verifying Build
+                  {t("qa.verifyingBuild")}
                 </div>
               </div>
               <div className="grid flex-1 grid-cols-[1.4fr_1fr] gap-6 px-8 py-6">
                 <div className="rounded-[22px] border border-violet-300/12 bg-black/26 p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-200/70">
-                      Active Workflow
+                      {t("qa.activeWorkflow")}
                     </div>
                     <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/70">
-                      QA Ready
+                      {t("qa.ready")}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     {[
-                      "Write tests",
-                      "Run tests",
-                      "Verify behavior",
-                      "Reproduce bugs",
-                      "Check if this works",
-                      "Regression scan",
+                      t("qa.writeTests"),
+                      t("qa.runTests"),
+                      t("qa.verifyBehavior"),
+                      t("qa.reproduceBugs"),
+                      t("qa.checkWorks"),
+                      t("qa.regressionScan"),
                     ].map((step) => (
                       <div
                         key={step}
@@ -6236,26 +6247,26 @@ export function RetroOffice3D({
                   <div className="mt-5 rounded-[20px] border border-violet-300/12 bg-[#120d22]/88 p-4">
                     <div className="flex items-center justify-between">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-200/70">
-                        Pipeline Health
+                        {t("qa.pipelineHealth")}
                       </div>
                       <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-200/82">
-                        Stable
+                        {t("qa.stable")}
                       </div>
                     </div>
                     <div className="mt-4 space-y-3">
                       {[
                         {
-                          label: "Unit suite",
+                          label: t("qa.unitSuite"),
                           width: "92%",
                           tone: "from-emerald-400 to-cyan-400",
                         },
                         {
-                          label: "Regression pass",
+                          label: t("qa.regressionPass"),
                           width: "78%",
                           tone: "from-cyan-400 to-violet-400",
                         },
                         {
-                          label: "Device verification",
+                          label: t("qa.deviceVerification"),
                           width: "66%",
                           tone: "from-violet-400 to-fuchsia-400",
                         },
@@ -6277,31 +6288,30 @@ export function RetroOffice3D({
                   </div>
                   <div className="mt-5 rounded-[20px] border border-cyan-300/12 bg-[#07111d]/86 p-4">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/72">
-                      Assigned Agent
+                      {t("qa.assignedAgent")}
                     </div>
                     <div className="mt-2 text-lg font-semibold text-cyan-50">
                       {qaTestingAgentId
                         ? (agents.find((agent) => agent.id === qaTestingAgentId)
-                            ?.name ?? "Agent")
-                        : "QA Operator"}
+                            ?.name ?? t("office.agentFallback"))
+                        : t("qa.operator")}
                     </div>
                     <div className="mt-2 text-sm leading-6 text-cyan-50/72">
-                      Running validation passes across the lab monitors and
-                      connected test devices.
+                      {t("qa.operatorLead")}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div className="rounded-[22px] border border-violet-300/12 bg-black/26 p-5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-200/70">
-                      Device Wall
+                      {t("qa.deviceWall")}
                     </div>
                     <div className="mt-4 space-y-3">
                       {[
-                        { label: "Web smoke tests", state: "online" },
-                        { label: "Mobile repro pass", state: "online" },
-                        { label: "Console verification", state: "online" },
-                        { label: "Cross-device check", state: "queued" },
+                        { label: t("qa.webSmoke"), state: "online" },
+                        { label: t("qa.mobileRepro"), state: "online" },
+                        { label: t("qa.consoleVerification"), state: "online" },
+                        { label: t("qa.crossDevice"), state: "queued" },
                       ].map(({ label, state }, index) => (
                         <div
                           key={label}
@@ -6326,13 +6336,13 @@ export function RetroOffice3D({
                   </div>
                   <div className="rounded-[22px] border border-cyan-300/12 bg-[#07111d]/88 p-5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200/72">
-                      Live Findings
+                      {t("qa.liveFindings")}
                     </div>
                     <div className="mt-4 space-y-3 text-sm">
                       {[
-                        "Input validation mismatch on mobile settings view.",
-                        "Repro path captured for flaky workspace sync issue.",
-                        "Visual diff queued for monitor overlay transition.",
+                        t("qa.finding1"),
+                        t("qa.finding2"),
+                        t("qa.finding3"),
                       ].map((finding) => (
                         <div
                           key={finding}
@@ -6345,14 +6355,14 @@ export function RetroOffice3D({
                   </div>
                   <div className="rounded-[22px] border border-amber-300/12 bg-[#161007]/88 p-5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200/72">
-                      Suggested Prompts
+                      {t("qa.suggestedPrompts")}
                     </div>
                     <div className="mt-4 space-y-2 text-sm text-amber-50/78">
-                      <div>`write tests`</div>
-                      <div>`run tests`</div>
-                      <div>`verify`</div>
-                      <div>`reproduce`</div>
-                      <div>`check if this works`</div>
+                      <div>{t("qa.promptWriteTests")}</div>
+                      <div>{t("qa.promptRunTests")}</div>
+                      <div>{t("qa.promptVerify")}</div>
+                      <div>{t("qa.promptReproduce")}</div>
+                      <div>{t("qa.promptCheckWorks")}</div>
                     </div>
                   </div>
                 </div>
@@ -6370,7 +6380,7 @@ export function RetroOffice3D({
                   onQaLabDismiss?.();
                 }
               }}
-              aria-label="Close QA lab view"
+              aria-label={t("qa.closeView")}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-300/20 bg-[#12091d]/82 text-[18px] leading-none text-violet-100/78 backdrop-blur-sm transition-colors hover:border-violet-200/40 hover:text-white"
             >
               X
@@ -6410,7 +6420,7 @@ export function RetroOffice3D({
                 }
                 closeManualSmsBoothView();
               }}
-              aria-label="Close messaging booth view"
+              aria-label={t("office.closeSmsBooth")}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-200/20 bg-[#03111f]/82 text-[18px] leading-none text-sky-50/78 backdrop-blur-sm transition-colors hover:border-sky-200/40 hover:text-white"
             >
               X
@@ -6448,7 +6458,7 @@ export function RetroOffice3D({
                 }
                 closeManualPhoneBoothView();
               }}
-              aria-label="Close phone booth view"
+              aria-label={t("office.closePhoneBooth")}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-200/20 bg-[#03111f]/82 text-[18px] leading-none text-sky-50/78 backdrop-blur-sm transition-colors hover:border-sky-200/40 hover:text-white"
             >
               X
@@ -6476,7 +6486,7 @@ export function RetroOffice3D({
             <button
               type="button"
               onClick={() => setActiveAtmUid(null)}
-              aria-label="Close ATM view"
+              aria-label={t("office.closeAtm")}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-[#8efff2]/20 bg-[#031214]/82 text-[18px] leading-none text-[#d7fff9]/78 backdrop-blur-sm transition-colors hover:border-[#8efff2]/40 hover:text-white"
             >
               X
@@ -6488,7 +6498,7 @@ export function RetroOffice3D({
       {/* Edit mode badge. */}
       {!immersiveOverlayActive && editMode && (
         <div className="absolute top-3 left-3 px-3 py-1 rounded-md bg-amber-500/90 text-[#1a1008] text-xs font-bold uppercase tracking-widest pointer-events-none z-10">
-          Edit Mode
+          {t("editor3d.editMode")}
         </div>
       )}
 
@@ -6497,7 +6507,7 @@ export function RetroOffice3D({
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-500/65">
-                Selected
+                {t("editor3d.selected")}
               </div>
               <div className="mt-1 text-xs font-semibold text-amber-100">
                 {PALETTE.find((entry) => entry.type === selectedItem.type)
@@ -6505,13 +6515,13 @@ export function RetroOffice3D({
                   resolveItemTypeKey(selectedItem).replaceAll("_", " ")}
               </div>
               <div className="mt-1 text-[10px] text-amber-500/55">
-                rot {Math.round(selectedItem.facing ?? 0)} deg · lift{" "}
+                {t("editor3d.rotLift", { deg: Math.round(selectedItem.facing ?? 0) })}{" "}
                 {(selectedItem.elevation ?? 0).toFixed(2)}
               </div>
             </div>
             <button
               onClick={closeSelectedEditor}
-              title="Close object editor"
+              title={t("editor3d.closeEditor")}
               className="flex h-7 w-7 items-center justify-center rounded-md border border-amber-800/25 bg-[#1c1610] text-amber-300/80 transition-colors hover:bg-[#261e16] hover:text-amber-200"
             >
               <X size={12} />
@@ -6519,7 +6529,7 @@ export function RetroOffice3D({
           </div>
           <div className="mb-3">
             <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-500/65">
-              Move
+              {t("editor3d.move")}
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               <div />
@@ -6527,33 +6537,33 @@ export function RetroOffice3D({
                 onClick={() => moveSelectedItem(0, -SNAP_GRID)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Forward
+                {t("editor3d.forward")}
               </button>
               <div />
               <button
                 onClick={() => moveSelectedItem(-SNAP_GRID, 0)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Left
+                {t("editor3d.left")}
               </button>
               <button
                 onClick={() => moveSelectedItem(0, 0, ELEVATION_STEP)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Up
+                {t("editor3d.up")}
               </button>
               <button
                 onClick={() => moveSelectedItem(SNAP_GRID, 0)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Right
+                {t("editor3d.right")}
               </button>
               <div />
               <button
                 onClick={() => moveSelectedItem(0, SNAP_GRID)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Back
+                {t("editor3d.back")}
               </button>
               <div />
               <div />
@@ -6561,38 +6571,37 @@ export function RetroOffice3D({
                 onClick={() => moveSelectedItem(0, 0, -ELEVATION_STEP)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                Down
+                {t("editor3d.down")}
               </button>
               <div />
             </div>
           </div>
           <div>
             <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-500/65">
-              Rotate
+              {t("editor3d.rotate")}
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={() => rotateSelectedItem(-ROTATION_STEP_DEG)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                -15 deg
+                −15°
               </button>
               <button
                 onClick={() => rotateSelectedItem(ROTATION_STEP_DEG)}
                 className="rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/85 hover:bg-[#261e16]"
               >
-                +15 deg
+                +15°
               </button>
             </div>
             <div className="mt-2 text-[10px] text-amber-500/50">
-              Arrows move on the floor. PageUp and PageDown lift. [ and ]
-              rotate.
+              {t("editor3d.keysHint")}
             </div>
           </div>
           {selectedItem.type === "desk_cubicle" ? (
             <div className="mt-3 border-t border-amber-900/20 pt-3">
               <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-500/65">
-                Desk Assignment
+                {t("editor3d.deskAssignment")}
               </div>
               <select
                 value={selectedDeskAssignmentAgentId}
@@ -6605,7 +6614,7 @@ export function RetroOffice3D({
                 }}
                 className="w-full rounded-md border border-amber-800/25 bg-[#1c1610] px-2 py-2 text-[11px] text-amber-100 outline-none transition-colors focus:border-amber-500/50"
               >
-                <option value="">Unassigned desk.</option>
+                <option value="">{t("office.unassignedDesk")}</option>
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>
                     {agent.name}
@@ -6613,7 +6622,7 @@ export function RetroOffice3D({
                 ))}
               </select>
               <div className="mt-2 text-[10px] text-amber-500/50">
-                Assigning a desk makes `target: desk` route that agent here.
+                {t("editor3d.deskAssignmentHint")}
               </div>
             </div>
           ) : null}
@@ -6624,7 +6633,7 @@ export function RetroOffice3D({
       {!immersiveOverlayActive && editMode && drawerOpen && !selectedItem && (
         <div className="absolute bottom-14 right-3 w-52 max-h-[calc(100vh-100px)] overflow-y-auto rounded-lg bg-[#1c1610]/95 border border-amber-800/20 p-3 shadow-xl backdrop-blur-sm z-20">
           <div className="text-[10px] text-amber-500/70 font-bold uppercase tracking-widest mb-3">
-            Objects
+            {t("editor3d.objects")}
           </div>
           <div className="grid grid-cols-2 gap-2">
             {PALETTE.map((entry) => (
@@ -6667,11 +6676,11 @@ export function RetroOffice3D({
           {onAddAgent ? (
             <button
               onClick={onAddAgent}
-              title="Add agent"
+              title={t("office.addAgent")}
               className="flex h-7 items-center justify-center gap-1 rounded-md border border-cyan-500/35 bg-[#071018]/92 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-200 transition-all backdrop-blur-sm hover:border-cyan-400/55 hover:text-white"
             >
               <UserPlus size={12} />
-              <span>Add</span>
+              <span>{t("editor3d.add")}</span>
             </button>
           ) : null}
           <div
@@ -6682,21 +6691,21 @@ export function RetroOffice3D({
                   ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
                   : "border-rose-400/25 bg-rose-500/10 text-rose-100"
             }`}
-            title={`Runtime: ${activeAdapterType} (${gatewayStatus})`}
+            title={t("office.runtimeTitle", { adapter: activeAdapterType, status: gatewayStatus })}
           >
             {activeAdapterType} • {gatewayStatus}
           </div>
           {/* New Idea 7: Heatmap toggle. */}
           <button
             onClick={() => setHeatmapMode((p) => !p)}
-            title="Toggle heatmap"
+            title={t("office.toggleHeatmap")}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${heatmapMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
           >
             <MapIcon size={12} />
           </button>
           <button
             onClick={() => setTrailMode((p) => !p)}
-            title="Toggle trails"
+            title={t("office.toggleTrails")}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${trailMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
           >
             <Maximize size={12} />
@@ -6704,7 +6713,7 @@ export function RetroOffice3D({
           {/* Edit office toggle. */}
           <button
             onClick={toggleEdit}
-            title={editMode ? "Done editing" : "Edit office"}
+            title={editMode ? t("office.doneEditing") : t("office.editOffice")}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${editMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
           >
             {editMode ? (
@@ -6715,7 +6724,7 @@ export function RetroOffice3D({
           </button>
           <button
             onClick={() => setSettingsModalOpen(true)}
-            title="Voice reply settings"
+            title={t("office.voiceSettings")}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${settingsModalOpen ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
           >
             <Settings2 size={12} />
@@ -6726,30 +6735,30 @@ export function RetroOffice3D({
                 <span className="text-[10px] text-amber-400/70">
                   {drag.itemType === "wall"
                     ? wallDrawStart
-                      ? "Click the end point to finish the wall."
-                      : "Click a start point, then click again to finish the wall."
-                    : "Click floor to place. Esc cancels."}
+                      ? t("editor3d.wallEnd")
+                      : t("editor3d.wallStart")
+                    : t("editor3d.placeHint")}
                 </span>
               )}
               <button
                 onClick={handleReset}
                 className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider bg-[#2a1e14]/90 text-amber-400/60 border border-amber-800/20 hover:bg-[#3a2a1a] backdrop-blur-sm"
               >
-                Reset
+                {t("office.reset")}
               </button>
               {selectedUid && (
                 <button
                   onClick={handleDelete}
                   className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider bg-red-900/40 text-red-400 border border-red-800/30 hover:bg-red-900/60 backdrop-blur-sm"
                 >
-                  Delete
+                  {t("editor3d.delete")}
                 </button>
               )}
               <button
                 onClick={() => setDrawerOpen((p) => !p)}
                 className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider bg-[#2a1e14]/90 text-amber-400 border border-amber-800/30 hover:bg-[#3a2a1a] backdrop-blur-sm"
               >
-                {drawerOpen ? "Hide Objects" : "Show Objects"}
+                {drawerOpen ? t("editor3d.hideObjects") : t("editor3d.showObjects")}
               </button>
             </>
           )}
@@ -6761,17 +6770,17 @@ export function RetroOffice3D({
             <div className="flex items-start justify-between border-b border-cyan-500/10 px-4 py-3">
               <div>
                 <div className="font-mono text-[10px] font-semibold tracking-[0.28em] text-cyan-300/75">
-                  STUDIO SETTINGS
+                  {t("office.studioSettings")}
                 </div>
                 <div className="mt-1 text-[11px] text-white/45">
-                  Customize the office banner and spoken replies across the app.
+                  {t("office.studioSettingsLead")}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSettingsModalOpen(false)}
                 className="flex h-7 w-7 items-center justify-center rounded-md border border-cyan-500/10 bg-black/20 text-cyan-100/70 transition-colors hover:border-cyan-400/30 hover:text-cyan-100"
-                aria-label="Close studio settings"
+                aria-label={t("office.closeStudioSettings")}
               >
                 <X size={12} />
               </button>
@@ -6868,15 +6877,15 @@ export function RetroOffice3D({
             {/* Ideas 6 + 8: Gateway status, agent counts, vibe score. */}
             <div className="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 text-[10px] font-mono">
               <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "working").length} working
+                {t("office.countWorking", { count: agents.filter((a) => a.status === "working").length })}
               </span>
               <span className="opacity-30">·</span>
               <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "idle").length} idle
+                {t("office.countIdle", { count: agents.filter((a) => a.status === "idle").length })}
               </span>
               <span className="opacity-30">·</span>
               <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "error").length} error
+                {t("office.countError", { count: agents.filter((a) => a.status === "error").length })}
               </span>
               {/* New Idea 6: Vibe score with animated EQ bars. */}
               {(() => {
@@ -6913,14 +6922,14 @@ export function RetroOffice3D({
                 <>
                   <span className="opacity-30">·</span>
                   <span className="text-amber-400/40">
-                    drag · scroll · space+drag · dbl-click
+                    {t("office.cameraHint")}
                   </span>
                 </>
               )}
               {spaceDown && (
                 <>
                   <span className="opacity-30">·</span>
-                  <span className="text-amber-300/80">pan mode</span>
+                  <span className="text-amber-300/80">{t("office.panMode")}</span>
                 </>
               )}
             </div>
