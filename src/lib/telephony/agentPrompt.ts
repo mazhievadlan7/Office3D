@@ -15,6 +15,12 @@ import { TelephonyError } from "@/lib/telephony/types";
  * message), or the call is refused.
  */
 
+/**
+ * The tool an agent calls to pick up an operator's note. The same name has to
+ * be configured on the agent in the ElevenLabs dashboard.
+ */
+export const OPERATOR_TOOL_NAME = "check_operator_instruction";
+
 /** Longer than a name or a role needs, short enough to bound the prompt. */
 const MAX_NAME_CHARS = 80;
 const MAX_ROLE_CHARS = 400;
@@ -46,6 +52,12 @@ export type OfficeCallerIdentity = {
   agentRole: string | null;
   /** The organisation the agent is calling for, from the server's own config. */
   organisation: string | null;
+  /**
+   * Whether this deployment can pass an operator's instruction into the live
+   * call. Only then is the agent told about the tool: describing a tool that
+   * is not attached invites it to announce one it cannot call.
+   */
+  operatorChannel?: boolean;
 };
 
 /**
@@ -60,6 +72,22 @@ export const AI_DISCLOSURE_RULE =
   "line, and confirm it immediately and without deflection whenever anyone " +
   "asks whether they are speaking to a person, a bot, a recording or an AI. " +
   "Never claim or imply that you are human.";
+
+/**
+ * Told to the agent only when the callback is actually configured.
+ *
+ * The tool is the agent's own decision to call, so an instruction lands on its
+ * next turn rather than the instant it is sent. That is a property of how
+ * ElevenLabs runs the conversation, not something this app can tighten.
+ */
+const OPERATOR_CHANNEL_RULES = [
+  "",
+  "A colleague may be watching this call and may send you a note:",
+  `- Before each of your turns, call the ${OPERATOR_TOOL_NAME} tool.`,
+  "- If it returns an instruction, follow it in your next line, in your own words.",
+  "- If it returns nothing, carry on as you were.",
+  "- Do not read the tool call or the note aloud. If you are asked whether a person is involved, say yes, honestly.",
+];
 
 export const buildOfficeAgentPrompt = (identity: OfficeCallerIdentity): string => {
   const name = sanitizeLine(identity.agentName, "agentName", MAX_NAME_CHARS);
@@ -83,6 +111,7 @@ export const buildOfficeAgentPrompt = (identity: OfficeCallerIdentity): string =
     "- Answer only from what you actually know. If you do not know, say so and offer to follow up rather than guessing.",
     "- If they ask to be taken off the line, or ask not to be called again, acknowledge it, say it will be recorded, and end the call politely.",
     "- Do not ask for passwords, card numbers, or one-time codes. If they start to give you one, stop them.",
+    ...(identity.operatorChannel ? OPERATOR_CHANNEL_RULES : []),
   ].filter((line) => line !== null);
 
   return lines.join("\n");

@@ -266,3 +266,58 @@ export const fetchConversation = async (
     turns,
   };
 };
+
+/**
+ * The recording of a finished call.
+ *
+ * Streamed back rather than buffered: a long call is a large file, and this
+ * server has no reason to hold one in memory. The API key never leaves the
+ * server, which is why the browser fetches audio through this app at all.
+ *
+ * There is no live equivalent. ElevenLabs exposes the recording of a
+ * conversation, not a tap on one in progress: the signed-url and token
+ * endpoints start a new conversation as a client, they do not attach to a
+ * call already running on a SIP trunk.
+ */
+export const fetchConversationAudio = async (
+  conversationId: string,
+  config: VoiceAgentConfig = resolveVoiceAgentConfig(),
+): Promise<{ body: ReadableStream<Uint8Array>; contentType: string }> => {
+  const id = conversationId.trim();
+  if (!id) {
+    throw new TelephonyError("A conversation id is required.");
+  }
+
+  const url = new URL(
+    `v1/convai/conversations/${encodeURIComponent(id)}/audio`,
+    `${ELEVENLABS_API_BASE}/`,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { "xi-api-key": config.apiKey } });
+  } catch (error) {
+    throw new TelephonyError(
+      `Could not reach ElevenLabs: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      502,
+      error,
+    );
+  }
+
+  if (!response.ok || !response.body) {
+    // A recording is absent for a call that never connected, and not yet
+    // written for one that just ended; the status tells those apart.
+    const detail = await response.text().catch(() => "");
+    throw new TelephonyError(
+      `ElevenLabs: ${detail.trim() || `returned ${response.status} for the recording.`}`,
+      response.ok ? 502 : response.status,
+    );
+  }
+
+  return {
+    body: response.body,
+    contentType: response.headers.get("Content-Type") || "audio/mpeg",
+  };
+};

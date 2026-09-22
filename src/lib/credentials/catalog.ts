@@ -114,6 +114,26 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     requiredFor: null,
     docsUrl: null,
   },
+  {
+    id: "telephony-webhook-secret",
+    label: "Telephony webhook secret",
+    envVar: "OFFICE3D_TELEPHONY_WEBHOOK_SECRET",
+    consumedBy: "office3d",
+    purpose:
+      "Authenticates the voice agent calling back mid-call to collect an operator's note. That endpoint is on the open internet, outside the session access gate, so without this it stays closed.",
+    requiredFor: "Sending an agent instructions during a live call.",
+    docsUrl: null,
+  },
+  {
+    id: "office3d-public-url",
+    label: "Public URL",
+    envVar: "OFFICE3D_PUBLIC_URL",
+    consumedBy: "office3d",
+    purpose:
+      "Where the voice agent reaches this deployment. Needed only for mid-call operator notes, which are the one part of telephony where the provider calls in rather than out.",
+    requiredFor: "Sending an agent instructions during a live call.",
+    docsUrl: null,
+  },
   // Below: keys a skill or agent may use. Office3D never calls these APIs
   // itself, so a missing one costs nothing here — it is listed so a
   // deployment can confirm at a glance what the host has.

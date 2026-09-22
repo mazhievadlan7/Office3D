@@ -12,6 +12,7 @@ import {
   describeVoiceAgentReadiness,
   resolveVoiceAgentConfig,
 } from "@/lib/telephony/voiceAgent";
+import { describeOperatorChannelReadiness } from "@/lib/telephony/webhookAuth";
 
 export const runtime = "nodejs";
 
@@ -74,6 +75,10 @@ export async function POST(request: Request) {
       // Never from the request: who an agent claims to represent on a real
       // phone call is the deployment's to decide, not a session's.
       organisation: resolveOrganisationName(),
+      // The agent is only told about the tool when this deployment can
+      // actually answer it; describing one it cannot call invites it to
+      // announce a note that never arrives.
+      operatorChannel: describeOperatorChannelReadiness().configured,
     };
 
     // Resolved before dialling so a half-configured deployment fails with the
@@ -127,6 +132,7 @@ export async function GET() {
   return telephonyJson({
     ready: voiceAgent.configured,
     voiceAgent,
+    operatorChannel: describeOperatorChannelReadiness(),
     calls: listCalls(),
     syncErrors,
   });

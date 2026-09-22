@@ -38,9 +38,16 @@ export type PlaceCallParams = {
   agentRole?: string | null;
 };
 
+export type OperatorChannelReadiness = {
+  configured: boolean;
+  missing: string[];
+};
+
 export type CallFeed = {
   ready: boolean;
   voiceAgent: VoiceAgentReadiness | null;
+  /** Whether a note typed here can reach the agent mid-call. */
+  operatorChannel: OperatorChannelReadiness | null;
   calls: CallRecord[];
   /** Calls the server could not read this round, by sid. */
   syncErrors: Record<string, string>;
@@ -51,6 +58,12 @@ export type CallFeed = {
   dialError: string | null;
   refresh: () => Promise<void>;
   placeCall: (params: PlaceCallParams) => Promise<CallRecord | null>;
+  /**
+   * Queues a line for the agent to say next. Resolves to the error, or null
+   * when the note was accepted — it is queued, not spoken, and the agent picks
+   * it up on its next turn.
+   */
+  sendInstruction: (sid: string, text: string) => Promise<string | null>;
 };
 
 const readError = async (response: Response, fallback: string): Promise<string> => {
@@ -66,6 +79,8 @@ const readError = async (response: Response, fallback: string): Promise<string> 
 export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}): CallFeed => {
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [voiceAgent, setVoiceAgent] = useState<VoiceAgentReadiness | null>(null);
+  const [operatorChannel, setOperatorChannel] =
+    useState<OperatorChannelReadiness | null>(null);
   const [ready, setReady] = useState(false);
   const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -98,12 +113,14 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
       const body = (await response.json()) as {
         ready?: boolean;
         voiceAgent?: VoiceAgentReadiness;
+        operatorChannel?: OperatorChannelReadiness;
         calls?: CallRecord[];
         syncErrors?: Record<string, string>;
       };
       if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setReady(Boolean(body.ready));
       setVoiceAgent(body.voiceAgent ?? null);
+      setOperatorChannel(body.operatorChannel ?? null);
       setCalls(body.calls ?? []);
       setSyncErrors(body.syncErrors ?? {});
       setError(null);
@@ -164,9 +181,37 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
     [],
   );
 
+  const sendInstruction = useCallback(async (sid: string, text: string) => {
+    try {
+      const response = await fetch(
+        `/api/telephony/calls/${encodeURIComponent(sid)}/say`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+      );
+      if (!response.ok) {
+        return await readError(response, "The instruction could not be sent");
+      }
+      const body = (await response.json()) as { call?: CallRecord };
+      if (body.call && mountedRef.current) {
+        // Shown at once so the operator sees their own note land in the
+        // transcript, rather than typing into a pane that does not change.
+        setCalls((current) =>
+          current.map((entry) => (entry.sid === body.call!.sid ? body.call! : entry)),
+        );
+      }
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }, []);
+
   return {
     ready,
     voiceAgent,
+    operatorChannel,
     calls,
     syncErrors,
     loading,
@@ -175,5 +220,6 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
     dialError,
     refresh,
     placeCall,
+    sendInstruction,
   };
 };

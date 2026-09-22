@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Phone, PhoneCall, RefreshCw } from "lucide-react";
+import { AlertTriangle, Phone, PhoneCall, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { CallFeed } from "@/features/office/hooks/useOfficeCallFeed";
@@ -214,7 +214,15 @@ export function CallFeedPanel({
           ))}
         </ul>
 
-        {selected ? <Transcript call={selected} /> : <EmptyTranscript />}
+        {selected ? (
+          <Transcript
+            call={selected}
+            operatorChannel={feed.operatorChannel}
+            onSend={(text) => feed.sendInstruction(selected.sid, text)}
+          />
+        ) : (
+          <EmptyTranscript />
+        )}
       </div>
     </div>
   );
@@ -238,7 +246,15 @@ function EmptyTranscript() {
   );
 }
 
-function Transcript({ call }: { call: CallRecord }) {
+function Transcript({
+  call,
+  operatorChannel,
+  onSend,
+}: {
+  call: CallRecord;
+  operatorChannel: CallFeed["operatorChannel"];
+  onSend: (text: string) => Promise<string | null>;
+}) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const live = !isTerminalCallStatus(call.status);
 
@@ -299,6 +315,131 @@ function Transcript({ call }: { call: CallRecord }) {
           </div>
         ))}
         <div ref={endRef} />
+      </div>
+
+      {live ? (
+        <InstructionComposer
+          call={call}
+          operatorChannel={operatorChannel}
+          onSend={onSend}
+        />
+      ) : (
+        <Recording sid={call.sid} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A note for the agent to work into its next line.
+ *
+ * Queued, not spoken. The agent collects it when it next calls its tool, so
+ * the button says "Send to agent" rather than anything that implies the words
+ * go straight down the line.
+ */
+function InstructionComposer({
+  call,
+  operatorChannel,
+  onSend,
+}: {
+  call: CallRecord;
+  operatorChannel: CallFeed["operatorChannel"];
+  onSend: (text: string) => Promise<string | null>;
+}) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const available = operatorChannel?.configured ?? false;
+
+  const send = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const note = text.trim();
+    if (!note || sending || !available) return;
+    setSending(true);
+    const failure = await onSend(note);
+    setSending(false);
+    setError(failure);
+    if (!failure) setText("");
+  };
+
+  if (!available) {
+    return (
+      <div className="border-t border-slate-800 px-4 py-3">
+        <NoticeBox tone="warn">
+          Notes to the agent are off. Missing:{" "}
+          <span className="font-mono">
+            {operatorChannel?.missing.join(", ") ?? "configuration"}
+          </span>
+          .
+        </NoticeBox>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={send} className="border-t border-slate-800 px-4 py-3">
+      <div className="flex items-end gap-2">
+        <textarea
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter sends, shift+Enter breaks the line: a live call is not the
+            // place to reach for a mouse.
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void send(event);
+            }
+          }}
+          rows={2}
+          placeholder="Tell the agent what to say next…"
+          className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-400/60 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={sending || !text.trim()}
+          className="inline-flex h-[44px] items-center gap-2 rounded-lg border border-sky-300/45 bg-sky-400/18 px-4 text-sm text-sky-50 transition hover:bg-sky-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
+        >
+          <Send className="h-4 w-4" />
+          {sending ? "Sending…" : "Send to agent"}
+        </button>
+      </div>
+      <div className="mt-1.5 text-[11px] text-slate-500">
+        {call.pendingSay
+          ? "A note is waiting; sending another replaces it."
+          : "The agent picks this up on its next turn, so it is not said instantly."}
+      </div>
+      {error ? (
+        <div className="mt-2">
+          <NoticeBox tone="error">{error}</NoticeBox>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
+/**
+ * The recording, once the call is over.
+ *
+ * There is no live equivalent: ElevenLabs serves the recording of a
+ * conversation, not a tap on one in progress, so the panel offers listening
+ * back rather than listening in.
+ */
+function Recording({ sid }: { sid: string }) {
+  return (
+    <div className="border-t border-slate-800 px-4 py-3">
+      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+        Recording
+      </div>
+      <audio
+        controls
+        preload="none"
+        src={`/api/telephony/calls/${encodeURIComponent(sid)}/audio`}
+        className="w-full"
+      />
+      <div className="mt-1.5 text-[11px] text-slate-500">
+        Available once ElevenLabs has finished writing it, which can take a
+        moment after the call ends.
       </div>
     </div>
   );

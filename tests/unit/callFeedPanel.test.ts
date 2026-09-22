@@ -30,6 +30,7 @@ const call = (overrides: Partial<CallRecord> = {}): CallRecord => ({
 const feed = (overrides: Partial<CallFeed> = {}): CallFeed => ({
   ready: true,
   voiceAgent: { provider: "elevenlabs", configured: true, missing: [] },
+  operatorChannel: { configured: true, missing: [] },
   calls: [],
   syncErrors: {},
   loading: false,
@@ -38,6 +39,7 @@ const feed = (overrides: Partial<CallFeed> = {}): CallFeed => ({
   dialError: null,
   refresh: vi.fn().mockResolvedValue(undefined),
   placeCall: vi.fn().mockResolvedValue(null),
+  sendInstruction: vi.fn().mockResolvedValue(null),
   ...overrides,
 });
 
@@ -163,6 +165,81 @@ describe("CallFeedPanel", () => {
 
     expect(screen.getByText("The number was unreachable.")).toBeTruthy();
     expect(screen.getAllByText("Failed").length).toBeGreaterThan(0);
+  });
+
+  it("sends_a_note_to_the_agent_on_a_live_call", async () => {
+    const sendInstruction = vi.fn().mockResolvedValue(null);
+    render(
+      createElement(CallFeedPanel, {
+        feed: feed({ calls: [call()], sendInstruction }),
+        agents: AGENTS,
+      }),
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Tell the agent what to say next…"), {
+      target: { value: "  Ask when they can pay.  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send to agent/i }));
+
+    await waitFor(() => {
+      expect(sendInstruction).toHaveBeenCalledWith("conv_1", "Ask when they can pay.");
+    });
+  });
+
+  it("says_the_note_is_queued_rather_than_spoken", () => {
+    // The agent collects it on its next turn; implying it goes straight down
+    // the line would have an operator expecting words that have not been said.
+    render(
+      createElement(CallFeedPanel, { feed: feed({ calls: [call()] }), agents: AGENTS }),
+    );
+    expect(screen.getByText(/picks this up on its next turn/)).toBeTruthy();
+  });
+
+  it("warns_that_a_waiting_note_will_be_replaced", () => {
+    render(
+      createElement(CallFeedPanel, {
+        feed: feed({ calls: [call({ pendingSay: "Ask about the invoice." })] }),
+        agents: AGENTS,
+      }),
+    );
+    expect(screen.getByText(/sending another replaces it/)).toBeTruthy();
+  });
+
+  it("names_what_is_missing_rather_than_offering_a_note_it_cannot_deliver", () => {
+    const sendInstruction = vi.fn();
+    render(
+      createElement(CallFeedPanel, {
+        feed: feed({
+          calls: [call()],
+          sendInstruction,
+          operatorChannel: { configured: false, missing: ["OFFICE3D_PUBLIC_URL"] },
+        }),
+        agents: AGENTS,
+      }),
+    );
+
+    expect(screen.getByText("OFFICE3D_PUBLIC_URL")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /send to agent/i })).toBeNull();
+    expect(sendInstruction).not.toHaveBeenCalled();
+  });
+
+  it("offers_the_recording_only_once_the_call_is_over", () => {
+    const { container, rerender } = render(
+      createElement(CallFeedPanel, { feed: feed({ calls: [call()] }), agents: AGENTS }),
+    );
+    // Nothing to play while the call is live: ElevenLabs serves a recording,
+    // not a tap on a call in progress.
+    expect(container.querySelector("audio")).toBeNull();
+
+    rerender(
+      createElement(CallFeedPanel, {
+        feed: feed({ calls: [call({ status: "completed", endedAt: "2026-09-22T10:01:00.000Z" })] }),
+        agents: AGENTS,
+      }),
+    );
+    expect(container.querySelector("audio")?.getAttribute("src")).toBe(
+      "/api/telephony/calls/conv_1/audio",
+    );
   });
 
   it("survives_an_office_with_no_agents_yet", () => {
