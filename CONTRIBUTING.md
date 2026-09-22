@@ -50,36 +50,36 @@ npm run dev
 
 ## Минимальный шаблон пул-реквеста
 ```md
-## Summary
+## Кратко
 - 
 
-## Testing
-- [ ] Not run (explain why)
+## Проверка
+- [ ] Не запускалось (объясните почему)
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
-- [ ] `npm run test`
+- [ ] `npm run test -- --run`
 - [ ] `npm run e2e`
 
-## AI-assisted
-- [ ] AI-assisted (briefly describe what and include prompts/logs if helpful)
+## С помощью ИИ
+- [ ] Сделано с помощью ИИ (кратко опишите, что именно, и приложите промпты или логи, если это полезно)
 ```
 
 ## Минимальный шаблон issue
 ```md
-## Summary
+## Кратко
 
-## Steps to reproduce
+## Шаги для воспроизведения
 1.
 
-## Expected
+## Ожидаемое поведение
 
-## Actual
+## Фактическое поведение
 
-## Environment
-- OS:
+## Окружение
+- ОС:
 - Node:
-- UI version/commit:
-- Gateway running? (yes/no)
+- Версия или коммит интерфейса:
+- Шлюз запущен? (да/нет)
 
-## Logs/screenshots
+## Логи и скриншоты
 ```

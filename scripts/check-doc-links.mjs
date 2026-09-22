@@ -61,7 +61,8 @@ for (const file of walk(ROOT)) {
     .forEach((line, index) => {
       if (/^\s*```/.test(line)) inCode = !inCode;
       if (inCode) return;
-      for (const m of line.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+      // Inline code shows a link's syntax rather than being one.
+      for (const m of line.replace(/`[^`]*`/g, "").matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
         const target = m[1];
         if (/^(https?:|mailto:|data:)/.test(target)) continue;
         const [rawPath, rawAnchor] = target.split("#");
