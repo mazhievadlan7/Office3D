@@ -2145,7 +2145,7 @@ export const ru = {
   "opsJukebox.unreachable": "Не удалось связаться со Spotify.",
   "opsJukebox.wentPrevious": "Музыкальный автомат в офисе вернулся к предыдущему треку.",
 
-  // --- Маркет навыков: операции ----------------------------------------------
+  // --- Маркетплейс навыков: операции -----------------------------------------
   "opsMarket.depsInstalled": "Зависимости для навыка {skill} установлены.",
   "opsMarket.disabledForGateway": "Навык отключён на этом шлюзе.",
   "opsMarket.enabledFor": "Навык {skill} включён для агента {agent}.",
@@ -2683,7 +2683,7 @@ export const ru = {
   "skills.loading": "Загрузка содержимого маркетплейса…",
   "skills.manageInSettings": "Настроить в параметрах",
   "skills.marketLead": "Навыки шлюза — как в каталоге плагинов.",
-  "skills.marketTitle": "Маркет навыков",
+  "skills.marketTitle": "Маркетплейс навыков",
   "skills.noAgentSelected": "Агент не выбран",
   "skills.noMatches": "Подходящих навыков на этом шлюзе нет.",
   "skills.openSettings": "Открыть настройки",

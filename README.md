@@ -318,7 +318,7 @@ openclaw devices approve --latest
 - Если `/api/runtime/custom` в продакшене возвращает ошибку заблокированного хоста, задайте `CUSTOM_RUNTIME_ALLOWLIST` или добавьте хост среды в `UPSTREAM_ALLOWLIST`.
 - Полезные коды ошибок прокси: `studio.gateway_url_missing`, `studio.gateway_token_missing`, `studio.upstream_error` и `studio.upstream_closed`.
 
-Навыки из маркета устанавливаются через рабочее пространство шлюза, и включать SSH на машине пользователя для этого не нужно.
+Навыки из маркетплейса устанавливаются через рабочее пространство шлюза, и включать SSH на машине пользователя для этого не нужно.
 
 ### Авторизация Spotify на localhost
 
