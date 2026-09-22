@@ -1,4 +1,5 @@
 import { GatewayResponseError, type GatewayClient } from "@/lib/gateway/GatewayClient";
+import { hasCyrillic, transliterate } from "@/lib/text/transliterate";
 
 export type AgentHeartbeatActiveHours = {
   start: string;
@@ -134,7 +135,9 @@ export const upsertConfigAgentEntry = (
 };
 
 export const slugifyAgentName = (name: string): string => {
-  const slug = name
+  // Transliterated first: without it a Russian name slugs to nothing and
+  // throws below, which made every Russian-named agent impossible to create.
+  const slug = transliterate(name)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -398,15 +401,37 @@ export const createGatewayAgent = async (params: {
   const idGuess = slugifyAgentName(trimmed);
   const workspace = joinPathLike(stateDir, `workspace-${idGuess}`);
 
+  // OpenClaw derives the agent id from the name and accepts only a-z, 0-9,
+  // "_" and "-", so a Cyrillic name is refused ("has no valid id
+  // characters"). agents.create takes no separate id, so the agent is created
+  // under its transliterated name — giving a readable id like novyy-agent —
+  // and then given its real name with agents.update, which keeps the id.
+  const needsRename = hasCyrillic(trimmed);
+  const createName = needsRename ? transliterate(trimmed) : trimmed;
+
   const result = (await params.client.call("agents.create", {
-    name: trimmed,
+    name: createName,
     workspace,
   })) as { ok?: boolean; agentId?: string; name?: string; workspace?: string };
   const agentId = typeof result?.agentId === "string" ? result.agentId.trim() : "";
   if (!agentId) {
     throw new Error("Gateway returned an invalid agents.create response (missing agentId).");
   }
-  return { id: agentId, name: trimmed };
+
+  if (!needsRename) {
+    return { id: agentId, name: trimmed };
+  }
+
+  try {
+    await params.client.call("agents.update", { agentId, name: trimmed });
+    return { id: agentId, name: trimmed };
+  } catch (error) {
+    // The agent exists either way. Reporting it under the name it actually
+    // has beats throwing: an error here would hide a real agent from the UI
+    // until the next refresh, and it can be renamed from its header.
+    console.warn(`[agents] created ${agentId} but could not set its name`, error);
+    return { id: agentId, name: createName };
+  }
 };
 
 export const deleteGatewayAgent = async (params: {

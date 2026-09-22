@@ -13,6 +13,7 @@ import type {
   CompanyBuilderRole,
   CompanyBuilderStoredSnapshot,
 } from "@/features/company-builder/types";
+import { transliterate } from "@/lib/text/transliterate";
 
 type ParsedCompanyPlan = {
   companyName?: unknown;
@@ -57,15 +58,20 @@ const coerceStringArray = (value: unknown): string[] => {
 const uniqueStrings = (values: string[]) => Array.from(new Set(values));
 
 const slugify = (value: string) =>
-  value
+  // Transliterated so a Russian role title still yields a readable id rather
+  // than collapsing to nothing and falling back to "role-1".
+  transliterate(value)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+// Letters in any alphabet, not only a-z: with the ASCII-only version a Russian
+// role title such as «Аналитик» was stripped to nothing and every agent in the
+// company came out named "Agent1", "Agent2".
 const toPascalCaseWord = (value: string) =>
   value
-    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .split(/\s+/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
@@ -75,7 +81,7 @@ const toPascalCaseWord = (value: string) =>
 const normalizeRoleName = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  const singleWord = trimmed.replace(/[^a-zA-Z0-9]/g, "");
+  const singleWord = trimmed.replace(/[^\p{L}\p{N}]/gu, "");
   if (singleWord.length > 0 && !/\s/.test(trimmed)) {
     return singleWord.slice(0, 18);
   }
@@ -113,10 +119,19 @@ const resolveCommandMode = (value: unknown, roleText: string): CommandModeId => 
     return normalized;
   }
   const lowered = roleText.toLowerCase();
-  if (/\b(developer|engineer|automation|devops|ops)\b/.test(lowered)) {
+  // Russian stems alongside the English words, since the planner now writes
+  // role text in Russian. \b does not work on Cyrillic, so those are matched
+  // as plain substrings.
+  if (
+    /\b(developer|engineer|automation|devops|ops)\b/.test(lowered) ||
+    /(разработ|инженер|программист|автоматизац|девопс)/.test(lowered)
+  ) {
     return "auto";
   }
-  if (/\b(manager|lead|qa|support|analyst|marketing|social)\b/.test(lowered)) {
+  if (
+    /\b(manager|lead|qa|support|analyst|marketing|social)\b/.test(lowered) ||
+    /(менеджер|руковод|тестиров|поддержк|аналит|маркетинг|смм|соцсет)/.test(lowered)
+  ) {
     return "ask";
   }
   return "ask";
@@ -124,8 +139,8 @@ const resolveCommandMode = (value: unknown, roleText: string): CommandModeId => 
 
 const buildRoleIdentity = (role: CompanyBuilderRole) => ({
   emoji: role.emoji || "🤖",
-  creature: role.creature || "specialist",
-  vibe: role.vibe || "helpful and focused",
+  creature: role.creature || "специалист",
+  vibe: role.vibe || "полезный и собранный",
 });
 
 const buildRoleAgentsMarkdown = (params: {
@@ -143,40 +158,40 @@ const buildRoleAgentsMarkdown = (params: {
   const sharedRules = toSentenceList(params.plan.sharedRules);
   const plannerNotes = toSentenceList(params.plan.plannerNotes);
   return [
-    `# ${params.plan.companyName} Team Operating Guide`,
+    `# Рабочее руководство команды ${params.plan.companyName}`,
     "",
-    `You are the ${params.role.title} inside ${params.plan.companyName}.`,
+    `Вы — ${params.role.title} в компании ${params.plan.companyName}.`,
     "",
-    "## Mission",
+    "## Миссия",
     "",
-    params.role.purpose || `Own the ${params.role.title.toLowerCase()} function for the company.`,
+    params.role.purpose || `Отвечайте за направление «${params.role.title}» в компании.`,
     "",
-    "## Responsibilities",
+    "## Обязанности",
     "",
     ...(responsibilityLines.length > 0
       ? responsibilityLines.map((entry) => `- ${entry}`)
-      : ["- Keep your area moving and surface blockers quickly."]),
+      : ["- Двигайте своё направление и быстро сообщайте о препятствиях."]),
     "",
-    "## Collaborators",
+    "## С кем работаете",
     "",
     ...(collaborators.length > 0
-      ? collaborators.map((entry) => `- Work closely with ${entry}.`)
-      : ["- Coordinate with the rest of the company when work crosses team boundaries."]),
+      ? collaborators.map((entry) => `- Тесно работайте с ролью ${entry}.`)
+      : ["- Согласовывайте работу с остальной компанией, когда она выходит за границы команды."]),
     "",
-    "## Shared Rules",
+    "## Общие правила",
     "",
     ...(sharedRules.length > 0
       ? sharedRules.map((entry) => `- ${entry}`)
       : [
-          "- Keep updates concise, practical, and action-oriented.",
-          "- Hand off work clearly when another role should take over.",
+          "- Пишите обновления кратко, по делу и с упором на действия.",
+          "- Чётко передавайте работу, когда её должна взять другая роль.",
         ]),
     "",
-    "## Planning Notes",
+    "## Заметки планирования",
     "",
     ...(plannerNotes.length > 0
       ? plannerNotes.map((entry) => `- ${entry}`)
-      : ["- Treat the user's company brief as the source of truth."]),
+      : ["- Считайте описание компании от пользователя главным источником истины."]),
     "",
   ].join("\n");
 };
@@ -185,15 +200,15 @@ const buildRoleToolsMarkdown = (role: CompanyBuilderRole) =>
   [
     "# TOOLS.md",
     "",
-    `Preferred operating mode: ${role.commandMode}.`,
+    `Предпочтительный режим работы: ${role.commandMode}.`,
     "",
-    "## Tool Preferences",
+    "## Предпочтения по инструментам",
     "",
     ...(role.tools.length > 0
       ? role.tools.map((entry) => `- ${entry}.`)
       : [
-          "- Use the tools that best match your role.",
-          "- Ask for help when another teammate has better context.",
+          "- Пользуйтесь инструментами, которые лучше всего подходят вашей роли.",
+          "- Просите помощи, когда у коллеги больше контекста.",
         ]),
     "",
   ].join("\n");
@@ -202,14 +217,14 @@ const buildRoleHeartbeatMarkdown = (role: CompanyBuilderRole) =>
   [
     "# HEARTBEAT.md",
     "",
-    "When your heartbeat runs:",
+    "Когда срабатывает пульс:",
     "",
     ...(role.heartbeat.length > 0
       ? role.heartbeat.map((entry) => `- ${entry}.`)
       : [
-          "- Check your most important queue or active work.",
-          "- Report blockers before they become expensive.",
-          "- Coordinate with collaborators if handoffs are waiting.",
+          "- Проверьте самую важную очередь или текущую работу.",
+          "- Сообщайте о препятствиях, пока они не стали дорогими.",
+          "- Согласуйте работу с коллегами, если передача задач ждёт.",
         ]),
     "",
   ].join("\n");
@@ -221,13 +236,13 @@ const buildRoleMemoryMarkdown = (params: {
   [
     "# MEMORY.md",
     "",
-    `Company: ${params.plan.companyName}.`,
-    `Role: ${params.role.title}.`,
+    `Компания: ${params.plan.companyName}.`,
+    `Роль: ${params.role.title}.`,
     "",
-    "Remember:",
+    "Помните:",
     "",
-    `- ${params.plan.summary || "The company plan should guide your decisions."}`,
-    `- ${params.role.purpose || "Protect the quality of your function."}`,
+    `- ${params.plan.summary || "Решения должен направлять план компании."}`,
+    `- ${params.role.purpose || "Берегите качество своего направления."}`,
     "",
   ].join("\n");
 
@@ -243,7 +258,7 @@ const buildRoleSoulDraft = (params: {
   draft.identity.vibe = identity.vibe;
   draft.user.context = normalizeLine(
     [
-      `Company brief: ${params.plan.summary}`,
+      `Описание компании: ${params.plan.summary}`,
       params.role.userContext,
     ]
       .filter((entry) => entry.trim().length > 0)
@@ -252,22 +267,22 @@ const buildRoleSoulDraft = (params: {
   draft.soul.coreTruths = normalizeLine(
     [
       params.role.soul,
-      `Your job is to help ${params.plan.companyName} succeed as the ${params.role.title}.`,
+      `Ваша задача — помогать компании ${params.plan.companyName} добиваться успеха в роли «${params.role.title}».`,
     ]
       .filter((entry) => entry.trim().length > 0)
       .join("\n\n")
   );
   draft.soul.boundaries = normalizeLine(
     [
-      "Do not invent decisions that should be handed to another specialist.",
-      "Escalate blockers early and keep handoffs explicit.",
+      "Не принимайте решений, которые должен принимать другой специалист.",
+      "Сообщайте о препятствиях заранее и передавайте работу явно.",
     ].join("\n")
   );
   draft.soul.vibe = normalizeLine(
-    params.role.vibe || `${params.role.title} energy: practical, collaborative, and sharp.`
+    params.role.vibe || `Настрой роли «${params.role.title}»: практичный, командный и точный.`
   );
   draft.soul.continuity = normalizeLine(
-    `Keep continuity around ${params.plan.companyName}'s goals, teammates, and operating rules.`
+    `Сохраняйте преемственность в целях, команде и правилах работы компании ${params.plan.companyName}.`
   );
   draft.agents = buildRoleAgentsMarkdown(params);
   draft.tools = buildRoleToolsMarkdown(params.role);
@@ -310,25 +325,26 @@ const normalizeRole = (value: ParsedCompanyRole, index: number): CompanyBuilderR
 
 export const buildImproveCompanyBriefPrompt = (businessDescription: string) =>
   [
-    "You are helping a user describe the company they want to build inside Office3D.",
-    "Rewrite their brief so another connected runtime agent can generate a clean org structure from it.",
-    "Keep the answer short, concrete, and useful.",
-    "Return markdown with these sections only:",
-    "## Company",
-    "## Goals",
-    "## Constraints",
-    "## Suggested Roles",
+    "Вы помогаете пользователю описать компанию, которую он хочет построить в Office3D.",
+    "Перепишите его описание так, чтобы другой подключённый агент мог по нему собрать понятную оргструктуру.",
+    "Отвечайте кратко, конкретно и по делу. Пишите по-русски.",
+    "Верните markdown только с этими разделами:",
+    "## Компания",
+    "## Цели",
+    "## Ограничения",
+    "## Предлагаемые роли",
     "",
-    "User brief:",
+    "Описание пользователя:",
     businessDescription.trim(),
   ].join("\n");
 
 export const buildGenerateCompanyPlanPrompt = (brief: string) =>
   [
-    "You are designing an AI company org structure for Office3D.",
-    "Return only valid JSON with no markdown fence.",
-    "Each role name must be one concise word only with no spaces.",
-    "Schema:",
+    "Вы проектируете оргструктуру ИИ-компании для Office3D.",
+    "Верните только корректный JSON без обёртки markdown.",
+    "Названия ключей JSON оставьте как в схеме, а все значения пишите по-русски.",
+    "Название каждой роли — одно короткое слово без пробелов.",
+    "Схема:",
     "{",
     '  "companyName": "string",',
     '  "summary": "string",',
@@ -352,26 +368,26 @@ export const buildGenerateCompanyPlanPrompt = (brief: string) =>
     "    }",
     "  ]",
     "}",
-    "Create between 2 and 6 roles unless the brief clearly needs more or less.",
-    "Prefer silly but useful role titles when it helps the brand, but keep the org practical.",
-    "Role names should be short single words like Builder, Analyst, Closer, Captain, Scout, or Designer.",
-    "All role names must be unique.",
-    "Make collaborators reference role names.",
+    "Создайте от 2 до 6 ролей, если описание явно не требует больше или меньше.",
+    "Можно выбирать шутливые, но полезные названия ролей, если это подходит бренду, — но структура должна оставаться практичной.",
+    "Названия ролей — короткие слова, например: Строитель, Аналитик, Продавец, Капитан, Разведчик, Дизайнер.",
+    "Все названия ролей должны быть уникальными.",
+    "В collaborators указывайте названия ролей.",
     "",
-    "Company brief:",
+    "Описание компании:",
     brief.trim(),
   ].join("\n");
 
 export const extractJsonFromAssistantText = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("The planning agent returned an empty response.");
+    throw new Error("Агент-планировщик вернул пустой ответ.");
   }
   const unfenced = trimmed.replace(COMPANY_FENCE_RE, "").trim();
   const firstBrace = unfenced.indexOf("{");
   const lastBrace = unfenced.lastIndexOf("}");
   if (firstBrace < 0 || lastBrace < firstBrace) {
-    throw new Error("The planning agent did not return valid JSON.");
+    throw new Error("Агент-планировщик не вернул корректный JSON.");
   }
   return unfenced.slice(firstBrace, lastBrace + 1);
 };
@@ -384,7 +400,7 @@ export const parseCompanyPlanFromAssistantText = (value: string): CompanyBuilder
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("Failed to parse the planning agent response.");
+    throw new Error("Не удалось разобрать ответ агента-планировщика.");
   }
 
   const rolesRaw = Array.isArray(parsed.roles) ? parsed.roles : [];
@@ -393,11 +409,11 @@ export const parseCompanyPlanFromAssistantText = (value: string): CompanyBuilder
     .filter((entry): entry is CompanyBuilderRole => Boolean(entry))
     .slice(0, MAX_ROLE_COUNT);
   if (normalizedRoles.length === 0) {
-    throw new Error("The planning agent did not return any company roles.");
+    throw new Error("Агент-планировщик не вернул ни одной роли.");
   }
   const uniqueTitles = dedupeCompactNames(
     normalizedRoles.map((entry) => entry.title),
-    "Agent",
+    "Агент",
   );
   const usedIds = new Set<string>();
   const roles = normalizedRoles.map((role, index) => {
@@ -417,8 +433,8 @@ export const parseCompanyPlanFromAssistantText = (value: string): CompanyBuilder
     };
   });
   return {
-    companyName: coerceString(parsed.companyName) || "New Company",
-    summary: coerceString(parsed.summary) || "A company plan generated from the user's brief.",
+    companyName: coerceString(parsed.companyName) || "Новая компания",
+    summary: coerceString(parsed.summary) || "План компании, составленный по описанию пользователя.",
     sharedRules: uniqueStrings(coerceStringArray(parsed.sharedRules)).slice(0, 12),
     plannerNotes: uniqueStrings(coerceStringArray(parsed.plannerNotes)).slice(0, 12),
     roles,
@@ -428,7 +444,7 @@ export const parseCompanyPlanFromAssistantText = (value: string): CompanyBuilder
 export const buildCompanyAgentBlueprints = (plan: CompanyBuilderPlan): CompanyAgentBlueprint[] => {
   const usedNames = new Set<string>();
   return plan.roles.map((role, index) => {
-    const baseName = role.title.trim() || `Agent ${index + 1}`;
+    const baseName = role.title.trim() || `Агент ${index + 1}`;
     let nextName = baseName;
     let dedupe = 2;
     while (usedNames.has(nextName.toLowerCase())) {

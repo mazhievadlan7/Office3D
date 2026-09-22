@@ -10,6 +10,7 @@ import type {
   CompanyBuilderPlan,
   CompanyBuilderRole,
 } from "@/features/company-builder/types";
+import { plural, t } from "@/lib/i18n";
 
 type CompanyBuilderModalProps = {
   open: boolean;
@@ -189,13 +190,12 @@ export function CompanyBuilderModal({
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-cyan-200/70">
-              <Sparkles className="h-4 w-4" />
-              Company Builder
-            </div>
-            <h2 className="mt-1 text-lg font-semibold">Design an AI company from one prompt</h2>
+              <Sparkles className="h-4 w-4" />{t("company.title")}</div>
+            <h2 className="mt-1 text-lg font-semibold">{t("company.heading")}</h2>
             <p className="mt-1 text-sm text-white/55">
-              Uses your connected runtime
-              {plannerAgentName ? ` via ${plannerAgentName}.` : "."}
+              {plannerAgentName
+                ? t("company.usesRuntimeVia", { name: plannerAgentName })
+                : t("company.usesRuntime")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -211,9 +211,7 @@ export function CompanyBuilderModal({
                 onClear();
               }}
               disabled={!canClear}
-            >
-              Clear
-            </button>
+            >{t("company.clear")}</button>
             <button
               type="button"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-500 px-3 py-2 text-xs font-semibold text-[#1a1206] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
@@ -226,9 +224,7 @@ export function CompanyBuilderModal({
               }}
               disabled={!canGenerate}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              Generate
-            </button>
+              <Sparkles className="h-3.5 w-3.5" />{t("company.generate")}</button>
             <button
               type="button"
               className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
@@ -237,9 +233,7 @@ export function CompanyBuilderModal({
               }}
               disabled={!canPreviewChart}
             >
-              <GitBranch className="h-3.5 w-3.5" />
-              Org Chart
-            </button>
+              <GitBranch className="h-3.5 w-3.5" />{t("company.orgChart")}</button>
             <button
               type="button"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
@@ -253,15 +247,13 @@ export function CompanyBuilderModal({
               }}
               disabled={!canCreate}
             >
-              <Wand2 className="h-3.5 w-3.5" />
-              Create Company
-            </button>
+              <Wand2 className="h-3.5 w-3.5" />{t("company.create")}</button>
             <button
               type="button"
               className="rounded-md border border-white/10 p-2 text-white/60 transition hover:bg-white/5 hover:text-white"
               onClick={onClose}
               disabled={busy}
-              aria-label="Close company builder"
+              aria-label={t("company.close")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -274,9 +266,7 @@ export function CompanyBuilderModal({
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">
-                      Source prompt
-                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.sourcePrompt")}</p>
                     <button
                       type="button"
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
@@ -287,7 +277,7 @@ export function CompanyBuilderModal({
                       disabled={busy}
                     >
                       <Wand2 className="h-3 w-3" />
-                      {input.businessDescription.trim() ? "Edit prompt" : "Describe company"}
+                      {input.businessDescription.trim() ? t("company.editPrompt") : t("company.describe")}
                     </button>
                   </div>
                   <div className="text-sm leading-6 text-white/70">
@@ -301,17 +291,13 @@ export function CompanyBuilderModal({
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">
-                      Improved Brief
-                    </p>
-                    <p className="mt-1 text-[11px] text-white/45">
-                      This is the text used for company generation.
-                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.improvedBrief")}</p>
+                    <p className="mt-1 text-[11px] text-white/45">{t("company.improvedBriefLead")}</p>
                   </div>
                 </div>
                 <textarea
                   className={`${textareaClassName} mt-3 min-h-[340px]`}
-                  placeholder="AI will rewrite the brief here."
+                  placeholder={t("company.briefPh")}
                   value={input.improvedBrief}
                   onChange={(event) =>
                     setInput((current) => ({
@@ -325,12 +311,8 @@ export function CompanyBuilderModal({
 
               <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">
-                    Company Actions
-                  </p>
-                  <p className="mt-1 text-[11px] text-white/45">
-                    Generate the org, then create it in your connected runtime.
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.actions")}</p>
+                  <p className="mt-1 text-[11px] text-white/45">{t("company.actionsLead")}</p>
                 </div>
                 {replacesExistingAgents ? (
                   <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100/85">
@@ -341,8 +323,7 @@ export function CompanyBuilderModal({
                 ) : null}
                 {!canUseAi ? (
                   <p className="text-xs text-amber-200/80">
-                    Connect to a runtime and keep at least one available planning agent in the fleet
-                    to use AI suggestions.
+                    {t("company.needRuntime")}
                   </p>
                 ) : null}
                 {statusLine ? <p className="text-xs text-cyan-100/75">{statusLine}</p> : null}
@@ -355,9 +336,7 @@ export function CompanyBuilderModal({
             {plan ? (
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="flex flex-col gap-2 text-xs text-white/60">
-                    Company name
-                    <input
+                  <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.name")}<input
                       className={inputClassName}
                       value={plan.companyName}
                       onChange={(event) =>
@@ -373,9 +352,7 @@ export function CompanyBuilderModal({
                       disabled={busy}
                     />
                   </label>
-                  <label className="flex flex-col gap-2 text-xs text-white/60">
-                    Shared rules
-                    <input
+                  <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.sharedRules")}<input
                       className={inputClassName}
                       value={joinCommaList(plan.sharedRules)}
                       onChange={(event) =>
@@ -393,9 +370,7 @@ export function CompanyBuilderModal({
                   </label>
                 </div>
 
-                <label className="flex flex-col gap-2 text-xs text-white/60">
-                  Company summary
-                  <textarea
+                <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.summary")}<textarea
                     className={`${textareaClassName} min-h-[110px]`}
                     value={plan.summary}
                     onChange={(event) =>
@@ -414,10 +389,8 @@ export function CompanyBuilderModal({
 
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Org structure</p>
-                    <p className="text-xs text-white/55">
-                      Edit the team before creating agents in your connected runtime.
-                    </p>
+                    <p className="text-sm font-semibold text-white">{t("company.orgStructure")}</p>
+                    <p className="text-xs text-white/55">{t("company.editTeam")}</p>
                   </div>
                   <button
                     type="button"
@@ -435,9 +408,7 @@ export function CompanyBuilderModal({
                     }}
                     disabled={busy}
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add role
-                  </button>
+                    <Plus className="h-3.5 w-3.5" />{t("company.addRole")}</button>
                 </div>
 
                 <div className="space-y-4">
@@ -459,7 +430,7 @@ export function CompanyBuilderModal({
                               Role {index + 1}
                             </div>
                             <div className="mt-2 text-sm font-semibold text-white">
-                              {role.title || "Untitled role"}
+                              {role.title || t("company.untitledRole")}
                             </div>
                             <div className="mt-1 text-xs text-white/45">
                               3D avatar preview generated for this role.
@@ -480,16 +451,14 @@ export function CompanyBuilderModal({
                             )
                           }
                           disabled={busy || plan.roles.length <= 1}
-                          aria-label={`Remove role ${index + 1}`}
+                          aria-label={t("company.removeRole", { index: index + 1 })}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Name
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.fieldName")}<input
                             className={inputClassName}
                             value={role.title}
                             onChange={(event) =>
@@ -509,9 +478,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Emoji
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.emoji")}<input
                             className={inputClassName}
                             value={role.emoji}
                             onChange={(event) =>
@@ -534,9 +501,7 @@ export function CompanyBuilderModal({
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Purpose
-                          <textarea
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.purpose")}<textarea
                             className={textareaClassName}
                             value={role.purpose}
                             onChange={(event) =>
@@ -556,9 +521,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Soul
-                          <textarea
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.soul")}<textarea
                             className={textareaClassName}
                             value={role.soul}
                             onChange={(event) =>
@@ -581,9 +544,7 @@ export function CompanyBuilderModal({
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Responsibilities
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.responsibilities")}<input
                             className={inputClassName}
                             value={joinCommaList(role.responsibilities)}
                             onChange={(event) =>
@@ -606,9 +567,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Collaborators
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.collaborators")}<input
                             className={inputClassName}
                             value={joinCommaList(role.collaborators)}
                             onChange={(event) =>
@@ -631,9 +590,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Tool notes
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.toolNotes")}<input
                             className={inputClassName}
                             value={joinCommaList(role.tools)}
                             onChange={(event) =>
@@ -653,9 +610,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">
-                          Heartbeat checklist
-                          <input
+                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.heartbeatChecklist")}<input
                             className={inputClassName}
                             value={joinCommaList(role.heartbeat)}
                             onChange={(event) =>
@@ -684,11 +639,9 @@ export function CompanyBuilderModal({
               <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
                 <div className="max-w-md space-y-3">
                   <Sparkles className="mx-auto h-8 w-8 text-cyan-300/70" />
-                  <p className="text-lg font-semibold text-white">No company generated yet</p>
+                  <p className="text-lg font-semibold text-white">{t("company.noneYet")}</p>
                   <p className="text-sm text-white/55">
-                    Start by describing the company. Office3D will create the improved brief
-                    automatically, then you can generate and edit the org structure before anything
-                    is created.
+                    {t("company.emptyLead")}
                   </p>
                 </div>
               </div>
@@ -701,11 +654,9 @@ export function CompanyBuilderModal({
           <div className="w-full max-w-md rounded-2xl border border-cyan-500/20 bg-[#08111a] px-6 py-6 text-center shadow-2xl">
             <RunningAvatarLoader size={40} trackWidth={104} />
             <p className="mt-4 text-sm font-semibold text-white">
-              {statusLine?.trim() || "Working on your company."}
+              {statusLine?.trim() || t("company.working")}
             </p>
-            <p className="mt-2 text-xs leading-5 text-white/55">
-              Office3D is using your connected runtime right now. Please wait until this finishes.
-            </p>
+            <p className="mt-2 text-xs leading-5 text-white/55">{t("company.waitNote")}</p>
             <div className="mt-5 flex gap-2">
               {Array.from({ length: 4 }, (_, index) => (
                 <span
@@ -722,11 +673,11 @@ export function CompanyBuilderModal({
         <div className="fixed inset-0 z-[100115] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0b1119] p-6 shadow-2xl">
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-white">Replace current agents?</p>
+              <p className="text-sm font-semibold text-white">{t("company.replaceTitle")}</p>
               <p className="text-sm leading-6 text-white/65">
-                Your current {agentCount === 1 ? "agent will" : `${agentCount} agents will`} be
-                deleted and replaced by this new company. This action is irreversible and will
-                delete the old agents&apos; workspaces. Are you sure you want to continue?
+                {t("company.replaceWarning", {
+                  agents: `${agentCount} ${plural(agentCount, ["агент", "агента", "агентов"])}`,
+                })}
               </p>
             </div>
             <div className="mt-6 flex items-center justify-end gap-3">
@@ -737,9 +688,7 @@ export function CompanyBuilderModal({
                   setReplaceConfirmOpen(false);
                 }}
                 disabled={busy}
-              >
-                Cancel
-              </button>
+              >{t("company.cancel")}</button>
               <button
                 type="button"
                 className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-[#1a1206] transition hover:bg-amber-400"
@@ -748,9 +697,7 @@ export function CompanyBuilderModal({
                   triggerCreateCompany();
                 }}
                 disabled={busy}
-              >
-                Create Company
-              </button>
+              >{t("company.create")}</button>
             </div>
           </div>
         </div>
@@ -760,12 +707,8 @@ export function CompanyBuilderModal({
           <div className="flex h-[min(88vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1119] shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">
-                  Org Chart Preview
-                </p>
-                <p className="mt-2 text-sm text-white/60">
-                  Hover any avatar to inspect the role brief, responsibilities, and collaborators.
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">{t("company.previewTitle")}</p>
+                <p className="mt-2 text-sm text-white/60">{t("company.previewLead")}</p>
               </div>
               <button
                 type="button"
@@ -774,7 +717,7 @@ export function CompanyBuilderModal({
                   setOrgChartOpen(false);
                 }}
                 disabled={busy}
-                aria-label="Close org chart preview"
+                aria-label={t("company.closePreview")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -802,12 +745,12 @@ export function CompanyBuilderModal({
                         className="h-full w-full"
                       />
                     </div>
-                    <p className="mt-3 text-xs uppercase tracking-[0.14em] text-cyan-100/65">Role 1</p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.14em] text-cyan-100/65">{t("company.role1")}</p>
                     <p className="mt-1 text-lg font-semibold text-white">
-                      {plan.roles[0].title || "Untitled role"}
+                      {plan.roles[0].title || t("company.untitledRole")}
                     </p>
                     <p className="mt-1 text-sm text-white/60">
-                      {plan.roles[0].purpose || "No purpose yet."}
+                      {plan.roles[0].purpose || t("company.noPurpose")}
                     </p>
                   </button>
                   {plan.roles.length > 1 ? (
@@ -838,13 +781,13 @@ export function CompanyBuilderModal({
                               />
                             </div>
                             <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/45">
-                              Role {index + 2}
+                              {t("company.roleN", { index: index + 2 })}
                             </p>
                             <p className="mt-1 text-base font-semibold text-white">
-                              {role.title || "Untitled role"}
+                              {role.title || t("company.untitledRole")}
                             </p>
                             <p className="mt-1 text-sm text-white/60">
-                              {role.purpose || "No purpose yet."}
+                              {role.purpose || t("company.noPurpose")}
                             </p>
                           </button>
                         ))}
@@ -856,31 +799,27 @@ export function CompanyBuilderModal({
                   {hoveredOrgRole ? (
                     <div className="space-y-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.14em] text-cyan-100/65">
-                          Active Role
-                        </p>
+                        <p className="text-xs uppercase tracking-[0.14em] text-cyan-100/65">{t("company.activeRole")}</p>
                         <p className="mt-2 text-xl font-semibold text-white">
-                          {hoveredOrgRole.title || "Untitled role"}
+                          {hoveredOrgRole.title || t("company.untitledRole")}
                         </p>
                         <p className="mt-2 text-sm leading-6 text-white/70">
-                          {hoveredOrgRole.soul || "No soul notes yet."}
+                          {hoveredOrgRole.soul || t("company.noSoul")}
                         </p>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/65">
-                          Purpose
-                        </p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/65">{t("company.purpose")}</p>
                         <p className="mt-2 text-sm leading-6 text-white/75">
-                          {hoveredOrgRole.purpose || "No purpose yet."}
+                          {hoveredOrgRole.purpose || t("company.noPurpose")}
                         </p>
                       </div>
-                      {renderRoleFacts("Responsibilities", hoveredOrgRole.responsibilities)}
-                      {renderRoleFacts("Collaborators", hoveredOrgRole.collaborators)}
-                      {renderRoleFacts("Tools", hoveredOrgRole.tools)}
-                      {renderRoleFacts("Heartbeat", hoveredOrgRole.heartbeat)}
+                      {renderRoleFacts(t("company.responsibilities"), hoveredOrgRole.responsibilities)}
+                      {renderRoleFacts(t("company.collaborators"), hoveredOrgRole.collaborators)}
+                      {renderRoleFacts(t("company.tools"), hoveredOrgRole.tools)}
+                      {renderRoleFacts(t("company.heartbeat"), hoveredOrgRole.heartbeat)}
                     </div>
                   ) : (
-                    <p className="text-sm text-white/55">Hover a role to inspect it.</p>
+                    <p className="text-sm text-white/55">{t("company.hoverRole")}</p>
                   )}
                 </aside>
               </div>
@@ -893,12 +832,9 @@ export function CompanyBuilderModal({
           <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b1119] p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">
-                  What should the company do?
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">{t("company.promptTitle")}</p>
                 <p className="mt-2 text-sm text-white/55">
-                  As soon as you submit this, Office3D will improve the brief using your connected
-                  runtime.
+                  {t("company.submitNote")}
                 </p>
               </div>
               <button
@@ -909,14 +845,14 @@ export function CompanyBuilderModal({
                   setPromptModalOpen(false);
                 }}
                 disabled={busy}
-                aria-label="Close prompt modal"
+                aria-label={t("company.closePrompt")}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <textarea
               className={`${textareaClassName} mt-5 min-h-[220px]`}
-              placeholder="I run a web design company that builds websites, web apps, mobile apps, SEO campaigns, and social media services..."
+              placeholder={t("company.promptPh")}
               value={promptDraft}
               onChange={(event) => {
                 setPromptDraft(event.target.value);
@@ -925,9 +861,7 @@ export function CompanyBuilderModal({
             />
             <div className="mt-5 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs text-white/45">
-                  The improved brief becomes the main editable input for generation.
-                </p>
+                <p className="text-xs text-white/45">{t("company.promptNote")}</p>
                 {error ? <p className="mt-2 text-xs text-red-200">{error}</p> : null}
               </div>
               <button
@@ -950,9 +884,7 @@ export function CompanyBuilderModal({
                 }}
                 disabled={!canUseAi || promptDraft.trim().length === 0 || busy}
               >
-                <Sparkles className="h-4 w-4" />
-                Generate Company
-              </button>
+                <Sparkles className="h-4 w-4" />{t("company.generateCompany")}</button>
             </div>
           </div>
         </div>

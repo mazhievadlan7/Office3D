@@ -99,7 +99,7 @@ describe("parseCompanyPlanFromAssistantText", () => {
           roles: [],
         }),
       ),
-    ).toThrow("did not return any company roles");
+    ).toThrow("не вернул ни одной роли");
   });
 });
 
@@ -193,5 +193,31 @@ describe("buildStoredCompanySnapshot", () => {
     expect(JSON.parse(snapshot.planJson)).toMatchObject({
       companyName: "Planner Corp",
     });
+  });
+});
+
+describe("Russian role names", () => {
+  it("keeps_a_cyrillic_role_title_instead_of_stripping_it_to_a_fallback", async () => {
+    // The ASCII-only cleanup turned «Аналитик» into an empty string, so every
+    // role in a Russian company came out as "Agent1", "Agent2".
+    const { parseCompanyPlanFromAssistantText } = await import(
+      "@/features/company-builder/planning"
+    );
+    const plan = parseCompanyPlanFromAssistantText(
+      JSON.stringify({
+        companyName: "Ромашка",
+        summary: "Цветочный магазин.",
+        roles: [
+          { name: "Аналитик", purpose: "Считает продажи." },
+          { name: "Разработчик", purpose: "Делает сайт." },
+        ],
+      }),
+    );
+
+    expect(plan.roles.map((role) => role.title)).toEqual(["Аналитик", "Разработчик"]);
+    // Ids stay filesystem-safe: transliterated, not dropped.
+    expect(plan.roles.map((role) => role.id)).toEqual(["analitik", "razrabotchik"]);
+    // A Russian developer role still gets the hands-on command mode.
+    expect(plan.roles[1].commandMode).toBe("auto");
   });
 });
