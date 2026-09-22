@@ -1,82 +1,82 @@
-# Permissions, Sandboxing, and Workspaces (Studio -> Gateway -> PI)
+# Разрешения, песочница и рабочие пространства (Studio → шлюз → PI)
 
-This document exists to onboard coding agents quickly when debugging:
-- Why an agent can or cannot read/write files
-- Why command execution requires approvals (or not)
-- Why a sandboxed run behaves differently from a non-sandboxed run
-- How “create agent” choices in **Office3D** flow into the **OpenClaw Gateway** (often running on an EC2 host) where enforcement actually happens
+Этот документ нужен, чтобы быстро ввести в курс дела агентов-программистов при отладке:
+- почему агент может или не может читать и записывать файлы;
+- почему выполнение команд требует одобрения (или не требует);
+- почему запуск в песочнице ведёт себя иначе, чем запуск без неё;
+- как выбор при «создании агента» в **Office3D** доходит до **шлюза OpenClaw** (часто работающего на хосте EC2), где на самом деле и применяются ограничения.
 
-Scope:
-- Studio one-step agent creation and post-create authority updates, including exact gateway calls.
-- The upstream OpenClaw implementation that persists and enforces those settings at runtime.
+Что охватывает документ:
+- создание агента в Studio за один шаг и последующие изменения полномочий, включая точные вызовы шлюза;
+- реализацию в вышестоящем OpenClaw, которая сохраняет эти настройки и применяет их во время выполнения.
 
-Non-scope:
-- Full PI internal reasoning/toolchain. Studio does not implement PI logic; it configures and displays the Gateway session.
-- Any private EC2 runbook or SSH/hostnames. Keep this doc repo-safe.
+Что не охватывает:
+- внутреннюю логику рассуждений и цепочку инструментов PI целиком. Studio не реализует логику PI — он настраивает и показывает сессию шлюза;
+- приватные инструкции по EC2, SSH и имена хостов. Документ должен оставаться безопасным для репозитория.
 
-## Mental Model (First Principles)
+## Как это устроено (с самых основ)
 
-Studio is a UI + proxy. It does two things related to “permissions”:
-1. Writes **configuration** into the Gateway (per-agent overrides in `openclaw.json`).
-2. Writes **policy** into the Gateway (per-agent exec approvals in `exec-approvals.json`).
+Studio — это интерфейс плюс прокси. В части «разрешений» он делает две вещи:
+1. Записывает **конфигурацию** в шлюз (переопределения для отдельных агентов в `openclaw.json`).
+2. Записывает **политику** в шлюз (одобрения выполнения команд для отдельных агентов в `exec-approvals.json`).
 
-The Gateway (OpenClaw) is the enforcement point:
-- It decides whether a session is sandboxed.
-- It decides which workspace is mounted into the sandbox.
-- It constructs the PI toolset (read/write/edit/apply_patch/exec/etc) based on config + sandbox context.
-- It asks for exec approvals when policy requires it and broadcasts approval events.
+Точка применения ограничений — шлюз (OpenClaw):
+- он решает, работает ли сессия в песочнице;
+- он решает, какое рабочее пространство монтируется в песочницу;
+- он собирает набор инструментов PI (read/write/edit/apply_patch/exec и т. д.) на основе конфигурации и контекста песочницы;
+- он запрашивает одобрение выполнения команд, когда этого требует политика, и рассылает события одобрения.
 
-## Glossary
+## Словарь
 
-- **Gateway**: OpenClaw Gateway WebSocket server (upstream project).
-- **Studio**: this repo. Next.js UI plus a Node WS proxy.
-- **Agent**: an OpenClaw agent entry stored in gateway config (`agents.list[]`).
-- **Session key**: OpenClaw session identifier. Studio uses `agent:<agentId>:<mainKey>` for the agent’s “main” session.
-- **Agent workspace**: a directory on the Gateway host filesystem configured per-agent (where bootstrap files and edits live).
-- **Sandbox workspace**: a separate directory used when a session is sandboxed and `workspaceAccess` is not `rw`.
-- **Sandbox mode** (`sandbox.mode`): when to sandbox (`off`, `non-main`, `all`).
-- **Workspace access** (`sandbox.workspaceAccess`): how the sandbox relates to the agent workspace (`none`, `ro`, `rw`).
-- **Tool policy** (`tools.profile`, `tools.alsoAllow`, `tools.deny`): allow/deny gating for PI tools (OpenClaw resolves effective policy).
-- **Exec approvals policy**: per-agent `{ security, ask, allowlist }` stored in exec approvals file; drives “Allow once / Always allow / Deny” UX.
+- **Шлюз (Gateway)**: WebSocket-сервер шлюза OpenClaw (вышестоящий проект).
+- **Studio**: этот репозиторий. Интерфейс на Next.js плюс Node-прокси для WS.
+- **Агент**: запись агента OpenClaw в конфигурации шлюза (`agents.list[]`).
+- **Ключ сессии**: идентификатор сессии OpenClaw. Для «главной» сессии агента Studio использует `agent:<agentId>:<mainKey>`.
+- **Рабочее пространство агента**: каталог в файловой системе хоста шлюза, настраиваемый для каждого агента (там лежат начальные файлы и правки).
+- **Рабочее пространство песочницы**: отдельный каталог, который используется, когда сессия работает в песочнице, а `workspaceAccess` — не `rw`.
+- **Режим песочницы** (`sandbox.mode`): когда включать песочницу (`off`, `non-main`, `all`).
+- **Доступ к рабочему пространству** (`sandbox.workspaceAccess`): как песочница связана с рабочим пространством агента (`none`, `ro`, `rw`).
+- **Политика инструментов** (`tools.profile`, `tools.alsoAllow`, `tools.deny`): разрешения и запреты для инструментов PI (итоговую политику вычисляет OpenClaw).
+- **Политика одобрения выполнения команд**: `{ security, ask, allowlist }` для каждого агента, хранится в файле одобрений; определяет UX «Разрешить один раз / Разрешать всегда / Запретить».
 
-## Studio: Where “Permissions” Are Chosen
+## Studio: где выбираются «разрешения»
 
-Agent creation is intentionally lightweight:
-- `src/features/agents/components/AgentCreateModal.tsx` captures `name` and optional avatar shuffle seed.
-- `src/features/agents/operations/mutationLifecycleWorkflow.ts` applies queue/guard behavior and calls create.
-- `src/lib/gateway/agentConfig.ts` (`createGatewayAgent`) performs `config.get` + `agents.create`.
+Создание агента намеренно сделано лёгким:
+- `src/features/agents/components/AgentCreateModal.tsx` получает `name` и необязательное зерно для перемешивания аватара.
+- `src/features/agents/operations/mutationLifecycleWorkflow.ts` применяет очередь и защитные проверки и вызывает создание.
+- `src/lib/gateway/agentConfig.ts` (`createGatewayAgent`) выполняет `config.get` + `agents.create`.
 
-After creation, Studio applies a permissive default capability envelope:
-- Commands: `Auto`
-- Web access: `On`
-- File tools: `On`
+После создания Studio применяет разрешающий набор возможностей по умолчанию:
+- Выполнение команд: `Auto` («Авто»)
+- Доступ в интернет: `On` («Вкл.»)
+- Работа с файлами: `On` («Вкл.»)
 
-Implementation:
-- `src/app/page.tsx` (`handleCreateAgentSubmit`) applies `CREATE_AGENT_DEFAULT_PERMISSIONS`.
-- `src/features/agents/operations/agentPermissionsOperation.ts` (`updateAgentPermissionsViaStudio`) persists those defaults.
+Реализация:
+- `src/app/page.tsx` (`handleCreateAgentSubmit`) применяет `CREATE_AGENT_DEFAULT_PERMISSIONS`.
+- `src/features/agents/operations/agentPermissionsOperation.ts` (`updateAgentPermissionsViaStudio`) сохраняет эти значения по умолчанию.
 
-Further capability changes happen from the `Capabilities` tab:
+Дальнейшие изменения возможностей делаются на вкладке «Возможности»:
 - `src/features/agents/operations/agentPermissionsOperation.ts` (`updateAgentPermissionsViaStudio`)
-  - updates per-agent exec approvals (`exec.approvals.get` + `exec.approvals.set`)
-  - updates tool-group overrides for runtime, web, and file access (`config.get` + `config.patch` via `updateGatewayAgentOverrides`)
-  - updates session exec behavior (`sessions.patch` via `syncGatewaySessionSettings`)
+  - обновляет одобрения выполнения команд для агента (`exec.approvals.get` + `exec.approvals.set`);
+  - обновляет переопределения групп инструментов для выполнения, интернета и файлов (`config.get` + `config.patch` через `updateGatewayAgentOverrides`);
+  - обновляет поведение выполнения команд в сессии (`sessions.patch` через `syncGatewaySessionSettings`).
 
-### Runtime Tool Groups Used By Capability Updates
+### Группы инструментов среды выполнения, которые используются при изменении возможностей
 
-Studio capability updates rely on OpenClaw tool-group expansion (`openclaw/src/agents/tool-policy.ts`), especially:
-- `group:runtime` -> runtime execution tools (`exec`, `process`)
+Изменения возможностей в Studio опираются на раскрытие групп инструментов в OpenClaw (`openclaw/src/agents/tool-policy.ts`), в частности:
+- `group:runtime` → инструменты выполнения (`exec`, `process`)
 
-Internal mapping detail:
-- Command mode `off|ask|auto` maps to role logic (`conservative|collaborative|autonomous`) for policy generation.
-- UI exposes direct capability controls, not role labels.
+Внутренняя деталь сопоставления:
+- Режим команд `off|ask|auto` сопоставляется с ролевой логикой (`conservative|collaborative|autonomous`) при генерации политики.
+- Интерфейс показывает прямые переключатели возможностей, а не названия ролей.
 
-## Studio -> Gateway: “Create Agent” End-to-End
+## Studio → шлюз: «Создание агента» от начала до конца
 
-Primary entry points:
+Основные точки входа:
 - `src/features/agents/operations/mutationLifecycleWorkflow.ts`
 - `src/lib/gateway/agentConfig.ts` (`createGatewayAgent`)
 
-Sequence:
+Последовательность:
 
 ```mermaid
 sequenceDiagram
@@ -94,257 +94,257 @@ sequenceDiagram
   L-->>UI: completion(agentId)
 ```
 
-### How Studio Chooses the Default Workspace Path
+### Как Studio выбирает путь рабочего пространства по умолчанию
 
-Studio computes a default workspace path from the gateway’s config path:
+Studio вычисляет путь рабочего пространства по умолчанию из пути конфигурации шлюза:
 - `src/lib/gateway/agentConfig.ts` (`createGatewayAgent`)
 
-Logic:
-1. Call `config.get` and read `snapshot.path` (the gateway host config path).
-2. Compute `stateDir = dirname(configPath)`.
-3. Compute `workspace = join(stateDir, "workspace-" + slugify(name))`.
-4. Call `agents.create({ name, workspace })`.
+Логика:
+1. Вызвать `config.get` и прочитать `snapshot.path` (путь к конфигурации на хосте шлюза).
+2. Вычислить `stateDir = dirname(configPath)`.
+3. Вычислить `workspace = join(stateDir, "workspace-" + slugify(name))`.
+4. Вызвать `agents.create({ name, workspace })`.
 
-Important: for a remote gateway (EC2), that `workspace` path refers to the gateway host filesystem, not your laptop.
+Важно: для удалённого шлюза (EC2) этот путь `workspace` относится к файловой системе хоста шлюза, а не вашего ноутбука.
 
-## Studio: Sandbox Env Allowlist Sync (Current Scope)
+## Studio: синхронизация списка разрешённых переменных окружения песочницы (текущие рамки)
 
-Create flow does not perform setup writes during initial create anymore. If Studio needs to ensure sandbox env allowlist entries, that behavior should be attached to explicit settings/config operations rather than create-time side effects.
+Процесс создания больше не выполняет записи настроек при первоначальном создании. Если Studio нужно обеспечить записи в списке разрешённых переменных окружения песочницы, это поведение должно быть привязано к явным операциям с настройками и конфигурацией, а не к побочным эффектам при создании.
 
-## OpenClaw (Upstream): What `agents.create` Actually Does
+## OpenClaw (вышестоящий): что на самом деле делает `agents.create`
 
-Gateway method:
+Метод шлюза:
 - `openclaw/src/gateway/server-methods/agents.ts` (`"agents.create"`)
 
-Key behaviors:
-- Normalizes `agentId` from the provided `name` (and reserves `"default"`).
-- Uses the provided `workspace` and resolves it to an absolute path.
-- Writes a config entry for the agent (including the workspace dir and agent dir).
-- Ensures the workspace directory exists and that bootstrap files exist (unless `agents.defaults.skipBootstrap` is set).
-- Ensures the session transcripts directory exists for the agent.
-- Writes the config file only after those directories exist (to avoid persisting a broken agent entry).
-- Appends `- Name: ...` (and optional emoji/avatar) to `IDENTITY.md` in the workspace.
+Ключевое поведение:
+- Нормализует `agentId` из переданного `name` (и резервирует `"default"`).
+- Использует переданный `workspace` и приводит его к абсолютному пути.
+- Записывает в конфигурацию запись для агента (включая каталог рабочего пространства и каталог агента).
+- Проверяет, что каталог рабочего пространства существует и начальные файлы на месте (если не задан `agents.defaults.skipBootstrap`).
+- Проверяет, что для агента существует каталог переписок сессий.
+- Записывает файл конфигурации только после того, как эти каталоги созданы (чтобы не сохранить сломанную запись агента).
+- Дописывает `- Name: ...` (и, при наличии, эмодзи/аватар) в `IDENTITY.md` в рабочем пространстве.
 
-So: the “workspace” is not a UI-only concept; it is a real directory created on the Gateway host.
+Итак: «рабочее пространство» — это не понятие одного лишь интерфейса, а настоящий каталог, созданный на хосте шлюза.
 
-## OpenClaw (Upstream): Sandbox Semantics
+## OpenClaw (вышестоящий): семантика песочницы
 
-Sandbox configuration resolution:
+Разрешение конфигурации песочницы:
 - `openclaw/src/agents/sandbox/config.ts` (`resolveSandboxConfigForAgent`)
 
-Sandbox context creation (where workspace selection happens):
+Создание контекста песочницы (здесь выбирается рабочее пространство):
 - `openclaw/src/agents/sandbox/context.ts` (`resolveSandboxContext`)
 
-Docker mount behavior:
+Поведение монтирования в Docker:
 - `openclaw/src/agents/sandbox/docker.ts` (`createSandboxContainer`)
 
-### Sandbox Mode (`sandbox.mode`)
+### Режим песочницы (`sandbox.mode`)
 
-Modes (as implemented upstream):
-- `off`: sessions are not sandboxed.
-- `all`: every session is sandboxed.
-- `non-main`: sandbox all sessions except the agent’s main session key.
+Режимы (как они реализованы в вышестоящем проекте):
+- `off`: сессии не работают в песочнице.
+- `all`: каждая сессия работает в песочнице.
+- `non-main`: в песочнице работают все сессии, кроме главного ключа сессии агента.
 
-The “main session key” comparison is done against the configured main key, with alias-canonicalization:
-- Upstream canonicalizes the session key before comparing so that main-session aliases are treated as “main” (see `canonicalizeMainSessionAlias` in upstream sandbox runtime-status).
-- If `session.scope` is `global`, the main session key is `global` and `non-main` effectively means “sandbox everything except the global session”.
+Сравнение с «главным ключом сессии» выполняется с настроенным главным ключом с приведением псевдонимов к каноническому виду:
+- Вышестоящий проект приводит ключ сессии к каноническому виду перед сравнением, чтобы псевдонимы главной сессии считались «главной» (см. `canonicalizeMainSessionAlias` в runtime-status песочницы вышестоящего проекта).
+- Если `session.scope` равен `global`, главный ключ сессии — `global`, и `non-main` фактически означает «песочница для всего, кроме глобальной сессии».
 
-Upstream implementation reference:
+Ссылка на реализацию в вышестоящем проекте:
 - `openclaw/src/agents/sandbox/runtime-status.ts` (`resolveSandboxRuntimeStatus`)
 
-### Sandbox Scope (`sandbox.scope`)
+### Область песочницы (`sandbox.scope`)
 
-Sandbox scope controls how sandboxes are shared and therefore what persists between runs:
-- `session`: per-session sandbox workspace/container (highest isolation, most churn)
-- `agent`: per-agent sandbox workspace/container keyed by agent id (shared across that agent’s sessions)
-- `shared`: one sandbox workspace/container shared across everything (lowest isolation)
+Область песочницы определяет, как песочницы разделяются между сессиями и, следовательно, что сохраняется между запусками:
+- `session`: рабочее пространство/контейнер песочницы на каждую сессию (максимальная изоляция, больше всего пересозданий);
+- `agent`: рабочее пространство/контейнер песочницы на каждого агента по его id (общие для всех сессий этого агента);
+- `shared`: одно рабочее пространство/контейнер песочницы на всё (минимальная изоляция).
 
-Upstream implementation reference:
+Ссылки на реализацию в вышестоящем проекте:
 - `openclaw/src/agents/sandbox/types.ts` (`SandboxScope`)
 - `openclaw/src/agents/sandbox/shared.ts` (`resolveSandboxScopeKey`)
 
-### Workspace Access (`sandbox.workspaceAccess`)
+### Доступ к рабочему пространству (`sandbox.workspaceAccess`)
 
-Upstream behavior (important):
+Поведение в вышестоящем проекте (важно):
 - `rw`:
-  - The sandbox uses the **agent workspace** as the sandbox root.
-  - PI filesystem tools (`read`/`write`/`edit`/`apply_patch`) operate on the agent workspace.
+  - Песочница использует **рабочее пространство агента** как свой корень.
+  - Инструменты PI для файловой системы (`read`/`write`/`edit`/`apply_patch`) работают с рабочим пространством агента.
 - `ro`:
-  - The sandbox uses a **sandbox workspace** as the sandbox root (writable sandbox dir).
-  - The real agent workspace is mounted at `/agent` read-only for command-line inspection.
-  - PI filesystem tools are additionally restricted: upstream disables write/edit/apply_patch in this mode (see below).
+  - Песочница использует **рабочее пространство песочницы** как свой корень (каталог песочницы, доступный для записи).
+  - Настоящее рабочее пространство агента монтируется в `/agent` только для чтения — для просмотра из командной строки.
+  - Инструменты PI для файловой системы дополнительно ограничены: в этом режиме вышестоящий проект отключает write/edit/apply_patch (см. ниже).
 - `none`:
-  - The sandbox uses a **sandbox workspace** as the sandbox root.
-  - The agent workspace is not mounted into the container.
+  - Песочница использует **рабочее пространство песочницы** как свой корень.
+  - Рабочее пространство агента в контейнер не монтируется.
 
-Sandbox workspace root default:
-- `openclaw/src/agents/sandbox/constants.ts` uses `<STATE_DIR>/sandboxes` (where `STATE_DIR` defaults to `~/.openclaw` unless overridden by `OPENCLAW_STATE_DIR`).
+Корень рабочих пространств песочниц по умолчанию:
+- `openclaw/src/agents/sandbox/constants.ts` использует `<STATE_DIR>/sandboxes` (где `STATE_DIR` по умолчанию `~/.openclaw`, если не переопределён через `OPENCLAW_STATE_DIR`).
 
-Sandbox workspace seeding:
-- When using a sandbox workspace root, upstream seeds missing bootstrap files from the agent workspace and ensures bootstrap exists:
+Начальное наполнение рабочего пространства песочницы:
+- Когда корнем служит рабочее пространство песочницы, вышестоящий проект копирует недостающие начальные файлы из рабочего пространства агента и проверяет, что они на месте:
   - `openclaw/src/agents/sandbox/workspace.ts` (`ensureSandboxWorkspace`)
-  - The sandbox workspace also syncs skills from the agent workspace (best-effort) in `resolveSandboxContext`.
+  - Рабочее пространство песочницы также синхронизирует навыки из рабочего пространства агента (по мере возможности) в `resolveSandboxContext`.
 
-### Hard Enforcement: Filesystem Tool Root Guard
+### Жёсткое ограничение: защита корня для файловых инструментов
 
-In upstream OpenClaw, sandboxed filesystem tools are rooted and guarded:
-- `openclaw/src/agents/pi-tools.read.ts` (`assertSandboxPath` usage)
+В вышестоящем OpenClaw файловые инструменты в песочнице привязаны к корню и защищены:
+- `openclaw/src/agents/pi-tools.read.ts` (использование `assertSandboxPath`)
 
-Result:
-- `read`/`write`/`edit` tools cannot access paths outside the sandbox root, even if the container has other mounts (like `/agent`).
+Результат:
+- Инструменты `read`/`write`/`edit` не могут обращаться к путям вне корня песочницы, даже если у контейнера есть другие точки монтирования (например, `/agent`).
 
-This is intentional: the “filesystem tools” and “exec tool” have different access characteristics inside a sandbox.
+Так задумано: у «файловых инструментов» и «инструмента exec» внутри песочницы разные права доступа.
 
-## Sandbox Tool Policy (Separate From Per-Agent Tool Overrides)
+## Политика инструментов песочницы (отдельно от переопределений инструментов для агента)
 
-OpenClaw has an additional sandbox-only tool allow/deny policy:
-- `tools.sandbox.tools.allow|deny` (global)
-- `agents.list[].tools.sandbox.tools.allow|deny` (per-agent override)
+В OpenClaw есть дополнительная политика разрешений и запретов инструментов, действующая только в песочнице:
+- `tools.sandbox.tools.allow|deny` (глобально)
+- `agents.list[].tools.sandbox.tools.allow|deny` (переопределение для агента)
 
-Upstream resolution:
+Разрешение в вышестоящем проекте:
 - `openclaw/src/agents/sandbox/tool-policy.ts` (`resolveSandboxToolPolicyForAgent`)
 
-Important nuance:
-- If `tools.sandbox.tools.allow` is present and non-empty, it becomes an allowlist.
-- If it is set to an empty array, upstream will still auto-add `image` to the allowlist (unless explicitly denied), which often turns “empty” into effectively “image-only”.
-- If you want “allow everything” semantics in sandbox policy, prefer `["*"]` over `[]` to avoid the image auto-add corner case.
+Важный нюанс:
+- Если `tools.sandbox.tools.allow` задан и не пуст, он становится списком разрешённых.
+- Если он задан пустым массивом, вышестоящий проект всё равно автоматически добавит в список разрешённых `image` (если он явно не запрещён), и «пустой» список фактически превращается в «только image».
+- Если в политике песочницы нужна семантика «разрешить всё», используйте `["*"]`, а не `[]`, чтобы обойти пограничный случай с автоматическим добавлением image.
 
-This is why Studio treats some configs as “broken” and repairs them (see below).
+Именно поэтому Studio считает некоторые конфигурации «сломанными» и исправляет их (см. ниже).
 
-### Policy Layering (Why “Allowed” Can Still Be Blocked)
+### Слои политики (почему «разрешённое» всё равно может быть заблокировано)
 
-In a sandboxed session, a tool must pass multiple gates:
-- The normal tool policy gates (`tools.profile`, `tools.allow|alsoAllow`, `tools.deny`, plus any provider/group/subagent policies upstream applies).
-- The sandbox tool policy gate (`tools.sandbox.tools.allow|deny` resolved for that agent).
+В сессии в песочнице инструмент должен пройти несколько проверок:
+- обычные проверки политики инструментов (`tools.profile`, `tools.allow|alsoAllow`, `tools.deny`, а также любые политики поставщиков, групп и субагентов, которые применяет вышестоящий проект);
+- проверку политики инструментов песочницы (`tools.sandbox.tools.allow|deny`, вычисленную для этого агента).
 
-So even if Studio enables `group:runtime` for an agent, the tool can still be blocked in sandboxed sessions if sandbox tool policy denies it.
+Поэтому, даже если Studio включит `group:runtime` для агента, инструмент всё равно может быть заблокирован в сессиях в песочнице, если его запрещает политика инструментов песочницы.
 
-## OpenClaw (Upstream): Tool Availability and `workspaceAccess=ro`
+## OpenClaw (вышестоящий): доступность инструментов и `workspaceAccess=ro`
 
-PI tool construction:
+Сборка инструментов PI:
 - `openclaw/src/agents/pi-tools.ts` (`createOpenClawCodingTools`)
 
-Key enforcement:
-- When sandboxed, upstream removes the normal host `write`/`edit` tools.
-- It only adds sandboxed `write`/`edit` tools if `workspaceAccess !== "ro"`.
-- It disables `apply_patch` in sandbox when `workspaceAccess === "ro"`.
+Ключевые ограничения:
+- В песочнице вышестоящий проект убирает обычные инструменты хоста `write`/`edit`.
+- Инструменты `write`/`edit` для песочницы добавляются, только если `workspaceAccess !== "ro"`.
+- `apply_patch` в песочнице отключается, когда `workspaceAccess === "ro"`.
 
-This is why “`workspaceAccess=ro`” means more than “mount it read-only”:
-- It is also a tool-policy gate that prevents direct file writes/edits through PI tools.
+Поэтому «`workspaceAccess=ro`» означает больше, чем «смонтировать только для чтения»:
+- это ещё и проверка политики инструментов, которая не даёт напрямую записывать и править файлы через инструменты PI.
 
-### Studio Note: Authority Is No Longer Compiled During Create
+### Примечание о Studio: полномочия больше не вычисляются при создании
 
-Studio create flow no longer compiles authority/sandbox settings during initial create.
+Процесс создания в Studio больше не вычисляет настройки полномочий и песочницы при первоначальном создании.
 
-When capabilities are changed post-create, Studio uses:
+Когда возможности меняются после создания, Studio использует:
 - `src/features/agents/operations/agentPermissionsOperation.ts` (`updateAgentPermissionsViaStudio`)
 
-That operation updates:
-- exec approvals policy (`exec.approvals.set`)
-- per-agent tool overrides (`config.patch` via `updateGatewayAgentOverrides`)
-- session exec host/security/ask (`sessions.patch`)
+Эта операция обновляет:
+- политику одобрения выполнения команд (`exec.approvals.set`);
+- переопределения инструментов для агента (`config.patch` через `updateGatewayAgentOverrides`);
+- host/security/ask выполнения команд в сессии (`sessions.patch`).
 
-Upstream enforcement is unchanged: `workspaceAccess="ro"` still disables PI `write`/`edit`/`apply_patch` in sandboxed sessions.
+Ограничения в вышестоящем проекте не изменились: `workspaceAccess="ro"` по-прежнему отключает PI `write`/`edit`/`apply_patch` в сессиях в песочнице.
 
-## Session-Level Exec Settings (Where `exec` Runs)
+## Настройки выполнения команд на уровне сессии (где запускается `exec`)
 
-Separately from per-agent config and exec approvals, OpenClaw supports per-session exec settings:
+Помимо конфигурации агента и одобрений выполнения команд, OpenClaw поддерживает настройки выполнения команд для отдельной сессии:
 - `execHost`: `sandbox | gateway | node`
 - `execSecurity`: `deny | allowlist | full`
 - `execAsk`: `off | on-miss | always`
 
-These are stored in the gateway session store and mutated with `sessions.patch`:
-- Upstream method: `openclaw/src/gateway/server-methods/sessions.ts` (`"sessions.patch"`)
-- Patch application: `openclaw/src/gateway/sessions-patch.ts`
-- Session entry shape includes `execHost|execSecurity|execAsk`: `openclaw/src/config/sessions/types.ts`
+Они хранятся в хранилище сессий шлюза и меняются через `sessions.patch`:
+- Метод в вышестоящем проекте: `openclaw/src/gateway/server-methods/sessions.ts` (`"sessions.patch"`)
+- Применение изменений: `openclaw/src/gateway/sessions-patch.ts`
+- Форма записи сессии включает `execHost|execSecurity|execAsk`: `openclaw/src/config/sessions/types.ts`
 
-Studio uses these fields to keep “what the UI expects” aligned with gateway runtime:
-- Hydration derives the expected values using the exec approvals policy plus sandbox mode:
+Studio использует эти поля, чтобы «ожидания интерфейса» совпадали с поведением шлюза во время выполнения:
+- При гидратации ожидаемые значения выводятся из политики одобрения выполнения команд и режима песочницы:
   - `src/features/agents/operations/agentFleetHydrationDerivation.ts`
-  - Special case: if `sandbox.mode === "all"` and there are exec overrides, Studio forces `execHost = "sandbox"` to avoid accidentally running on the host.
-- On first send (or when out of sync), Studio patches the session:
-  - `src/features/agents/operations/chatSendOperation.ts` calls `syncGatewaySessionSettings(...)`
-  - Transport: `src/lib/gateway/GatewayClient.ts` (`sessions.patch`)
+  - Особый случай: если `sandbox.mode === "all"` и есть переопределения выполнения команд, Studio принудительно ставит `execHost = "sandbox"`, чтобы случайно не выполнить команды на хосте.
+- При первой отправке (или при рассинхронизации) Studio обновляет сессию:
+  - `src/features/agents/operations/chatSendOperation.ts` вызывает `syncGatewaySessionSettings(...)`
+  - Транспорт: `src/lib/gateway/GatewayClient.ts` (`sessions.patch`)
 
-Net effect:
-- Exec approvals policy controls whether the user will be prompted to approve.
-- Session exec settings control where execution happens (sandbox vs host) and the default `security/ask` values for runs.
+Итоговый эффект:
+- Политика одобрения выполнения команд определяет, будут ли у пользователя спрашивать одобрение.
+- Настройки выполнения команд в сессии определяют, где идёт выполнение (в песочнице или на хосте), и значения `security/ask` по умолчанию для запусков.
 
-## OpenClaw (Upstream): Exec Approvals (Policy + Events)
+## OpenClaw (вышестоящий): одобрения выполнения команд (политика и события)
 
-Exec approvals file (defaults upstream):
+Файл одобрений выполнения команд (значения по умолчанию в вышестоящем проекте):
 - `openclaw/src/infra/exec-approvals.ts`
-  - default file path: `~/.openclaw/exec-approvals.json`
-  - default socket path: `~/.openclaw/exec-approvals.sock`
+  - путь к файлу по умолчанию: `~/.openclaw/exec-approvals.json`
+  - путь к сокету по умолчанию: `~/.openclaw/exec-approvals.sock`
 
-Gateway methods (persist policy):
+Методы шлюза (сохранение политики):
 - `openclaw/src/gateway/server-methods/exec-approvals.ts`
-  - `exec.approvals.get` returns `{ path, exists, hash, file }` (socket token is redacted in responses)
-  - `exec.approvals.set` requires a matching `baseHash` when the file already exists (prevents lost updates)
+  - `exec.approvals.get` возвращает `{ path, exists, hash, file }` (токен сокета в ответах скрыт)
+  - `exec.approvals.set` требует совпадающий `baseHash`, если файл уже существует (защита от потери изменений)
 
-Approval request/resolve + broadcast events:
+Запрос и решение по одобрению плюс рассылка событий:
 - `openclaw/src/gateway/server-methods/exec-approval.ts`
-  - broadcasts `exec.approval.requested`
-  - broadcasts `exec.approval.resolved`
+  - рассылает `exec.approval.requested`
+  - рассылает `exec.approval.resolved`
 
-Exec tool approval decision logic:
-- `openclaw/src/agents/bash-tools.exec.ts` (calls `requiresExecApproval`, `evaluateShellAllowlist`, etc.)
+Логика решения об одобрении для инструмента exec:
+- `openclaw/src/agents/bash-tools.exec.ts` (вызывает `requiresExecApproval`, `evaluateShellAllowlist` и т. д.)
 
-Studio wiring for policy persistence:
-- Studio writes per-agent policy with `exec.approvals.set`:
+Как Studio сохраняет политику:
+- Studio записывает политику агента через `exec.approvals.set`:
   - `src/lib/gateway/execApprovals.ts` (`upsertGatewayAgentExecApprovals`)
 
-Studio wiring for UX:
-- Studio listens to `exec.approval.requested` and `exec.approval.resolved` and renders in-chat approval cards.
-- When the user clicks approve/deny, Studio calls `exec.approval.resolve`.
+Как Studio показывает это в интерфейсе:
+- Studio слушает `exec.approval.requested` и `exec.approval.resolved` и показывает карточки одобрения прямо в чате.
+- Когда пользователь нажимает «разрешить» или «запретить», Studio вызывает `exec.approval.resolve`.
 
-## Debug Checklist (When Something Feels “Wrong”)
+## Чек-лист отладки (когда что-то кажется «не так»)
 
-1. Determine if the session is sandboxed and what workspace it is using.
-   - Upstream CLI helper: `openclaw sandbox explain --agent <agentId>` (see upstream `src/commands/sandbox-explain.ts`)
-2. Confirm what Studio wrote:
-   - Agent overrides: `config.get` and inspect `agents.list[]` entry for the agent.
-   - Exec approvals: `exec.approvals.get` and inspect `file.agents[agentId]`.
-3. If file edits are not happening:
-   - Check `sandbox.workspaceAccess` (if `ro`, upstream disables write/edit/apply_patch tools in sandbox).
-   - Check tool policy (`tools.profile`, `tools.alsoAllow`, `tools.deny`) for explicit denies on `write`/`edit`/`apply_patch`.
-4. If approvals are not showing up:
-   - Check exec approvals `security` + `ask`.
-   - Check allowlist patterns (a match may suppress prompts when `ask=on-miss`).
-5. If the agent can see different files than expected:
-   - `workspaceAccess=rw` means “tools operate on the agent workspace”.
-   - `workspaceAccess=ro|none` means “tools operate on a sandbox workspace”.
-   - `/agent` mount exists only for `workspaceAccess=ro` and is accessible via sandbox exec, not via filesystem tools.
+1. Определите, работает ли сессия в песочнице и какое рабочее пространство она использует.
+   - Вспомогательная команда CLI вышестоящего проекта: `openclaw sandbox explain --agent <agentId>` (см. `src/commands/sandbox-explain.ts` в вышестоящем проекте)
+2. Проверьте, что записал Studio:
+   - Переопределения агента: `config.get` и запись агента в `agents.list[]`.
+   - Одобрения выполнения команд: `exec.approvals.get` и `file.agents[agentId]`.
+3. Если правки файлов не происходят:
+   - Проверьте `sandbox.workspaceAccess` (при `ro` вышестоящий проект отключает в песочнице инструменты write/edit/apply_patch).
+   - Проверьте политику инструментов (`tools.profile`, `tools.alsoAllow`, `tools.deny`) на явные запреты `write`/`edit`/`apply_patch`.
+4. Если запросы на одобрение не появляются:
+   - Проверьте `security` + `ask` в одобрениях выполнения команд.
+   - Проверьте шаблоны списка разрешённых (совпадение может подавлять запросы при `ask=on-miss`).
+5. Если агент видит не те файлы, которые вы ожидаете:
+   - `workspaceAccess=rw` означает «инструменты работают с рабочим пространством агента».
+   - `workspaceAccess=ro|none` означает «инструменты работают с рабочим пространством песочницы».
+   - Точка монтирования `/agent` есть только при `workspaceAccess=ro` и доступна через exec в песочнице, а не через файловые инструменты.
 
-## Studio Post-Create “Permissions” Flows (Not Just Creation)
+## «Разрешения» в Studio после создания (не только при создании)
 
-Studio can also change permissions after an agent exists.
+Studio может менять разрешения и у уже существующего агента.
 
-### Capabilities Permissions Updates
+### Изменение разрешений на вкладке «Возможности»
 
-Studio’s permissions flow applies coordinated changes from one save action:
-- Exec approvals policy (per-agent, persisted in exec approvals file)
-- Tool allow/deny for runtime/web/fs groups (`group:runtime`, `group:web`, `group:fs`) in agent config
-- Session exec settings (`execHost|execSecurity|execAsk`) via `sessions.patch`
+Процесс разрешений в Studio применяет согласованные изменения одним сохранением:
+- политика одобрения выполнения команд (для агента, хранится в файле одобрений);
+- разрешение или запрет инструментов для групп выполнения/интернета/файлов (`group:runtime`, `group:web`, `group:fs`) в конфигурации агента;
+- настройки выполнения команд в сессии (`execHost|execSecurity|execAsk`) через `sessions.patch`.
 
-Code:
+Код:
 - `src/features/agents/operations/agentPermissionsOperation.ts` (`updateAgentPermissionsViaStudio`)
 
-UI model:
-- Direct controls: `Command mode` (`Off`/`Ask`/`Auto`), `Web access` (`Off`/`On`), `File tools` (`Off`/`On`)
-- Create modal remains permission-light (name/avatar only) and create flow immediately applies permissive defaults (`Auto`, web on, file tools on).
+Модель интерфейса:
+- Прямые переключатели: «Выполнение команд» (`Off`/`Ask`/`Auto` — «Выкл.»/«Спрашивать»/«Авто»), «Доступ в интернет» (`Off`/`On`), «Работа с файлами» (`Off`/`On`).
+- Окно создания по-прежнему почти не касается разрешений (только имя и аватар), а процесс создания сразу применяет разрешающие значения по умолчанию (`Auto`, интернет включён, работа с файлами включена).
 
-Why it matters:
-- You can have exec approvals configured but still be unable to run commands if `group:runtime` is denied.
-- You can have permissive approvals but still be safe if `execHost` is forced to `sandbox` when sandboxing is enabled.
+Почему это важно:
+- Одобрения выполнения команд могут быть настроены, а запускать команды всё равно нельзя, если запрещена `group:runtime`.
+- Одобрения могут быть разрешающими, но всё остаётся безопасным, если при включённой песочнице `execHost` принудительно установлен в `sandbox`.
 
-### One-Shot Sandbox Tool Policy Repair
+### Разовое исправление политики инструментов песочницы
 
-On connect, Studio scans the gateway config for agents that are sandboxed (`sandbox.mode === "all"`) and have an explicitly empty sandbox allowlist (`tools.sandbox.tools.allow = []`), and repairs those entries by setting:
+При подключении Studio просматривает конфигурацию шлюза в поисках агентов, которые работают в песочнице (`sandbox.mode === "all"`) и у которых явно пустой список разрешённых инструментов песочницы (`tools.sandbox.tools.allow = []`), и исправляет такие записи, устанавливая:
 - `agents.list[].tools.sandbox.tools.allow = ["*"]`
 
-Code:
-- Detection + repair enqueue: `src/app/page.tsx` (`repair-sandbox-tool-allowlist`)
-- Gateway write: `src/lib/gateway/agentConfig.ts` (`updateGatewayAgentOverrides`)
+Код:
+- Обнаружение и постановка исправления в очередь: `src/app/page.tsx` (`repair-sandbox-tool-allowlist`)
+- Запись в шлюз: `src/lib/gateway/agentConfig.ts` (`updateGatewayAgentOverrides`)
 
-This exists to prevent sandboxed sessions from effectively losing access to almost all sandbox tools due to an empty allowlist interacting with upstream sandbox tool-policy behavior.
+Это нужно, чтобы сессии в песочнице не теряли фактически доступ почти ко всем инструментам песочницы из-за того, что пустой список разрешённых взаимодействует с поведением политики инструментов песочницы в вышестоящем проекте.
