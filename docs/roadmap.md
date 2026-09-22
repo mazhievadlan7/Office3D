@@ -1,61 +1,61 @@
-# Roadmap
+# Дорожная карта
 
-This file captures the near-term direction for Office3D so outside contributors can find work that aligns with current priorities.
+В этом файле описано ближайшее направление развития Office3D, чтобы сторонние участники могли найти работу, которая соответствует текущим приоритетам.
 
-## Now
+## Сейчас
 
-- Open-source readiness: documentation, support routes, CI, disclosure files, and public-safe defaults.
-- Runtime reliability: making gateway event handling, history reconciliation, and transport-specific recovery more predictable.
-- Office architecture clarity: keeping the office intent layer centralized and reducing ad hoc room-specific behavior.
+- Готовность к открытому исходному коду: документация, каналы поддержки, CI, файлы о раскрытии уязвимостей и безопасные для публикации настройки по умолчанию.
+- Надёжность среды выполнения: более предсказуемая обработка событий шлюза, сверка истории и восстановление с учётом конкретного транспорта.
+- Понятная архитектура офиса: слой намерений офиса остаётся централизованным, а разовое поведение, привязанное к отдельным комнатам, сокращается.
 
-## Next
+## Далее
 
-- Converge the immersive office and builder stack on a clearer shared model.
-- Replace or fully clear unresolved bundled assets and dependency licensing risks.
-- Improve security posture around Studio access bootstrap and runtime token handling.
-- Expand runtime profiles from the new shared `agents.message` / `agents.handoff` contract into fuller provider adapters and richer multi-agent handoff flows.
+- Свести иммерсивный офис и стек конструктора к более понятной общей модели.
+- Заменить или полностью прояснить нерешённые вопросы со встроенными ресурсами и лицензированием зависимостей.
+- Усилить безопасность вокруг первоначальной настройки доступа к Studio и обработки токенов среды выполнения.
+- Развить профили сред выполнения от нового общего контракта `agents.message` / `agents.handoff` до полноценных адаптеров поставщиков и более богатых сценариев передачи работы между агентами.
 
-## Later
+## Позже
 
-- Broader office authoring workflows and richer world-building tools.
-- Better contributor automation, release process, and publication tooling.
-- More immersive agent/system surfaces that build on the existing office intent and runtime event model.
+- Более широкие сценарии создания офисов и более богатые инструменты построения мира.
+- Лучшая автоматизация для участников, процесс релизов и инструменты публикации.
+- Более иммерсивные поверхности агентов и системы, построенные на существующих намерениях офиса и модели событий среды выполнения.
 
-## Product Ideas To Reduce OpenClaw Dependency
+## Идеи продукта, снижающие зависимость от OpenClaw
 
-- Expand the new agent wizard into reusable agent templates and presets, building on the existing playbook templates, onboarding flow, and agent creation steps.
-- Turn the current onboarding and connection experience into a fuller workspace setup wizard that validates gateway access, permissions, local-vs-remote behavior, and common integrations in one place.
-- Add a first-class heartbeat builder that unifies scheduled automations, `HEARTBEAT.md`, and related defaults into one guided UI instead of splitting that setup across multiple surfaces.
-- Add a fleet-level tool access matrix with bulk controls so users can manage agent permissions and allowed tools across the whole office instead of one agent at a time.
-- Add a shared user profile center that can manage and optionally sync `USER.md` defaults across multiple agents, rather than editing each agent independently.
-- Add a real agent inbox and task queue that goes beyond the current results/inbox surfaces and lets users assign, retry, and route work between agents.
-- Add a dedicated health dashboard that brings gateway status, failed runs, heartbeat issues, missing dependencies, and integration problems into one operational view.
-- Add a broader prompt and playbook library on top of the current playbook template foundation so users can save, browse, and reuse recurring workflows more easily.
-- Add visual office automation features that let users configure recurring behaviors and room-based actions directly from the office instead of relying on lower-level gateway concepts.
-- Add an agent relationships and communication map so users can configure which agents collaborate, hand off work, or talk to each other without editing raw configuration.
-- Add shared memory management for cross-agent context, since the current experience only exposes per-agent `MEMORY.md`.
-- Add multi-agent orchestration and handoff workflows for common sequences such as PM -> Engineer -> QA, with explicit UI instead of relying on manual coordination.
-- Add config diff and rollback tools so gateway-wide changes can be reviewed and safely reverted from Office3D.
-- Add conversation-to-agent bootstrap flows that can turn a successful chat or office interaction into a reusable new agent.
-- Add a richer scenario simulator that extends the current mock phone/text scenarios into broader multi-agent rehearsal and testing flows.
+- Развить мастер создания агента в многоразовые шаблоны и пресеты агентов, опираясь на существующие шаблоны сценариев, процесс первоначальной настройки и шаги создания агента.
+- Превратить нынешний процесс первоначальной настройки и подключения в полноценный мастер настройки рабочего пространства, который в одном месте проверяет доступ к шлюзу, разрешения, поведение при локальной и удалённой работе и распространённые интеграции.
+- Добавить полноценный конструктор пульса, который объединяет автоматизации по расписанию, `HEARTBEAT.md` и связанные настройки по умолчанию в одном пошаговом интерфейсе, вместо того чтобы разносить эту настройку по нескольким местам.
+- Добавить матрицу доступа к инструментам для всей команды агентов с массовыми действиями, чтобы пользователи могли управлять разрешениями агентов и разрешёнными инструментами во всём офисе, а не по одному агенту за раз.
+- Добавить общий центр профиля пользователя, который может управлять настройками `USER.md` по умолчанию для нескольких агентов и при желании синхронизировать их, вместо того чтобы править каждого агента по отдельности.
+- Добавить настоящий входящий ящик агента и очередь задач, которые выходят за рамки нынешних поверхностей результатов и входящих и позволяют назначать, повторять и маршрутизировать работу между агентами.
+- Добавить отдельную панель состояния, которая сводит статус шлюза, неудачные запуски, проблемы пульса, недостающие зависимости и проблемы интеграций в одно операционное представление.
+- Добавить более широкую библиотеку промптов и сценариев поверх нынешней основы шаблонов сценариев, чтобы пользователям было проще сохранять, просматривать и повторно использовать регулярные рабочие процессы.
+- Добавить визуальную автоматизацию офиса, чтобы пользователи могли настраивать повторяющееся поведение и действия, привязанные к комнатам, прямо из офиса, а не через низкоуровневые понятия шлюза.
+- Добавить карту отношений и общения агентов, чтобы пользователи могли настраивать, какие агенты сотрудничают, передают друг другу работу или разговаривают между собой, не редактируя сырую конфигурацию.
+- Добавить управление общей памятью для контекста между агентами, поскольку сейчас доступен только `MEMORY.md` отдельного агента.
+- Добавить оркестрацию нескольких агентов и сценарии передачи работы для типовых цепочек вроде PM → Engineer → QA с явным интерфейсом вместо ручной координации.
+- Добавить инструменты сравнения и отката конфигурации, чтобы изменения на уровне всего шлюза можно было просматривать и безопасно откатывать из Office3D.
+- Добавить сценарии, которые превращают удачный чат или взаимодействие в офисе в нового многоразового агента.
+- Добавить более богатый симулятор сценариев, который расширяет нынешние имитации звонков и сообщений до более широких репетиций и тестирования с участием нескольких агентов.
 
-## Already In Progress Or Partially Covered
+## Уже в работе или частично реализовано
 
-- Skill installer compatibility checks already exist and should be expanded rather than reinvented.
-- Playbook templates, scheduled automations, and onboarding flows already cover part of the templates/setup story.
-- Per-agent capability controls and tool settings already exist, but not yet as a fleet-wide matrix.
-- Analytics, connection status, and office activity surfaces already cover part of the future health dashboard story.
-- The office builder, immersive office, and event-triggered behavior already cover part of the visual automation story.
-- Runtime profiles now preserve separate per-backend URLs and tokens for gateway-style and direct-runtime slices.
+- Проверки совместимости при установке навыков уже есть — их стоит расширять, а не изобретать заново.
+- Шаблоны сценариев, автоматизации по расписанию и процессы первоначальной настройки уже частично покрывают историю с шаблонами и настройкой.
+- Управление возможностями и настройками инструментов для отдельного агента уже есть, но пока не в виде матрицы для всей команды агентов.
+- Аналитика, статус подключения и поверхности активности офиса уже частично покрывают будущую панель состояния.
+- Конструктор офиса, иммерсивный офис и поведение, запускаемое событиями, уже частично покрывают визуальную автоматизацию.
+- Профили сред выполнения теперь хранят отдельные URL и токены для каждого бэкенда — как для шлюзовых, так и для прямых сред выполнения.
 
-## Good First Contribution Areas
+## С чего хорошо начать участие
 
-- Documentation and developer-onboarding fixes.
-- Focused unit-test additions around runtime workflows or office intent behavior.
-- Small UI polish issues that stay inside one feature area.
-- Replacing stale examples, placeholder text, or internal-only assumptions in public docs.
+- Исправления документации и материалов для новых разработчиков.
+- Точечные юнит-тесты для сценариев среды выполнения или поведения намерений офиса.
+- Небольшие правки интерфейса в пределах одной функциональной области.
+- Замена устаревших примеров, текста-заглушки или внутренних допущений в публичной документации.
 
-## Before Starting Bigger Work
+## Перед началом крупной работы
 
-- Read `README.md`, `CODE_DOCUMENTATION.md`, and `KNOWN_ISSUES.md`.
-- Prefer opening or linking a GitHub issue before large architectural changes.
+- Прочитайте `README.md`, `CODE_DOCUMENTATION.md` и `KNOWN_ISSUES.md`.
+- Перед крупными архитектурными изменениями лучше открыть задачу (issue) на GitHub или сослаться на существующую.

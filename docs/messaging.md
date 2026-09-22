@@ -1,79 +1,79 @@
-# Agent messages
+# Сообщения агентов
 
-Agents message people from the office messaging booth, through the same
-ElevenLabs account that runs the phone.
+Агенты пишут людям из будки сообщений в офисе — через тот же аккаунт
+ElevenLabs, на котором работает телефон.
 
-## WhatsApp, and why not SMS
+## WhatsApp — и почему не SMS
 
-**ElevenLabs has no SMS API.** It has outbound WhatsApp messages and outbound
-calls, and nothing else that sends text. Plain SMS would mean credentials from
-a carrier (Sinch, Infobip, or whoever provides the SIP trunk) and a second
-provider in the chain — which is exactly the trade-off the voice platform was
-chosen to avoid. It is not built.
+**У ElevenLabs нет API для SMS.** Есть исходящие сообщения WhatsApp и исходящие
+звонки — и больше ничего, что отправляло бы текст. Обычные SMS потребовали бы
+учётных данных от оператора связи (Sinch, Infobip или того, кто предоставляет
+SIP-транк) и второго поставщика в цепочке — а именно такого компромисса и
+позволял избежать выбор голосовой платформы. Это не реализовано.
 
-**WhatsApp messages are template-only.** WhatsApp will not carry free-form text
-to somebody who has not messaged you recently, so the API takes an approved
-template name and its parameters. The office sends one template and fills its
-single body parameter with what the agent wanted to say. The panel says so,
-because a composer that looked like a chat would mislead about what the
-recipient actually receives.
+**Сообщения WhatsApp отправляются только по шаблону.** WhatsApp не доставит
+произвольный текст человеку, который недавно вам не писал, поэтому API
+принимает имя одобренного шаблона и его параметры. Офис отправляет один шаблон
+и подставляет в его единственный параметр тела то, что хотел сказать агент.
+Панель прямо об этом сообщает, потому что поле ввода, похожее на чат, вводило бы
+в заблуждение насчёт того, что на самом деле получит адресат.
 
-## Configuration
+## Настройка
 
-| Variable | What it is |
+| Переменная | Что это |
 | --- | --- |
-| `ELEVENLABS_API_KEY` | Shared with telephony. |
-| `ELEVENLABS_AGENT_ID` | Shared with telephony. |
-| `ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID` | The WhatsApp Business number registered with ElevenLabs. |
-| `ELEVENLABS_WHATSAPP_TEMPLATE` | The approved template name, e.g. `office_notice`. |
-| `ELEVENLABS_WHATSAPP_TEMPLATE_LANGUAGE` | Its language code, e.g. `en`. |
+| `ELEVENLABS_API_KEY` | Общая с телефонией. |
+| `ELEVENLABS_AGENT_ID` | Общая с телефонией. |
+| `ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID` | Номер WhatsApp Business, зарегистрированный в ElevenLabs. |
+| `ELEVENLABS_WHATSAPP_TEMPLATE` | Имя одобренного шаблона, например `office_notice`. |
+| `ELEVENLABS_WHATSAPP_TEMPLATE_LANGUAGE` | Код его языка, например `en`. |
 
-With any missing, the booth opens but will not send, and names the missing
-variable rather than a bare "not configured". The template must be approved in
-Meta's WhatsApp Manager and have exactly one body parameter; a name or language
-that does not match an approved template comes back as a `422`, passed through
-with the provider's own wording.
+Если какой-то из них не задан, будка открывается, но не отправляет сообщения и
+называет недостающую переменную, а не просто пишет «не настроено». Шаблон должен
+быть одобрен в WhatsApp Manager от Meta и иметь ровно один параметр тела; имя или
+язык, которые не совпадают с одобренным шаблоном, возвращаются с кодом `422` и
+формулировкой самого поставщика.
 
-## What is recorded
+## Что записывается
 
-A message is recorded only when the provider accepted it and returned an id. A
-refusal records nothing: a failed row in the log would read like a message that
-exists.
+Сообщение записывается, только если поставщик принял его и вернул id. Отказ
+ничего не записывает: неудачная строка в журнале читалась бы как сообщение,
+которое существует.
 
-The record says **sent**, never *delivered*. The provider took it; whether it
-reached a handset is something only a delivery receipt would say, and there is
-no receipt channel here.
+В записи стоит **отправлено**, а не *доставлено*. Поставщик принял сообщение; дошло
+ли оно до телефона, могло бы сказать только уведомление о доставке, а канала для
+таких уведомлений здесь нет.
 
-There is **no inbound channel**, so there are no replies. The booth used to
-invent one — a hardcoded recipient, a message to them, and a reply they never
-sent, all animated as though it had happened. That is removed. The booth now
-shows what the office actually sent, or nothing.
+**Входящего канала нет**, поэтому ответов тоже нет. Раньше будка их выдумывала:
+жёстко прописанный адресат, сообщение ему и ответ, которого он никогда не
+отправлял, — и всё это анимировалось так, будто произошло на самом деле. Это
+убрано. Теперь будка показывает то, что офис действительно отправил, или ничего.
 
-## Messages an agent asks for
+## Сообщения, о которых просит агент
 
-Saying "text my wife" to an agent does not send anything. The office opens the
-messaging panel with the request as context and a human supplies the number and
-sends. A name is not a number, and a message costs money and reaches a
-stranger — not a decision to take on an agent's say-so.
+Если сказать агенту «напиши моей жене», ничего не отправится. Офис откроет панель
+сообщений с этой просьбой в качестве контекста, а номер укажет и отправит человек.
+Имя — это не номер, а сообщение стоит денег и доходит до постороннего человека —
+такое решение нельзя принимать с одних слов агента.
 
 ## API
 
-| Route | What it does |
+| Маршрут | Что делает |
 | --- | --- |
-| `POST /api/messaging/messages` | `{to, text, agentId, agentName}` → sends and records it. `to` is a phone number in international form, with or without the plus. |
-| `GET /api/messaging/messages` | Readiness plus what this process has sent. |
+| `POST /api/messaging/messages` | `{to, text, agentId, agentName}` → отправляет сообщение и записывает его. `to` — номер телефона в международном формате, с плюсом или без. |
+| `GET /api/messaging/messages` | Готовность и то, что отправил этот процесс. |
 
-Errors keep the status they earned: `400` for a recipient that is not a number
-or text that is empty or over the 900-character cap, `503` naming the missing
-variables, and the provider's own status when it refuses.
+Ошибки сохраняют заслуженный статус: `400` — если адресат не номер или текст пуст
+либо длиннее ограничения в 900 символов, `503` — с перечнем недостающих
+переменных, и собственный статус поставщика, если тот отказал.
 
-## Known limits
+## Известные ограничения
 
-- **The sent log is in the server process.** A restart loses it and a second
-  instance keeps its own. Unlike a live call a sent message is a durable fact,
-  so this is the office's own view rather than the record of record — the
-  provider holds that.
-- **No delivery receipts, and no replies.** Both would need webhooks from the
-  provider and a public URL, the same machinery the mid-call operator channel
-  uses.
-- **No SMS.** See above: it needs a carrier, not ElevenLabs.
+- **Журнал отправленного хранится в серверном процессе.** После перезапуска он
+  теряется, а второй экземпляр ведёт свой. В отличие от идущего звонка,
+  отправленное сообщение — устойчивый факт, поэтому журнал — это собственный взгляд
+  офиса, а не официальная запись: её хранит поставщик.
+- **Нет уведомлений о доставке и нет ответов.** Для того и другого нужны вебхуки от
+  поставщика и публичный URL — тот же механизм, что использует канал оператора во
+  время звонка.
+- **Нет SMS.** См. выше: для них нужен оператор связи, а не ElevenLabs.

@@ -1,43 +1,44 @@
-# Deploying Office3D
+# Развёртывание Office3D
 
-Office3D is a Next.js app served by a custom Node server (`server/index.js`)
-that also proxies WebSocket traffic to an OpenClaw Gateway on the same origin.
-There is no database. It needs Node 22+ (or the container image) and, for any
-non-loopback deployment, an access token.
+Office3D — это Next.js-приложение, которое обслуживает собственный Node-сервер
+(`server/index.js`); он же проксирует WebSocket-трафик к шлюзу OpenClaw на том же
+origin. Базы данных нет. Нужен Node 22+ (или образ контейнера), а для любого
+развёртывания не на loopback-интерфейсе — токен доступа.
 
-This describes a single-host Docker deployment behind a reverse proxy.
+Здесь описано развёртывание в Docker на одном хосте за обратным прокси.
 
-## Before you start
+## Прежде чем начать
 
-Office3D is a frontend. It renders agents from a running **OpenClaw Gateway**
-(or Hermes, or the built-in demo gateway). Without one the UI loads and shows
-the gateway connection form — that is expected, not a failure. Decide where the
-gateway runs before deploying, because the app has to reach it.
+Office3D — это фронтенд. Он показывает агентов из работающего **шлюза OpenClaw**
+(или Hermes, или встроенного демо-шлюза). Без шлюза интерфейс загружается и
+показывает форму подключения к шлюзу — это ожидаемо, а не сбой. Решите, где будет
+работать шлюз, до развёртывания: приложение должно до него дотягиваться.
 
-## Required configuration
+## Обязательная настройка
 
-| Variable | Required | Purpose |
+| Переменная | Обязательна | Назначение |
 | --- | --- | --- |
-| `STUDIO_ACCESS_TOKEN` | **Yes, for any public bind** | Gates access to the app. |
-| `HOST` | Yes, in containers | `0.0.0.0`; the default `127.0.0.1` is unreachable from outside the container. |
-| `PORT` | No | Defaults to `3000`. |
-| `OPENCLAW_STATE_DIR` | No | Where settings, uploads and tasks are written. `/data` in the image. |
-| `OFFICE3D_GATEWAY_URL` | No | Runtime gateway URL. Applied on restart, without a rebuild. |
-| `OFFICE3D_GATEWAY_TOKEN` | No | Gateway token, if the gateway requires one. |
-| `OFFICE3D_GATEWAY_ADAPTER_TYPE` | No | One of `openclaw`, `hermes`, `demo`, `custom`. |
-| `NEXT_PUBLIC_GATEWAY_URL` | No | Baked in at **build** time; changing it requires a rebuild. Prefer `OFFICE3D_GATEWAY_URL`. |
+| `STUDIO_ACCESS_TOKEN` | **Да, при любой публичной привязке** | Закрывает доступ к приложению. |
+| `HOST` | Да, в контейнерах | `0.0.0.0`; значение по умолчанию `127.0.0.1` недоступно снаружи контейнера. |
+| `PORT` | Нет | По умолчанию `3000`. |
+| `OPENCLAW_STATE_DIR` | Нет | Куда записываются настройки, загрузки и задачи. В образе — `/data`. |
+| `OFFICE3D_GATEWAY_URL` | Нет | URL шлюза во время работы. Применяется при перезапуске, без пересборки. |
+| `OFFICE3D_GATEWAY_TOKEN` | Нет | Токен шлюза, если шлюз его требует. |
+| `OFFICE3D_GATEWAY_ADAPTER_TYPE` | Нет | Одно из `openclaw`, `hermes`, `demo`, `custom`. |
+| `NEXT_PUBLIC_GATEWAY_URL` | Нет | Зашивается во время **сборки**; для изменения нужна пересборка. Лучше используйте `OFFICE3D_GATEWAY_URL`. |
 
-`STUDIO_ACCESS_TOKEN` is enforced, not advisory: `server/network-policy.js`
-refuses to bind a public host without it and the process exits with
+`STUDIO_ACCESS_TOKEN` обязателен на деле, а не на словах: `server/network-policy.js`
+отказывается привязываться к публичному хосту без него, и процесс завершается с
+сообщением
 
 ```
 Refusing to bind Studio to public host "0.0.0.0" without STUDIO_ACCESS_TOKEN.
 ```
 
-Generate one with `openssl rand -hex 32` and keep it out of git — `.env` is
-already ignored.
+Сгенерируйте токен командой `openssl rand -hex 32` и не храните его в git — `.env`
+уже в игнор-списке.
 
-## Deploy
+## Развёртывание
 
 ```bash
 git clone https://github.com/mazhievadlan7/Office3D.git
@@ -45,31 +46,31 @@ cd Office3D
 cp .env.example .env
 printf 'STUDIO_ACCESS_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env
 docker compose up -d
-docker compose ps        # STATUS should reach "healthy"
+docker compose ps        # STATUS должен дойти до "healthy"
 ```
 
-Compose publishes the app on `127.0.0.1:3000` only. Expose it through a reverse
-proxy rather than binding it to a public interface directly.
+Compose публикует приложение только на `127.0.0.1:3000`. Открывайте доступ через
+обратный прокси, а не привязывайте приложение напрямую к публичному интерфейсу.
 
-### Running the image built by CI
+### Запуск образа, собранного в CI
 
-The `Docker Publish` workflow pushes to `ghcr.io/mazhievadlan7/office3d`.
-Because the repository is private, **the image is private too** and an
-anonymous `docker pull` will fail. On the server, log in with a token that has
-the `read:packages` scope:
+Рабочий процесс `Docker Publish` отправляет образ в `ghcr.io/mazhievadlan7/office3d`.
+Поскольку репозиторий приватный, **образ тоже приватный**, и анонимный
+`docker pull` не сработает. На сервере войдите с токеном, у которого есть право
+`read:packages`:
 
 ```bash
 echo "$GHCR_TOKEN" | docker login ghcr.io -u mazhievadlan7 --password-stdin
 ```
 
-Then swap `build: .` for `image: ghcr.io/mazhievadlan7/office3d:main` in
+Затем замените `build: .` на `image: ghcr.io/mazhievadlan7/office3d:main` в
 `docker-compose.yml`.
 
-## Reverse proxy and TLS
+## Обратный прокси и TLS
 
-The gateway connection is a WebSocket on the same origin, at
-`/api/gateway/ws`. A proxy that does not forward the upgrade headers will leave
-the UI stuck connecting, with no obvious error. For nginx:
+Подключение к шлюзу — это WebSocket на том же origin, по адресу
+`/api/gateway/ws`. Если прокси не передаёт заголовки upgrade, интерфейс зависнет
+на подключении без явной ошибки. Для nginx:
 
 ```nginx
 location / {
@@ -80,46 +81,47 @@ location / {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    # Agent sessions idle between messages; the default 60s closes them.
+    # Сессии агентов простаивают между сообщениями; таймаут по умолчанию 60s их закрывает.
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
 }
 ```
 
-Terminate TLS at the proxy (Caddy or certbot both work). Serving over plain
-HTTP on a public address would send `STUDIO_ACCESS_TOKEN` in the clear.
+Завершайте TLS на прокси (подойдут и Caddy, и certbot). При работе по обычному
+HTTP на публичном адресе `STUDIO_ACCESS_TOKEN` будет передаваться открытым текстом.
 
-## State and backups
+## Состояние и резервные копии
 
-Everything worth keeping lives in the `office3d-state` volume: `settings.json`,
-`uploads/` and `task-manager/tasks.json`. It survives `docker compose down` but
-not `down -v`.
+Всё, что стоит сохранять, лежит в томе `office3d-state`: `settings.json`,
+`uploads/` и `task-manager/tasks.json`. Том переживает `docker compose down`, но
+не `down -v`.
 
 ```bash
-# Back up
+# Резервная копия
 docker run --rm -v office3d-state:/data -v "$PWD:/backup" alpine \
   tar czf /backup/office3d-state-$(date +%F).tar.gz -C /data .
 
-# Restore
+# Восстановление
 docker run --rm -v office3d-state:/data -v "$PWD:/backup" alpine \
   sh -c 'rm -rf /data/* && tar xzf /backup/office3d-state-YYYY-MM-DD.tar.gz -C /data'
 ```
 
-Back up before every upgrade. The files are small; there is no excuse to skip it.
+Делайте резервную копию перед каждым обновлением. Файлы маленькие — пропускать этот
+шаг нет оправданий.
 
-## Health and monitoring
+## Состояние и мониторинг
 
-`GET /api/health` returns `{"ok":true,"service":"office3d"}` and is what the
-image's `HEALTHCHECK` polls. Point an external check at it too — a container can
-be `healthy` while the proxy in front of it is broken.
+`GET /api/health` возвращает `{"ok":true,"service":"office3d"}` — именно его
+опрашивает `HEALTHCHECK` образа. Направьте на него и внешнюю проверку: контейнер
+может быть `healthy`, даже когда прокси перед ним сломан.
 
-Logs go to stdout and are capped at 3 × 10 MB by compose:
+Логи идут в stdout, и compose ограничивает их размером 3 × 10 МБ:
 
 ```bash
 docker compose logs -f office3d
 ```
 
-## Upgrades and rollback
+## Обновление и откат
 
 ```bash
 git pull
@@ -127,23 +129,24 @@ docker compose build
 docker compose up -d
 ```
 
-Images are tagged per branch, and releases as `vX.Y.Z` plus `latest`. To roll
-back, pin a previous tag in `docker-compose.yml` and `docker compose up -d`
-again. The state volume is untouched by either direction, so a rollback costs
-nothing but the restart.
+Образы получают тег по ветке, а релизы — `vX.Y.Z` и `latest`. Чтобы откатиться,
+закрепите предыдущий тег в `docker-compose.yml` и снова выполните
+`docker compose up -d`. Ни обновление, ни откат не трогают том состояния, так что
+откат стоит только перезапуска.
 
-## Troubleshooting
+## Устранение неполадок
 
-**Container exits immediately, log names a public host.** `STUDIO_ACCESS_TOKEN`
-is unset. This is the guard described above, working as intended.
+**Контейнер сразу завершается, в логе упоминается публичный хост.**
+`STUDIO_ACCESS_TOKEN` не задан. Это описанная выше защита, и она работает как
+задумано.
 
-**UI loads but shows the connection form.** No gateway is reachable. Check
-`OFFICE3D_GATEWAY_URL` and that the gateway accepts connections from the
-container — `localhost` inside a container is the container, not the host. Use
-`host.docker.internal` or the host's LAN address.
+**Интерфейс загружается, но показывает форму подключения.** Ни один шлюз не
+доступен. Проверьте `OFFICE3D_GATEWAY_URL` и то, что шлюз принимает подключения из
+контейнера: `localhost` внутри контейнера — это сам контейнер, а не хост.
+Используйте `host.docker.internal` или адрес хоста в локальной сети.
 
-**UI hangs on "connecting".** Almost always a reverse proxy that is not
-forwarding the WebSocket upgrade. See the nginx block above.
+**Интерфейс висит на «Подключение…».** Почти всегда дело в обратном прокси, который
+не передаёт WebSocket upgrade. См. блок nginx выше.
 
-**Build warns `Can't resolve 'openclaw'`.** Expected. The `openclaw` package is
-resolved optionally at runtime and is not bundled.
+**Сборка предупреждает `Can't resolve 'openclaw'`.** Это ожидаемо. Пакет
+`openclaw` подключается опционально во время работы и не входит в сборку.

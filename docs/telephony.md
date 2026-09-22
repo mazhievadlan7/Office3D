@@ -1,10 +1,10 @@
-# Agent phone calls
+# Телефонные звонки агентов
 
-Agents call out from the office phone booth. One number serves the whole
-office: the person answering sees a single caller id, and the agent says which
-desk it is speaking for.
+Агенты звонят из телефонной будки в офисе. На весь офис один номер: человек,
+который отвечает, видит один номер звонящего, а агент сам говорит, от имени
+какого стола он звонит.
 
-## How a call travels
+## Как проходит звонок
 
 ```
 Office floor              Office3D server            ElevenLabs           SIP carrier
@@ -13,209 +13,213 @@ Office floor              Office3D server            ElevenLabs           SIP ca
   live feed    ◀──poll───  GET  /api/telephony/calls ◀── conversation ───
 ```
 
-ElevenLabs runs the call: it dials out over a SIP trunk registered with them,
-holds the conversation, handles barge-in and returns the transcript. Office3D
-asks for the call and reads back what was said. That means:
+Звонок ведёт ElevenLabs: он набирает номер через зарегистрированный у него
+SIP-транк, ведёт разговор, обрабатывает перебивания и возвращает расшифровку.
+Office3D заказывает звонок и считывает то, что было сказано. Это значит:
 
-- This app holds **no carrier credentials** and needs **no public URL** — there
-  is no webhook for a provider to reach, so no tunnel in development.
-- The audio and the transcript are **processed by ElevenLabs**, and the call
-  transits the carrier. Neither is avoidable with a hosted voice platform.
+- Приложение **не хранит учётных данных оператора связи** и **не требует публичного
+  URL** — вебхука, до которого должен достучаться поставщик, нет, поэтому и туннель
+  при разработке не нужен.
+- Звук и расшифровка **обрабатываются ElevenLabs**, а звонок проходит через
+  оператора связи. С размещённой у поставщика голосовой платформой ни того, ни
+  другого не избежать.
 
-## Configuration
+## Настройка
 
-Four variables, all documented in `.env.example`:
+Все переменные описаны в `.env.example`:
 
-| Variable | What it is |
+| Переменная | Что это |
 | --- | --- |
-| `ELEVENLABS_API_KEY` | Account key, sent as `xi-api-key`. |
-| `ELEVENLABS_AGENT_ID` | The conversational agent created in the ElevenLabs dashboard. |
-| `ELEVENLABS_PHONE_NUMBER_ID` | The number registered with ElevenLabs that agents call from. |
-| `OFFICE3D_ORG_NAME` | Optional. The organisation agents say they are calling for. |
-| `OFFICE3D_PUBLIC_URL` | Only for mid-call notes. Where ElevenLabs reaches this deployment. |
-| `OFFICE3D_TELEPHONY_WEBHOOK_SECRET` | Only for mid-call notes. Authenticates that callback. |
+| `ELEVENLABS_API_KEY` | Ключ аккаунта, отправляется как `xi-api-key`. |
+| `ELEVENLABS_AGENT_ID` | Разговорный агент, созданный в панели ElevenLabs. |
+| `ELEVENLABS_PHONE_NUMBER_ID` | Зарегистрированный в ElevenLabs номер, с которого звонят агенты. |
+| `OFFICE3D_ORG_NAME` | Необязательно. Организация, от имени которой агенты, по их словам, звонят. |
+| `OFFICE3D_PUBLIC_URL` | Только для заметок во время звонка. Адрес, по которому ElevenLabs достаёт до этого развёртывания. |
+| `OFFICE3D_TELEPHONY_WEBHOOK_SECRET` | Только для заметок во время звонка. Аутентифицирует этот обратный вызов. |
 
-One more step in the ElevenLabs dashboard: on the agent, enable **allow
-overrides** for the prompt and the first message (Security). Office3D sends
-both per call, and without that switch ElevenLabs refuses the call. The
-refusal is passed through with a hint naming the setting.
+Ещё один шаг в панели ElevenLabs: у агента включите **allow overrides** для
+промпта и первой реплики (раздел Security). Office3D отправляет и то, и другое при
+каждом звонке, и без этого переключателя ElevenLabs отклоняет звонок. Отказ
+передаётся дальше с подсказкой, в которой названа эта настройка.
 
-With any of them missing, the phone booth opens but will not dial, and says
-which variable is missing rather than a bare "not configured".
-`GET /api/telephony/status` answers the same question without placing a call —
-it reports names only, never values.
+Если какой-то из переменных не хватает, телефонная будка открывается, но не
+звонит и называет недостающую переменную, а не просто пишет «не настроено».
+`GET /api/telephony/status` отвечает на тот же вопрос, не совершая звонка, — и
+сообщает только имена переменных, никогда не их значения.
 
-## Who the agent is on the call
+## Кто агент в этом звонке
 
-You do not write a system prompt in the ElevenLabs dashboard. One ElevenLabs
-agent and one number serve the whole office; who is speaking is decided per
-call, from the agent's own name and role as the office already knows them:
+Системный промпт в панели ElevenLabs писать не нужно. Один агент ElevenLabs и один
+номер обслуживают весь офис; кто говорит, решается для каждого звонка по имени и
+роли агента, которые офис уже знает:
 
 ```
-You are Nova, calling on behalf of Northwind.
-Your role: Chases overdue invoices.
+Вы — Nova, звоните от имени Northwind.
+Ваша роль: Напоминает о просроченных счетах.
 
-<AI disclosure>
+<раскрытие того, что говорит ИИ>
 
-On this call:
-- Give your name early, and say why you are calling in one sentence.
+В этом звонке:
+- Представьтесь в начале и одной фразой объясните, зачем звоните.
 - …
 ```
 
-The prompt is composed **on the server**, from facts, and a prompt sent in the
-request body is ignored. That is a security boundary, not a style choice: a
-caller who could supply prompt text could delete the disclosure below. For the
-same reason `OFFICE3D_ORG_NAME` comes from the environment — who an agent
-claims to represent on a real phone call is the deployment's to decide, not a
-session's. A name or role is flattened to one line and length-capped before it
-reaches the prompt, so neither can pose as a new instruction block.
+Промпт собирается **на сервере** из фактов, а промпт, присланный в теле запроса,
+игнорируется. Это граница безопасности, а не вопрос стиля: тот, кто может
+передать текст промпта, мог бы удалить раскрытие, описанное ниже. По той же
+причине `OFFICE3D_ORG_NAME` берётся из окружения: кого агент представляет в
+настоящем телефонном звонке, решает развёртывание, а не сессия. Имя и роль
+сводятся к одной строке и обрезаются по длине, прежде чем попасть в промпт,
+поэтому ни то, ни другое не может выдать себя за новый блок инструкций.
 
-Add a new agent to the office and it can call immediately; there is nothing to
-fill in per agent.
+Добавьте в офис нового агента — и он сразу может звонить; для каждого агента
+ничего заполнять не нужно.
 
-## Calls an agent asks for
+## Звонки, о которых просит агент
 
-Saying "call my wife" to an agent does not place a call. The office opens the
-phone with the request shown as context, and a human supplies the number and
-presses Call.
+Если сказать агенту «позвони моей жене», звонок не состоится. Офис откроет
+телефон с этой просьбой в качестве контекста, а номер укажет человек и сам нажмёт
+«Позвонить».
 
-That is deliberate on two counts. A name is not a number, so there is nothing
-to dial. And a real call costs money and rings a stranger, which is not a
-decision to take on an agent's say-so.
+Так сделано намеренно, и причин две. Имя — это не номер, так что набирать нечего.
+А настоящий звонок стоит денег и поднимает с места постороннего человека — такое
+решение нельзя принимать с одних слов агента.
 
-Before this, that path produced a **scripted call**: a hardcoded number, a line
-the agent never said, and an invented reply from the other party, animated in
-the booth and spoken aloud. It has been removed. The booth now shows a call
-that is actually on the line, or stays dark.
+Раньше этот путь давал **звонок по сценарию**: жёстко прописанный номер, реплику,
+которую агент никогда не произносил, и выдуманный ответ собеседника — всё это
+анимировалось в будке и озвучивалось вслух. Это убрано. Теперь будка показывает
+звонок, который действительно идёт по линии, или остаётся тёмной.
 
-## Talking to the agent mid-call
+## Как говорить с агентом во время звонка
 
-An operator watching a live call can type a note — "ask when they can pay",
-"wrap this up" — and the agent works it into its next line.
+Оператор, который следит за идущим звонком, может набрать заметку — «спроси,
+когда они смогут заплатить», «закругляйся» — и агент вплетёт её в свою следующую
+реплику.
 
-It is a **queue, not a microphone**. ElevenLabs runs the conversation, and
-there is no API to inject a line into a call in progress. What there is, is
-tools: the agent calls a webhook, and Office3D answers with the note. So:
+Это **очередь, а не микрофон**. Разговор ведёт ElevenLabs, и API, чтобы вставить
+реплику в идущий звонок, нет. Зато есть инструменты: агент вызывает вебхук, а
+Office3D отвечает заметкой. Поэтому:
 
-- The note lands on the agent's **next turn**, not instantly. The panel says
-  so rather than implying the words went straight down the line.
-- A note that has not been collected is **replaced** by a later one — when an
-  operator types twice before the agent comes back, the second is the one they
-  meant.
-- A note is handed over **exactly once**. Delivered twice, the agent would
-  repeat the same line.
-- The note appears in the transcript as the operator's, so the record shows
-  what was asked for as well as what the agent went on to say.
+- Заметка попадает к агенту на **следующем ходу**, а не мгновенно. Панель прямо
+  об этом говорит, а не делает вид, будто слова сразу ушли в линию.
+- Заметку, которую ещё не забрали, **заменяет** более поздняя: если оператор
+  написал дважды, прежде чем агент вернулся за заметкой, имелась в виду вторая.
+- Заметка передаётся **ровно один раз**. Если передать её дважды, агент повторит
+  одну и ту же реплику.
+- Заметка попадает в расшифровку от имени оператора, так что в записи видно и то,
+  о чём попросили, и то, что агент сказал потом.
 
-### The one endpoint that faces the internet
+### Единственная точка, открытая в интернет
 
-`POST /api/telephony/agent-tool/instruction` is called by ElevenLabs, not by a
-browser, so the server's access gate does not cover it. It authenticates with
-a shared secret in the `x-office3d-telephony-secret` header, compared in
-constant time, and is **closed when no secret is configured** — a deployment
-that has not set one has not opted into a public callback. A secret shorter
-than 24 characters is refused rather than accepted quietly.
+`POST /api/telephony/agent-tool/instruction` вызывает ElevenLabs, а не браузер,
+поэтому серверная проверка доступа её не покрывает. Она аутентифицирует запросы
+общим секретом в заголовке `x-office3d-telephony-secret`, который сравнивается за
+постоянное время, и **закрыта, если секрет не настроен**: развёртывание, где его
+не задали, не соглашалось на публичный обратный вызов. Секрет короче 24 символов
+отклоняется, а не принимается молча.
 
-An unknown conversation id gets the same empty answer as a known one with
-nothing queued, so even an authenticated caller cannot enumerate calls.
+На неизвестный идентификатор разговора приходит тот же пустой ответ, что и на
+известный без заметок в очереди, поэтому даже аутентифицированный вызывающий не
+может перебрать звонки.
 
-### Setting up the tool in the ElevenLabs dashboard
+### Настройка инструмента в панели ElevenLabs
 
-On the agent, add a **webhook tool**:
+У агента добавьте **webhook tool**:
 
-| Field | Value |
+| Поле | Значение |
 | --- | --- |
-| Name | `check_operator_instruction` (the prompt names this exactly) |
+| Name | `check_operator_instruction` (промпт называет именно это имя) |
 | Description | `Check whether a colleague watching this call has sent a note. Returns the note, or nothing.` |
 | Method | `POST` |
 | URL | `<OFFICE3D_PUBLIC_URL>/api/telephony/agent-tool/instruction` |
 | Request header | `x-office3d-telephony-secret: <OFFICE3D_TELEPHONY_WEBHOOK_SECRET>` |
 | Body | `{ "conversation_id": "{{system__conversation_id}}" }` |
 
-The agent is told about the tool in its prompt **only when both variables are
-set** — describing a tool it cannot call would invite it to announce a note
-that never arrives.
+Агент узнаёт об инструменте из промпта, **только когда заданы обе переменные**:
+если описать инструмент, который агент не может вызвать, он может начать
+объявлять заметку, которая так и не придёт.
 
-## Listening to the call
+## Как прослушать звонок
 
-The panel plays the **recording** once the call has ended. It is proxied
-through `GET /api/telephony/calls/[sid]/audio` and streamed, because the
-ElevenLabs API key is what fetches it and that key must not reach a browser.
+Панель воспроизводит **запись**, когда звонок закончился. Запись проксируется
+через `GET /api/telephony/calls/[sid]/audio` и отдаётся потоком, потому что
+получают её по API-ключу ElevenLabs, а этот ключ не должен попасть в браузер.
 
-**There is no live listen-in, and this is a limitation of the platform, not of
-this app.** ElevenLabs' API serves the recording of a conversation; it has no
-endpoint that attaches to a call already running on a SIP trunk. (The
-signed-URL and WebRTC token endpoints look like candidates but are not — they
-*start* a new conversation with a browser as the participant.) A request for
-audio on a live call is refused with a 409 rather than served something that
-only looks live.
+**Прослушивания в реальном времени нет, и это ограничение платформы, а не этого
+приложения.** API ElevenLabs отдаёт запись разговора, но у него нет точки, которая
+подключается к звонку, уже идущему по SIP-транку. (Точки для подписанных URL и
+токенов WebRTC выглядят подходящими, но это не так: они *начинают* новый разговор,
+где участник — браузер.) Запрос звука для идущего звонка отклоняется с кодом 409,
+а не получает что-то, что лишь выглядит как прямой эфир.
 
-If listening in matters more than the recording, the honest routes are:
+Если прослушивание важнее записи, честные варианты такие:
 
-- **`transfer_to_number`** — a system tool on the ElevenLabs agent that hands
-  the call to a human. Not eavesdropping: the agent drops out and a person
-  takes over.
-- **A conference or barge at the carrier.** Whoever provides the SIP trunk can
-  bridge a supervisor onto the leg. That is a carrier feature, configured with
-  them, and Office3D would only need the number to dial.
+- **`transfer_to_number`** — системный инструмент агента ElevenLabs, который
+  передаёт звонок человеку. Это не подслушивание: агент выходит из разговора, и
+  дальше говорит человек.
+- **Конференция или подключение к линии у оператора связи.** Тот, кто
+  предоставляет SIP-транк, может подключить к разговору руководителя. Это функция
+  оператора связи, настраивается у него, а Office3D понадобится только номер для
+  набора.
 
-Neither is built here. Both are real; a fake live meter would not be.
+Ни то, ни другое здесь не реализовано. Оба варианта настоящие; поддельный
+индикатор «в эфире» таким бы не был.
 
-## Disclosure
+## Раскрытие
 
-The agent identifies itself as an AI in its opening line and confirms it
-whenever asked. Both the rule and the opening line are in the generated prompt
-(`AI_DISCLOSURE_RULE` in `src/lib/telephony/agentPrompt.ts`), and because that
-prompt is composed on the server there is no request that can remove them.
+Агент в первой же реплике сообщает, что он ИИ, и подтверждает это всякий раз,
+когда его спрашивают. И правило, и первая реплика заложены в генерируемый промпт
+(`AI_DISCLOSURE_RULE` в `src/lib/telephony/agentPrompt.ts`), а поскольку промпт
+собирается на сервере, никакой запрос не может их убрать.
 
-This is not a stylistic choice: the EU AI Act (Article 50) requires that a
-person interacting with an AI system is told so, and the obligation follows the
-deployer — self-hosting does not remove it.
+Это не вопрос стиля: Регламент ЕС об ИИ (EU AI Act, статья 50) требует сообщать
+человеку, что он взаимодействует с системой ИИ, и эта обязанность лежит на том, кто
+развёртывает систему, — самостоятельный хостинг её не снимает.
 
 ## API
 
-| Route | What it does |
+| Маршрут | Что делает |
 | --- | --- |
-| `POST /api/telephony/calls` | `{toNumber, agentId, agentName, agentRole?}` → places the call, returns the record. `toNumber` must be E.164, and the prompt is built server-side from the rest. |
-| `GET /api/telephony/calls` | The live feed: every call with its transcript, live ones read fresh from the provider. |
-| `GET /api/telephony/calls/[sid]` | One call, read fresh while it is live. |
-| `POST /api/telephony/calls/[sid]/say` | `{text}` → queues a note for the agent's next turn. `202`, not `200`: accepted, not spoken. |
-| `GET /api/telephony/calls/[sid]/audio` | The recording, once the call has ended. `409` while it is live. |
-| `POST /api/telephony/agent-tool/instruction` | Called by ElevenLabs, not a browser. Hands over the queued note, once. |
-| `GET /api/telephony/status` | Readiness plus a summary of calls, without transcripts. |
+| `POST /api/telephony/calls` | `{toNumber, agentId, agentName, agentRole?}` → совершает звонок и возвращает запись о нём. `toNumber` должен быть в формате E.164, а промпт собирается на сервере из остальных полей. |
+| `GET /api/telephony/calls` | Живая лента: все звонки с расшифровками, идущие звонки заново читаются у поставщика. |
+| `GET /api/telephony/calls/[sid]` | Один звонок; пока он идёт, данные читаются заново. |
+| `POST /api/telephony/calls/[sid]/say` | `{text}` → ставит заметку в очередь на следующий ход агента. `202`, а не `200`: принято, но ещё не произнесено. |
+| `GET /api/telephony/calls/[sid]/audio` | Запись после окончания звонка. `409`, пока звонок идёт. |
+| `POST /api/telephony/agent-tool/instruction` | Вызывается ElevenLabs, а не браузером. Передаёт заметку из очереди — один раз. |
+| `GET /api/telephony/status` | Готовность и сводка по звонкам, без расшифровок. |
 
-Errors keep the status they earned: `400` for a malformed number, `404` for an
-unknown call, `503` naming the missing variables, and the provider's own status
-(`401`, `422`, …) when it refuses, so a deployment is not sent looking in the
-wrong place.
+Ошибки сохраняют заслуженный статус: `400` — для неправильного номера, `404` — для
+неизвестного звонка, `503` — с перечнем недостающих переменных, и собственный
+статус поставщика (`401`, `422`, …), если тот отказал, — чтобы не отправлять
+администратора искать проблему не там.
 
-`GET /api/telephony/calls` reports a call it could not read under `syncErrors`
-rather than failing the whole request — one unreadable conversation must not
-blank the feed — and the panel marks that call as not updating instead of
-showing a stale transcript as if it were live.
+`GET /api/telephony/calls` сообщает о звонке, который не удалось прочитать, в
+`syncErrors`, а не проваливает весь запрос — один нечитаемый разговор не должен
+обнулять ленту, — а панель помечает такой звонок как необновляемый, вместо того
+чтобы показывать устаревшую расшифровку как живую.
 
-## Access
+## Доступ
 
-Every telephony route except the agent callback sits behind the server's
-access gate, and there is no second check inside those routes. The callback
-has a secret of its own, described above. Any session that reaches the app can therefore
-dial a number, which costs money and rings a stranger's phone. Deploy with
-`STUDIO_ACCESS_TOKEN` set.
+Все маршруты телефонии, кроме обратного вызова агента, закрыты серверной проверкой
+доступа, и второй проверки внутри этих маршрутов нет. У обратного вызова свой
+секрет, описанный выше. Значит, любая сессия, которая добралась до приложения,
+может набрать номер, а это стоит денег и заставляет звонить телефон постороннего
+человека. Развёртывайте с заданным `STUDIO_ACCESS_TOKEN`.
 
-## Known limits
+## Известные ограничения
 
-These are real limitations, not oversights:
+Это настоящие ограничения, а не недосмотры:
 
-- **The call store is in the server process.** A restart drops live calls, and
-  running more than one instance means an operator may poll an instance that
-  never saw the call. A shared store is needed before telephony survives
-  horizontal scaling.
-- **The feed polls; it does not stream.** Every three seconds while a call is
-  live, thirty when nothing is. The server reads the provider on a timer either
-  way, so a stream would only look more immediate than it is. Provider webhooks
-  plus a shared store are the upgrade path.
-- **A mid-call note is not immediate.** It is collected when the agent next
-  calls its tool, which is the agent's decision. There is no API that makes it
-  sooner.
-- **There is no live audio.** The recording plays after the call. See
-  "Listening to the call" for why, and for the two real alternatives.
+- **Хранилище звонков находится в серверном процессе.** Перезапуск теряет идущие
+  звонки, а если запущено больше одного экземпляра, оператор может опрашивать
+  экземпляр, который звонка не видел. Чтобы телефония пережила горизонтальное
+  масштабирование, нужно общее хранилище.
+- **Лента опрашивает, а не получает поток.** Каждые три секунды, пока идёт звонок,
+  и каждые тридцать, когда звонков нет. Сервер в любом случае читает данные у
+  поставщика по таймеру, так что поток лишь выглядел бы более мгновенным, чем он
+  есть. Путь к улучшению — вебхуки поставщика плюс общее хранилище.
+- **Заметка во время звонка доходит не мгновенно.** Её забирают, когда агент в
+  следующий раз вызывает свой инструмент, а это решает сам агент. API, который
+  ускорил бы это, нет.
+- **Звука в реальном времени нет.** Запись воспроизводится после звонка. Почему —
+  и какие есть два настоящих варианта — см. «Как прослушать звонок».

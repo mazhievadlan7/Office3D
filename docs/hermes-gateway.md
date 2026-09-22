@@ -1,36 +1,36 @@
-# Hermes Gateway Adapter
+# Адаптер шлюза Hermes
 
-Office3D can run against Hermes by using the bundled adapter in
+Office3D может работать с Hermes через встроенный адаптер
 [`server/hermes-gateway-adapter.js`](../server/hermes-gateway-adapter.js).
 
-This is the current production-ready Hermes path in this repository.
-It is not yet a fully native Studio-side Hermes provider. Instead, it
-uses the runtime seam in Studio while Hermes is exposed through a
-Office3D-compatible WebSocket adapter.
+Сейчас это готовый к продакшену путь для Hermes в этом репозитории.
+Это ещё не полностью нативный поставщик Hermes на стороне Studio: вместо
+этого используется шов среды выполнения в Studio, а Hermes подключается
+через WebSocket-адаптер, совместимый с Office3D.
 
-## Architecture
+## Архитектура
 
 ```text
 Browser UI <-> Studio runtime/client <-> Hermes gateway adapter <-> Hermes HTTP API
 ```
 
-The frontend keeps using the Office3D gateway protocol. The Hermes adapter
-translates that protocol into Hermes HTTP calls and streams the results
-back as gateway events.
+Фронтенд по-прежнему говорит на протоколе шлюза Office3D. Адаптер Hermes
+переводит этот протокол в HTTP-вызовы Hermes и передаёт результаты обратно
+потоком событий шлюза.
 
-## Quick start
+## Быстрый старт
 
-### 1. Start Hermes
+### 1. Запустите Hermes
 
-Start your Hermes API server. The default expected endpoint is:
+Запустите свой API-сервер Hermes. По умолчанию ожидается адрес:
 
 ```text
 http://localhost:8642
 ```
 
-### 2. Configure environment
+### 2. Настройте окружение
 
-Copy `.env.example` to `.env` and set the Hermes values:
+Скопируйте `.env.example` в `.env` и задайте значения для Hermes:
 
 ```env
 NEXT_PUBLIC_GATEWAY_URL=ws://localhost:18789
@@ -42,165 +42,168 @@ HERMES_MODEL=hermes
 HERMES_AGENT_NAME=Hermes
 ```
 
-### 3. Start Office3D and the adapter
+### 3. Запустите Office3D и адаптер
 
-In separate terminals:
+В отдельных терминалах:
 
 ```bash
 npm run hermes-adapter
 npm run dev
 ```
 
-Then open `http://localhost:3000` and connect to:
+Затем откройте `http://localhost:3000` и подключитесь к:
 
 ```text
 ws://localhost:18789
 ```
 
-In the connect screen, select `Hermes backend`. Office3D will persist that
-selection in Studio settings and show `Hermes` as the active backend once
-the adapter hello response is received.
+На экране подключения выберите «Бэкенд Hermes». Office3D сохранит этот
+выбор в настройках Studio и покажет `Hermes` как активный бэкенд, как только
+получит от адаптера ответ hello.
 
-### 4. Optional all-in-one local startup
+### 4. Необязательный локальный запуск всего сразу
 
-The repo also includes:
+В репозитории также есть:
 
 ```bash
 bash scripts/clawd3d-start.sh
 ```
 
-That script now resolves the repo root dynamically from the script
-location instead of assuming a machine-specific checkout path.
+Теперь этот скрипт определяет корень репозитория динамически, по своему
+расположению, а не рассчитывает на путь к копии репозитория на конкретной машине.
 
-## What this adapter supports
+## Что поддерживает адаптер
 
-The adapter currently supports the Office3D surfaces needed for normal
-office use:
+Сейчас адаптер поддерживает поверхности Office3D, нужные для обычной работы
+офиса:
 
-- Agent listing, creation, update, and deletion
-- Session listing, preview, patch, reset, and history lookup
-- Chat send, targeted abort, and run wait
-- Config get/set/patch shims needed by the Studio UI
-- Models and skills status
-- Exec approvals surfaces used by the current UI
-- Cron list/add/remove/patch/run
-- Multi-agent orchestration tools on the Hermes side
+- список агентов, создание, обновление и удаление;
+- список сессий, предпросмотр, частичное обновление (patch), сброс и просмотр истории;
+- отправку в чат, прерывание конкретного запуска и ожидание запуска;
+- прослойки для получения, записи и частичного обновления конфигурации (get/set/patch), нужные интерфейсу Studio;
+- статус моделей и навыков;
+- поверхности одобрения выполнения команд, которые использует текущий интерфейс;
+- задачи по расписанию: список, добавление, удаление, изменение, запуск;
+- инструменты оркестрации нескольких агентов на стороне Hermes.
 
-## Hermes orchestration tools
+## Инструменты оркестрации Hermes
 
-The main Hermes agent acts as an orchestrator with these tools:
+Главный агент Hermes работает как оркестратор со следующими инструментами:
 
-| Tool | Description |
+| Инструмент | Описание |
 |---|---|
-| `spawn_agent` | Create a specialist sub-agent |
-| `delegate_task` | Send work to a specific agent |
-| `list_team` | List active agents, names, and roles |
-| `configure_agent` | Update agent name, role, instructions, or settings |
-| `dismiss_agent` | Remove an agent from the team |
-| `read_agent_context` | Read another agent's recent conversation history for coordination |
+| `spawn_agent` | Создать узкоспециализированного субагента |
+| `delegate_task` | Отправить работу конкретному агенту |
+| `list_team` | Показать активных агентов, их имена и роли |
+| `configure_agent` | Изменить имя агента, роль, инструкции или настройки |
+| `dismiss_agent` | Убрать агента из команды |
+| `read_agent_context` | Прочитать недавнюю историю разговора другого агента для координации |
 
-Sub-agents appear in the office as separate characters and keep their
-own conversation state.
+Субагенты появляются в офисе как отдельные персонажи и хранят собственное
+состояние разговора.
 
-## Production-readiness notes
+## Заметки о готовности к продакшену
 
-This adapter includes the fixes that blocked the original Hermes PR:
+Этот адаптер включает исправления, которые блокировали исходный пул-реквест Hermes:
 
-- `chat.abort` now aborts only the requested `runId` or `sessionKey`
-  instead of cancelling every active run
-- history clears from `sessions.reset`, `agents.delete`, and
-  `dismiss_agent` now persist to disk immediately
-- `scripts/clawd3d-start.sh` no longer hardcodes one developer's local path
+- `chat.abort` теперь прерывает только запрошенный `runId` или `sessionKey`,
+  а не отменяет все активные запуски;
+- очистка истории через `sessions.reset`, `agents.delete` и `dismiss_agent`
+  теперь сразу сохраняется на диск;
+- `scripts/clawd3d-start.sh` больше не содержит жёстко прописанный локальный путь
+  одного разработчика.
 
-## ACP status
+## Статус ACP
 
-Hermes has a real ACP surface and that remains the preferred long-term
-integration direction.
+У Hermes есть настоящая поверхность ACP, и она остаётся предпочтительным
+направлением интеграции в долгосрочной перспективе.
 
-This branch does not replace the adapter with ACP yet. The current
-production-ready path uses the adapter because it works with the existing
-Office3D gateway contract today and is ready for upstream testing now.
+Эта ветка пока не заменяет адаптер на ACP. Текущий готовый к продакшену путь
+использует адаптер, потому что он уже сегодня работает с существующим контрактом
+шлюза Office3D и готов к тестированию в основном проекте прямо сейчас.
 
-The runtime seam added in Studio is what makes an ACP-backed Hermes
-provider feasible as a follow-up without reworking the whole UI again.
+Именно шов среды выполнения, добавленный в Studio, позволяет в дальнейшем сделать
+поставщика Hermes на основе ACP, не переделывая заново весь интерфейс.
 
-## Persistence
+## Хранение данных
 
-Conversation history is stored at:
+История разговоров хранится в:
 
 ```text
 ~/.hermes/office3d-history.json
 ```
 
-It is loaded on startup and updated when conversations change.
+Она загружается при запуске и обновляется при изменении разговоров.
 
-## Current limitations
+## Текущие ограничения
 
-### Methods the adapter does not implement
+### Методы, которые адаптер не реализует
 
-Studio calls these, and the adapter rejects them with the error code
+Studio вызывает эти методы, а адаптер отклоняет их с кодом ошибки
 `unsupported_method`:
 
-| Method | Effect in the UI |
+| Метод | Последствия в интерфейсе |
 | --- | --- |
-| `tasks.create`, `tasks.update`, `tasks.delete` | The Kanban board reads tasks (`tasks.list` works) but cannot write them. |
-| `skills.install`, `skills.update` | The marketplace lists installed skills, but the gateway cannot install or configure one. Installation goes through Office3D's own installer, which writes to the directory below. |
-| `sessions.usage`, `usage.cost` | Usage analytics have no figures to show. |
+| `tasks.create`, `tasks.update`, `tasks.delete` | Канбан читает задачи (`tasks.list` работает), но не может их записывать. |
+| `skills.install`, `skills.update` | Маркет навыков показывает установленные навыки, но шлюз не может установить или настроить навык. Установка идёт через собственный установщик Office3D, который пишет в каталог, указанный ниже. |
+| `sessions.usage`, `usage.cost` | Аналитике использования нечего показывать. |
 
-Until this changed, the adapter answered every unimplemented method with
-`ok: true` and an empty payload, so Studio treated all of the above as
-successful: Kanban edits looked saved but were discarded, analytics rendered
-zeros as if they were real, and installing a skill reported success without
-installing anything. They now fail visibly instead.
+До этого изменения адаптер отвечал на каждый нереализованный метод `ok: true`
+с пустыми данными, поэтому Studio считал всё перечисленное успешным: правки в
+Канбане выглядели сохранёнными, но пропадали, аналитика показывала нули, будто
+это настоящие данные, а установка навыка сообщала об успехе, ничего не установив.
+Теперь эти вызовы завершаются видимой ошибкой.
 
-The runtime capability set in `src/lib/runtime/hermes/provider.ts` advertises
-`skills`, and the read side now genuinely works — see below.
+Набор возможностей среды выполнения в `src/lib/runtime/hermes/provider.ts`
+объявляет `skills`, и чтение навыков теперь действительно работает — см. ниже.
 
-### Skills
+### Навыки
 
-Hermes has no skill scanner. The adapter reads AgentSkills directories from
+В Hermes нет сканера навыков. Адаптер читает каталоги AgentSkills из
 
 ```text
 ~/.hermes/skills/<skill-name>/SKILL.md
 ```
 
-(override with `HERMES_SKILLS_DIR`) and folds their contents into the system
-prompt it builds, which is the only thing a Hermes agent actually sees. The
-directory is read on every run, so a newly installed skill takes effect without
-restarting the adapter. Skill text folded into one prompt is capped at 60,000
-characters; beyond that the remaining skills are omitted and the prompt says so.
+(путь можно переопределить через `HERMES_SKILLS_DIR`) и встраивает их содержимое
+в системный промпт, который он собирает, — а это единственное, что на самом деле
+видит агент Hermes. Каталог читается при каждом запуске, поэтому новый
+установленный навык начинает действовать без перезапуска адаптера. Текст навыков,
+встроенный в один промпт, ограничен 60 000 символов; всё, что сверх этого,
+пропускается, и промпт об этом сообщает.
 
-`skills.status` reports what is installed there, with source `hermes-managed`.
-Every skill is reported eligible: these are prompt text, so there is no binary
-to probe or environment variable to require, unlike OpenClaw's gating model.
+`skills.status` показывает, что там установлено, с источником `hermes-managed`.
+Каждый навык считается пригодным: это текст для промпта, поэтому, в отличие от
+модели ограничений OpenClaw, здесь нет бинарников для проверки и обязательных
+переменных окружения.
 
-Skills are written to that directory by Office3D's installer
-(`src/lib/skills/install/`), which fetches them from ClawHub or GitHub. That
-path does not go through the gateway, which is why `skills.install` above stays
-unimplemented here.
+Навыки записывает в этот каталог установщик Office3D
+(`src/lib/skills/install/`), который скачивает их из ClawHub или GitHub. Этот путь
+не проходит через шлюз, поэтому `skills.install` выше здесь так и остаётся
+нереализованным.
 
-### Architecture
+### Архитектура
 
-- Hermes is integrated through the adapter path today, not yet through a
-  dedicated native Studio provider implementation
-- Config and approvals behavior still matches the current adapter contract,
-  not a fully Hermes-native settings model
-- This path is intended to get Hermes working reliably now while the
-  broader runtime-provider architecture continues to mature
+- Сегодня Hermes подключается через адаптер, а не через отдельную нативную
+  реализацию поставщика в Studio.
+- Поведение конфигурации и одобрений пока соответствует текущему контракту
+  адаптера, а не полностью нативной для Hermes модели настроек.
+- Этот путь нужен, чтобы Hermes надёжно работал уже сейчас, пока более широкая
+  архитектура поставщиков сред выполнения продолжает развиваться.
 
-## When to use demo mode instead
+## Когда лучше использовать демо-режим
 
-If you only want to see the office boot without installing Hermes or
-OpenClaw, use:
+Если вы просто хотите посмотреть, как запускается офис, не устанавливая Hermes
+или OpenClaw, выполните:
 
 ```bash
 npm run demo-gateway
 npm run dev
 ```
 
-That starts a bundled mock gateway for a no-framework Office3D demo.
+Это запустит встроенный имитационный шлюз для демо Office3D без фреймворка.
 
-## Using OpenClaw instead
+## Если нужен OpenClaw
 
-If you want the OpenClaw path, do not run the Hermes adapter. Start
-OpenClaw and point Office3D at that gateway instead.
+Если вам нужен путь через OpenClaw, не запускайте адаптер Hermes. Запустите
+OpenClaw и направьте Office3D на его шлюз.

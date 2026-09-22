@@ -1,19 +1,19 @@
-# Creating Skills
+# Создание навыков
 
-This repository ships developer-created marketplace skills as packaged assets that Office3D can install into an OpenClaw workspace through the gateway.
+В этом репозитории лежат навыки для маркета навыков, созданные разработчиками. Они поставляются как упакованные ресурсы, которые Office3D может установить в рабочее пространство OpenClaw через шлюз.
 
-Use the existing `todo-board` skill as the reference implementation.
+Эталонная реализация — существующий навык `todo-board`.
 
-## Mental model
+## Как это устроено
 
-- `assets/skills/<package-id>/` is the human-friendly source layout for each packaged skill.
-- `src/lib/skills/packaged.ts` contains the client-safe embedded copy of those files used by the marketplace install flow.
-- `src/lib/skills/catalog.ts` registers the skill so it appears in the marketplace.
-- `src/lib/skills/install-gateway.ts` installs the packaged files into the selected workspace by creating a temporary gateway agent and asking it to write the files.
+- `assets/skills/<package-id>/` — удобная для человека исходная структура каждого упакованного навыка.
+- `src/lib/skills/packaged.ts` содержит безопасную для клиента встроенную копию этих файлов, которую использует процесс установки из маркета навыков.
+- `src/lib/skills/catalog.ts` регистрирует навык, чтобы он появился в маркете навыков.
+- `src/lib/skills/install-gateway.ts` устанавливает упакованные файлы в выбранное рабочее пространство: создаёт временного агента на шлюзе и просит его записать файлы.
 
-## Folder structure
+## Структура каталогов
 
-Follow this structure for every packaged skill:
+Придерживайтесь этой структуры для каждого упакованного навыка:
 
 ```text
 assets/
@@ -23,7 +23,7 @@ assets/
       <optional companion files>
 ```
 
-Current example:
+Текущий пример:
 
 ```text
 assets/
@@ -33,58 +33,58 @@ assets/
       todo-list.example.json
 ```
 
-## 1. Create the skill files
+## 1. Создайте файлы навыка
 
-Create a new folder under `assets/skills/<package-id>/`.
+Создайте новый каталог `assets/skills/<package-id>/`.
 
-Required file:
+Обязательный файл:
 
 - `SKILL.md`
 
-Optional files:
+Необязательные файлы:
 
-- Example JSON files.
-- Templates.
-- Any additional files the installed skill should include.
+- примеры JSON-файлов;
+- шаблоны;
+- любые другие файлы, которые должны входить в установленный навык.
 
-### `SKILL.md` requirements
+### Требования к `SKILL.md`
 
-Your `SKILL.md` should include frontmatter, a trigger section, and clear operating instructions for the agent.
+`SKILL.md` должен содержать frontmatter, раздел с триггером и понятные инструкции для агента.
 
-Use this pattern:
+Используйте такой шаблон:
 
 ```md
 ---
 name: my-skill
-description: Short description of what the skill does.
+description: Краткое описание того, что делает навык.
 metadata: {"openclaw":{"skillKey":"my-skill-key"}}
 ---
 
-# My Skill
+# Мой навык
 
-Explain when the skill should be used, where it stores state, how it reads and writes files, and the exact workflow rules the agent must follow.
+Объясните, когда следует использовать навык, где он хранит состояние, как читает и записывает файлы, и перечислите точные правила работы, которым должен следовать агент.
 ```
 
-Notes:
+Примечания:
 
-- `name` is the user-facing skill name.
-- `metadata.openclaw.skillKey` must stay stable and should match the installed folder name.
-- Every skill must define a `## Trigger` section that explains what activates the skill and what the agent should physically do in Office3D when it activates.
-- Write instructions as if the model will follow them directly.
-- If the skill stores state, define the exact file path and schema.
-- Be explicit about read-before-write, validation, ambiguity handling, and response behavior.
+- `name` — название навыка, которое видит пользователь.
+- `metadata.openclaw.skillKey` должен оставаться неизменным и совпадать с именем каталога установленного навыка.
+- Каждый навык обязан содержать раздел `## Trigger`, который объясняет, что активирует навык и что агент должен физически сделать в Office3D при активации. Заголовок раздела пишется именно так, по-английски: Office3D ищет его при разборе файла.
+- Пишите инструкции так, будто модель будет выполнять их буквально.
+- Если навык хранит состояние, укажите точный путь к файлу и его схему.
+- Явно опишите чтение перед записью, проверку данных, обработку неоднозначных запросов и то, как отвечать пользователю.
 
-### Trigger requirements
+### Требования к триггеру
 
-Every skill must contain a trigger.
+Каждый навык должен содержать триггер.
 
-At minimum, the trigger section should define:
+Как минимум раздел с триггером должен определять:
 
-- What kind of user request or external event activates the skill.
-- What physical behavior the agent should perform in the office when the skill starts.
-- Whether that movement should be skipped when the agent is already at the right location.
+- какой запрос пользователя или внешнее событие активирует навык;
+- какое физическое действие агент должен выполнить в офисе, когда навык запускается;
+- нужно ли пропускать это перемещение, если агент уже находится в нужном месте.
 
-Example:
+Пример:
 
 ````md
 ## Trigger
@@ -105,35 +105,35 @@ Example:
 }
 ```
 
-When this skill is activated, the agent should go to its assigned desk before handling the request.
+Когда навык активирован, агент должен дойти до назначенного ему стола и только потом заняться запросом.
 
-- Treat requests from Telegram or other external channels as valid triggers when they match this skill.
-- If the agent is already at the desk, continue immediately.
+- Считай запросы из Telegram и других внешних каналов срабатыванием навыка, если они подходят под него.
+- Если агент уже за столом, продолжай сразу.
 ````
 
-Current runtime support for `movement.target` values:
+Значения `movement.target`, которые сейчас поддерживает среда выполнения:
 
-- Defined in one source of truth: `src/lib/office/places.ts`.
-- Current values:
+- Определены в одном источнике истины: `src/lib/office/places.ts`.
+- Текущие значения:
 - `desk`
 - `github`
 - `gym`
 - `qa_lab`
 
-Important:
+Важно:
 
-- The JSON block is what Office3D parses at runtime.
-- Keep the prose explanation too, but do not rely on prose alone for the trigger behavior.
-- `activation.anyPhrases` should contain short, stable phrases that are likely to appear in the user request.
-- If a skill has no trigger block, Office3D can fall back to the central default trigger registry in `src/lib/office/places.ts`.
+- Office3D во время работы разбирает именно JSON-блок.
+- Текстовое пояснение тоже оставьте, но не полагайтесь только на него в поведении триггера.
+- `activation.anyPhrases` должен содержать короткие устойчивые фразы, которые с большой вероятностью встретятся в запросе пользователя. Фразы могут быть и на русском — так сделано в упакованных навыках из `assets/skills/`, где английские фразы соседствуют с русскими.
+- Если в навыке нет блока с триггером, Office3D может использовать центральный реестр триггеров по умолчанию в `src/lib/office/places.ts`.
 
-## 2. Mirror the files into `src/lib/skills/packaged.ts`
+## 2. Продублируйте файлы в `src/lib/skills/packaged.ts`
 
-Office3D installs packaged skills from client-safe embedded strings, not by reading `assets/skills/...` directly at runtime.
+Office3D устанавливает упакованные навыки из безопасных для клиента встроенных строк, а не читает `assets/skills/...` напрямую во время работы.
 
-That means every new packaged skill must also be added to `src/lib/skills/packaged.ts`.
+Поэтому каждый новый упакованный навык нужно добавить и в `src/lib/skills/packaged.ts`.
 
-For each file in `assets/skills/<package-id>/`, add a matching entry in the packaged file map:
+Для каждого файла в `assets/skills/<package-id>/` добавьте соответствующую запись в карту упакованных файлов:
 
 ```ts
 const PACKAGED_SKILL_FILES: Record<string, PackagedSkillFile[]> = {
@@ -150,15 +150,15 @@ const PACKAGED_SKILL_FILES: Record<string, PackagedSkillFile[]> = {
 };
 ```
 
-Important:
+Важно:
 
-- Keep the embedded strings exactly synchronized with the asset files.
-- Do not change spacing, frontmatter, or filenames between the asset copy and packaged copy.
-- `tests/unit/packagedSkills.test.ts` exists to catch drift for the current example. Extend it when you add more packaged skills.
+- Встроенные строки должны в точности совпадать с файлами ресурсов.
+- Не меняйте пробелы, frontmatter и имена файлов между копией в ресурсах и упакованной копией.
+- `tests/unit/packagedSkills.test.ts` нужен, чтобы ловить расхождения для текущего примера. Расширяйте его, когда добавляете новые упакованные навыки.
 
-## 3. Register the skill in `src/lib/skills/catalog.ts`
+## 3. Зарегистрируйте навык в `src/lib/skills/catalog.ts`
 
-Add a `PackagedSkillDefinition` entry:
+Добавьте запись `PackagedSkillDefinition`:
 
 ```ts
 {
@@ -172,19 +172,19 @@ Add a `PackagedSkillDefinition` entry:
 }
 ```
 
-Field meanings:
+Назначение полей:
 
-- `packageId`: internal packaged asset ID, usually the folder name under `assets/skills/`.
-- `skillKey`: the OpenClaw skill key and installed folder name.
-- `name`: the human-facing skill name shown in the UI.
-- `installSource`: where the skill is installed. For current packaged skills this should be `"openclaw-workspace"`.
-- `creatorName` and `creatorUrl`: shown as `Powered by ...` in the marketplace.
+- `packageId`: внутренний ID упакованного ресурса, обычно имя каталога в `assets/skills/`.
+- `skillKey`: ключ навыка в OpenClaw и имя каталога установленного навыка.
+- `name`: название навыка для людей, которое показывается в интерфейсе.
+- `installSource`: куда устанавливается навык. Для нынешних упакованных навыков это должно быть `"openclaw-workspace"`.
+- `creatorName` и `creatorUrl`: показываются в маркете навыков в строке «Работает на …».
 
-## 4. Add marketplace presentation metadata
+## 4. Добавьте метаданные для отображения в маркете навыков
 
-If you want custom category, tagline, badges, or capability labels, add an override in `src/lib/skills/marketplace.ts`.
+Если нужны своя категория, слоган, значки или подписи возможностей, добавьте переопределение в `src/lib/skills/marketplace.ts`.
 
-Example fields:
+Примеры полей:
 
 - `category`
 - `tagline`
@@ -192,19 +192,19 @@ Example fields:
 - `editorBadge`
 - `hideStats`
 
-For packaged skills, creator attribution normally comes from `src/lib/skills/catalog.ts`.
+Для упакованных навыков указание автора обычно берётся из `src/lib/skills/catalog.ts`.
 
-For developer-created packaged skills, prefer real attribution over fake popularity numbers.
+Для навыков, созданных разработчиками, лучше указать настоящего автора, чем выдуманные цифры популярности.
 
-## 5. Understand where the files get installed
+## 5. Разберитесь, куда устанавливаются файлы
 
-The current packaged install flow writes files into the selected workspace here:
+Нынешний процесс установки упакованных навыков записывает файлы в выбранное рабочее пространство сюда:
 
 ```text
 <workspace>/skills/<skillKey>/
 ```
 
-For the TODO example, that becomes:
+Для примера со списком дел это будет:
 
 ```text
 <workspace>/skills/todo-board/
@@ -212,28 +212,28 @@ For the TODO example, that becomes:
   todo-list.example.json
 ```
 
-The skill itself can then manage additional workspace files such as:
+Дальше сам навык может управлять дополнительными файлами рабочего пространства, например:
 
 ```text
 <workspace>/todo-skill/todo-list.json
 ```
 
-That state file is runtime data created by the skill instructions. It is separate from the installed skill package.
+Этот файл состояния — данные времени выполнения, которые создаются по инструкциям навыка. Он отделён от установленного пакета навыка.
 
-## 6. Keep the example production-ready
+## 6. Держите пример готовым к продакшену
 
-Use the `todo-board` example as the quality bar:
+Ориентируйтесь на пример `todo-board` как на планку качества:
 
-- The skill must define a clear trigger and physical office behavior.
-- The instructions should be explicit and deterministic.
-- State storage should be file-backed and documented.
-- Ambiguous requests should force clarification instead of guessing.
-- The installed package should contain only the files needed by the skill.
-- Marketplace metadata should be honest and attributed.
+- Навык должен определять понятный триггер и физическое поведение в офисе.
+- Инструкции должны быть явными и детерминированными.
+- Состояние должно храниться в файлах и быть задокументировано.
+- При неоднозначных запросах навык должен требовать уточнения, а не гадать.
+- Установленный пакет должен содержать только те файлы, которые нужны навыку.
+- Метаданные в маркете навыков должны быть честными и с указанием автора.
 
-## 7. Verify your changes
+## 7. Проверьте изменения
 
-After creating or editing a packaged skill, run:
+После создания или правки упакованного навыка запустите:
 
 ```bash
 npm test -- tests/unit/packagedSkills.test.ts tests/unit/skillsInstallGateway.test.ts
@@ -241,4 +241,4 @@ npm run lint
 npm run typecheck
 ```
 
-If you add new packaged skills, update or extend the packaged skill tests so asset files, embedded copies, and marketplace metadata stay aligned.
+Если вы добавляете новые упакованные навыки, обновите или расширьте тесты упакованных навыков, чтобы файлы ресурсов, встроенные копии и метаданные маркета навыков оставались согласованными.

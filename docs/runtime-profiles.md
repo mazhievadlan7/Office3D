@@ -1,8 +1,8 @@
-# Runtime Profiles
+# Профили сред выполнения
 
-Office3D now treats runtime backends as named saved profiles instead of one global URL/token pair.
+Теперь Office3D хранит бэкенды сред выполнения как именованные сохранённые профили, а не как одну глобальную пару URL и токена.
 
-## Current Profiles
+## Текущие профили
 
 - `openclaw`
 - `hermes`
@@ -11,17 +11,17 @@ Office3D now treats runtime backends as named saved profiles instead of one glob
 - `office3d`
 - `custom`
 
-Each profile keeps its own saved URL and token in Studio settings.
+Каждый профиль хранит в настройках Studio свой URL и токен.
 
-## What Each Profile Means
+## Что означает каждый профиль
 
 ### `openclaw`
 
-The normal OpenClaw gateway flow over Studio's WebSocket bridge.
+Обычная работа со шлюзом OpenClaw через WebSocket-мост Studio.
 
-This is the provider-rich path. OpenClaw already knows how to sit in front of many upstream model providers, so Office3D should treat it as a first-class gateway adapter rather than flattening it into `custom`.
+Это путь с широкой поддержкой поставщиков. OpenClaw уже умеет стоять перед множеством вышестоящих поставщиков моделей, поэтому Office3D должен считать его полноценным адаптером шлюза, а не сводить к `custom`.
 
-Typical URL:
+Типичный URL:
 
 ```text
 ws://localhost:18789
@@ -29,11 +29,11 @@ ws://localhost:18789
 
 ### `hermes`
 
-The bundled Hermes adapter over the same gateway-shaped WebSocket flow.
+Встроенный адаптер Hermes, работающий через тот же WebSocket-поток в формате шлюза.
 
-This is also a provider-aware runtime path. Hermes can own its own provider/account setup behind the gateway boundary.
+Это тоже среда выполнения, которая знает о поставщиках. Hermes может сам управлять настройкой поставщиков и аккаунтов за границей шлюза.
 
-Typical URL:
+Типичный URL:
 
 ```text
 ws://localhost:18789
@@ -41,11 +41,11 @@ ws://localhost:18789
 
 ### `demo`
 
-The built-in demo gateway for a no-framework office.
+Встроенный демо-шлюз для офиса без фреймворка агентов.
 
-If that gateway is not available, the office can still fall back to a seeded local `main` agent so the scene is explorable instead of dead-ending on the connect overlay.
+Если этот шлюз недоступен, офис всё равно может переключиться на заранее созданного локального агента `main`, чтобы сцену можно было осмотреть, а не упереться в окно подключения.
 
-Typical URL:
+Типичный URL:
 
 ```text
 ws://localhost:18789
@@ -53,9 +53,9 @@ ws://localhost:18789
 
 ### `local`
 
-A direct HTTP runtime boundary for local orchestrators or local model routers.
+Прямая граница HTTP-среды выполнения для локальных оркестраторов или локальных маршрутизаторов моделей.
 
-Typical URL:
+Типичный URL:
 
 ```text
 http://localhost:7770
@@ -63,9 +63,9 @@ http://localhost:7770
 
 ### `office3d`
 
-A Office3D-shaped HTTP runtime profile for stacks that want to keep Office3D transcript and chat conventions while still using the direct runtime seam.
+Профиль HTTP-среды выполнения в формате Office3D для стеков, которые хотят сохранить соглашения Office3D о переписке и чате, но при этом использовать прямой шов среды выполнения.
 
-Typical URL:
+Типичный URL:
 
 ```text
 http://localhost:3000/api/runtime/custom
@@ -73,73 +73,73 @@ http://localhost:3000/api/runtime/custom
 
 ### `custom`
 
-The generic HTTP runtime seam when you want to point Office3D at any compatible orchestrator boundary.
+Универсальный шов HTTP-среды выполнения, когда нужно направить Office3D на границу любого совместимого оркестратора.
 
-Typical URL:
+Типичный URL:
 
 ```text
 http://localhost:7770
 ```
 
-## Current Runtime Contract
+## Текущий контракт среды выполнения
 
-The direct runtime seam currently probes for:
+Прямой шов среды выполнения сейчас проверяет наличие:
 
 - `GET /health`
 - `GET /state`
 - `GET /registry`
 - `POST /v1/chat/completions`
 
-That means `local`, `office3d`, and `custom` are first-class saved profiles today.
+Это значит, что `local`, `office3d` и `custom` уже сегодня — полноценные сохраняемые профили.
 
-On top of the normal chat/session calls, runtime providers now expose a shared multi-agent message seam:
+Помимо обычных вызовов чата и сессий, поставщики сред выполнения теперь предоставляют общий шов для сообщений между агентами:
 
 - `agents.message`
 - `agents.handoff`
 
-These methods currently route through the existing gateway/runtime session model rather than inventing a second transcript transport.
+Сейчас эти методы проходят через существующую модель сессий шлюза и среды выполнения, а не через отдельный, второй транспорт переписки.
 
-## Multi-Agent Message Contract
+## Контракт сообщений между агентами
 
-`agents.message` supports:
+`agents.message` поддерживает:
 
 - `targetAgentId`
 - `message`
 - `mode: "direct" | "interval"`
-- optional `sourceAgentId`
-- optional `sourceLabel`
-- optional `cadenceHint`
+- необязательный `sourceAgentId`
+- необязательный `sourceLabel`
+- необязательный `cadenceHint`
 
-`agents.handoff` supports:
+`agents.handoff` поддерживает:
 
 - `targetAgentId`
 - `task`
-- optional `context`
-- optional `deliverables`
-- optional `acceptanceCriteria`
-- optional `sourceAgentId`
-- optional `sourceLabel`
+- необязательный `context`
+- необязательный `deliverables`
+- необязательный `acceptanceCriteria`
+- необязательный `sourceAgentId`
+- необязательный `sourceLabel`
 
-The intent is to keep one stable message/handoff contract while different runtime adapters decide how to deliver it.
+Идея в том, чтобы держать один стабильный контракт сообщений и передачи работы, а разные адаптеры сред выполнения сами решали, как его доставлять.
 
-## What Is Not Wired Yet
+## Что ещё не подключено
 
-These are not first-class connection profiles yet in this branch:
+В этой ветке следующие варианты пока не являются полноценными профилями подключения:
 
 - Anthropic
 - Claude Code
 - OpenRouter
-- other provider-native transports
+- другие собственные транспорты поставщиков
 
-Those should land as real adapters, not as buttons that pretend the HTTP runtime seam already understands provider-specific auth and event semantics.
+Они должны появиться как настоящие адаптеры, а не как кнопки, которые делают вид, будто шов HTTP-среды выполнения уже понимает специфичную для поставщика авторизацию и семантику событий.
 
-The current provider review path should borrow from existing Hermes/OpenClaw wizard flows where possible, but land as Office3D-native adapters instead of hard-coupling Office3D UI state to another project's connector code.
+Нынешний путь проверки поставщиков по возможности должен заимствовать существующие мастера Hermes и OpenClaw, но реализовываться как собственные адаптеры Office3D, а не жёстко связывать состояние интерфейса Office3D с кодом коннекторов другого проекта.
 
-## Why This Matters For Multi-Agent Work
+## Почему это важно для работы нескольких агентов
 
-The profile split is the first step toward:
+Разделение на профили — первый шаг к:
 
-- separate per-runtime saved connection state
-- agent-to-agent chat and handoff across backends
-- shared-floor and coworking flows without flattening every runtime into one transport
-- future provider adapters that do not require rewriting Studio UI state
+- отдельному сохранённому состоянию подключения для каждой среды выполнения;
+- чату и передаче работы между агентами на разных бэкендах;
+- общему этажу и совместной работе без сведения всех сред выполнения к одному транспорту;
+- будущим адаптерам поставщиков, которые не потребуют переписывать состояние интерфейса Studio.

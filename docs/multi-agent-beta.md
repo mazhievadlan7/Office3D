@@ -1,179 +1,179 @@
-# Multi-Agent Beta
+# Мультиагентная бета
 
-This document explains the current multi-agent beta in Office3D: what it does, how the two connection modes work, and how to connect a second office.
+Этот документ описывает текущую мультиагентную бету в Office3D: что она делает, как работают два режима подключения и как подключить второй офис.
 
-## What This Beta Does
+## Что делает бета
 
-Office3D can render a second office inside the same 3D scene so you can visualize agents from another machine.
+Office3D может показать второй офис в той же 3D-сцене, чтобы вы видели агентов с другой машины.
 
-Today the beta supports:
+Сейчас бета умеет:
 
-- showing a second office in the same world;
-- displaying remote agents as read-only presence;
-- optionally sending a plain-text message to a remote agent;
-- keeping the remote side isolated from your local files and office controls.
+- показывать второй офис в том же мире;
+- показывать удалённых агентов как присутствие только для просмотра;
+- при желании отправлять удалённому агенту простое текстовое сообщение;
+- изолировать удалённую сторону от ваших локальных файлов и элементов управления офисом.
 
-This is a beta feature. It is designed for visibility and lightweight cross-office messaging, not full shared-state collaboration.
+Это бета-функция. Она рассчитана на наглядность и лёгкий обмен сообщениями между офисами, а не на полноценную совместную работу с общим состоянием.
 
-## Mental Model
+## Как это устроено
 
-There are always two roles:
+Ролей всегда две:
 
-- **Local office**: the Office3D instance you are currently using;
-- **Remote office**: another Office3D instance or another OpenClaw gateway you want to visualize.
+- **Локальный офис** — экземпляр Office3D, которым вы сейчас пользуетесь;
+- **Удалённый офис** — другой экземпляр Office3D или другой шлюз OpenClaw, который вы хотите видеть.
 
-The remote office can be connected in one of two ways:
+Удалённый офис можно подключить одним из двух способов:
 
-1. **Remote Office3D presence endpoint**.
-2. **Remote OpenClaw gateway**.
+1. **Точка присутствия удалённого Office3D**.
+2. **Удалённый шлюз OpenClaw**.
 
-## Connection Modes
+## Режимы подключения
 
-### 1. Remote Office3D Presence Endpoint
+### 1. Точка присутствия удалённого Office3D
 
-Use this when the other machine is also running Office3D.
+Используйте этот режим, когда на другой машине тоже работает Office3D.
 
-How it works:
+Как это работает:
 
-- your local Office3D server polls the remote Office3D `presence` endpoint;
-- it also tries to load the remote office `layout` snapshot;
-- the local 3D scene renders the remote office as a read-only clone inside the same world.
+- ваш локальный сервер Office3D опрашивает точку `presence` удалённого Office3D;
+- он также пытается загрузить снимок `layout` удалённого офиса;
+- локальная 3D-сцена показывает удалённый офис как копию только для просмотра в том же мире.
 
-Typical URL:
+Типичный URL:
 
 ```text
 https://other-office.example.com/api/office/presence
 ```
 
-This mode is best when you want the remote side to feel like another full Office3D office.
+Этот режим лучше всего подходит, когда вы хотите, чтобы удалённая сторона ощущалась как ещё один полноценный офис Office3D.
 
-### 2. Remote OpenClaw Gateway
+### 2. Удалённый шлюз OpenClaw
 
-Use this when the other machine only runs OpenClaw and does not run Office3D.
+Используйте этот режим, когда на другой машине работает только OpenClaw, без Office3D.
 
-How it works:
+Как это работает:
 
-- the browser connects directly to the remote gateway;
-- Office3D derives a read-only presence snapshot from gateway data such as `agents.list`, `status`, and `sessions.preview`;
-- because there is no remote Office3D layout endpoint, the second office uses a fallback office visualization.
+- браузер подключается напрямую к удалённому шлюзу;
+- Office3D строит снимок присутствия только для просмотра из данных шлюза, например `agents.list`, `status` и `sessions.preview`;
+- поскольку точки планировки удалённого Office3D нет, второй офис показывается в запасном виде.
 
-Typical URL:
+Типичный URL:
 
 ```text
 ws://remote-host:18789
 ```
 
-or:
+или:
 
 ```text
 wss://remote-host.example.com
 ```
 
-If you paste an `http://` or `https://` URL into gateway mode, Office3D normalizes it to `ws://` or `wss://` before connecting.
+Если вставить в режиме шлюза URL с `http://` или `https://`, Office3D перед подключением преобразует его в `ws://` или `wss://`.
 
-This mode is best when you want remote agent visibility without requiring a second Office3D deployment.
+Этот режим лучше всего подходит, когда вам нужно видеть удалённых агентов, не разворачивая второй экземпляр Office3D.
 
-## What You Can See
+## Что видно
 
-When the beta is enabled, you can:
+Когда бета включена, вы можете:
 
-- see a second office in the same environment;
-- see remote agents appear in that office;
-- see remote agents move and change basic activity state;
-- click a remote agent and open a text-only messaging panel.
+- видеть второй офис в том же окружении;
+- видеть, как в этом офисе появляются удалённые агенты;
+- видеть, как удалённые агенты перемещаются и меняют базовое состояние активности;
+- нажать на удалённого агента и открыть панель только для текстовых сообщений.
 
-## What You Cannot See
+## Чего не видно
 
-The remote office is intentionally limited.
+Возможности удалённого офиса намеренно ограничены.
 
-You cannot:
+Вы не можете:
 
-- inspect the remote machine filesystem;
-- browse the remote agent chat history in full;
-- control the remote office furniture or builder state;
-- take over the remote instance as if it were local.
+- просматривать файловую систему удалённой машины;
+- просматривать историю чата удалённого агента целиком;
+- управлять мебелью удалённого офиса или состоянием его конструктора;
+- распоряжаться удалённым экземпляром так, будто он локальный.
 
-The goal is cross-office visualization, not remote workstation access.
+Цель — визуализация между офисами, а не доступ к удалённой рабочей станции.
 
-## Remote Messaging
+## Сообщения в удалённый офис
 
-Remote messaging is currently a lightweight relay with two send modes.
+Сейчас сообщения в удалённый офис — это лёгкая пересылка с двумя режимами отправки.
 
-What it does:
+Что она делает:
 
-- lets you send a plain-text note to a remote agent;
-- lets you choose `direct` or `interval` delivery in the remote chat panel;
-- is available from the remote agent chat panel;
-- is designed to avoid exposing remote files or tool output in the Office3D UI.
+- позволяет отправить удалённому агенту простую текстовую заметку;
+- позволяет выбрать в панели чата с удалённым агентом доставку `direct` или `interval`;
+- доступна из панели чата с удалённым агентом;
+- устроена так, чтобы не показывать в интерфейсе Office3D удалённые файлы и вывод инструментов.
 
-`direct` is for one-off pings.
+`direct` — для разовых сообщений.
 
-`interval` is for an ongoing coordination thread where you expect short periodic updates or checkpoints.
+`interval` — для текущей переписки по координации, когда вы ждёте коротких периодических обновлений или контрольных точек.
 
-Current limitations:
+Текущие ограничения:
 
-- remote replies are not mirrored back into the panel yet;
-- the panel currently shows your sent message plus delivery/system feedback;
-- this is not a shared transcript viewer.
+- ответы с удалённой стороны пока не отображаются в панели;
+- сейчас панель показывает ваше отправленное сообщение и служебную обратную связь о доставке;
+- это не просмотрщик общей переписки.
 
-## Runtime Message And Handoff Layer
+## Слой сообщений и передачи работы в среде выполнения
 
-Under the hood, Office3D now uses a shared runtime contract for:
+Под капотом Office3D теперь использует общий контракт среды выполнения для:
 
 - `agents.message`
 - `agents.handoff`
 
-OpenClaw, Hermes, Demo, and direct custom/local/office3d runtime profiles can all target the same message/handoff seam. Provider-native adapters such as Anthropic or Claude Code are still a follow-up slice.
+Профили сред выполнения OpenClaw, Hermes, Demo и прямые профили custom/local/office3d могут работать через один и тот же шов сообщений и передачи работы. Собственные адаптеры поставщиков, например Anthropic или Claude Code, — следующий этап.
 
-## How To Connect
+## Как подключить
 
-### Prerequisites
+### Что нужно заранее
 
-Before enabling the second office, make sure:
+Перед включением второго офиса убедитесь, что:
 
-- your local Office3D is already working with your local OpenClaw gateway;
-- you know which remote mode you want to use;
-- the remote machine is reachable from your machine or browser;
-- any required token, origin allowlist, or private-network access is already configured.
+- ваш локальный Office3D уже работает с вашим локальным шлюзом OpenClaw;
+- вы знаете, какой удалённый режим хотите использовать;
+- удалённая машина доступна с вашей машины или из браузера;
+- нужный токен, список разрешённых origin или доступ к частной сети уже настроены.
 
-### Setup Steps
+### Шаги настройки
 
-1. Start your local Office3D instance.
-2. Open the office UI.
-3. Open the office settings panel.
-4. Turn on `Show second office`.
-5. Choose the correct `Source type`.
-6. Fill the matching connection fields.
+1. Запустите локальный экземпляр Office3D.
+2. Откройте интерфейс офиса.
+3. Откройте панель настроек офиса.
+4. Включите «Показывать второй офис».
+5. Выберите нужный «Тип источника».
+6. Заполните соответствующие поля подключения.
 
-### Setup For `Remote Office3D presence endpoint`
+### Настройка для «Точка присутствия удалённого Office3D»
 
-Use:
+Укажите:
 
-- `Source type`: `Remote Office3D presence endpoint`.
-- `Presence URL`: the remote `/api/office/presence` URL.
-- `Optional token`: only if that remote Office3D endpoint is protected.
+- «Тип источника»: «Точка присутствия удалённого Office3D».
+- «Адрес присутствия»: URL `/api/office/presence` удалённой стороны.
+- «Необязательный токен»: только если эта точка удалённого Office3D защищена.
 
-Example:
+Пример:
 
 ```text
 https://other-office.example.com/api/office/presence
 ```
 
-Expected behavior:
+Ожидаемое поведение:
 
-- the second office appears inside the world;
-- remote agents show up when the remote office has active presence;
-- if the remote layout snapshot is unavailable, Office3D falls back to a default/fallback office rendering for the remote side.
+- второй офис появляется в мире;
+- удалённые агенты появляются, когда в удалённом офисе есть активное присутствие;
+- если снимок планировки удалённого офиса недоступен, Office3D показывает удалённую сторону в виде офиса по умолчанию (запасного).
 
-### Setup For `Remote OpenClaw gateway`
+### Настройка для «Удалённый шлюз OpenClaw»
 
-Use:
+Укажите:
 
-- `Source type`: `Remote OpenClaw gateway`.
-- `Gateway URL`: the remote gateway WebSocket URL.
-- `Shared gateway token`: optional when the gateway already allows your Control UI origin and connection model.
+- «Тип источника»: «Удалённый шлюз OpenClaw».
+- «Адрес шлюза»: WebSocket-URL удалённого шлюза.
+- «Общий токен шлюза»: необязателен, если шлюз уже разрешает origin вашего Control UI и вашу модель подключения.
 
-Examples:
+Примеры:
 
 ```text
 ws://remote-host:18789
@@ -183,83 +183,83 @@ ws://remote-host:18789
 wss://remote-host.example.com
 ```
 
-Expected behavior:
+Ожидаемое поведение:
 
-- the second office appears inside the world;
-- remote agents are derived from gateway presence data;
-- the office shell is a fallback visualization, not a true remote layout clone from another Office3D instance.
+- второй офис появляется в мире;
+- удалённые агенты строятся из данных присутствия шлюза;
+- оболочка офиса — это запасная визуализация, а не настоящая копия планировки другого экземпляра Office3D.
 
-## Recommended Network Patterns
+## Рекомендуемые сетевые схемы
 
-### Same private network
+### Одна частная сеть
 
-Use a reachable private IP or local hostname for the remote Office3D endpoint or OpenClaw gateway.
+Используйте доступный частный IP-адрес или локальное имя хоста для точки удалённого Office3D или шлюза OpenClaw.
 
 ### Tailscale
 
-Tailscale is a good fit for this beta because it lets both sides connect over a private network without exposing services publicly.
+Tailscale хорошо подходит для этой беты: он позволяет обеим сторонам соединяться через частную сеть, не открывая сервисы публично.
 
-Common patterns:
+Типичные схемы:
 
-- remote Office3D endpoint over `https://<machine>.ts.net/api/office/presence`;
-- remote OpenClaw gateway over `wss://<machine>.ts.net` if you are proxying the gateway through HTTPS/WSS;
-- direct gateway over `ws://<machine>:18789` when both devices can reach the service privately.
+- точка удалённого Office3D по адресу `https://<machine>.ts.net/api/office/presence`;
+- удалённый шлюз OpenClaw по адресу `wss://<machine>.ts.net`, если вы проксируете шлюз через HTTPS/WSS;
+- прямое подключение к шлюзу по `ws://<machine>:18789`, когда оба устройства видят сервис в частной сети.
 
-## Disable Behavior
+## Что происходит при выключении
 
-If you turn `Show second office` off:
+Если выключить «Показывать второй офис»:
 
-- the extra office should disappear from the 3D scene;
-- the path/outdoor connection should disappear;
-- remote office presence and layout hooks should stop driving the scene.
+- дополнительный офис должен исчезнуть из 3D-сцены;
+- дорожка и уличное соединение должны исчезнуть;
+- присутствие и хуки планировки удалённого офиса должны перестать управлять сценой.
 
-This lets you return to a single-office view.
+Так вы возвращаетесь к виду с одним офисом.
 
-## Troubleshooting
+## Устранение неполадок
 
-### No remote agents appear
+### Удалённые агенты не появляются
 
-Check:
+Проверьте, что:
 
-- the remote URL is correct;
-- the remote machine is actually reachable;
-- the remote service is running;
-- the selected `Source type` matches the service you are pointing at.
+- удалённый URL указан верно;
+- удалённая машина действительно доступна;
+- удалённый сервис запущен;
+- выбранный «Тип источника» соответствует сервису, на который вы указываете.
 
-### Presence endpoint works but the remote layout does not
+### Точка присутствия работает, а удалённая планировка — нет
 
-That usually means the other machine has Office3D presence available but not a layout snapshot yet. The beta should still render a fallback remote office.
+Обычно это значит, что на другой машине присутствие Office3D уже доступно, а снимка планировки пока нет. Бета всё равно должна показать удалённый офис в запасном виде.
 
-### Gateway mode connects but messaging fails
+### Режим шлюза подключается, но сообщения не отправляются
 
-In gateway mode, the browser connects directly to the remote gateway. That means the remote gateway may still reject the connection based on origin policy or other gateway-side security rules.
+В режиме шлюза браузер подключается напрямую к удалённому шлюзу. Значит, удалённый шлюз может отклонить подключение из-за политики origin или других правил безопасности на стороне шлюза.
 
-If that happens, check:
+В этом случае проверьте:
 
-- the remote gateway URL;
-- whether the remote gateway allows your Control UI origin;
-- whether the remote gateway expects a token or device-auth flow you have not configured.
+- URL удалённого шлюза;
+- разрешает ли удалённый шлюз origin вашего Control UI;
+- не ждёт ли удалённый шлюз токен или аутентификацию устройства, которые вы не настроили.
 
-### You can reach an HTTPS page but gateway mode still fails
+### HTTPS-страница открывается, а режим шлюза всё равно не работает
 
-Opening a web page in the browser does not automatically mean the OpenClaw gateway WebSocket is reachable.
+То, что веб-страница открывается в браузере, ещё не значит, что WebSocket шлюза OpenClaw доступен.
 
-Examples:
+Примеры:
 
-- `https://host` may be reachable while `ws://host:18789` is not;
-- a website reverse proxy may exist even though the raw gateway port is closed;
-- the remote side may need a dedicated WSS proxy path for the gateway.
+- `https://host` может быть доступен, а `ws://host:18789` — нет;
+- обратный прокси для сайта может существовать, даже если порт самого шлюза закрыт;
+- удалённой стороне может понадобиться отдельный путь WSS-прокси для шлюза.
 
-## Current Beta Limitations
+## Текущие ограничения беты
 
-- The second office is read-only.
-- Remote replies are not mirrored into the local remote-chat panel yet.
-- Gateway mode derives presence from gateway snapshots rather than a real remote Office3D layout.
-- Browser-based gateway mode depends on the remote gateway allowing the connection from your Control UI origin.
-- This feature is still evolving and should be treated as beta, not final production-grade multi-tenant collaboration.
+- Второй офис доступен только для просмотра.
+- Ответы с удалённой стороны пока не отображаются в локальной панели чата с удалённым агентом.
+- Режим шлюза строит присутствие по снимкам шлюза, а не по настоящей планировке удалённого Office3D.
+- Режим шлюза в браузере зависит от того, разрешает ли удалённый шлюз подключение с origin вашего Control UI.
+- Функция ещё развивается, и её стоит считать бетой, а не окончательной многопользовательской совместной работой продакшен-уровня.
 
-## Summary
+## Итог
 
-Use `Remote Office3D presence endpoint` when the other side runs Office3D and you want the most complete office visualization.
+Выбирайте «Точка присутствия удалённого Office3D», когда на другой стороне работает Office3D и вам нужна максимально полная визуализация офиса.
 
-Use `Remote OpenClaw gateway` when the other side only runs OpenClaw and you mainly want remote agent presence plus lightweight text messaging.
+Выбирайте «Удалённый шлюз OpenClaw», когда на другой стороне работает только OpenClaw и вам в основном нужно присутствие удалённых агентов и лёгкий обмен текстовыми сообщениями.

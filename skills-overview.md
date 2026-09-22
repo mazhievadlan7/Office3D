@@ -1,40 +1,40 @@
-# Skills in OpenClaw + Office3D
+# Навыки в OpenClaw и Office3D
 
-This document explains skills from first principles, how they work in the OpenClaw runtime, and how Office3D currently exposes them in UX.
+Этот документ объясняет навыки с самых основ: как они работают в среде выполнения OpenClaw и как Office3D сейчас показывает их в интерфейсе.
 
-It is intended as design context for rethinking the Skills UX.
+Он задуман как контекст для переосмысления UX навыков.
 
-## 1) Why skills exist (first principles)
+## 1) Зачем нужны навыки (с самых основ)
 
-Skills are the mechanism OpenClaw uses to give agents reusable operational know-how without hardcoding that know-how into core runtime logic.
+Навыки — это механизм, с помощью которого OpenClaw даёт агентам многоразовые практические знания, не зашивая их в основную логику среды выполнения.
 
-At a product level, a skill is:
-- A unit of capability guidance (`SKILL.md`) that teaches an agent how to perform a job.
-- A gated unit of readiness (only available when required binaries/env/config/OS are satisfied).
-- A portable package format compatible with AgentSkills (`agentskills.io`) so skill content can be authored and shared outside a single product.
+С точки зрения продукта навык — это:
+- единица руководства по возможностям (`SKILL.md`), которая учит агента выполнять определённую работу;
+- единица готовности с ограничениями (навык доступен, только когда выполнены требования к бинарникам, переменным окружения, конфигурации и ОС);
+- переносимый формат пакета, совместимый с AgentSkills (`agentskills.io`), чтобы содержимое навыков можно было писать и распространять за пределами одного продукта.
 
-Without skills, every workflow instruction would need to live in prompts, app code, or ad hoc user messages. Skills create a middle layer: structured capability packs that are discoverable, filterable, and enforceable.
+Без навыков каждая инструкция по рабочему процессу жила бы в промптах, коде приложения или разовых сообщениях пользователя. Навыки создают промежуточный слой — структурированные пакеты возможностей, которые можно находить, фильтровать и применять принудительно.
 
-## 2) AgentSkills.io context
+## 2) Контекст AgentSkills.io
 
-OpenClaw intentionally uses AgentSkills-compatible `SKILL.md` structure and semantics.
+OpenClaw намеренно использует структуру и семантику `SKILL.md`, совместимые с AgentSkills.
 
-Why this matters:
-- Interoperability: skills can move between ecosystems that understand AgentSkills.
-- Community/network effects: external skill ecosystems (for OpenClaw specifically, ClawHub) can be leveraged instead of reinventing proprietary formats.
-- UX consistency: users can reason about “a skill folder with `SKILL.md` + metadata gates” instead of app-specific abstractions.
+Почему это важно:
+- Совместимость: навыки можно переносить между экосистемами, которые понимают AgentSkills.
+- Эффекты сообщества и сети: можно опираться на внешние экосистемы навыков (для OpenClaw это ClawHub), а не изобретать собственные закрытые форматы.
+- Единообразие UX: пользователи мыслят категорией «каталог навыка с `SKILL.md` и ограничениями в метаданных», а не абстракциями конкретного приложения.
 
-OpenClaw adds product-specific metadata under `metadata.openclaw` (install specs, gating fields, primary env key, etc.) while keeping the base skill shape compatible.
+OpenClaw добавляет свои метаданные в `metadata.openclaw` (спецификации установки, поля ограничений, основную переменную окружения и т. д.), сохраняя базовую форму навыка совместимой.
 
-## 3) Skill object model
+## 3) Объектная модель навыка
 
-A skill is loaded from a directory containing `SKILL.md` with frontmatter.
+Навык загружается из каталога, где лежит `SKILL.md` с frontmatter.
 
-Minimum frontmatter:
+Минимальный frontmatter:
 - `name`
 - `description`
 
-Important optional fields used by OpenClaw:
+Важные необязательные поля, которые использует OpenClaw:
 - `metadata.openclaw.always`
 - `metadata.openclaw.skillKey`
 - `metadata.openclaw.primaryEnv`
@@ -45,233 +45,233 @@ Important optional fields used by OpenClaw:
 - `disable-model-invocation`
 - `command-dispatch`, `command-tool`, `command-arg-mode`
 
-In runtime, this becomes a normalized `SkillEntry`:
-- Raw skill (`name`, `description`, `source`, file paths)
-- Parsed frontmatter
-- Resolved OpenClaw metadata
-- Invocation policy flags
+В среде выполнения это превращается в нормализованный `SkillEntry`:
+- исходный навык (`name`, `description`, `source`, пути к файлам);
+- разобранный frontmatter;
+- вычисленные метаданные OpenClaw;
+- флаги политики вызова.
 
-## 4) Where skills come from (discovery + precedence)
+## 4) Откуда берутся навыки (обнаружение и приоритет)
 
-OpenClaw merges multiple sources into one effective skill set.
+OpenClaw объединяет несколько источников в один действующий набор навыков.
 
-Current merge precedence in code (lowest -> highest):
-1. `skills.load.extraDirs` and plugin-contributed skill dirs (`source: openclaw-extra`)
-2. Bundled skills (`openclaw-bundled`)
-3. Managed/global local skills (`~/.openclaw/skills`, `openclaw-managed`)
-4. Personal agents skills (`~/.agents/skills`, `agents-skills-personal`)
-5. Project agents skills (`<workspace>/.agents/skills`, `agents-skills-project`)
-6. Workspace skills (`<workspace>/skills`, `openclaw-workspace`)
+Текущий порядок приоритета слияния в коде (от низшего к высшему):
+1. `skills.load.extraDirs` и каталоги навыков от плагинов (`source: openclaw-extra`)
+2. Встроенные навыки (`openclaw-bundled`)
+3. Управляемые/глобальные локальные навыки (`~/.openclaw/skills`, `openclaw-managed`)
+4. Личные навыки агентов (`~/.agents/skills`, `agents-skills-personal`)
+5. Навыки агентов проекта (`<workspace>/.agents/skills`, `agents-skills-project`)
+6. Навыки рабочего пространства (`<workspace>/skills`, `openclaw-workspace`)
 
-Name conflicts are resolved by “last writer wins” according to this order.
+Конфликты имён разрешаются по правилу «побеждает последний записавший» в соответствии с этим порядком.
 
-## 5) Eligibility and gating model
+## 5) Модель пригодности и ограничений
 
-Eligibility is not just “is this skill installed.” It is computed every load/snapshot using:
-- Per-skill disable (`skills.entries.<skillKey>.enabled === false`)
-- Bundled allowlist (`skills.allowBundled`) for bundled skills only
-- Runtime requirements:
-  - `requires.bins` (all required)
-  - `requires.anyBins` (at least one)
-  - `requires.env`
-  - `requires.config`
-  - `os`
-- Remote node eligibility (macOS node bin probing can satisfy certain requirements)
-- `always: true` short-circuiting requirement failures
+Пригодность — это не просто «установлен ли навык». Она вычисляется при каждой загрузке или снимке с учётом:
+- отключения конкретного навыка (`skills.entries.<skillKey>.enabled === false`);
+- списка разрешённых встроенных навыков (`skills.allowBundled`) — только для встроенных навыков;
+- требований среды выполнения:
+  - `requires.bins` (нужны все);
+  - `requires.anyBins` (нужен хотя бы один);
+  - `requires.env`;
+  - `requires.config`;
+  - `os`;
+- пригодности на удалённом узле (проверка бинарников на узле macOS может закрыть некоторые требования);
+- `always: true`, при котором невыполненные требования игнорируются.
 
-Status output carries:
-- `eligible` / `blocked`
-- structured `missing` reasons
-- `configChecks` with `{ path, satisfied }` (not secret values)
-- install options derived from metadata
+В выводе статуса есть:
+- `eligible` / `blocked`;
+- структурированные причины `missing`;
+- `configChecks` с `{ path, satisfied }` (без секретных значений);
+- варианты установки, полученные из метаданных.
 
-## 6) Agent-level filtering semantics
+## 6) Семантика фильтрации на уровне агента
 
-OpenClaw has a separate per-agent skill filter via `agents.list[].skills`:
-- Missing `skills` key: all discovered skills are allowed
-- `skills: []`: no skills allowed
-- `skills: ["a", "b"]`: allowlist mode
+В OpenClaw есть отдельный фильтр навыков для каждого агента — `agents.list[].skills`:
+- ключа `skills` нет — разрешены все обнаруженные навыки;
+- `skills: []` — навыки запрещены;
+- `skills: ["a", "b"]` — режим списка разрешённых.
 
-This filter is normalized and passed into snapshot generation as `skillFilter`.
+Этот фильтр нормализуется и передаётся в построение снимка как `skillFilter`.
 
-In practice this is the key UX distinction:
-- Discovery/readiness is global + workspace-derived.
-- “Can this specific agent use it?” is per-agent allowlist.
+На практике это ключевое различие для UX:
+- обнаружение и готовность — глобальные и зависят от рабочего пространства;
+- «может ли этот конкретный агент им пользоваться?» — решает список разрешённых для каждого агента.
 
-## 7) Snapshot + prompt lifecycle
+## 7) Снимок и жизненный цикл промпта
 
-Skills are snapshotted into session state (`skillsSnapshot`) to avoid re-scanning every turn.
+Навыки сохраняются снимком в состояние сессии (`skillsSnapshot`), чтобы не сканировать их заново на каждом ходе.
 
-Snapshot contains:
-- prebuilt prompt block
-- lightweight skill metadata (`name`, `primaryEnv`, required env names)
-- normalized `skillFilter`
-- resolved skills list
-- version
+Снимок содержит:
+- заранее собранный блок промпта;
+- облегчённые метаданные навыков (`name`, `primaryEnv`, имена нужных переменных окружения);
+- нормализованный `skillFilter`;
+- итоговый список навыков;
+- версию.
 
-Lifecycle:
-1. First turn/new session builds snapshot.
-2. File watcher / remote-node events bump snapshot version.
-3. Later turns refresh snapshot only if version is newer.
-4. Prompt injection uses snapshot prompt when present.
+Жизненный цикл:
+1. Первый ход или новая сессия строит снимок.
+2. События наблюдателя за файлами или удалённого узла повышают версию снимка.
+3. Последующие ходы обновляют снимок, только если его версия новее.
+4. При внедрении в промпт используется промпт из снимка, если он есть.
 
-Watcher scope includes:
-- workspace `skills/`
-- workspace `.agents/skills`
-- `~/.openclaw/skills`
-- `~/.agents/skills`
-- configured extra dirs
-- plugin skill dirs
+Наблюдатель следит за:
+- `skills/` рабочего пространства;
+- `.agents/skills` рабочего пространства;
+- `~/.openclaw/skills`;
+- `~/.agents/skills`;
+- настроенными дополнительными каталогами;
+- каталогами навыков плагинов.
 
-Watcher monitors `SKILL.md` patterns (not entire trees) and debounces changes.
+Наблюдатель отслеживает шаблоны `SKILL.md` (а не деревья целиком) и сглаживает изменения с задержкой (debounce).
 
-## 8) Runtime execution behavior
+## 8) Поведение во время выполнения
 
-During an agent run:
-1. Skill env overrides are applied (`skills.entries.*.env` + `apiKey` mapping to `primaryEnv`).
-2. Overrides are sanitized/guarded (dangerous host env keys blocked).
-3. Skills prompt is injected.
-4. Environment is restored after run.
+Во время запуска агента:
+1. Применяются переопределения окружения навыков (`skills.entries.*.env` и сопоставление `apiKey` с `primaryEnv`).
+2. Переопределения очищаются и проверяются (опасные ключи окружения хоста блокируются).
+3. В промпт внедряются навыки.
+4. После запуска окружение восстанавливается.
 
-Invocation behavior:
-- `disable-model-invocation: true` keeps skill out of model prompt.
-- `user-invocable: true` exposes slash commands.
-- Optional direct tool dispatch can bypass model routing.
+Поведение вызова:
+- `disable-model-invocation: true` не пускает навык в промпт модели.
+- `user-invocable: true` открывает слеш-команды.
+- Необязательная прямая передача инструменту может обходить маршрутизацию через модель.
 
-Sandbox nuance:
-- For non-`rw` sandbox workspaces, OpenClaw syncs skills into sandbox workspace (best-effort) so skill files remain accessible.
+Нюанс песочницы:
+- Для рабочих пространств песочницы без режима `rw` OpenClaw синхронизирует навыки в рабочее пространство песочницы (по мере возможности), чтобы файлы навыков оставались доступными.
 
-## 9) Gateway API surface for skills
+## 9) API шлюза для навыков
 
-Core RPC methods:
-- `skills.status` -> returns `SkillStatusReport` for an agent workspace.
-- `skills.install` -> installs dependencies for a skill install option.
-- `skills.update` -> updates `skills.entries.<skillKey>` config (`enabled`, `apiKey`, `env`).
-- `skills.bins` -> aggregates required bins across agent workspaces.
+Основные RPC-методы:
+- `skills.status` → возвращает `SkillStatusReport` для рабочего пространства агента.
+- `skills.install` → устанавливает зависимости для варианта установки навыка.
+- `skills.update` → обновляет конфигурацию `skills.entries.<skillKey>` (`enabled`, `apiKey`, `env`).
+- `skills.bins` → собирает нужные бинарники по рабочим пространствам агентов.
 
-Important scope behavior:
-- `skills.install` is executed against the default agent workspace (not arbitrary selected agent workspace).
-- `skills.update` writes gateway config (`openclaw.json`) and is gateway-wide state mutation.
+Важное поведение областей действия:
+- `skills.install` выполняется в рабочем пространстве агента по умолчанию (а не в произвольно выбранном рабочем пространстве агента).
+- `skills.update` записывает конфигурацию шлюза (`openclaw.json`) и меняет состояние всего шлюза.
 
-Security detail:
-- `skills.status` exposes config check satisfaction, not raw secret config values.
+Детали безопасности:
+- `skills.status` показывает, выполнены ли проверки конфигурации, но не сами секретные значения.
 
-## 10) Office3D UX (current behavior)
+## 10) UX в Office3D (текущее поведение)
 
-### 10.1 Route and navigation model
+### 10.1 Маршруты и навигация
 
-Studio settings currently live on root route with a query-driven settings mode:
-- Canonical settings state is `/?settingsAgentId=<agentId>`.
-- `/agents/[agentId]/settings` currently redirects to that query route.
+Настройки Studio сейчас живут на корневом маршруте в режиме, который управляется параметрами запроса:
+- Каноническое состояние настроек — `/?settingsAgentId=<agentId>`.
+- `/agents/[agentId]/settings` сейчас перенаправляет на этот маршрут с параметрами.
 
-Left nav tabs in settings mode:
-- Behavior
-- Capabilities
-- Skills
-- Automations
-- Advanced
+Вкладки левой навигации в режиме настроек:
+- «Поведение»
+- «Возможности»
+- «Навыки»
+- «Автоматизации»
+- «Дополнительно»
 
-### 10.2 Skills tab data and interactions
+### 10.2 Данные и взаимодействия на вкладке «Навыки»
 
-When either `Skills` or `System setup` tab is active and connected, Studio:
-1. Calls `skills.status`.
-2. Reads current per-agent allowlist from gateway config (`agents.list[].skills`).
-3. Renders two distinct settings surfaces:
+Когда активна вкладка «Навыки» или «Настройка системы» и есть подключение, Studio:
+1. Вызывает `skills.status`.
+2. Читает текущий список разрешённых навыков агента из конфигурации шлюза (`agents.list[].skills`).
+3. Показывает две отдельные поверхности настроек.
 
-`Skills` tab (agent-scoped):
-- Shows one list focused on “what this agent can use”.
-- Per-skill allow toggle (`Skill <name>` switch) for agent access only.
-- Simplified status chips (`Ready`, `Setup required`, `Not supported`).
-- Search + status filters for scanning.
-- Non-ready rows provide `Open System Setup` instead of inline setup actions.
+Вкладка «Навыки» (на уровне агента):
+- Показывает один список, сосредоточенный на том, «чем может пользоваться этот агент».
+- Переключатель доступа для каждого навыка (переключатель «Навык <name>») — только для доступа агента.
+- Упрощённые метки статуса («Готов», «Нужна настройка», «Не поддерживается»).
+- Поиск и фильтры по статусу для быстрого просмотра.
+- Для неготовых строк вместо встроенных действий настройки есть кнопка «Открыть системную настройку».
 
-`System setup` tab (gateway-scoped):
-- Explicitly states that setup actions affect all agents.
-- Shows setup queue and full readiness details.
-- Per-skill `Configure` modal with setup/lifecycle actions:
-  - install dependencies (`skills.install`)
-  - save API key (`skills.update` with `apiKey`)
-  - global enable/disable (`skills.update` with `enabled`)
-  - remove removable skill directories via Studio remove route
-- Supports transition handoff from agent row to preselected skill setup context.
+Вкладка «Настройка системы» (на уровне шлюза):
+- Явно говорит, что действия настройки влияют на всех агентов.
+- Показывает очередь настройки и полные сведения о готовности.
+- Модальное окно «Параметры» для каждого навыка с действиями настройки и жизненного цикла:
+  - установка зависимостей (`skills.install`);
+  - сохранение API-ключа (`skills.update` с `apiKey`);
+  - глобальное включение/выключение (`skills.update` с `enabled`);
+  - удаление удаляемых каталогов навыков через маршрут удаления Studio.
+- Поддерживает переход из строки агента сразу в контекст настройки выбранного навыка.
 
-### 10.3 Mutation wiring from Studio
+### 10.3 Как Studio вносит изменения
 
-Per-agent access mutations:
-- `updateGatewayAgentSkillsAllowlist` in Studio writes `config.set` with retry-on-stale-hash behavior.
-- Agent toggles continue to rely on allowlist semantics (`undefined` means all, explicit array means selected-only).
+Изменения доступа для отдельного агента:
+- `updateGatewayAgentSkillsAllowlist` в Studio записывает `config.set` с повтором при устаревшем хеше.
+- Переключатели агента по-прежнему опираются на семантику списка разрешённых (`undefined` означает все, явный массив — только выбранные).
 
-System setup mutations:
-- Install -> `skills.install`
-- API key save -> `skills.update`
-- Remove files -> Studio route `/api/gateway/skills/remove` (local fs or SSH helper)
+Изменения в системной настройке:
+- Установка → `skills.install`
+- Сохранение API-ключа → `skills.update`
+- Удаление файлов → маршрут Studio `/api/gateway/skills/remove` (локальная ФС или SSH-помощник)
 
-Removal has strict guards:
-- Only specific sources removable (`openclaw-managed`, `openclaw-workspace`).
-- Must stay inside allowed root.
-- Cannot remove skills root directory.
-- Must look like a real skill dir (`SKILL.md` exists).
+У удаления строгие защиты:
+- Удалять можно только навыки из определённых источников (`openclaw-managed`, `openclaw-workspace`).
+- Путь должен оставаться внутри разрешённого корня.
+- Нельзя удалить корневой каталог навыков.
+- Каталог должен выглядеть как настоящий каталог навыка (в нём есть `SKILL.md`).
 
-### 10.4 Scope warning shown in Studio
+### 10.4 Предупреждение об области действия в Studio
 
-Studio computes the default agent id and passes install-scope context into the system setup surface.
+Studio вычисляет ID агента по умолчанию и передаёт контекст области установки в поверхность системной настройки.
 
-Current scope copy behavior:
-- `Skills` tab copy states controls apply to the current agent.
-- `System setup` tab copy states actions apply to all agents.
-- Install target caveat (default-agent workspace behavior) is shown in system setup context and setup modal context, where install actions actually occur.
+Текущие тексты об области действия:
+- На вкладке «Навыки» сказано, что элементы управления относятся к текущему агенту.
+- На вкладке «Настройка системы» сказано, что действия влияют на всех агентов.
+- Оговорка о цели установки (поведение с рабочим пространством агента по умолчанию) показывается в контексте системной настройки и в модальном окне настройки — там, где действительно происходит установка.
 
-This keeps scope and install-target warnings accurate while minimizing noise in the agent access flow.
+Так предупреждения об области действия и цели установки остаются точными, а поток управления доступом агента не перегружается лишним.
 
-## 11) What recent `.agent/done` plans show
+## 11) Что показывают последние планы в `.agent/done`
 
-Sorted by most recent creation time in `office3d/.agent/done`, the latest items are mostly bugfix exec plans (streaming, proxy auth, stale config, cron rollback, etc.).
+Если отсортировать `office3d/.agent/done` по времени создания, последние элементы — в основном планы исправления ошибок (стриминг, авторизация прокси, устаревшая конфигурация, откат задач по расписанию и т. д.).
 
-The most recent plan with explicit skills direction is:
-- `ui-execplan-stuff.md` (2026-02-20 create time), which intentionally scoped skills as coming-soon during that IA pass.
+Самый свежий план с явным направлением по навыкам:
+- `ui-execplan-stuff.md` (создан 2026-02-20), в котором навыки во время той переработки информационной архитектуры намеренно были помечены как «скоро будет».
 
-Additional files with incidental skill mentions:
+Другие файлы, где навыки упоминаются мимоходом:
 - `simplify-agent-creation-starter-kits.md`
 - `ux-zero-agent-layout-consolidation.md`
 
-Interpretation:
-- The current Studio code now has a real Skills tab and mutation flow, but the older IA/doc language still contains “coming soon” assumptions in places.
-- For redesign, trust current code behavior over older plan phrasing.
+Вывод:
+- В текущем коде Studio уже есть настоящая вкладка «Навыки» и процесс изменения, но в старых текстах об информационной архитектуре и документации местами ещё остались допущения «скоро будет».
+- При редизайне доверяйте текущему поведению кода, а не формулировкам старых планов.
 
-## 12) UX redesign constraints that are not optional
+## 12) Обязательные ограничения для редизайна UX
 
-Any redesign should preserve these distinctions:
+Любой редизайн должен сохранить эти различия:
 
-1. Three separate scopes:
-- Agent allowlist scope (`agents.list[].skills`)
-- Gateway setup scope (`skills.entries.*`, installs)
-- Source/discovery scope (workspace/managed/bundled/extra/plugin)
+1. Три отдельные области действия:
+- область списка разрешённых для агента (`agents.list[].skills`);
+- область настройки шлюза (`skills.entries.*`, установки);
+- область источников и обнаружения (workspace/managed/bundled/extra/plugin).
 
-2. Eligibility vs enablement:
-- A skill can be enabled by allowlist but still blocked by missing requirements.
-- A skill can be eligible but disabled by agent allowlist.
+2. Пригодность и включение — разные вещи:
+- Навык может быть включён списком разрешённых, но всё равно заблокирован невыполненными требованиями.
+- Навык может быть пригоден, но выключен списком разрешённых агента.
 
-3. Session-snapshot behavior:
-- Skills changes may not appear mid-turn; they apply on next turn/snapshot refresh.
+3. Поведение снимка сессии:
+- Изменения навыков могут не проявиться посреди хода; они применяются на следующем ходе или при обновлении снимка.
 
-4. Install target caveat:
-- Install currently targets default agent workspace context in gateway path.
+4. Оговорка о цели установки:
+- Установка сейчас нацелена на контекст рабочего пространства агента по умолчанию в пути через шлюз.
 
-5. Security posture:
-- Secret values should never be exposed in status surfaces.
-- Removal must stay bounded to allowed roots and verified skill dirs.
+5. Безопасность:
+- Секретные значения никогда не должны показываться в поверхностях статуса.
+- Удаление должно ограничиваться разрешёнными корнями и проверенными каталогами навыков.
 
-## 13) Practical mental model for reviewing a Skills screenshot
+## 13) Практическая модель для оценки скриншота навыков
 
-If you hand a screenshot to another LLM for UX feedback, ask it to evaluate on three axes:
+Если вы передаёте скриншот другой LLM для отзыва о UX, попросите её оценить его по трём осям:
 
-1. **Scope clarity**
-- Can a user tell what is per-agent vs gateway-wide?
+1. **Понятность области действия**
+- Может ли пользователь понять, что относится к отдельному агенту, а что — ко всему шлюзу?
 
-2. **Readiness clarity**
-- Can a user tell blocked vs eligible and why?
+2. **Понятность готовности**
+- Может ли пользователь отличить заблокированный навык от пригодного и понять почему?
 
-3. **Action safety**
-- Are destructive/setup actions clearly separated from allowlist toggles?
+3. **Безопасность действий**
+- Чётко ли разрушительные действия и действия настройки отделены от переключателей списка разрешённых?
 
-If a design fails any of those axes, users will misconfigure skills even if controls are technically correct.
+Если дизайн проваливается хотя бы по одной из этих осей, пользователи будут неправильно настраивать навыки, даже если элементы управления технически работают верно.
