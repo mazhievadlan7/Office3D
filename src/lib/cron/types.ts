@@ -1,5 +1,5 @@
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 export type CronSchedule =
   | { kind: "at"; at: string }
@@ -116,7 +116,7 @@ export const formatCronSchedule = (schedule: CronSchedule) => {
   }
   const atDate = new Date(schedule.at);
   if (Number.isNaN(atDate.getTime())) return t("libCron.scheduleAt", { at: schedule.at });
-  return t("libCron.scheduleAt", { at: atDate.toLocaleString() });
+  return t("libCron.scheduleAt", { at: atDate.toLocaleString(LOCALE) });
 };
 
 export const formatCronPayload = (payload: CronPayload) => {

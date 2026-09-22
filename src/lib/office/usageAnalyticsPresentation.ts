@@ -1,5 +1,7 @@
 "use client";
 
+import { LOCALE } from "@/lib/i18n";
+
 export const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
 
 export const getDefaultUsageAnalyticsRange = () => {
@@ -14,7 +16,7 @@ export const getDefaultUsageAnalyticsRange = () => {
 
 export const formatCurrency = (value: number | null | undefined) => {
   const amount = value ?? 0;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(LOCALE, {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: amount < 10 ? 2 : 0,
@@ -23,4 +25,4 @@ export const formatCurrency = (value: number | null | undefined) => {
 };
 
 export const formatNumber = (value: number | null | undefined) =>
-  new Intl.NumberFormat("en-US").format(value ?? 0);
+  new Intl.NumberFormat(LOCALE).format(value ?? 0);

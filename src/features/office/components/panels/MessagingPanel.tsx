@@ -4,7 +4,7 @@ import { AlertTriangle, MessageSquareText, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { OfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 import type { MessageRecord } from "@/lib/messaging/types";
 
 /**
@@ -29,7 +29,7 @@ export type MessagingAgent = {
 
 const formatTime = (iso: string): string => {
   const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? "" : at.toLocaleString();
+  return Number.isNaN(at.getTime()) ? "" : at.toLocaleString(LOCALE);
 };
 
 export function MessagingPanel({

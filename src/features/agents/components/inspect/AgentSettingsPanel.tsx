@@ -26,7 +26,7 @@ import type { CronCreateDraft, CronCreateTemplateId } from "@/lib/cron/createPay
 import { formatCronPayload, formatCronSchedule, type CronJobSummary } from "@/lib/cron/types";
 import type { SkillStatusReport } from "@/lib/skills/types";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 export type AgentSettingsPanelProps = {
   agent: AgentState;
@@ -83,11 +83,11 @@ const formatCronStateLine = (job: CronJobSummary): string | null => {
     return t("agentSettings.runningNow");
   }
   if (typeof job.state.nextRunAtMs === "number" && Number.isFinite(job.state.nextRunAtMs)) {
-    return t("agentSettings.nextRun", { when: new Date(job.state.nextRunAtMs).toLocaleString() });
+    return t("agentSettings.nextRun", { when: new Date(job.state.nextRunAtMs).toLocaleString(LOCALE) });
   }
   if (typeof job.state.lastRunAtMs === "number" && Number.isFinite(job.state.lastRunAtMs)) {
     const status = job.state.lastStatus ? `${job.state.lastStatus} ` : "";
-    return t("agentSettings.lastRun", { status, when: new Date(job.state.lastRunAtMs).toLocaleString() }).trim();
+    return t("agentSettings.lastRun", { status, when: new Date(job.state.lastRunAtMs).toLocaleString(LOCALE) }).trim();
   }
   return null;
 };

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { AgentState } from "@/features/agents/state/store";
 import type { RunRecord, RunTriggerKind } from "@/features/office/hooks/useRunLog";
 import { t } from "@/lib/i18n";
+import { formatDurationShort } from "@/lib/text/duration";
 
 const formatClockTime = (timestampMs: number) =>
   new Date(timestampMs).toLocaleTimeString([], {
@@ -16,13 +17,7 @@ const formatDuration = (startedAt: number, endedAt: number | null) => {
   const deltaMs = Math.max(0, (endedAt ?? Date.now()) - startedAt);
   const seconds = Math.floor(deltaMs / 1000);
   if (!endedAt) return t("history.runningFor", { seconds: Math.max(1, seconds) });
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  return formatDurationShort(seconds);
 };
 
 const TRIGGER_LABELS: Record<RunTriggerKind, string> = {

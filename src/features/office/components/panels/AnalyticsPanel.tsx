@@ -15,25 +15,17 @@ import {
   formatNumber,
 } from "@/lib/office/usageAnalyticsPresentation";
 import type { StudioSettingsCoordinator } from "@/lib/studio/coordinator";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
+import { formatDurationShort } from "@/lib/text/duration";
 
 const formatPercent = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return "n/a";
+  if (value === null || value === undefined) return t("common.notAvailable");
   return `${Math.round(value * 100)}%`;
 };
 
 const formatDuration = (valueMs: number | null | undefined) => {
-  if (!valueMs) return "n/a";
-  const seconds = Math.round(valueMs / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) {
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  if (!valueMs) return t("common.notAvailable");
+  return formatDurationShort(valueMs / 1000);
 };
 
 const formatBudgetInput = (value: number | null) => (value === null ? "" : String(value));
@@ -187,7 +179,7 @@ export function AnalyticsPanel({
           <div className="font-mono text-[10px] text-white/35">
             {usage.lastRefreshedAt
               ? t("analytics.lastRefresh", {
-                  time: new Date(usage.lastRefreshedAt).toLocaleTimeString(),
+                  time: new Date(usage.lastRefreshedAt).toLocaleTimeString(LOCALE),
                 })
               : t("analytics.noSnapshot")}
           </div>

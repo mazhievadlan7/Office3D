@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { RuntimeAgentMessageMode } from "@/lib/runtime/agentMessaging";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 export type RemoteAgentChatMessage = {
   id: string;
@@ -39,7 +39,7 @@ type RemoteAgentChatPanelProps = {
 };
 
 const formatTimestamp = (timestampMs: number) =>
-  new Intl.DateTimeFormat(undefined, {
+  new Intl.DateTimeFormat(LOCALE, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,

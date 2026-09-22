@@ -22,7 +22,7 @@ import {
 } from "@/lib/skills/marketplace";
 import { buildAgentSkillsAllowlistSet, deriveAgentSkillsAccessMode } from "@/lib/skills/presentation";
 import { SkillRegistryBrowser } from "./SkillRegistryBrowser";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 /** "registry" is not a local collection — it browses the remote sources. */
 type MarketplaceFilter = "all" | SkillMarketplaceCollectionId | "registry";
@@ -66,7 +66,7 @@ const formatInstalls = (value: number | undefined) => {
   if (installs >= 1000) {
     return `${(installs / 1000).toFixed(1)}k`;
   }
-  return new Intl.NumberFormat("en-US").format(installs);
+  return new Intl.NumberFormat(LOCALE).format(installs);
 };
 
 const buildSearchBlob = (entry: SkillMarketplaceEntry): string => {

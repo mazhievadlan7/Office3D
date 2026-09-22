@@ -12,7 +12,7 @@ import {
   formatNumber,
   toDateInputValue,
 } from "@/lib/office/usageAnalyticsPresentation";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 const PIN_STORAGE_KEY = "openclaw_atm_pin_code";
 
@@ -255,7 +255,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
             </div>
             <div className="mt-4 rounded-2xl border border-[#7dfff0]/12 bg-[#031314]/80 px-4 py-3 text-[12px] uppercase tracking-[0.18em] text-[#9ffef0]/76">
               {usage.lastRefreshedAt
-                ? t("atm.lastRefresh", { time: new Date(usage.lastRefreshedAt).toLocaleTimeString() })
+                ? t("atm.lastRefresh", { time: new Date(usage.lastRefreshedAt).toLocaleTimeString(LOCALE) })
                 : settingsLoaded
                   ? t("atm.awaitingSnapshot")
                   : t("atm.loadingPreferences")}
@@ -467,7 +467,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
                   primary={t("atm.costAndTokens", { cost: formatCurrency(session.usage.totals.totalCost), tokens: formatNumber(session.usage.totals.totalTokens) })}
                   secondary={`${session.provider ?? t("atm.unknown")} / ${session.model ?? t("atm.unknown")} · ${
                     session.updatedAt
-                      ? new Date(session.updatedAt).toLocaleString()
+                      ? new Date(session.updatedAt).toLocaleString(LOCALE)
                       : t("atm.noTimestamp")
                   }`}
                 />

@@ -33,10 +33,10 @@ import {
   type AssistantTraceEvent,
   type AgentChatItem,
 } from "./chatItems";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 const formatChatTimestamp = (timestampMs: number): string => {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(LOCALE, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -216,7 +216,7 @@ type AgentChatPanelProps = {
 
 const formatApprovalExpiry = (timestampMs: number): string => {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) return t("chat.unknown");
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(LOCALE, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

@@ -17,6 +17,13 @@ import { ru } from "@/lib/i18n/ru";
 
 export type TranslationKey = keyof typeof ru;
 
+/**
+ * The locale for dates, times and numbers the interface shows. Fixed, like the
+ * language: a Russian interface should not print «3:00 PM» because the browser
+ * happens to be set to English.
+ */
+export const LOCALE = "ru-RU";
+
 export type TranslationVars = Record<string, string | number>;
 
 const PLACEHOLDER = /\{(\w+)\}/g;

@@ -615,6 +615,7 @@ export const ru = {
   // --- Общее ---------------------------------------------------------------
   "common.close": "Закрыть",
   "common.copied": "Скопировано",
+  "common.notAvailable": "н/д",
   "common.notConfigured": "не настроено",
   "common.refresh": "Обновить",
   "common.send": "Отправить",

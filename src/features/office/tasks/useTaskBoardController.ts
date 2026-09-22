@@ -55,7 +55,7 @@ import {
 } from "@/lib/tasks/shared-store-client";
 import type { SharedTaskRecord } from "@/lib/tasks/shared-store";
 import { randomUUID } from "@/lib/uuid";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 const TASK_EVENT_NAMES = new Set([
   "task_created",
@@ -642,7 +642,7 @@ const buildActiveRunOptions = (runs: RunRecord[]) =>
       agentId: run.agentId,
       label: `${run.agentName} · ${run.trigger.toUpperCase()} · ${new Date(
         run.startedAt,
-      ).toLocaleTimeString()}`,
+      ).toLocaleTimeString(LOCALE)}`,
     }));
 
 export const useTaskBoardController = ({

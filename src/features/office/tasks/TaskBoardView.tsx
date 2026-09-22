@@ -6,7 +6,7 @@ import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { AgentState } from "@/features/agents/state/store";
 import type { CronJobSummary } from "@/lib/cron/types";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 const STATUS_LABELS: Record<TaskBoardStatus, string> = {
   todo: t("taskboard.statusTodo"),
@@ -433,8 +433,8 @@ export function TaskBoardView({
 
               <div className="space-y-2 rounded border border-white/8 bg-white/[0.03] px-3 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">
                 <div>{t("taskboard.source", { value: selectedCard.source.replaceAll("_", " ") })}</div>
-                <div>{t("taskboard.created", { value: new Date(selectedCard.createdAt).toLocaleString() })}</div>
-                <div>{t("taskboard.updated", { value: new Date(selectedCard.updatedAt).toLocaleString() })}</div>
+                <div>{t("taskboard.created", { value: new Date(selectedCard.createdAt).toLocaleString(LOCALE) })}</div>
+                <div>{t("taskboard.updated", { value: new Date(selectedCard.updatedAt).toLocaleString(LOCALE) })}</div>
               </div>
 
               <button

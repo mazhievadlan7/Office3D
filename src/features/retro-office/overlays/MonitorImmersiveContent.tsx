@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { shouldPreferBrowserScreenshot } from "@/lib/office/browserPreview";
 import type { OfficeDeskMonitor } from "@/lib/office/deskMonitor";
-import { t } from "@/lib/i18n";
+import { LOCALE, t } from "@/lib/i18n";
 
 type BrowserPreviewSnapshot = {
   mediaUrl: string | null;
@@ -252,7 +252,7 @@ function MonitorBrowserContent({
                 {browserPreview.loading
                   ? t("monitor.refreshing")
                   : browserPreview.capturedAt
-                    ? t("monitor.screenshotAt", { time: new Date(browserPreview.capturedAt).toLocaleTimeString() })
+                    ? t("monitor.screenshotAt", { time: new Date(browserPreview.capturedAt).toLocaleTimeString(LOCALE) })
                     : t("monitor.screenshotFallback")}
               </div>
             </div>
