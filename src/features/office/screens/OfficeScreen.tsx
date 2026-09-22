@@ -214,6 +214,7 @@ import {
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -255,10 +256,10 @@ const createDemoMainAgentSeed = (): {
   showThinkingTraces: boolean;
 } => ({
   agentId: MAIN_AGENT_ID,
-  name: "Main",
-  runtimeName: "Office3D Demo",
-  identityName: "Main",
-  sessionDisplayName: "Main",
+  name: t("office.mainAgentName"),
+  runtimeName: t("office.demoRuntime"),
+  identityName: t("office.mainAgentName"),
+  sessionDisplayName: t("office.mainAgentName"),
   role: "assistant",
   sessionKey: DEMO_MAIN_SESSION_KEY,
   avatarSeed: MAIN_AGENT_ID,
@@ -366,8 +367,8 @@ const formatOpenClawValue = (value: string | null | undefined) => {
   return trimmed || "-";
 };
 
-const buildPhoneCallOutputLine = (text: string) => `[phone booth] ${text}`;
-const buildTextMessageOutputLine = (text: string) => `[messaging booth] ${text}`;
+const buildPhoneCallOutputLine = (text: string) => t("office.phoneBoothLine", { text });
+const buildTextMessageOutputLine = (text: string) => t("office.smsBoothLine", { text });
 
 const buildIdentityFileDraft = (identity: AgentIdentityValues) => {
   const draft = createEmptyPersonalityDraft();
@@ -380,18 +381,18 @@ const buildIdentityFileDraft = (identity: AgentIdentityValues) => {
 
 const resolveOfficeMutationGuardMessage = (guardReason?: string) => {
   if (guardReason === "not-connected") {
-    return "Connect to the gateway before changing the office fleet.";
+    return t("office.fleetNeedsGateway");
   }
   if (guardReason === "create-block-active") {
-    return "Finish the active agent creation before starting another fleet change.";
+    return t("office.fleetBusyCreate");
   }
   if (guardReason === "rename-block-active") {
-    return "Finish the active rename before changing the office fleet.";
+    return t("office.fleetBusyRename");
   }
   if (guardReason === "delete-block-active") {
-    return "Finish the active deletion before changing the office fleet.";
+    return t("office.fleetBusyDelete");
   }
-  return "The office fleet is busy right now.";
+  return t("office.fleetBusy");
 };
 
 const PHONE_BOOTH_ASSISTANT_FALLBACK_RE =
@@ -424,7 +425,7 @@ const safeJsonStringify = (value: unknown) => {
   try {
     return JSON.stringify(value, null, 2) ?? String(value);
   } catch (error) {
-    return `[unserializable payload: ${error instanceof Error ? error.message : "unknown error"}]`;
+    return t("office.unserializable", { error: error instanceof Error ? error.message : t("office.unknownError") });
   }
 };
 
@@ -559,7 +560,7 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
   if (agent.status === "error") {
     return {
       id: agent.agentId,
-      name: agent.name || "Unknown",
+      name: agent.name || t("office.unknownAgent"),
       subtitle: agent.role ?? null,
       status: "error",
       color: stringToColor(agent.agentId),
@@ -570,7 +571,7 @@ const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
   const isWorking = agent.status === "running" || Boolean(agent.runId);
   return {
     id: agent.agentId,
-    name: agent.name || "Unknown",
+    name: agent.name || t("office.unknownAgent"),
     subtitle: agent.role ?? null,
     status: isWorking ? "working" : "idle",
     color: stringToColor(agent.agentId),
@@ -588,7 +589,7 @@ const mapRemotePresenceAgentToOffice = (agent: {
   const isWorking = agent.state === "working" || agent.state === "meeting";
   return {
     id: stableId,
-    name: agent.name || "Unknown",
+    name: agent.name || t("office.unknownAgent"),
     status: agent.state === "error" ? "error" : isWorking ? "working" : "idle",
     color: stringToColor(stableId),
     item: getDeterministicItem(stableId),
@@ -1989,14 +1990,14 @@ export function OfficeScreen({
   const runCompanyBuilderAiTask = useCallback(
     async (prompt: string, statusText: string) => {
       if (status !== "connected") {
-        throw new Error("Connect to a runtime before using the company builder.");
+        throw new Error(t("office.companyNeedsRuntime"));
       }
       const livePlannerAgent = resolveCompanyPlanningAgent({
         agents: stateRef.current.agents,
         preferredAgentId: selectedChatAgentId ?? state.selectedAgentId,
       });
       if (!livePlannerAgent) {
-        throw new Error("Create or load at least one agent before using AI suggestions.");
+        throw new Error(t("office.companyNeedsAgent"));
       }
       setCompanyBuilderStatusLine(statusText);
       return runOpenClawPlanningPrompt({
@@ -2017,7 +2018,7 @@ export function OfficeScreen({
       try {
         const improvedBrief = await runCompanyBuilderAiTask(
           buildImproveCompanyBriefPrompt(brief),
-          "Improving your company brief with the connected runtime.",
+          t("office.improvingBrief"),
         );
         setCompanyBuilderInput((current) => ({
           ...current,
@@ -2027,7 +2028,7 @@ export function OfficeScreen({
         return improvedBrief;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to improve the company brief.";
+          error instanceof Error ? error.message : t("office.improveBriefFailed");
         setCompanyBuilderError(message);
         throw error;
       } finally {
@@ -2044,7 +2045,7 @@ export function OfficeScreen({
       try {
         const response = await runCompanyBuilderAiTask(
           buildGenerateCompanyPlanPrompt(brief),
-          "Generating your AI company structure with the connected runtime.",
+          t("office.generatingPlan"),
         );
         const parsedPlan = parseCompanyPlanFromAssistantText(response);
         const nextInput: CompanyBuilderInput = {
@@ -2055,7 +2056,7 @@ export function OfficeScreen({
         return parsedPlan;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to generate the company plan.";
+          error instanceof Error ? error.message : t("office.generatePlanFailed");
         setCompanyBuilderError(message);
         throw error;
       } finally {
@@ -2077,7 +2078,7 @@ export function OfficeScreen({
   const handleCreateCompanyFromPlan = useCallback(
     async (params: { input: CompanyBuilderInput; plan: CompanyBuilderPlan }) => {
       if (status !== "connected") {
-        const message = "Connect to a runtime before creating the company.";
+        const message = t("office.createCompanyNeedsRuntime");
         setCompanyBuilderError(message);
         throw new Error(message);
       }
@@ -2190,7 +2191,7 @@ export function OfficeScreen({
         setCompanyBuilderOpen(false);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to create the company.";
+          error instanceof Error ? error.message : t("office.createCompanyFailed");
         setCompanyBuilderError(message);
         throw error;
       } finally {
@@ -2211,16 +2212,16 @@ export function OfficeScreen({
   const createAgentStatusLine = useMemo(() => {
     if (!createAgentBlock) return null;
     if (createAgentBlock.phase === "queued") {
-      return "Waiting for active runs to finish before creating the new agent.";
+      return t("office.waitingRunsCreate");
     }
-    return `Creating ${createAgentBlock.agentName}.`;
+    return t("office.creatingAgent", { name: createAgentBlock.agentName });
   }, [createAgentBlock]);
   const deleteAgentStatusLine = useMemo(() => {
     if (!deleteAgentBlock) return null;
     if (deleteAgentBlock.phase === "queued") {
-      return `Waiting for active runs to finish before deleting ${deleteAgentBlock.agentName}.`;
+      return t("office.waitingRunsDelete", { name: deleteAgentBlock.agentName });
     }
-    return `Deleting ${deleteAgentBlock.agentName}.`;
+    return t("office.deletingAgent", { name: deleteAgentBlock.agentName });
   }, [deleteAgentBlock]);
   const handleCreateAgentFromIdentity = useCallback(
     async (identity: AgentIdentityValues) => {
@@ -2289,9 +2290,9 @@ export function OfficeScreen({
                 const message =
                   error instanceof Error
                     ? error.message
-                    : "Failed to apply default permissions.";
+                    : t("office.permissionsFailed");
                 setError(
-                  `Agent created, but default permissions could not be applied: ${message}`,
+                  t("office.createdWithoutPermissions", { message }),
                 );
               }
             }
@@ -2348,7 +2349,7 @@ export function OfficeScreen({
             name: nextName,
           });
           if (!renamed) {
-            throw new Error("Saved the wizard files, but could not rename the live agent.");
+            throw new Error(t("office.wizardRenameFailed"));
           }
         }
         handleAvatarProfileSave(params.agentId, params.profile);
@@ -2358,7 +2359,7 @@ export function OfficeScreen({
         openAgentEditor(params.agentId, "IDENTITY.md");
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to finish creating the agent.";
+          error instanceof Error ? error.message : t("office.finishCreateFailed");
         setCreateAgentModalError(message);
       } finally {
         setCreateAgentBusy(false);
@@ -2391,13 +2392,13 @@ export function OfficeScreen({
       );
       if (!agent) return;
       const confirmed = window.confirm(
-        `Delete ${agent.name}? This removes the agent record from OpenClaw and clears its scheduled automations. Office3D will not touch workspace files.`,
+        t("office.deleteConfirm", { name: agent.name }),
       );
       if (!confirmed) return;
 
       await runAgentConfigMutationLifecycle({
         kind: "delete-agent",
-        label: `Delete ${agent.name}`,
+        label: t("office.deleteTitle", { name: agent.name }),
         isLocalGateway: false,
         deps: {
           enqueueConfigMutation,
@@ -2492,7 +2493,7 @@ export function OfficeScreen({
       });
       setCreateAgentBusy(false);
       setCreateAgentWizardOpen(false);
-      setError("Agent creation timed out.");
+      setError(t("agents.createTimedOut"));
       void loadAgents({ forceSettings: true });
     }, remaining);
     return () => {
@@ -2786,7 +2787,7 @@ export function OfficeScreen({
         [
           {
             id: agent.agentId,
-            name: agent.name || "Agent",
+            name: agent.name || t("office.agentFallback"),
             text: previewText,
             ts: previewTs,
             kind: "reply" as const,
@@ -2823,12 +2824,12 @@ export function OfficeScreen({
               patch.status === "running" || Boolean(patch.runId);
             if (isNowWorking !== wasWorking) {
               prevWorkingRef.current[agentId] = isNowWorking;
-              const text = isNowWorking ? "started working" : "went idle";
+              const text = isNowWorking ? t("office.startedWorking") : t("office.wentIdle");
               setFeedEvents((prev) =>
                 [
                   {
                     id: agentId,
-                    name: agent.name || "Agent",
+                    name: agent.name || t("office.agentFallback"),
                     text,
                     ts: Date.now(),
                     kind: "status" as const,
@@ -3351,7 +3352,7 @@ export function OfficeScreen({
       dispatch({
         type: "appendOutput",
         agentId,
-        line: buildPhoneCallOutputLine(`What should I say to ${request.callee}?`),
+        line: buildPhoneCallOutputLine(t("office.askCallScript", { callee: request.callee })),
       });
     };
 
@@ -3418,7 +3419,7 @@ export function OfficeScreen({
         dispatch({
           type: "appendOutput",
           agentId,
-          line: buildPhoneCallOutputLine(`Call with ${request.callee} finished.`),
+          line: buildPhoneCallOutputLine(t("office.callFinished", { callee: request.callee })),
         });
       }
       setOfficeTriggerState((previous) =>
@@ -3459,7 +3460,7 @@ export function OfficeScreen({
         type: "appendOutput",
         agentId,
         line: buildTextMessageOutputLine(
-          `What should I message ${request.recipient}?`,
+          t("office.askMessageText", { recipient: request.recipient }),
         ),
       });
     };
@@ -3523,7 +3524,7 @@ export function OfficeScreen({
         dispatch({
           type: "appendOutput",
           agentId,
-          line: buildTextMessageOutputLine(`Message to ${request.recipient} sent.`),
+          line: buildTextMessageOutputLine(t("office.messageSent", { recipient: request.recipient })),
         });
       }
       setOfficeTriggerState((previous) =>
@@ -3587,7 +3588,7 @@ export function OfficeScreen({
         updateRemoteChatSession(agentId, (session) => ({
           ...session,
           sending: false,
-          error: `Remote message must be ${MAX_REMOTE_MESSAGE_CHARS} characters or fewer.`,
+          error: t("office.remoteMessageTooLong", { max: MAX_REMOTE_MESSAGE_CHARS }),
         }));
         return;
       }
@@ -3632,7 +3633,7 @@ export function OfficeScreen({
           assistantText?: string | null;
         };
         if (!response.ok) {
-          throw new Error(payload.error || "Failed to deliver the remote office message.");
+          throw new Error(payload.error || t("office.remoteDeliverFailed"));
         }
         const assistantText =
           typeof payload.assistantText === "string" ? payload.assistantText.trim() : "";
@@ -3645,7 +3646,7 @@ export function OfficeScreen({
             {
               id: randomUUID(),
               role: "system",
-              text: "Delivered to the remote agent.",
+              text: t("office.remoteDelivered"),
               timestampMs: Date.now(),
             },
             ...(assistantText
@@ -3664,7 +3665,7 @@ export function OfficeScreen({
         const messageText =
           error instanceof Error
             ? error.message
-            : "Failed to deliver the remote office message.";
+            : t("office.remoteDeliverFailed");
         updateRemoteChatSession(agentId, (session) => ({
           ...session,
           sending: false,
@@ -3674,7 +3675,7 @@ export function OfficeScreen({
             {
               id: randomUUID(),
               role: "system",
-              text: `Delivery failed: ${messageText}`,
+              text: t("office.deliveryFailed", { message: messageText }),
               timestampMs: Date.now(),
             },
           ],
@@ -3692,7 +3693,7 @@ export function OfficeScreen({
         updateRemoteChatSession(agentId, (session) => ({
           ...session,
           handoffing: false,
-          error: `Remote handoff must be ${MAX_REMOTE_MESSAGE_CHARS} characters or fewer.`,
+          error: t("office.handoffTooLong", { max: MAX_REMOTE_MESSAGE_CHARS }),
         }));
         return;
       }
@@ -3712,7 +3713,7 @@ export function OfficeScreen({
           {
             id: randomUUID(),
             role: "system",
-            text: `Handoff queued: ${trimmed}`,
+            text: t("office.handoffQueued", { text: trimmed }),
             timestampMs: sentAt,
           },
         ],
@@ -3742,15 +3743,15 @@ export function OfficeScreen({
                     .split(",")
                     .map((entry) => entry.trim())
                     .filter(Boolean)
-                : ["Acknowledge ownership", "Send the next checkpoint or blocking question"],
+                : [t("office.handoffAck"), t("office.handoffNext")],
             acceptanceCriteria:
               sessionSnapshot.handoffAcceptance.trim() ||
-              "Respond with an acknowledgement or the next concrete update.",
+              t("office.handoffAcceptance"),
           }),
         });
         const payload = (await response.json()) as { error?: string };
         if (!response.ok) {
-          throw new Error(payload.error || "Failed to deliver the remote handoff.");
+          throw new Error(payload.error || t("office.handoffFailed"));
         }
         updateRemoteChatSession(agentId, (session) => ({
           ...session,
@@ -3761,14 +3762,14 @@ export function OfficeScreen({
             {
               id: randomUUID(),
               role: "system",
-              text: "Handoff delivered to the remote agent.",
+              text: t("office.handoffDelivered"),
               timestampMs: Date.now(),
             },
           ],
         }));
       } catch (error) {
         const messageText =
-          error instanceof Error ? error.message : "Failed to deliver the remote handoff.";
+          error instanceof Error ? error.message : t("office.handoffFailed");
         updateRemoteChatSession(agentId, (session) => ({
           ...session,
           handoffing: false,
@@ -3778,7 +3779,7 @@ export function OfficeScreen({
             {
               id: randomUUID(),
               role: "system",
-              text: `Handoff failed: ${messageText}`,
+              text: t("office.handoffFailedWith", { message: messageText }),
               timestampMs: Date.now(),
             },
           ],
@@ -4008,7 +4009,7 @@ export function OfficeScreen({
       } | null;
       if (!response.ok) {
         throw new Error(
-          result?.error?.trim() || "Failed to transcribe voice input.",
+          result?.error?.trim() || t("office.transcribeFailed"),
         );
       }
       if (result?.ignored) {
@@ -4016,7 +4017,7 @@ export function OfficeScreen({
       }
       const transcript = result?.transcript?.trim() ?? "";
       if (!transcript) {
-        throw new Error("OpenClaw returned an empty transcript.");
+        throw new Error(t("office.emptyTranscript"));
       }
       return transcript;
     },
@@ -4029,7 +4030,7 @@ export function OfficeScreen({
       payload: VoiceSendPayload,
     ) => {
       if (!agent) {
-        throw new Error("Target agent not found.");
+        throw new Error(t("office.targetNotFound"));
       }
       const transcript = await transcribeVoicePayload(payload);
       if (!transcript) return;
@@ -4041,7 +4042,7 @@ export function OfficeScreen({
   const handleVoiceSend = useCallback(
     async (payload: VoiceSendPayload) => {
       if (!focusedChatAgent) {
-        throw new Error("Select an agent before using push-to-talk.");
+        throw new Error(t("office.selectForPtt"));
       }
       await sendVoicePayloadToAgent(focusedChatAgent, payload);
     },
@@ -4059,7 +4060,7 @@ export function OfficeScreen({
     enabled: status === "connected" && Boolean(mainAgent),
     onVoiceSend: async (payload) => {
       if (!mainAgent) {
-        throw new Error("Main agent not found.");
+        throw new Error(t("office.mainNotFound"));
       }
       await sendVoicePayloadToAgent(mainAgent, payload);
     },
@@ -4209,15 +4210,15 @@ export function OfficeScreen({
     return map;
   }, [state.agents]);
   const openClawLiveStateText = useMemo(() => {
-    const lines = ["== LIVE OPENCLAW STATE =="];
+    const lines = [t("office.liveStateHeader")];
     if (state.agents.length === 0) {
-      lines.push("No agents loaded yet.");
+      lines.push(t("office.noAgentsLoaded"));
       return lines.join("\n");
     }
 
     for (const agent of state.agents) {
       lines.push("");
-      lines.push(`[${agent.agentId}] ${agent.name || "Agent"}`);
+      lines.push(`[${agent.agentId}] ${agent.name || t("office.agentFallback")}`);
       lines.push(
         `status=${agent.status} runId=${agent.runId ?? "-"} session=${agent.sessionKey}`,
       );
@@ -4287,28 +4288,28 @@ export function OfficeScreen({
       ? remoteOfficePresenceUrl.trim().length > 0
       : remoteOfficeGatewayUrl.trim().length > 0);
   const remoteOfficeStatusText = !remoteOfficeVisible
-    ? "Remote office disabled."
+    ? t("office.remoteDisabled")
     : remoteOfficeError
       ? remoteOfficeError
       : !remoteOfficeLoaded
-        ? "Loading remote office."
+        ? t("office.remoteLoading")
         : remoteOfficeAgents.length > 0
-          ? `${remoteOfficeAgents.length} agents visible.`
+          ? t("office.remoteVisible", { count: remoteOfficeAgents.length })
           : remoteOfficeSourceKind === "openclaw_gateway"
-            ? "Connected to remote gateway. No agents visible yet."
+            ? t("office.remoteGatewayEmpty")
           : remoteOfficeTokenConfigured
-            ? "Connected. No agents visible yet."
-            : "No agents visible yet.";
+            ? t("office.remoteConnectedEmpty")
+            : t("office.remoteEmpty");
   const remoteMessagingAvailable =
     remoteOfficeSourceKind === "openclaw_gateway" &&
     remoteOfficeGatewayUrl.trim().length > 0;
   const remoteMessagingDisabledReason = remoteMessagingAvailable
     ? null
     : remoteOfficeSourceKind !== "openclaw_gateway"
-      ? "Remote messaging currently works only with the remote gateway source."
+      ? t("office.remoteMsgGatewayOnly")
       : remoteOfficeGatewayUrl.trim().length === 0
-      ? "Remote messaging requires a remote gateway URL in office settings."
-      : "Remote messaging is unavailable until the remote gateway is configured.";
+      ? t("office.remoteMsgNeedsUrl")
+      : t("office.remoteMsgUnavailable");
   const normalizedOpenClawConsoleSearch = openClawConsoleSearch
     .trim()
     .toLowerCase();
@@ -4607,21 +4608,21 @@ export function OfficeScreen({
     status === "connected" && agentsLoaded && state.agents.length === 0;
   const emptyFleetMessage =
     state.error?.trim() ||
-    "Connected to the gateway, but no agents were loaded into the office.";
+    t("office.noAgentsInOffice");
 
   return (
     <main className="relative h-full w-full overflow-hidden bg-black">
       {showGatewayLoadingOverlay ? (
         <div
           className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[#120a05]/76"
-          aria-label="Connecting to runtime"
+          aria-label={t("office.connectingRuntime")}
           role="status"
         >
           <div className="rounded-xl border border-amber-700/45 bg-[#1a1008] px-8 py-6 shadow-2xl">
             <RunningAvatarLoader
               size={28}
               trackWidth={76}
-              label="Connecting to your runtime..."
+              label={t("office.connectingRuntimeLong")}
               labelClassName="text-amber-100/80"
             />
           </div>
@@ -4705,7 +4706,7 @@ export function OfficeScreen({
           onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
           onVoiceRepliesPreview={(voiceId, voiceName) => {
             void previewVoiceReply({
-              text: `Hi, how can I help you? My name is ${voiceName}.`,
+              text: t("office.voicePreview", { name: voiceName }),
               provider: voiceRepliesPreference.provider,
               voiceId,
               speed: voiceRepliesSpeed,
@@ -4847,7 +4848,7 @@ export function OfficeScreen({
               setKanbanInstallProgress({
                 active: true,
                 percent: 8,
-                message: "Starting task-manager installation.",
+                message: t("office.taskManagerInstalling"),
                 error: null,
               });
               void (async () => {
@@ -4867,7 +4868,7 @@ export function OfficeScreen({
                   setKanbanInstallProgress({
                     active: true,
                     percent: 100,
-                    message: "Refreshing task-manager state in Office3D.",
+                    message: t("office.taskManagerRefreshing"),
                     error: null,
                   });
                   setKanbanInstallPromptOpen(false);
@@ -4884,7 +4885,7 @@ export function OfficeScreen({
                     error:
                       error instanceof Error
                         ? error.message
-                        : "Failed to install task-manager.",
+                        : t("office.taskManagerFailed"),
                   }));
                 }
               })();
@@ -4903,7 +4904,7 @@ export function OfficeScreen({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
-                  Office fleet status
+                  {t("office.fleetStatus")}
                 </p>
                 <p className="mt-1 text-sm text-amber-50">{emptyFleetMessage}</p>
               </div>
@@ -4915,7 +4916,7 @@ export function OfficeScreen({
                     handleOpenCreateAgentWizard();
                   }}
                 >
-                  Add Agent
+                  {t("office.addAgent")}
                 </button>
                 <button
                   type="button"
@@ -4924,7 +4925,7 @@ export function OfficeScreen({
                     handleOpenCompanyBuilder();
                   }}
                 >
-                  Build Company
+                  {t("office.buildCompany")}
                 </button>
                 <button
                   type="button"
@@ -4933,7 +4934,7 @@ export function OfficeScreen({
                     void loadAgents({ forceSettings: true });
                   }}
                 >
-                  Retry
+                  {t("office.retry")}
                 </button>
               </div>
             </div>
@@ -4945,7 +4946,7 @@ export function OfficeScreen({
         <div className="pointer-events-none fixed left-1/2 top-5 z-40 -translate-x-1/2 px-4">
           <div className="pointer-events-auto rounded-lg border border-red-400/30 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur">
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-200/75">
-              Fleet mutation
+              {t("office.fleetMutation")}
             </div>
             <div className="mt-1 text-sm text-red-50">{deleteAgentStatusLine}</div>
           </div>
@@ -5102,10 +5103,10 @@ export function OfficeScreen({
       {showOpenClawConsole ? (
         <section className="pointer-events-auto fixed bottom-3 left-3 z-30 flex w-[520px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-cyan-500/25 bg-black/78 shadow-2xl backdrop-blur">
           <div className="flex items-center justify-between border-b border-cyan-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-            <span>Agent Event Console</span>
+            <span>{t("office.eventConsole")}</span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-cyan-100/45">
-                agents {state.agents.length} | events{" "}
+                {t("office.consoleCounts", { agents: state.agents.length })}{" "}
                 {filteredOpenClawLogEntries.length}/{openClawLogEntries.length}
               </span>
               <button
@@ -5116,24 +5117,24 @@ export function OfficeScreen({
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
                 {openClawConsoleCopyStatus === "copied"
-                  ? "Copied"
+                  ? t("common.copied")
                   : openClawConsoleCopyStatus === "error"
-                    ? "Copy Failed"
-                    : "Copy JSON"}
+                    ? t("office.copyFailed")
+                    : t("office.copyJson")}
               </button>
               <button
                 type="button"
                 onClick={handleDownloadOpenClawConsoleJson}
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                Download JSON
+                {t("office.downloadJson")}
               </button>
               <button
                 type="button"
                 onClick={handleClearOpenClawConsole}
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                Clear
+                {t("office.clear")}
               </button>
               <button
                 type="button"
@@ -5142,7 +5143,7 @@ export function OfficeScreen({
                 }
                 className="rounded border border-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
               >
-                {openClawConsoleCollapsed ? "Expand" : "Minimize"}
+                {openClawConsoleCollapsed ? t("office.expand") : t("office.minimize")}
               </button>
             </div>
           </div>
@@ -5156,7 +5157,7 @@ export function OfficeScreen({
                   onChange={(event) =>
                     setOpenClawConsoleSearch(event.target.value)
                   }
-                  placeholder="Search logs, payloads, thinking, user text."
+                  placeholder={t("office.searchLogs")}
                   className="min-w-0 flex-1 rounded border border-cyan-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-cyan-50 placeholder:text-cyan-100/30 focus:border-cyan-400/40 focus:outline-none"
                 />
                 {openClawConsoleSearch ? (
@@ -5165,7 +5166,7 @@ export function OfficeScreen({
                     onClick={() => setOpenClawConsoleSearch("")}
                     className="rounded border border-cyan-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-cyan-100/70 transition-colors hover:border-cyan-400/45 hover:text-cyan-50"
                   >
-                    Reset
+                    {t("office.reset")}
                   </button>
                 ) : null}
               </div>
@@ -5173,7 +5174,7 @@ export function OfficeScreen({
             {openClawLiveStateMatchesSearch ? (
               <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2">
                 <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-                  Live OpenClaw State
+                  {t("office.liveState")}
                 </div>
                 <pre className="whitespace-pre-wrap break-words text-cyan-100/80">
                   {renderOpenClawHighlightedText(
@@ -5184,17 +5185,17 @@ export function OfficeScreen({
               </div>
             ) : (
               <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
-                Live OpenClaw state does not match the current search.
+                {t("office.liveStateNoMatch")}
               </div>
             )}
             <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-              Raw OpenClaw Gateway Events
+              {t("office.rawEvents")}
             </div>
             {filteredOpenClawLogEntries.length === 0 ? (
               <div className="rounded border border-cyan-500/10 bg-cyan-950/10 p-2 text-cyan-100/45">
                 {openClawLogEntries.length === 0
-                  ? "No OpenClaw gateway events received yet."
-                  : "No OpenClaw events match the current search."}
+                  ? t("office.noEvents")
+                  : t("office.noEventsMatch")}
               </div>
             ) : (
               filteredOpenClawLogEntries.map((entry) => {
@@ -5242,7 +5243,7 @@ export function OfficeScreen({
                     {entry.messageText ? (
                       <div className="mt-2 rounded border border-amber-400/20 bg-amber-950/25 px-2 py-1 text-amber-100">
                         <div className="text-[9px] uppercase tracking-[0.16em] text-amber-300/75">
-                          User / Message Text
+                          {t("office.userText")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
                           {renderOpenClawHighlightedText(
@@ -5255,7 +5256,7 @@ export function OfficeScreen({
                     {entry.thinkingText ? (
                       <div className="mt-2 rounded border border-fuchsia-400/15 bg-fuchsia-950/15 px-2 py-1 text-fuchsia-100/90">
                         <div className="text-[9px] uppercase tracking-[0.16em] text-fuchsia-300/70">
-                          Thinking
+                          {t("office.thinking")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
                           {renderOpenClawHighlightedText(
@@ -5268,7 +5269,7 @@ export function OfficeScreen({
                     {entry.streamText ? (
                       <div className="mt-2 rounded border border-cyan-400/15 bg-cyan-950/18 px-2 py-1 text-cyan-50/90">
                         <div className="text-[9px] uppercase tracking-[0.16em] text-cyan-300/70">
-                          Stream
+                          {t("office.stream")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
                           {renderOpenClawHighlightedText(
@@ -5281,7 +5282,7 @@ export function OfficeScreen({
                     {entry.toolText ? (
                       <div className="mt-2 rounded border border-violet-400/15 bg-violet-950/15 px-2 py-1 text-violet-100/90">
                         <div className="text-[9px] uppercase tracking-[0.16em] text-violet-300/70">
-                          Tool Output
+                          {t("office.toolOutput")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
                           {renderOpenClawHighlightedText(
@@ -5293,7 +5294,7 @@ export function OfficeScreen({
                     ) : null}
                     <details className="mt-2">
                       <summary className="cursor-pointer text-[9px] uppercase tracking-[0.16em] text-cyan-300/55">
-                        Raw Payload
+                        {t("office.rawPayload")}
                       </summary>
                       <pre className="mt-1 whitespace-pre-wrap break-words text-cyan-100/45">
                         {renderOpenClawHighlightedText(
@@ -5335,7 +5336,7 @@ export function OfficeScreen({
                 {!chatRosterCollapsed ? (
                   <>
                     <span className="font-mono text-[11px] font-semibold uppercase tracking-widest text-white/60">
-                      Agents
+                      {t("office.agents")}
                     </span>
                     <span className="font-mono text-[10px] text-white/40">
                       {chatRosterEntries.length}
@@ -5351,8 +5352,8 @@ export function OfficeScreen({
                 type="button"
                 onClick={() => setChatRosterCollapsed((current) => !current)}
                 className="mx-2 mt-2 inline-flex items-center justify-center rounded border border-white/10 bg-white/5 px-2 py-2 text-white/65 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-                aria-label={chatRosterCollapsed ? "Expand agent list" : "Collapse agent list"}
-                title={chatRosterCollapsed ? "Expand agent list" : "Collapse agent list"}
+                aria-label={chatRosterCollapsed ? t("office.expandList") : t("office.collapseList")}
+                title={chatRosterCollapsed ? t("office.expandList") : t("office.collapseList")}
               >
                 {chatRosterCollapsed ? (
                   <ChevronRight className="h-4 w-4" />
@@ -5384,7 +5385,7 @@ export function OfficeScreen({
                   </div>
                 ) : chatRosterEntries.length === 0 ? (
                   <div className="px-3 py-4 font-mono text-[11px] text-white/30">
-                    No agents.
+                    {t("office.noAgentsShort")}
                   </div>
                 ) : (
                   chatRosterEntries.map((agent) => {
@@ -5409,11 +5410,11 @@ export function OfficeScreen({
                         </span>
                         {agent.kind === "remote" ? (
                           <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.14em] text-cyan-300/60">
-                            Remote
+                            {t("office.remote")}
                           </span>
                         ) : null}
                         <span className="sr-only">
-                          {agent.kind === "remote" ? "Remote agent" : "Local agent"}
+                          {agent.kind === "remote" ? t("office.remoteAgent") : t("office.localAgent")}
                         </span>
                       </button>
                     );
@@ -5538,7 +5539,7 @@ export function OfficeScreen({
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center font-mono text-[12px] text-white/30">
-                  Select an agent to chat.
+                  {t("office.selectToChat")}
                 </div>
               )}
             </div>
@@ -5553,12 +5554,12 @@ export function OfficeScreen({
           {chatOpen ? (
             <>
               <ChevronDown className="h-3.5 w-3.5" />
-              <span>HIDE CHAT</span>
+              <span>{t("office.hideChat")}</span>
             </>
           ) : (
             <>
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>CHAT</span>
+              <span>{t("office.chat")}</span>
               {runningCount > 0 ? (
                 <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-400">
                   {runningCount}
@@ -5591,20 +5592,20 @@ export function OfficeScreen({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
-                Main agent
+                {t("office.mainAgent")}
               </span>
               <span className="text-[12px] font-medium text-white">
                 {mainVoiceError
                   ? mainVoiceError
                   : mainVoiceState === "recording"
-                    ? "Listening. Release Option to send."
+                    ? t("office.pttListening")
                     : mainVoiceState === "transcribing"
-                      ? "Transcribing your voice note."
+                      ? t("office.pttTranscribing")
                       : mainVoiceState === "requesting"
-                        ? "Requesting microphone access."
+                        ? t("office.pttRequesting")
                         : !mainVoiceSupported
-                          ? "Voice shortcuts are not supported in this browser."
-                          : "Voice shortcut ready."}
+                          ? t("office.pttUnsupported")
+                          : t("office.pttReady")}
               </span>
             </div>
           </div>
@@ -5613,12 +5614,12 @@ export function OfficeScreen({
 
       {debugEnabled ? (
         <section className="fixed bottom-3 right-3 z-50 max-h-[45vh] w-[560px] overflow-auto rounded border border-slate-700 bg-black/90 p-3 font-mono text-[11px] text-slate-100">
-          <div className="mb-2 font-semibold text-cyan-300">office debug</div>
+          <div className="mb-2 font-semibold text-cyan-300">{t("office.debugTitle")}</div>
           <div className="mb-2 text-slate-400">
-            status: {status} | agents: {state.agents.length}
+            {t("office.debugCounts", { status, agents: state.agents.length })}
           </div>
           {debugRows.length === 0 ? (
-            <div className="text-slate-500">No debug data yet.</div>
+            <div className="text-slate-500">{t("office.noDebug")}</div>
           ) : (
             <div className="space-y-2">
               {debugRows.map((row) => (
@@ -5689,7 +5690,7 @@ export function OfficeScreen({
       <AgentCreateWizardModal
         key={`create-agent-${createAgentWizardNonce}`}
         open={createAgentWizardOpen}
-        suggestedName={`Agent ${state.agents.length + 1}`}
+        suggestedName={t("office.defaultAgentName", { number: state.agents.length + 1 })}
         busy={createAgentBusy}
         submitError={createAgentModalError}
         statusLine={createAgentStatusLine}
