@@ -60,7 +60,7 @@ const evictOldest = (): void => {
 export const createCall = (params: {
   sid: string;
   to: string;
-  from: string;
+  from?: string | null;
   agentId: string;
   status: CallStatus;
 }): CallRecord => {
@@ -69,12 +69,13 @@ export const createCall = (params: {
     direction: "outbound",
     status: params.status,
     to: params.to,
-    from: params.from,
+    from: params.from ?? null,
     agentId: params.agentId,
     startedAt: new Date().toISOString(),
     endedAt: null,
     errorMessage: null,
     transcript: [],
+    providerTurnCount: 0,
     pendingSay: null,
   };
   calls.set(record.sid, record);
@@ -123,10 +124,27 @@ export const updateCallStatus = (
   return call;
 };
 
+/** Fills in the number the office called from, once the provider reports it. */
+export const setCallFrom = (sid: string, from: string): CallRecord => {
+  const call = requireCall(sid);
+  call.from = from;
+  return call;
+};
+
+/**
+ * Records how many transcript turns have been taken from the provider, so the
+ * next read appends only what is new.
+ */
+export const setProviderTurnCount = (sid: string, count: number): CallRecord => {
+  const call = requireCall(sid);
+  call.providerTurnCount = count;
+  return call;
+};
+
 /**
  * Queues a line for the agent to speak at its next turn. Replaces anything
- * already queued: when an operator types twice before Twilio comes back, the
- * later instruction is the one they meant.
+ * already queued: when an operator types twice before the provider comes back,
+ * the later instruction is the one they meant.
  */
 export const setPendingSay = (sid: string, text: string): CallRecord => {
   const call = requireCall(sid);

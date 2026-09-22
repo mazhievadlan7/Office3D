@@ -152,6 +152,7 @@ export const placeVoiceAgentCall = async (
 type ConversationResponse = {
   status?: unknown;
   transcript?: unknown;
+  metadata?: unknown;
 };
 
 /**
@@ -166,6 +167,13 @@ const mapRole = (role: unknown): TranscriptTurn["speaker"] | null => {
 
 export type ConversationSnapshot = {
   status: string | null;
+  /**
+   * Why the call ended, when ElevenLabs said. Worth carrying: "failed" alone
+   * sends an operator to the dashboard to find out what happened.
+   */
+  terminationReason: string | null;
+  /** The number the agent called from, which only ElevenLabs knows. */
+  agentNumber: string | null;
   turns: Array<Pick<TranscriptTurn, "speaker" | "text">>;
 };
 
@@ -199,5 +207,15 @@ export const fetchConversation = async (
     })
     .filter((turn): turn is Pick<TranscriptTurn, "speaker" | "text"> => turn !== null);
 
-  return { status: asString(payload.status), turns };
+  const metadata = (payload.metadata ?? {}) as Record<string, unknown>;
+  const error = (metadata.error ?? {}) as Record<string, unknown>;
+  const phoneCall = (metadata.phone_call ?? {}) as Record<string, unknown>;
+
+  return {
+    status: asString(payload.status),
+    terminationReason:
+      asString(metadata.termination_reason) ?? asString(error.reason),
+    agentNumber: asString(phoneCall.agent_number),
+    turns,
+  };
 };

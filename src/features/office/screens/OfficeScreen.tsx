@@ -157,11 +157,13 @@ import type {
 } from "@/features/company-builder/types";
 import { AnalyticsPanel } from "@/features/office/components/panels/AnalyticsPanel";
 import { HistoryPanel } from "@/features/office/components/panels/HistoryPanel";
+import { CallFeedModal } from "@/features/office/components/panels/CallFeedModal";
 import { InboxPanel } from "@/features/office/components/panels/InboxPanel";
 import { KanbanDisabledPanel } from "@/features/office/components/panels/KanbanDisabledPanel";
 import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPanel";
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
+import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
 import { JukeboxPanel } from "@/features/spotify-jukebox/components/JukeboxPanel";
 import { JukeboxDisabledPanel } from "@/features/spotify-jukebox/components/JukeboxDisabledPanel";
 import { executeBrowserJukeboxCommand } from "@/features/spotify-jukebox/agentBridge";
@@ -1129,6 +1131,7 @@ export function OfficeScreen({
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const [callFeedOpen, setCallFeedOpen] = useState(false);
   const [kanbanInstallPromptOpen, setKanbanInstallPromptOpen] = useState(false);
   const [kanbanInstallProgress, setKanbanInstallProgress] = useState<{
     active: boolean;
@@ -3175,6 +3178,13 @@ export function OfficeScreen({
     onSkillActivityStart: handleMarketplaceGymStart,
     onSkillActivityEnd: handleMarketplaceGymEnd,
   });
+  // Polling only runs while the phone booth is open: an office nobody is
+  // calling from should not be asking the provider for anything.
+  const callFeed = useOfficeCallFeed({ enabled: callFeedOpen });
+  const callFeedAgents = useMemo(
+    () => state.agents.map((agent) => ({ agentId: agent.agentId, name: agent.name })),
+    [state.agents],
+  );
   const skillTriggers = useOfficeSkillTriggers({
     client,
     status,
@@ -4879,6 +4889,9 @@ export function OfficeScreen({
           onKanbanInteract={() => {
             setKanbanInstallPromptOpen(true);
           }}
+          onPhoneBoothInteract={() => {
+            setCallFeedOpen(true);
+          }}
           taskBoardAgents={state.agents}
           taskBoardCardsByStatus={taskBoard.cardsByStatus}
           taskBoardSelectedCard={taskBoard.selectedCard}
@@ -5129,6 +5142,13 @@ export function OfficeScreen({
           }
         />
       ) : null}
+
+      <CallFeedModal
+        open={callFeedOpen}
+        feed={callFeed}
+        agents={callFeedAgents}
+        onClose={() => setCallFeedOpen(false)}
+      />
 
       <SkillsMarketplaceModal
         open={marketplaceOpen}

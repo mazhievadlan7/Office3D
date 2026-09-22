@@ -2324,6 +2324,7 @@ export function RetroOffice3D({
   onOpenGithubSkillSetup,
   onJukeboxInteract,
   onKanbanInteract,
+  onPhoneBoothInteract,
   taskBoardAgents = [],
   taskBoardCardsByStatus = {
     todo: [],
@@ -2444,6 +2445,8 @@ export function RetroOffice3D({
   onOpenGithubSkillSetup?: () => void;
   onJukeboxInteract?: () => void;
   onKanbanInteract?: () => void;
+  /** Clicking the phone booth opens the office phone. */
+  onPhoneBoothInteract?: () => void;
   taskBoardAgents?: AgentState[];
   taskBoardCardsByStatus?: Record<TaskBoardStatus, TaskBoardCard[]>;
   taskBoardSelectedCard?: TaskBoardCard | null;
@@ -5464,7 +5467,13 @@ export function RetroOffice3D({
                     onPointerDown={handleFurniturePointerDown}
                     onPointerOver={handleFurniturePointerOver}
                     onPointerOut={handleFurniturePointerOut}
-                    onClick={handleDeskClick}
+                    onClick={
+                      // In edit mode a click is still placing furniture; only
+                      // a click on the finished floor picks up the phone.
+                      editMode || !onPhoneBoothInteract
+                        ? handleDeskClick
+                        : () => onPhoneBoothInteract()
+                    }
                   />
                 ) : item.type === "server_rack" ? (
                   <InteractiveServerRackModel

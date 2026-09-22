@@ -134,6 +134,8 @@ describe("fetchConversation", () => {
     // since the user here is the operator watching.
     expect(snapshot).toEqual({
       status: "in-progress",
+      terminationReason: null,
+      agentNumber: null,
       turns: [
         { speaker: "agent", text: "Hello, this is the assistant." },
         { speaker: "callee", text: "Go ahead." },
@@ -167,8 +169,44 @@ describe("fetchConversation", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ status: "initiated" })));
     expect(await fetchConversation("conv_1", CONFIG)).toEqual({
       status: "initiated",
+      terminationReason: null,
+      agentNumber: null,
       turns: [],
     });
+  });
+
+  it("carries_why_a_call_ended_and_the_number_it_came_from", async () => {
+    // "failed" on its own sends an operator to the dashboard to find out what
+    // happened; the reason and the caller id are both only ElevenLabs' to say.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json({
+          status: "failed",
+          transcript: [],
+          metadata: {
+            termination_reason: "The number was unreachable.",
+            phone_call: { type: "sip_trunking", agent_number: "+441234567890" },
+          },
+        }),
+      ),
+    );
+
+    expect(await fetchConversation("conv_1", CONFIG)).toMatchObject({
+      terminationReason: "The number was unreachable.",
+      agentNumber: "+441234567890",
+    });
+  });
+
+  it("falls_back_to_the_error_reason_when_no_termination_reason_is_given", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json({ status: "failed", metadata: { error: { code: 500, reason: "SIP 503" } } }),
+      ),
+    );
+
+    expect((await fetchConversation("conv_1", CONFIG)).terminationReason).toBe("SIP 503");
   });
 
   it("requires_a_conversation_id", async () => {

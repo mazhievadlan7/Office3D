@@ -1,26 +1,28 @@
 /**
  * Agent phone calls.
  *
- * An agent places a real call through Twilio, speaks to whoever answers, and
- * the conversation appears in the office as it happens. The operator watching
- * can send the agent a line to say next, which is the point of the whole
- * feature: a human stays in the loop on a live call rather than reviewing a
- * transcript afterwards.
+ * An agent places a real call through the voice-agent provider, speaks to
+ * whoever answers, and the conversation appears in the office as it happens,
+ * so a human can watch a live call rather than review a transcript afterwards.
  *
- * This module holds the shapes only. Nothing here talks to Twilio.
+ * This module holds the shapes only. Nothing here talks to a provider.
  */
 
 export type CallDirection = "outbound";
 
 /**
- * Mirrors Twilio's call status vocabulary, plus "failed" for a call we could
- * never place. Kept as a closed union so the UI cannot be handed a status it
- * has no rendering for.
+ * The life of an outbound call. Kept as a closed union so the UI cannot be
+ * handed a status it has no rendering for.
+ *
+ * "processing" is the gap between the line dropping and the provider finishing
+ * the transcript: the conversation is over but the record is not final, so it
+ * is deliberately not terminal and the office keeps reading until it settles.
  */
 export type CallStatus =
   | "queued"
   | "ringing"
   | "in-progress"
+  | "processing"
   | "completed"
   | "busy"
   | "no-answer"
@@ -63,23 +65,38 @@ export type TranscriptTurn = {
 };
 
 export type CallRecord = {
-  /** Twilio's call SID, and our identifier for the call. */
+  /** The provider's conversation id, and our identifier for the call. */
   sid: string;
   direction: CallDirection;
   status: CallStatus;
   /** E.164 number that was dialled. */
   to: string;
-  from: string;
+  /**
+   * The number the office called from. Null until the provider reports it:
+   * this deployment holds a phone number id, not the number behind it, so
+   * filling this in at dial time would mean inventing it.
+   */
+  from: string | null;
   /** The agent placing the call, so the office knows who is at the phone. */
   agentId: string;
   startedAt: string;
   endedAt: string | null;
-  /** Set when Twilio reported why a call did not complete. */
+  /** Set when the provider reported why a call did not complete. */
   errorMessage: string | null;
   transcript: TranscriptTurn[];
   /**
+   * How many turns of this transcript came from the provider. The provider
+   * returns the whole conversation on every read, so this is the watermark
+   * that keeps a poll from appending lines the office already shows.
+   */
+  providerTurnCount: number;
+  /**
    * What the agent should say at its next turn. The operator writes here
-   * mid-call; the TwiML endpoint drains it when Twilio next asks what to do.
+   * mid-call.
+   *
+   * Nothing consumes it yet: the provider runs the conversation, and steering
+   * it mid-call is a separate piece of work. It is kept because the store is
+   * the right place for it, not because the feature is finished.
    */
   pendingSay: string | null;
 };
@@ -99,8 +116,8 @@ export class TelephonyError extends Error {
  * E.164: a leading + and 8–15 digits.
  *
  * Validated before dialling rather than after: a malformed number reaches a
- * paid API, and a wrong one reaches a stranger. Twilio would reject most bad
- * input, but not a well-formed number that is simply not the one intended,
+ * paid API, and a wrong one reaches a stranger. The provider would reject most
+ * bad input, but not a well-formed number that is simply not the one intended,
  * so the caller is still responsible for what it passes.
  */
 const E164 = /^\+[1-9]\d{7,14}$/;
@@ -115,7 +132,7 @@ export const assertE164 = (value: string, field: string): string => {
   return trimmed;
 };
 
-/** Spoken text is capped: TwiML has limits and a runaway prompt costs money. */
+/** Spoken text is capped: a runaway prompt costs money and time on the line. */
 export const MAX_SPOKEN_CHARS = 1500;
 
 export const assertSpeakableText = (value: string, field: string): string => {
