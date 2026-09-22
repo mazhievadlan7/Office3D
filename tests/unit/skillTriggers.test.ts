@@ -44,6 +44,29 @@ describe("skill triggers", () => {
     expect(matched?.movementTarget).toBe("desk");
   });
 
+  it("matches_russian_requests_even_though_skill_md_lists_english_phrases", () => {
+    // SKILL.md declares its own phrases; the built-in Russian ones are added to
+    // them rather than being used only when SKILL.md has none.
+    const triggers = listPackagedSkillTriggerDefinitions();
+
+    const todo = resolveTriggeredSkillDefinition({
+      isAgentRunning: true,
+      lastUserMessage: "Добавь это в мой список дел",
+      transcriptEntries: [],
+      triggers,
+    });
+    expect(todo?.skillKey).toBe("todo-board");
+
+    const music = resolveTriggeredSkillDefinition({
+      isAgentRunning: true,
+      lastUserMessage: "Включи музыку, пожалуйста",
+      transcriptEntries: [],
+      triggers,
+    });
+    expect(music?.skillKey).toBe("soundclaw");
+    expect(music?.movementTarget).toBe("jukebox");
+  });
+
   it("does not match triggers when the agent is not running", () => {
     const todoTrigger = listPackagedSkillTriggerDefinitions().find(
       (entry) => entry.skillKey === "todo-board",

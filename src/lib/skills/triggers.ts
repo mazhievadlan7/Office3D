@@ -62,16 +62,19 @@ const parseSkillTriggerDefinition = (params: {
     return null;
   }
 
-  const activationPhrases = Array.isArray(parsed?.activation?.anyPhrases)
-    ? Array.from(
-        new Set(
-          parsed.activation!.anyPhrases
-            .filter((value): value is string => typeof value === "string")
-            .map(normalizePhrase)
-            .filter((value) => value.length > 0),
-        ),
-      )
-    : fallback?.anyPhrases.map(normalizePhrase) ?? [];
+  // The skill's own phrases and the built-in ones together, not one instead of
+  // the other: the built-in list carries the Russian phrasings, and a SKILL.md
+  // already installed in a workspace was written before they existed.
+  const declaredPhrases = Array.isArray(parsed?.activation?.anyPhrases)
+    ? parsed.activation!.anyPhrases.filter((value): value is string => typeof value === "string")
+    : [];
+  const activationPhrases = Array.from(
+    new Set(
+      [...declaredPhrases, ...(fallback?.anyPhrases ?? [])]
+        .map(normalizePhrase)
+        .filter((value) => value.length > 0),
+    ),
+  );
   const movementTarget = parsed?.movement?.target;
   const resolvedMovementTarget = isOfficeSkillTriggerMovementTarget(movementTarget)
     ? movementTarget
