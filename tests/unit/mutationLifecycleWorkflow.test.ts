@@ -56,8 +56,8 @@ describe("mutationLifecycleWorkflow", () => {
 
   it("maps mutation failures to user-facing errors", () => {
     const fallbackByKind: Record<MutationWorkflowKind, string> = {
-      "rename-agent": "Failed to rename agent.",
-      "delete-agent": "Failed to delete agent.",
+      "rename-agent": "Не удалось переименовать агента.",
+      "delete-agent": "Не удалось удалить агента.",
     };
     for (const [kind, fallback] of Object.entries(fallbackByKind) as Array<
       [MutationWorkflowKind, string]

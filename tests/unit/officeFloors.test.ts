@@ -28,7 +28,7 @@ describe("office floor registry", () => {
 
   it("looks up floors by id", () => {
     expect(getOfficeFloor("hermes-first")).toMatchObject({
-      label: "Hermes Floor",
+      label: "Этаж Hermes",
       shortLabel: "Hermes",
       provider: "hermes",
       kind: "runtime",

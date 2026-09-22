@@ -51,7 +51,7 @@ describe("gateway agent files helpers", () => {
     const client = createMockClient(() => ({}));
     await expect(
       readGatewayAgentFile({ client, agentId: "   ", name: "AGENTS.md" })
-    ).rejects.toThrow("agentId is required.");
+    ).rejects.toThrow("Не указан идентификатор агента.");
   });
 });
 

@@ -1,6 +1,7 @@
 import type { GatewayStatus } from "@/features/agents/operations/gatewayRestartPolicy";
 import type { AgentCreateModalSubmitPayload } from "@/features/agents/creation/types";
 import type { ConfigMutationKind } from "@/features/agents/operations/useConfigMutationQueue";
+import { t } from "@/lib/i18n";
 
 export type MutationKind = "create-agent" | "rename-agent" | "delete-agent";
 
@@ -220,8 +221,8 @@ export type MutationStatusBlock = {
 type MutationFailureMessageByKind = Record<MutationWorkflowKind, string>;
 
 const FALLBACK_MUTATION_FAILURE_MESSAGE: MutationFailureMessageByKind = {
-  "rename-agent": "Failed to rename agent.",
-  "delete-agent": "Failed to delete agent.",
+  "rename-agent": t("opsAgents.renameFailed"),
+  "delete-agent": t("opsAgents.deleteFailed"),
 };
 
 const assertMutationKind = (kind: string): MutationWorkflowKind => {
@@ -319,14 +320,14 @@ export const runCreateAgentMutationLifecycle = async (
   });
   if (guard.kind === "deny") {
     if (guard.reason === "not-connected") {
-      deps.setCreateAgentModalError("Connect to gateway before creating an agent.");
+      deps.setCreateAgentModalError(t("opsAgents.connectBeforeCreate"));
     }
     return false;
   }
 
   const name = params.payload.name.trim();
   if (!name) {
-    deps.setCreateAgentModalError("Agent name is required.");
+    deps.setCreateAgentModalError(t("opsAgents.nameRequired"));
     return false;
   }
 
@@ -338,7 +339,7 @@ export const runCreateAgentMutationLifecycle = async (
   try {
     const queuedMutation = deps.enqueueConfigMutation({
       kind: "create-agent",
-      label: `Create ${name}`,
+      label: t("opsAgents.createLabel", { name }),
       run: async () => {
         deps.setCreatingBlock(name);
         const created = await deps.createAgent(name, avatarSeed);
@@ -351,7 +352,7 @@ export const runCreateAgentMutationLifecycle = async (
     await queuedMutation;
     return true;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create agent.";
+    const message = error instanceof Error ? error.message : t("opsAgents.createFailed");
     deps.clearCreateBlock();
     deps.setCreateAgentModalError(message);
     deps.onError(message);
@@ -403,17 +404,17 @@ export const resolveConfigMutationStatusLine = (params: {
   const { block, status } = params;
   if (!block) return null;
   if (block.phase === "queued") {
-    return "Waiting for active runs to finish";
+    return t("opsAgents.waitingActiveRuns");
   }
   if (block.phase === "mutating") {
-    return params.mutatingLabel ?? "Submitting config change";
+    return params.mutatingLabel ?? t("opsAgents.submittingConfigChange");
   }
   if (!block.sawDisconnect) {
-    return "Waiting for gateway to restart";
+    return t("opsAgents.waitingGatewayRestart");
   }
   return status === "connected"
-    ? "Gateway is back online, syncing agents"
-    : "Gateway restart in progress";
+    ? t("opsAgents.gatewayBackSyncing")
+    : t("opsAgents.gatewayRestartInProgress");
 };
 
 export const buildAwaitingRestartPatch = (): AwaitingRestartPatch => {

@@ -49,7 +49,7 @@ describe("agent state local", () => {
     fs.mkdirSync(fakeTrashDir, { recursive: true });
 
     expect(() => restoreAgentStateLocally({ agentId, trashDir: fakeTrashDir })).toThrow(
-      "trashDir is not under"
+      "находится вне"
     );
   });
 });

@@ -16,6 +16,7 @@ import { sendChatMessageViaStudio } from "@/features/agents/operations/chatSendO
 import type { AgentState } from "@/features/agents/state/store";
 import type { EventFrame } from "@/lib/gateway/GatewayClient";
 import { EXEC_APPROVAL_AUTO_RESUME_MARKER } from "@/lib/text/message-extract";
+import { t } from "@/lib/i18n";
 
 type GatewayClientLike = {
   call: (method: string, params: unknown) => Promise<unknown>;
@@ -30,7 +31,7 @@ type RunControlDispatch = (action: RunControlDispatchAction) => void;
 
 type SetState<T> = (next: T | ((current: T) => T)) => void;
 
-const AUTO_RESUME_FOLLOW_UP_MESSAGE = `${EXEC_APPROVAL_AUTO_RESUME_MARKER}\nContinue where you left off and finish the task.`;
+const AUTO_RESUME_FOLLOW_UP_MESSAGE = t("opsApprovals.autoResumeMessage", { marker: EXEC_APPROVAL_AUTO_RESUME_MARKER });
 export const EXEC_APPROVAL_AUTO_RESUME_WAIT_TIMEOUT_MS = 3_000;
 
 export async function runPauseRunForExecApprovalOperation(params: {

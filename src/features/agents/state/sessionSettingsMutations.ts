@@ -4,6 +4,7 @@ import {
   type GatewayClient,
   type GatewaySessionsPatchResult,
 } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 type SessionSettingField = "model" | "thinkingLevel";
 
@@ -44,15 +45,15 @@ export type ApplySessionSettingMutationParams = {
 };
 
 const buildFallbackError = (field: SessionSettingField) =>
-  field === "model" ? "Failed to set model." : "Failed to set thinking level.";
+  field === "model" ? t("opsChat.setModelFailed") : t("opsChat.setThinkingFailed");
 
 const buildErrorPrefix = (field: SessionSettingField) =>
-  field === "model" ? "Model update failed" : "Thinking update failed";
+  field === "model" ? t("opsChat.modelUpdateFailed") : t("opsChat.thinkingUpdateFailed");
 
 const buildWebchatBlockedMessage = (field: SessionSettingField) =>
   field === "model"
-    ? "Model update not applied: this gateway blocks sessions.patch for WebChat clients; message sending still works."
-    : "Thinking level update not applied: this gateway blocks sessions.patch for WebChat clients; message sending still works.";
+    ? t("opsChat.modelUpdateBlocked")
+    : t("opsChat.thinkingUpdateBlocked");
 
 export const applySessionSettingMutation = async ({
   agents,

@@ -1,5 +1,6 @@
 import { runSshJson } from "@/lib/ssh/gateway-host";
 import type { SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const REMOVE_SKILL_SCRIPT = `
 set -euo pipefail
@@ -82,7 +83,7 @@ export const removeSkillOverSsh = (params: {
       params.request.managedSkillsDir,
     ],
     input: REMOVE_SKILL_SCRIPT,
-    label: `remove skill (${params.request.skillKey})`,
+    label: t("libSsh.labelRemoveSkill", { skillKey: params.request.skillKey }),
   });
   return result as SkillRemoveResult;
 };

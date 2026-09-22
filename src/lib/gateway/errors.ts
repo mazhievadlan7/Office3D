@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export type GatewayErrorPayload = {
   code: string;
   message: string;
@@ -13,7 +15,7 @@ export class GatewayResponseError extends Error {
   retryAfterMs?: number;
 
   constructor(payload: GatewayErrorPayload) {
-    super(payload.message || "Gateway request failed");
+    super(payload.message || t("libGateway.requestFailed"));
     this.name = "GatewayResponseError";
     this.code = payload.code;
     this.details = payload.details;

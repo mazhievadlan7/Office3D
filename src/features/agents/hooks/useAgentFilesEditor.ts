@@ -14,6 +14,7 @@ import {
   createAgentFilesState,
   isAgentFileName,
 } from "@/lib/agents/agentFiles";
+import { t } from "@/lib/i18n";
 
 type AgentFilesState = ReturnType<typeof createAgentFilesState>;
 
@@ -60,12 +61,12 @@ export const useAgentFilesEditor = (params: {
         savedAgentFilesRef.current = emptyState;
         setAgentFiles(emptyState);
         setAgentFilesDirty(false);
-        setAgentFilesError("Agent ID is missing for this agent.");
+        setAgentFilesError(t("opsAgents.filesMissingAgentId"));
         return;
       }
 
       if (!client) {
-        setAgentFilesError("Gateway client is not available.");
+        setAgentFilesError(t("opsAgents.gatewayClientUnavailable"));
         return;
       }
 
@@ -97,7 +98,7 @@ export const useAgentFilesEditor = (params: {
       setAgentFiles(nextState);
       setAgentFilesDirty(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load agent files.";
+      const message = err instanceof Error ? err.message : t("opsAgents.filesLoadFailed");
       setAgentFilesError(message);
     } finally {
       setAgentFilesLoading(false);
@@ -111,12 +112,12 @@ export const useAgentFilesEditor = (params: {
     try {
       const trimmedAgentId = agentId?.trim();
       if (!trimmedAgentId) {
-        setAgentFilesError("Agent ID is missing for this agent.");
+        setAgentFilesError(t("opsAgents.filesMissingAgentId"));
         return false;
       }
 
       if (!client) {
-        setAgentFilesError("Gateway client is not available.");
+        setAgentFilesError(t("opsAgents.gatewayClientUnavailable"));
         return false;
       }
 
@@ -146,7 +147,7 @@ export const useAgentFilesEditor = (params: {
       setAgentFilesDirty(false);
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save agent files.";
+      const message = err instanceof Error ? err.message : t("opsAgents.filesSaveFailed");
       setAgentFilesError(message);
       return false;
     } finally {
@@ -162,12 +163,12 @@ export const useAgentFilesEditor = (params: {
       try {
         const trimmedAgentId = agentId?.trim();
         if (!trimmedAgentId) {
-          setAgentFilesError("Agent ID is missing for this agent.");
+          setAgentFilesError(t("opsAgents.filesMissingAgentId"));
           return false;
         }
 
         if (!client) {
-          setAgentFilesError("Gateway client is not available.");
+          setAgentFilesError(t("opsAgents.gatewayClientUnavailable"));
           return false;
         }
 
@@ -193,7 +194,7 @@ export const useAgentFilesEditor = (params: {
         setAgentFilesDirty(false);
         return true;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to initialize agent files.";
+        const message = err instanceof Error ? err.message : t("opsAgents.filesInitFailed");
         setAgentFilesError(message);
         return false;
       } finally {

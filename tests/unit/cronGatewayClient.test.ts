@@ -66,8 +66,8 @@ describe("cron gateway client", () => {
       call: vi.fn(async () => ({ ok: true })),
     } as unknown as GatewayClient;
 
-    await expect(runCronJobNow(client, "   ")).rejects.toThrow("Cron job id is required.");
-    await expect(removeCronJob(client, "")).rejects.toThrow("Cron job id is required.");
+    await expect(runCronJobNow(client, "   ")).rejects.toThrow("Не указан ID задачи по расписанию.");
+    await expect(removeCronJob(client, "")).rejects.toThrow("Не указан ID задачи по расписанию.");
   });
 
   it("removes_all_jobs_for_agent", async () => {
@@ -100,7 +100,7 @@ describe("cron gateway client", () => {
       call: vi.fn(async () => ({ jobs: [] })),
     } as unknown as GatewayClient;
 
-    await expect(removeCronJobsForAgent(client, "   ")).rejects.toThrow("Agent id is required.");
+    await expect(removeCronJobsForAgent(client, "   ")).rejects.toThrow("Не указан ID агента.");
   });
 
   it("throws_when_any_bulk_remove_call_fails", async () => {
@@ -119,7 +119,7 @@ describe("cron gateway client", () => {
     } as unknown as GatewayClient;
 
     await expect(removeCronJobsForAgent(client, "agent-1")).rejects.toThrow(
-      'Failed to delete cron job "Job 1" (job-1).'
+      "Не удалось удалить задачу по расписанию «Job 1» (job-1)."
     );
   });
 
@@ -182,7 +182,7 @@ describe("cron gateway client", () => {
     } as unknown as GatewayClient;
 
     await expect(removeCronJobsForAgentWithBackup(client, "agent-1")).rejects.toThrow(
-      'Failed to delete cron job "Job 2" (job-2).'
+      "Не удалось удалить задачу по расписанию «Job 2» (job-2)."
     );
 
     expect(client.call).toHaveBeenCalledWith("cron.add", {
@@ -271,7 +271,7 @@ describe("cron gateway client", () => {
           payload: { kind: "agentTurn", message: "Run checks again." },
         },
       ])
-    ).rejects.toThrow('Failed to restore cron job "Job 2" (agent-1): cron.add failed');
+    ).rejects.toThrow("Не удалось восстановить задачу по расписанию «Job 2» (agent-1): cron.add failed");
   });
 
   it("creates_job_via_cron_add", async () => {
@@ -309,6 +309,6 @@ describe("cron gateway client", () => {
         wakeMode: "now",
         payload: { kind: "agentTurn", message: "Run checks." },
       })
-    ).rejects.toThrow("Cron job name is required.");
+    ).rejects.toThrow("Не указано название задачи по расписанию.");
   });
 });

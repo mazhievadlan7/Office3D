@@ -4,6 +4,7 @@ import { buildHistoryLines, type ChatHistoryMessage } from "@/features/agents/st
 import type { AgentState } from "@/features/agents/state/store";
 import type { CommandModeId } from "@/features/agents/operations/agentPermissionsOperation";
 import type { TranscriptAppendMeta } from "@/features/agents/state/transcript";
+import { t } from "@/lib/i18n";
 
 type GatewayClientLike = {
   call: <T = unknown>(method: string, params: unknown) => Promise<T>;
@@ -50,10 +51,10 @@ export async function runOpenClawPlanningPrompt(params: {
 }): Promise<string> {
   const trimmedPrompt = params.prompt.trim();
   if (!trimmedPrompt) {
-    throw new Error("Planning prompt is required.");
+    throw new Error(t("opsCompany.planningPromptRequired"));
   }
   if (params.agent.status === "running") {
-    throw new Error(`Wait for ${params.agent.name} to finish the current run first.`);
+    throw new Error(t("opsCompany.waitForRun", { name: params.agent.name }));
   }
 
   await sendChatMessageViaStudio({
@@ -82,10 +83,10 @@ export async function runOpenClawPlanningPrompt(params: {
       if (derived.lastAssistant?.trim()) {
         return derived.lastAssistant.trim();
       }
-      throw new Error("The planning agent finished, but no assistant response was available.");
+      throw new Error(t("opsCompany.noPlanningResponse"));
     }
     await sleep(800);
   }
 
-  throw new Error("Timed out while waiting for the planning agent response.");
+  throw new Error(t("opsCompany.planningTimedOut"));
 }

@@ -55,7 +55,7 @@ describe("skills remove local", () => {
         workspaceDir,
         managedSkillsDir,
       })
-    ).toThrow("Refusing to remove skill outside allowed root");
+    ).toThrow("Удаление отменено: навык вне разрешённого каталога");
   });
 
   it("refuses removing the root skills directory itself", () => {
@@ -72,7 +72,7 @@ describe("skills remove local", () => {
         workspaceDir,
         managedSkillsDir,
       })
-    ).toThrow("Refusing to remove the skills root directory");
+    ).toThrow("Удаление отменено: это корневой каталог навыков");
   });
 
   it("refuses removing directories that are not skills", () => {
@@ -89,6 +89,6 @@ describe("skills remove local", () => {
         workspaceDir,
         managedSkillsDir,
       })
-    ).toThrow("Refusing to remove non-skill directory");
+    ).toThrow("Удаление отменено: каталог не похож на навык");
   });
 });

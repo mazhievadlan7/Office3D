@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ const isRuntimeUrlAllowed = (runtimeUrl: string): boolean => {
 const normalizeRuntimeUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("runtimeUrl is required.");
+    throw new Error(t("apiRuntime.runtimeUrlRequired"));
   }
   const parsed = new URL(trimmed);
   if (parsed.protocol === "ws:") {
@@ -42,20 +43,20 @@ const normalizeRuntimeUrl = (value: string): string => {
     parsed.protocol = "https:";
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("runtimeUrl must use http, https, ws, or wss.");
+    throw new Error(t("apiRuntime.runtimeUrlProtocol"));
   }
   parsed.username = "";
   parsed.password = "";
   const normalized = parsed.toString().replace(/\/$/, "");
   if (!isRuntimeUrlAllowed(normalized)) {
-    throw new Error("runtimeUrl is not in the allowed hosts list.");
+    throw new Error(t("apiRuntime.runtimeUrlNotAllowed"));
   }
   return normalized;
 };
 
 const normalizePathname = (value: unknown): string => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error("pathname is required.");
+    throw new Error(t("apiRuntime.pathnameRequired"));
   }
   const trimmed = value.trim();
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[runtime/custom] Invalid JSON request body.", error);
     return NextResponse.json(
-      { error: "Invalid JSON request body." },
+      { error: t("apiCommon.invalidJsonBody") },
       { status: 400 }
     );
   }
@@ -105,12 +106,12 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Custom runtime proxy failed.";
+    const message = error instanceof Error ? error.message : t("apiRuntime.proxyFailed");
     const status =
-      message === "runtimeUrl is required." ||
-      message === "pathname is required." ||
-      message === "runtimeUrl must use http, https, ws, or wss." ||
-      message === "runtimeUrl is not in the allowed hosts list."
+      message === t("apiRuntime.runtimeUrlRequired") ||
+      message === t("apiRuntime.pathnameRequired") ||
+      message === t("apiRuntime.runtimeUrlProtocol") ||
+      message === t("apiRuntime.runtimeUrlNotAllowed")
         ? 400
         : 502;
     console.error("[runtime/custom] Proxy request failed.", error);
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
         error:
           status === 400
             ? message
-            : "Custom runtime proxy failed.",
+            : t("apiRuntime.proxyFailed"),
       },
       { status }
     );

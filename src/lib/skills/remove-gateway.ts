@@ -4,11 +4,12 @@ import {
   updateGatewayAgentOverrides,
 } from "@/lib/gateway/agentConfig";
 import type { SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const normalizeRequired = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("libSkills.fieldRequired", { field }));
   }
   return trimmed;
 };
@@ -17,12 +18,12 @@ const escapeForJsonString = (value: string) => JSON.stringify(value);
 
 const resolveRunId = (payload: unknown): string => {
   if (!payload || typeof payload !== "object") {
-    throw new Error("Gateway returned an invalid chat.send response.");
+    throw new Error(t("libGateway.invalidChatSendResponse"));
   }
   const record = payload as Record<string, unknown>;
   const runId = typeof record.runId === "string" ? record.runId.trim() : "";
   if (!runId) {
-    throw new Error("Gateway returned an invalid chat.send response (missing runId).");
+    throw new Error(t("libGateway.chatSendMissingRunId"));
   }
   return runId;
 };
@@ -37,18 +38,18 @@ const buildSkillRemovalMessage = (params: {
   allowedRoot: string;
 }) => {
   return [
-    "Delete exactly one installed skill directory from the current workspace context.",
-    "You may use the runtime tools or file tools.",
-    `Target directory: ${escapeForJsonString(params.baseDir)}`,
-    `Allowed root: ${escapeForJsonString(params.allowedRoot)}`,
+    t("libSkills.removerDeleteOne"),
+    t("libSkills.removerTools"),
+    t("libSkills.removerTargetDir", { path: escapeForJsonString(params.baseDir) }),
+    t("libSkills.removerAllowedRoot", { path: escapeForJsonString(params.allowedRoot) }),
     "",
-    "Rules:",
-    "1. Refuse to operate outside the allowed root.",
-    "2. Refuse to delete the allowed root directory itself.",
-    "3. If the target directory exists, verify it contains SKILL.md before deleting it.",
-    "4. If the target directory does not exist, reply only with: REMOVED_ALREADY",
-    "5. If deletion succeeds, reply only with: REMOVED",
-    "6. Do not modify any other files or directories.",
+    t("libSkills.removerRules"),
+    t("libSkills.removerRule1"),
+    t("libSkills.removerRule2"),
+    t("libSkills.removerRule3"),
+    t("libSkills.removerRule4"),
+    t("libSkills.removerRule5"),
+    t("libSkills.removerRule6"),
   ].join("\n");
 };
 
@@ -95,7 +96,7 @@ export const removeSkillViaGatewayAgent = async (params: {
     })) as { agentId?: unknown };
     removerAgentId = typeof created?.agentId === "string" ? created.agentId.trim() : "";
     if (!removerAgentId) {
-      throw new Error("Gateway returned an invalid agents.create response (missing agentId).");
+      throw new Error(t("libGateway.agentsCreateMissingAgentId"));
     }
 
     await updateGatewayAgentOverrides({

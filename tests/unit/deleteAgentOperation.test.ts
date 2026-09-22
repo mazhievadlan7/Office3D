@@ -267,7 +267,7 @@ describe("delete agent via studio operation", () => {
 
     await expect(
       deleteAgentViaStudio({ client: {} as never, agentId: "   ", fetchJson })
-    ).rejects.toThrow("Agent id is required.");
+    ).rejects.toThrow("Требуется ID агента.");
 
     expect(fetchJson).not.toHaveBeenCalled();
     expect(mockedRemoveCronJobsForAgentWithBackup).not.toHaveBeenCalled();

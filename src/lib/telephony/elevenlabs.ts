@@ -9,6 +9,7 @@ import {
   type TranscriptTurn,
 } from "@/lib/telephony/types";
 import { resolveVoiceAgentConfig, type VoiceAgentConfig } from "@/lib/telephony/voiceAgent";
+import { t } from "@/lib/i18n";
 
 /**
  * ElevenLabs Agents over a SIP trunk.
@@ -64,9 +65,7 @@ const request = async <T>(
     });
   } catch (error) {
     throw new TelephonyError(
-      `Could not reach ElevenLabs: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      t("libTelephony.elevenLabsUnreachable", { message: error instanceof Error ? error.message : String(error) }),
       502,
       error,
     );
@@ -85,7 +84,7 @@ const request = async <T>(
     const detail =
       asString(record.detail) ??
       asString(record.message) ??
-      `ElevenLabs returned ${response.status}.`;
+      t("libTelephony.elevenLabsStatus", { status: response.status });
     // The status is preserved: 401 is a bad key, 422 a bad request body, and
     // telling those apart saves a deployment looking in the wrong place.
     throw new TelephonyError(`ElevenLabs: ${detail}`, response.status, parsed);
@@ -111,8 +110,7 @@ const withOverrideHint = (error: unknown): unknown => {
     return error;
   }
   return new TelephonyError(
-    `${error.message} If this is about the prompt override, enable "allow overrides" ` +
-      "for the prompt and first message on this agent in the ElevenLabs dashboard.",
+    t("libTelephony.overrideHint", { message: error.message }),
     error.status,
     error.cause,
   );
@@ -137,7 +135,7 @@ export const placeVoiceAgentCall = async (
   const toNumber = assertE164(params.toNumber, "toNumber");
   const officeAgentId = params.caller.agentId.trim();
   if (!officeAgentId) {
-    throw new TelephonyError("agentId is required.");
+    throw new TelephonyError(t("libTelephony.agentIdRequired"));
   }
 
   // Composed here from the office's own facts. A raw prompt is never accepted
@@ -174,7 +172,7 @@ export const placeVoiceAgentCall = async (
   // own "ok" message would explain nothing.
   if (payload.success === false) {
     throw new TelephonyError(
-      asString(payload.message) ?? "ElevenLabs refused the call.",
+      asString(payload.message) ?? t("libTelephony.callRefused"),
       502,
       payload,
     );
@@ -183,7 +181,7 @@ export const placeVoiceAgentCall = async (
   const conversationId = asString(payload.conversation_id);
   if (!conversationId) {
     throw new TelephonyError(
-      "ElevenLabs did not start the call: the response carried no conversation id.",
+      t("libTelephony.noConversationId"),
       502,
       payload,
     );
@@ -231,7 +229,7 @@ export const fetchConversation = async (
 ): Promise<ConversationSnapshot> => {
   const id = conversationId.trim();
   if (!id) {
-    throw new TelephonyError("A conversation id is required.");
+    throw new TelephonyError(t("libTelephony.conversationIdRequired"));
   }
 
   const payload = await request<ConversationResponse>(
@@ -285,7 +283,7 @@ export const fetchConversationAudio = async (
 ): Promise<{ body: ReadableStream<Uint8Array>; contentType: string }> => {
   const id = conversationId.trim();
   if (!id) {
-    throw new TelephonyError("A conversation id is required.");
+    throw new TelephonyError(t("libTelephony.conversationIdRequired"));
   }
 
   const url = new URL(
@@ -298,9 +296,7 @@ export const fetchConversationAudio = async (
     response = await fetch(url, { headers: { "xi-api-key": config.apiKey } });
   } catch (error) {
     throw new TelephonyError(
-      `Could not reach ElevenLabs: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      t("libTelephony.elevenLabsUnreachable", { message: error instanceof Error ? error.message : String(error) }),
       502,
       error,
     );
@@ -311,7 +307,7 @@ export const fetchConversationAudio = async (
     // written for one that just ended; the status tells those apart.
     const detail = await response.text().catch(() => "");
     throw new TelephonyError(
-      `ElevenLabs: ${detail.trim() || `returned ${response.status} for the recording.`}`,
+      `ElevenLabs: ${detail.trim() || t("libTelephony.recordingStatus", { status: response.status })}`,
       response.ok ? 502 : response.status,
     );
   }

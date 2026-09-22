@@ -132,7 +132,7 @@ describe("FilesystemSkillInstaller.install", () => {
           ],
         }),
       ),
-    ).toThrow(/traverse directories/);
+    ).toThrow(/не может выходить за пределы каталога/);
 
     expect(fs.existsSync(path.join(path.dirname(root), "escaped.sh"))).toBe(false);
   });
@@ -162,7 +162,7 @@ describe("FilesystemSkillInstaller.remove", () => {
     fs.mkdirSync(path.join(root, "not-a-skill"));
     fs.writeFileSync(path.join(root, "not-a-skill", "important.txt"), "keep me");
 
-    expect(() => installer().remove("not-a-skill")).toThrow(/no SKILL\.md/);
+    expect(() => installer().remove("not-a-skill")).toThrow(/нет SKILL\.md; удаление отменено/);
     expect(fs.existsSync(path.join(root, "not-a-skill", "important.txt"))).toBe(true);
   });
 

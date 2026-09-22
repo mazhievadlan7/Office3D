@@ -8,6 +8,7 @@ import {
   loadStudioSettings,
 } from "@/lib/studio/settings-store";
 import { resolveStandupPreference } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       typeof body.gatewayUrl === "string" ? body.gatewayUrl.trim() : "";
     if (!gatewayUrl) {
       return NextResponse.json(
-        { error: "gatewayUrl is required." },
+        { error: t("apiOffice.standupGatewayUrlRequired") },
         { status: 400 }
       );
     }
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to start standup meeting.";
+      error instanceof Error ? error.message : t("apiOffice.standupStartFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

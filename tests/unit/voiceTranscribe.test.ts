@@ -91,7 +91,7 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
 
     expect(response.status).toBe(413);
     const body = await response.json();
-    expect(body.error).toMatch(/exceeds/i);
+    expect(body.error).toMatch(/Размер аудиозаписи превышает лимит/);
   });
 
   it("does NOT reject early when Content-Length is MAX + 1 (within multipart overhead allowance)", async () => {
@@ -133,7 +133,7 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
     const response = await POST(request);
     expect(response.status).toBe(413);
     const body = await response.json();
-    expect(body.error).toMatch(/exceeds/i);
+    expect(body.error).toMatch(/Размер аудиозаписи превышает лимит/);
   });
 
   // ── Normal happy path ─────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
     const response = await POST(request);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/audio file is required/i);
+    expect(body.error).toMatch(/Не передан аудиофайл/);
   });
 
   it("returns 400 for an empty audio file (0 bytes)", async () => {
@@ -168,7 +168,7 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
     const response = await POST(request);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/empty/i);
+    expect(body.error).toMatch(/Аудиозапись пуста/);
   });
 
   it("ignores a malformed (non-numeric) Content-Length header and falls through", async () => {

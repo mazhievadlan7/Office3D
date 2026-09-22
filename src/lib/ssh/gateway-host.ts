@@ -1,5 +1,6 @@
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import * as childProcess from "node:child_process";
+import { t } from "@/lib/i18n";
 
 const SSH_TARGET_ENV = "OPENCLAW_GATEWAY_SSH_TARGET";
 const SSH_USER_ENV = "OPENCLAW_GATEWAY_SSH_USER";
@@ -26,7 +27,7 @@ export const resolveConfiguredSshPort = (env: NodeJS.ProcessEnv = process.env): 
   }
   const port = Number.parseInt(rawPort, 10);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`${SSH_PORT_ENV} must be a valid port.`);
+    throw new Error(t("libSsh.invalidPort", { envName: SSH_PORT_ENV }));
   }
   return port;
 };
@@ -42,7 +43,7 @@ export const resolveConfiguredSshStrictHostKeyChecking = (
     return rawValue;
   }
   throw new Error(
-    `${SSH_STRICT_HOST_KEY_ENV} must be one of: accept-new, yes, no.`
+    t("libSsh.invalidStrictHostKey", { envName: SSH_STRICT_HOST_KEY_ENV })
   );
 };
 
@@ -72,18 +73,16 @@ export const resolveGatewaySshTargetFromGatewayUrl = (
 
   const trimmed = gatewayUrl.trim();
   if (!trimmed) {
-    throw new Error(
-      `Gateway URL is missing. Set it in Studio settings or set ${SSH_TARGET_ENV}.`
-    );
+    throw new Error(t("libSsh.gatewayUrlMissing", { envName: SSH_TARGET_ENV }));
   }
   let hostname: string;
   try {
     hostname = new URL(trimmed).hostname;
   } catch {
-    throw new Error(`Invalid gateway URL: ${trimmed}`);
+    throw new Error(t("libSsh.invalidGatewayUrl", { url: trimmed }));
   }
   if (!hostname) {
-    throw new Error(`Invalid gateway URL: ${trimmed}`);
+    throw new Error(t("libSsh.invalidGatewayUrl", { url: trimmed }));
   }
 
   const configuredUser = env[SSH_USER_ENV]?.trim() ?? "";
@@ -121,12 +120,12 @@ export const extractJsonErrorMessage = (value: string): string | null => {
 export const parseJsonOutput = (raw: string, label: string): unknown => {
   const trimmed = raw.trim();
   if (!trimmed) {
-    throw new Error(`Command produced empty JSON output (${label}).`);
+    throw new Error(t("libSsh.emptyJsonOutput", { label }));
   }
   try {
     return JSON.parse(trimmed) as unknown;
   } catch {
-    throw new Error(`Command produced invalid JSON output (${label}).`);
+    throw new Error(t("libSsh.invalidJsonOutput", { label }));
   }
 };
 
@@ -161,7 +160,7 @@ export const runSshJson = (params: {
 
   const result = childProcess.spawnSync("ssh", sshArgs, { ...options });
   if (result.error) {
-    throw new Error(`Failed to execute ssh: ${result.error.message}`);
+    throw new Error(t("libSsh.sshExecFailed", { message: result.error.message }));
   }
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
@@ -174,7 +173,7 @@ export const runSshJson = (params: {
       (stderrText ||
         stdoutText ||
         params.fallbackMessage ||
-        `Command failed (${params.label}).`);
+        t("libSsh.commandFailed", { label: params.label }));
     throw new Error(message);
   }
   return parseJsonOutput(stdout, params.label);

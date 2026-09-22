@@ -170,7 +170,7 @@ describe("studio settings normalization", () => {
     );
     expect(normalized.office.bad).toEqual(
       expect.objectContaining({
-        title: "Office3D Headquarters",
+        title: "Штаб Office3D",
       }),
     );
   });
@@ -179,7 +179,7 @@ describe("studio settings normalization", () => {
     const current = normalizeStudioSettings({
       office: {
         "ws://localhost:18789": {
-          title: "Office3D Headquarters",
+          title: "Штаб Office3D",
         },
       },
     });

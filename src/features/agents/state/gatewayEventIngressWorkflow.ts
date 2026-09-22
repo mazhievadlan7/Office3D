@@ -1,6 +1,7 @@
 import { resolveExecApprovalEventEffects, type ExecApprovalEventEffects } from "@/features/agents/approvals/execApprovalLifecycleWorkflow";
 import type { AgentState } from "@/features/agents/state/store";
 import { parseAgentIdFromSessionKey, type EventFrame } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export type CronTranscriptIntent = {
   agentId: string;
@@ -70,8 +71,8 @@ const resolveCronDecision = (params: {
     };
   }
 
-  const header = `Cron finished (${status || "unknown"}): ${jobId}`;
-  const body = summary || error || "(no output)";
+  const header = t("opsChat.cronFinished", { status: status || "unknown", jobId });
+  const body = summary || error || t("opsChat.noOutput");
   return {
     cronDedupeKeyToRecord: dedupeKey,
     cronTranscriptIntent: {

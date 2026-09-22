@@ -28,7 +28,7 @@ describe("agent state ssh executor", () => {
       expect.objectContaining({
         sshTarget: "me@host",
         argv: ["bash", "-s", "--", "my-agent"],
-        label: "trash agent state (my-agent)",
+        label: "перемещение состояния агента my-agent в корзину",
         input: expect.stringContaining('python3 - "$1"'),
       })
     );
@@ -51,7 +51,7 @@ describe("agent state ssh executor", () => {
       expect.objectContaining({
         sshTarget: "me@host",
         argv: ["bash", "-s", "--", "my-agent", "/tmp/trash"],
-        label: "restore agent state (my-agent)",
+        label: "восстановление состояния агента my-agent",
         input: expect.stringContaining('python3 - "$1" "$2"'),
       })
     );

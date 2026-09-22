@@ -33,7 +33,7 @@ describe("voiceTranscription", () => {
         attachments: [{ attempts: [{ reason: "No audio model succeeded." }] }],
       }),
     ).toContain("No audio model succeeded.");
-    expect(buildVoiceTranscriptionErrorMessage({ outcome: "disabled" })).toContain("disabled");
+    expect(buildVoiceTranscriptionErrorMessage({ outcome: "disabled" })).toBe("Распознавание речи в OpenClaw отключено.");
   });
 
   it("ignores silent transcription results that return no text", () => {

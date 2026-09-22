@@ -1,6 +1,7 @@
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { GatewayResponseError } from "@/lib/gateway/errors";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
+import { t } from "@/lib/i18n";
 
 export type GatewayTaskRecord = {
   id: string;
@@ -87,7 +88,7 @@ export const createGatewayTask = async (
   input: GatewayTaskCreateInput
 ): Promise<GatewayTaskRecord> => {
   const title = trimOrUndefined(input.title);
-  if (!title) throw new Error("Task title is required.");
+  if (!title) throw new Error(t("libTasks.titleRequired"));
   return client.call<GatewayTaskRecord>("tasks.create", {
     title,
     ...(trimOrUndefined(input.description) ? { description: trimOrUndefined(input.description) } : {}),
@@ -111,7 +112,7 @@ export const updateGatewayTask = async (
   patch: GatewayTaskUpdateInput
 ): Promise<GatewayTaskRecord> => {
   const taskId = trimOrUndefined(id);
-  if (!taskId) throw new Error("Task id is required.");
+  if (!taskId) throw new Error(t("libTasks.idRequired"));
   return client.call<GatewayTaskRecord>("tasks.update", {
     id: taskId,
     ...(patch.title !== undefined ? { title: trimOrUndefined(patch.title) ?? "" } : {}),
@@ -133,6 +134,6 @@ export const updateGatewayTask = async (
 
 export const deleteGatewayTask = async (client: GatewayClient, id: string) => {
   const taskId = trimOrUndefined(id);
-  if (!taskId) throw new Error("Task id is required.");
+  if (!taskId) throw new Error(t("libTasks.idRequired"));
   return client.call<{ ok: boolean; removed?: boolean }>("tasks.delete", { id: taskId });
 };

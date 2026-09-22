@@ -50,7 +50,7 @@ describe("skills remove ssh executor", () => {
           "/home/ubuntu/.openclaw/workspace-main",
           "/home/ubuntu/.openclaw/skills",
         ],
-        label: "remove skill (github)",
+        label: "удаление навыка github",
         input: expect.stringContaining('python3 - "$1" "$2" "$3" "$4" "$5"'),
       })
     );

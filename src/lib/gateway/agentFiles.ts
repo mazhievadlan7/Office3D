@@ -1,5 +1,6 @@
 import type { AgentFileName } from "@/lib/agents/agentFiles";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 type AgentsFilesGetResponse = {
   workspace?: unknown;
@@ -9,7 +10,7 @@ type AgentsFilesGetResponse = {
 const resolveAgentId = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("agentId is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
   return trimmed;
 };

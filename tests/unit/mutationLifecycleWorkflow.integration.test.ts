@@ -247,34 +247,34 @@ describe("mutationLifecycleWorkflow integration", () => {
         block: { phase: "queued", sawDisconnect: false },
         status: "connected",
       })
-    ).toBe("Waiting for active runs to finish");
+    ).toBe("Ожидание завершения активных запусков");
 
     expect(
       resolveConfigMutationStatusLine({
         block: { phase: "mutating", sawDisconnect: false },
         status: "connected",
       })
-    ).toBe("Submitting config change");
+    ).toBe("Отправка изменения конфигурации");
 
     expect(
       resolveConfigMutationStatusLine({
         block: { phase: "awaiting-restart", sawDisconnect: false },
         status: "connected",
       })
-    ).toBe("Waiting for gateway to restart");
+    ).toBe("Ожидание перезапуска шлюза");
 
     expect(
       resolveConfigMutationStatusLine({
         block: { phase: "awaiting-restart", sawDisconnect: true },
         status: "disconnected",
       })
-    ).toBe("Gateway restart in progress");
+    ).toBe("Идёт перезапуск шлюза");
 
     expect(
       resolveConfigMutationStatusLine({
         block: { phase: "awaiting-restart", sawDisconnect: true },
         status: "connected",
       })
-    ).toBe("Gateway is back online, syncing agents");
+    ).toBe("Шлюз снова в сети, синхронизация агентов");
   });
 });

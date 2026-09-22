@@ -62,7 +62,7 @@ describe("skill package validation", () => {
         { path: "SKILL.md", contents: "a" },
         { path: "SKILL.md", contents: "b" },
       ]),
-    ).toThrow(/more than once/);
+    ).toThrow(/больше одного раза/);
   });
 
   it("rejects_a_package_with_too_many_files", () => {
@@ -70,7 +70,7 @@ describe("skill package validation", () => {
       path: index === 0 ? "SKILL.md" : `file-${index}.txt`,
       contents: "x",
     }));
-    expect(() => assertValidSkillPackageFiles(files)).toThrow(/over the/);
+    expect(() => assertValidSkillPackageFiles(files)).toThrow(/Файлов в пакете навыка: 101, больше лимита 100/);
   });
 
   it("rejects_a_package_over_the_size_cap", () => {
@@ -79,7 +79,7 @@ describe("skill package validation", () => {
         { path: "SKILL.md", contents: "x" },
         { path: "big.bin", contents: "x".repeat(3 * 1024 * 1024) },
       ]),
-    ).toThrow(/over the/);
+    ).toThrow(/Размер пакета навыка — 3145729 байт, больше лимита/);
   });
 
   it("accepts_and_trims_a_valid_package", () => {
@@ -176,7 +176,7 @@ describe("ClawHubRegistry.search", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
     await expect(
       new ClawHubRegistry("https://registry.test").search("x"),
-    ).rejects.toThrow(/ClawHub search failed: ECONNREFUSED/);
+    ).rejects.toThrow(/Ошибка поиска в ClawHub: ECONNREFUSED/);
   });
 });
 
@@ -228,7 +228,7 @@ describe("ClawHubRegistry.fetchPackage", () => {
 
     await expect(
       new ClawHubRegistry("https://registry.test").fetchPackage("a/b"),
-    ).rejects.toThrow(/traverse directories/);
+    ).rejects.toThrow(/не может выходить за пределы каталога/);
   });
 
   it("refuses_a_package_with_no_manifest", async () => {
@@ -241,7 +241,7 @@ describe("ClawHubRegistry.fetchPackage", () => {
   it("rejects_an_empty_slug", async () => {
     await expect(
       new ClawHubRegistry("https://registry.test").fetchPackage("  "),
-    ).rejects.toThrow(/slug is required/);
+    ).rejects.toThrow(/Не указан идентификатор \(slug\) навыка/);
   });
 });
 

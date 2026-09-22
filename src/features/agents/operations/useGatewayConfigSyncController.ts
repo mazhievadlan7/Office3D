@@ -13,6 +13,7 @@ import {
   type GatewayModelPolicySnapshot,
 } from "@/lib/gateway/models";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 const defaultLogError = (message: string, err: unknown) => {
   console.error(message, err);
@@ -98,7 +99,7 @@ export function useGatewayConfigSyncController(
     sandboxRepairAttemptedRef.current = true;
     void enqueueConfigMutation({
       kind: "repair-sandbox-tool-allowlist",
-      label: "Repair sandbox tool access",
+      label: t("opsSettings.repairSandboxToolAccess"),
       run: async () => {
         for (const agentId of repairIntent.agentIds) {
           await updateGatewayAgentOverrides({
@@ -171,7 +172,7 @@ export function useGatewayConfigSyncController(
         setGatewayModelsError(null);
       } catch (err) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Failed to load models.";
+        const message = err instanceof Error ? err.message : t("opsSettings.modelsLoadFailed");
         setGatewayModelsError(message);
         setGatewayModels([]);
         if (!isDisconnectLikeError(err)) {

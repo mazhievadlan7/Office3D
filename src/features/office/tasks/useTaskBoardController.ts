@@ -55,6 +55,7 @@ import {
 } from "@/lib/tasks/shared-store-client";
 import type { SharedTaskRecord } from "@/lib/tasks/shared-store";
 import { randomUUID } from "@/lib/uuid";
+import { t } from "@/lib/i18n";
 
 const TASK_EVENT_NAMES = new Set([
   "task_created",
@@ -149,7 +150,7 @@ const makeCard = (
   const nowIso = new Date().toISOString();
   return {
     id: input.id,
-    title: input.title.trim() || "Untitled task",
+    title: input.title.trim() || t("opsTasks.untitled"),
     description: input.description?.trim() ?? "",
     status: input.status ?? "todo",
     source: input.source ?? "office3d_manual",
@@ -229,7 +230,7 @@ const buildCardFromExplicitEvent = (
   existing?: TaskBoardCard | null,
 ): TaskBoardCard => {
   const fallbackTitle =
-    explicit.kind === "playbook_triggered" ? "Triggered playbook task" : "Task";
+    explicit.kind === "playbook_triggered" ? t("opsTasks.triggeredPlaybook") : t("opsTasks.task");
   return makeCard({
     ...(existing ?? {}),
     id: explicit.taskId,
@@ -363,7 +364,7 @@ const deriveChatRequestCard = (
     new Date().toISOString();
   return makeCard({
     id,
-    title: truncateTitle(text, "Incoming request"),
+    title: truncateTitle(text, t("opsTasks.incomingRequest")),
     description: text,
     status: "todo",
     sourceEventId: id,
@@ -404,7 +405,7 @@ export const deriveRecoveredAgentRequestCard = (
     const requestKey = `history:${agent.sessionKey}:${entry.sequenceKey}`;
     return makeCard({
       id: requestKey,
-      title: truncateTitle(text, "Recovered request"),
+      title: truncateTitle(text, t("opsTasks.recoveredRequest")),
       description: text,
       status: "todo",
       source: "openclaw_event",
@@ -433,7 +434,7 @@ export const deriveRecoveredAgentRequestCard = (
   )}`;
   return makeCard({
     id: fallbackKey,
-    title: truncateTitle(fallbackText, "Recovered request"),
+    title: truncateTitle(fallbackText, t("opsTasks.recoveredRequest")),
     description: fallbackText,
     status: "todo",
     source: "openclaw_event",
@@ -585,10 +586,10 @@ const buildStandupSeedCards = (
         id: existing?.id ?? `standup:${agentId}`,
         title:
           existing?.title ??
-          truncateTitle(title || note || blockers, "Standup task"),
+          truncateTitle(title || note || blockers, t("opsTasks.standupTask")),
         description:
           existing?.description ||
-          [title, blockers ? `Blockers: ${blockers}` : "", note]
+          [title, blockers ? t("opsTasks.blockers", { blockers }) : "", note]
             .filter(Boolean)
             .join("\n"),
         status:
@@ -763,13 +764,13 @@ export const useTaskBoardController = ({
           lastTitle: saved.title,
           lastTaskId: saved.id,
           lastSessionKey: saved.externalThreadId,
-          lastMessage: "Inbound request persisted to shared task store.",
+          lastMessage: t("opsTasks.debugPersisted"),
         }));
       } catch (error) {
         if (error instanceof TaskStoreRequestError && error.status === 404) {
           setSharedTasksSupported(false);
           setSharedTasksError(
-            "Shared task store route is unavailable. Restart the dev server to enable task sync.",
+            t("opsTasks.storeRouteUnavailableRestart"),
           );
           setTaskCaptureDebug((current) => ({
             ...current,
@@ -778,14 +779,14 @@ export const useTaskBoardController = ({
             lastTitle: task.title,
             lastTaskId: task.id,
             lastSessionKey: task.externalThreadId,
-            lastMessage: "Shared task store route is unavailable.",
+            lastMessage: t("opsTasks.storeRouteUnavailable"),
           }));
           return;
         }
         setSharedTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to sync live request into shared task store.",
+            : t("opsTasks.syncLiveFailed"),
         );
         setTaskCaptureDebug((current) => ({
           ...current,
@@ -797,7 +798,7 @@ export const useTaskBoardController = ({
           lastMessage:
             error instanceof Error
               ? error.message
-              : "Failed to sync live request into shared task store.",
+              : t("opsTasks.syncLiveFailed"),
         }));
       }
     },
@@ -868,7 +869,7 @@ export const useTaskBoardController = ({
       setCronJobs(result.jobs);
     } catch (error) {
       setCronError(
-        error instanceof Error ? error.message : "Failed to load playbooks.",
+        error instanceof Error ? error.message : t("opsTasks.playbooksLoadFailed"),
       );
     } finally {
       setCronLoading(false);
@@ -894,14 +895,14 @@ export const useTaskBoardController = ({
       if (error instanceof TaskStoreRequestError && error.status === 404) {
         setSharedTasksSupported(false);
         setSharedTasksError(
-          "Shared task store route is unavailable. Restart the dev server to enable task sync.",
+          t("opsTasks.storeRouteUnavailableRestart"),
         );
         return;
       }
       setSharedTasksError(
         error instanceof Error
           ? error.message
-          : "Failed to load shared task store.",
+          : t("opsTasks.storeLoadFailed"),
       );
     } finally {
       sharedRefreshInFlightRef.current = false;
@@ -932,7 +933,7 @@ export const useTaskBoardController = ({
       setGatewayTasksError(
         error instanceof Error
           ? error.message
-          : "Failed to load tasks from OpenClaw.",
+          : t("opsTasks.openclawLoadFailed"),
       );
     } finally {
       setGatewayTasksLoading(false);
@@ -1009,8 +1010,8 @@ export const useTaskBoardController = ({
         lastTaskId: recoveredTask.id,
         lastSessionKey: recoveredTask.externalThreadId,
         lastMessage: hasPersistedMatch
-          ? "Recovered request already exists on the board."
-          : "Recovered latest user request from agent history/state.",
+          ? t("opsTasks.recoveredExists")
+          : t("opsTasks.recoveredLatest"),
         detectedCount: hasPersistedMatch
           ? current.detectedCount
           : current.detectedCount + 1,
@@ -1029,7 +1030,7 @@ export const useTaskBoardController = ({
     async (input?: Partial<TaskBoardCard>) => {
       const card = makeCard({
         id: `manual:${randomUUID()}`,
-        title: input?.title?.trim() || "New task",
+        title: input?.title?.trim() || t("opsTasks.newTask"),
         description: input?.description ?? "",
         status: input?.status ?? "todo",
         source: "office3d_manual",
@@ -1053,7 +1054,7 @@ export const useTaskBoardController = ({
         setSharedTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to create task in shared store.",
+            : t("opsTasks.createFailed"),
         );
         dispatch({ type: "upsert", card });
         dispatch({ type: "select", cardId: card.id });
@@ -1084,7 +1085,7 @@ export const useTaskBoardController = ({
         setSharedTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to update task in shared store.",
+            : t("opsTasks.updateFailed"),
         );
       }
     },
@@ -1112,7 +1113,7 @@ export const useTaskBoardController = ({
         setSharedTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to move task in shared store.",
+            : t("opsTasks.moveFailed"),
         );
       }
     },
@@ -1144,7 +1145,7 @@ export const useTaskBoardController = ({
         setSharedTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to archive task in shared store.",
+            : t("opsTasks.archiveFailed"),
         );
       }
     },
@@ -1228,7 +1229,7 @@ export const useTaskBoardController = ({
           lastTaskId: liveSessionTask.id,
           lastSessionKey: liveSessionTask.externalThreadId,
           lastMessage:
-            "Inbound user request detected and queued for persistence.",
+            t("opsTasks.debugQueued"),
           detectedCount: current.detectedCount + 1,
         }));
         const hasPersistedMatch = stateRef.current.cards.some(
@@ -1276,7 +1277,7 @@ export const useTaskBoardController = ({
             const cardId = `run:${sessionKey ?? agentId}:${runId}`;
             const newCard = makeCard({
               id: cardId,
-              title: truncateTitle(userText, "Incoming request"),
+              title: truncateTitle(userText, t("opsTasks.incomingRequest")),
               description: userText,
               status: "in_progress",
               source: "openclaw_event",

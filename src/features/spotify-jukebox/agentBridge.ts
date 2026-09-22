@@ -2,6 +2,7 @@
 
 import { useJukeboxStore } from "./store";
 import { searchTracks } from "./spotifyApi";
+import { t } from "@/lib/i18n";
 
 type BrowserJukeboxCommand =
   | { kind: "pause" }
@@ -66,20 +67,20 @@ export const executeBrowserJukeboxCommand = async (
   switch (command.kind) {
     case "pause":
       await useJukeboxStore.getState().pause();
-      return { ok: true, reply: "Paused the office jukebox." };
+      return { ok: true, reply: t("opsJukebox.paused") };
     case "resume":
       await useJukeboxStore.getState().resume();
-      return { ok: true, reply: "Resumed the office jukebox." };
+      return { ok: true, reply: t("opsJukebox.resumed") };
     case "next":
       await useJukeboxStore.getState().next();
-      return { ok: true, reply: "Skipped to the next track on the office jukebox." };
+      return { ok: true, reply: t("opsJukebox.skippedNext") };
     case "previous":
       await useJukeboxStore.getState().previous();
-      return { ok: true, reply: "Went back to the previous track on the office jukebox." };
+      return { ok: true, reply: t("opsJukebox.wentPrevious") };
     case "play": {
       if (!command.query) {
         await useJukeboxStore.getState().resume();
-        return { ok: true, reply: "Started the office jukebox." };
+        return { ok: true, reply: t("opsJukebox.started") };
       }
       const results = await searchTracks(token, command.query);
       useJukeboxStore.setState({
@@ -91,10 +92,10 @@ export const executeBrowserJukeboxCommand = async (
       }
       await useJukeboxStore.getState().play(results[0].uri);
       const top = results[0];
-      const artist = top.artists[0]?.name ?? "Unknown artist";
+      const artist = top.artists[0]?.name ?? t("opsJukebox.unknownArtist");
       return {
         ok: true,
-        reply: `Playing ${artist} - "${top.name}" on the office jukebox.`,
+        reply: t("opsJukebox.playing", { artist, track: top.name }),
       };
     }
   }

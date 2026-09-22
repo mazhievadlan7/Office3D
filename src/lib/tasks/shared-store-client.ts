@@ -1,4 +1,5 @@
 import type { SharedTaskRecord } from "@/lib/tasks/shared-store";
+import { t } from "@/lib/i18n";
 
 const TASK_STORE_ROUTE = "/api/task-store";
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -40,7 +41,7 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
   const body = (await response.json().catch(() => null)) as { error?: string } & T;
   if (!response.ok) {
     throw new TaskStoreRequestError(
-      body?.error || "Task store request failed.",
+      body?.error || t("libTasks.storeRequestFailed"),
       response.status,
     );
   }

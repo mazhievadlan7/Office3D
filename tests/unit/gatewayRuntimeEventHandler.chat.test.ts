@@ -804,7 +804,7 @@ describe("gateway runtime event handler (chat)", () => {
     });
 
     expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Run aborted." })
+      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Запуск прерван." })
     );
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -846,7 +846,7 @@ describe("gateway runtime event handler (chat)", () => {
     });
 
     expect(errorDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Error: bad" })
+      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Ошибка: bad" })
     );
     expect(errorDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -902,7 +902,7 @@ describe("gateway runtime event handler (chat)", () => {
       })
     );
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Run aborted." })
+      expect.objectContaining({ type: "appendOutput", agentId: "agent-1", line: "Запуск прерван." })
     );
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({

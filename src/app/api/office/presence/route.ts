@@ -12,6 +12,7 @@ import { buildOfficePresenceSnapshotFromGateway } from "@/lib/office/gatewayPres
 import { NodeGatewayClient, buildAgentMainSessionKey } from "@/lib/gateway/nodeGatewayClient";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { resolveOfficePreference } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
     const snapshot = loadOfficePresenceSnapshot(workspaceId);
     return NextResponse.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load office presence.";
+    const message = error instanceof Error ? error.message : t("apiOffice.presenceFailed");
     console.error("[office-presence] Failed to load office presence.", {
       error: message,
     });

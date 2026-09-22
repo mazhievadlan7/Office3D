@@ -201,7 +201,7 @@ describe("execApprovalControlLoopWorkflow", () => {
           agentId: "agent-1",
           sessionKey: "agent:agent-1:main",
           dedupeKey: "cron:job-1:session-1",
-          line: "Cron finished (ok): job-1\n\ncron summary",
+          line: "Задача по расписанию завершена (ok): job-1\n\ncron summary",
           timestampMs: 123,
           activityAtMs: 123,
         },

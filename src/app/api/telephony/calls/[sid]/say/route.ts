@@ -6,6 +6,7 @@ import {
   isTerminalCallStatus,
 } from "@/lib/telephony/types";
 import { describeOperatorChannelReadiness } from "@/lib/telephony/webhookAuth";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ export async function POST(
     const call = requireCall(sid);
 
     if (isTerminalCallStatus(call.status)) {
-      throw new TelephonyError("That call has ended.", 409);
+      throw new TelephonyError(t("apiTelephony.callEnded"), 409);
     }
 
     const readiness = describeOperatorChannelReadiness();
@@ -38,7 +39,7 @@ export async function POST(
       // Refused rather than queued: a note nothing can collect would sit in
       // the transcript looking delivered.
       throw new TelephonyError(
-        `Operator instructions are not configured. Missing: ${readiness.missing.join(", ")}.`,
+        t("apiTelephony.operatorNotConfigured", { missing: readiness.missing.join(", ") }),
         503,
       );
     }
@@ -47,7 +48,7 @@ export async function POST(
     try {
       parsed = await request.json();
     } catch {
-      throw new TelephonyError("Could not read the request body as JSON.");
+      throw new TelephonyError(t("apiCommon.bodyNotJson"));
     }
     const text = assertSpeakableText(
       typeof (parsed as { text?: unknown })?.text === "string"

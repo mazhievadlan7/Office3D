@@ -196,7 +196,7 @@ describe("gateway agent skills allowlist", () => {
         agentId: "agent-1",
         mode: "allowlist",
       })
-    ).rejects.toThrow("Skills allowlist is required when mode is allowlist.");
+    ).rejects.toThrow("Для режима «allowlist» нужен список разрешённых навыков.");
     expect(client.call).not.toHaveBeenCalled();
   });
 

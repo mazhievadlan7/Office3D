@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isTerminalCallStatus, type CallRecord } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /**
  * The office's live call feed.
@@ -108,7 +109,7 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
     try {
       const response = await fetch("/api/telephony/calls", { cache: "no-store" });
       if (!response.ok) {
-        throw new Error(await readError(response, "The call feed could not be read"));
+        throw new Error(await readError(response, t("opsOffice.callFeedReadFailed")));
       }
       const body = (await response.json()) as {
         ready?: boolean;
@@ -159,7 +160,7 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
           body: JSON.stringify({ toNumber, agentId, agentName, agentRole }),
         });
         if (!response.ok) {
-          throw new Error(await readError(response, "The call could not be placed"));
+          throw new Error(await readError(response, t("opsOffice.callPlaceFailed")));
         }
         const body = (await response.json()) as { call?: CallRecord };
         const call = body.call ?? null;
@@ -192,7 +193,7 @@ export const useOfficeCallFeed = ({ enabled = true }: { enabled?: boolean } = {}
         },
       );
       if (!response.ok) {
-        return await readError(response, "The instruction could not be sent");
+        return await readError(response, t("opsOffice.instructionSendFailed"));
       }
       const body = (await response.json()) as { call?: CallRecord };
       if (body.call && mountedRef.current) {

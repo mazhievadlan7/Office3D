@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { transcribeVoiceWithOpenClaw } from "@/lib/openclaw/voiceTranscription";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
       ) {
         return NextResponse.json(
           {
-            error: `Audio upload exceeds the ${MAX_VOICE_UPLOAD_BYTES} byte limit.`,
+            error: t("apiOffice.voiceUploadTooLarge", { max: MAX_VOICE_UPLOAD_BYTES }),
           },
           { status: 413 },
         );
@@ -48,14 +49,14 @@ export async function POST(request: Request) {
       typeof audio !== "object" ||
       typeof (audio as File).arrayBuffer !== "function"
     ) {
-      return NextResponse.json({ error: "audio file is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.voiceAudioRequired") }, { status: 400 });
     }
     const audioFile = audio as File;
 
     const arrayBuffer = await audioFile.arrayBuffer();
     const byteLength = arrayBuffer.byteLength;
     if (byteLength <= 0) {
-      return NextResponse.json({ error: "Audio upload is empty." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.voiceUploadEmpty") }, { status: 400 });
     }
 
     // ── Secondary (post-buffer) size check ──────────────────────────────────
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     if (byteLength > MAX_VOICE_UPLOAD_BYTES) {
       return NextResponse.json(
         {
-          error: `Audio upload exceeds the ${MAX_VOICE_UPLOAD_BYTES} byte limit.`,
+          error: t("apiOffice.voiceUploadTooLarge", { max: MAX_VOICE_UPLOAD_BYTES }),
         },
         { status: 413 },
       );
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       ignored: result.ignored,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to transcribe audio.";
+    const message = error instanceof Error ? error.message : t("apiOffice.voiceTranscribeFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { NodeGatewayClient } from "@/lib/gateway/nodeGatewayClient";
 import { sendAgentHandoffViaRuntime } from "@/lib/runtime/agentMessaging";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { resolveOfficePreference } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 const MAX_REMOTE_MESSAGE_CHARS = 2_000;
@@ -32,14 +33,14 @@ export async function POST(request: Request) {
       : [];
 
     if (!requestedAgentId) {
-      return NextResponse.json({ error: "Remote agent ID is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteAgentIdRequired") }, { status: 400 });
     }
     if (!task) {
-      return NextResponse.json({ error: "Remote handoff task is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteHandoffTaskRequired") }, { status: 400 });
     }
     if (task.length > MAX_REMOTE_MESSAGE_CHARS) {
       return NextResponse.json(
-        { error: `Remote handoff must be ${MAX_REMOTE_MESSAGE_CHARS} characters or fewer.` },
+        { error: t("apiOffice.remoteHandoffTooLong", { max: MAX_REMOTE_MESSAGE_CHARS }) },
         { status: 400 },
       );
     }
@@ -48,18 +49,18 @@ export async function POST(request: Request) {
     const gatewayUrl = settings.gateway?.url?.trim() || "";
     const officePreference = resolveOfficePreference(settings, gatewayUrl);
     if (!officePreference.remoteOfficeEnabled) {
-      return NextResponse.json({ error: "Remote office is disabled." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteOfficeDisabled") }, { status: 400 });
     }
     if (officePreference.remoteOfficeSourceKind !== "openclaw_gateway") {
       return NextResponse.json(
-        { error: "Remote handoffs currently work only with the remote gateway source." },
+        { error: t("apiOffice.remoteHandoffGatewayOnly") },
         { status: 400 },
       );
     }
     const remoteGatewayUrl = officePreference.remoteOfficeGatewayUrl.trim();
     if (!remoteGatewayUrl) {
       return NextResponse.json(
-        { error: "Remote office gateway URL is not configured." },
+        { error: t("apiOffice.remoteGatewayUrlMissing") },
         { status: 400 },
       );
     }
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       {
         targetAgentId: requestedAgentId,
         task,
-        sourceLabel: "another office user",
+        sourceLabel: t("apiOffice.anotherOfficeUser"),
         context: context || undefined,
         acceptanceCriteria: acceptanceCriteria || undefined,
         deliverables,
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to send remote office handoff.";
+      error instanceof Error ? error.message : t("apiOffice.remoteHandoffFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     gatewayClient.close();

@@ -5,11 +5,12 @@ import path from "node:path";
 import { resolveUserPath } from "@/lib/clawdbot/paths";
 import { isPathInside, resolveComparablePath } from "@/lib/skills/fs-guards";
 import type { RemovableSkillSource, SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const normalizeRequiredPath = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("libSkills.fieldRequired", { field }));
   }
   return resolveUserPath(trimmed, os.homedir);
 };
@@ -28,7 +29,7 @@ const resolveAllowedRoot = (params: {
 export const removeSkillLocally = (params: SkillRemoveRequest): SkillRemoveResult => {
   const skillKey = params.skillKey.trim();
   if (!skillKey) {
-    throw new Error("skillKey is required.");
+    throw new Error(t("libSkills.fieldRequired", { field: "skillKey" }));
   }
 
   const source = params.source;
@@ -43,21 +44,21 @@ export const removeSkillLocally = (params: SkillRemoveRequest): SkillRemoveResul
   });
 
   if (!isPathInside(allowedRoot, baseDir)) {
-    throw new Error(`Refusing to remove skill outside allowed root: ${baseDir}`);
+    throw new Error(t("libSkills.removeOutsideRoot", { path: baseDir }));
   }
   if (resolveComparablePath(allowedRoot) === resolveComparablePath(baseDir)) {
-    throw new Error(`Refusing to remove the skills root directory: ${baseDir}`);
+    throw new Error(t("libSkills.removeSkillsRoot", { path: baseDir }));
   }
 
   const exists = fs.existsSync(baseDir);
   if (exists) {
     const stats = fs.statSync(baseDir);
     if (!stats.isDirectory()) {
-      throw new Error(`Skill path is not a directory: ${baseDir}`);
+      throw new Error(t("libSkills.notADirectory", { path: baseDir }));
     }
     const skillDocPath = path.join(baseDir, "SKILL.md");
     if (!fs.existsSync(skillDocPath) || !fs.statSync(skillDocPath).isFile()) {
-      throw new Error(`Refusing to remove non-skill directory: ${baseDir}`);
+      throw new Error(t("libSkills.removeNonSkillDir", { path: baseDir }));
     }
     fs.rmSync(baseDir, { recursive: true, force: false });
   }

@@ -7,6 +7,7 @@ import {
 import { loadOfficeLayoutSnapshot, saveOfficeLayoutSnapshot } from "@/lib/office/layoutSnapshotStore";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { resolveOfficePreference } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 const REMOTE_LAYOUT_TIMEOUT_MS = 10_000;
@@ -37,7 +38,7 @@ const fetchRemoteOfficeLayoutSnapshot = async (params: {
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Remote office layout request timed out.");
+      throw new Error(t("apiOffice.layoutTimeout"));
     }
     throw error;
   } finally {
@@ -47,7 +48,7 @@ const fetchRemoteOfficeLayoutSnapshot = async (params: {
     return null;
   }
   if (!response.ok) {
-    throw new Error(`Remote office layout request failed with status ${response.status}.`);
+    throw new Error(t("apiOffice.layoutRequestFailed", { status: response.status }));
   }
   const payload = (await response.json()) as unknown;
   return normalizeOfficeLayoutSnapshot(payload, "");
@@ -92,7 +93,7 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load office layout.";
+    const message = error instanceof Error ? error.message : t("apiOffice.layoutLoadFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -102,7 +103,7 @@ export async function PUT(request: Request) {
     const body = (await request.json()) as { snapshot?: unknown };
     const snapshot = normalizeOfficeLayoutSnapshot(body.snapshot, "");
     if (!snapshot) {
-      return NextResponse.json({ error: "Invalid office layout snapshot." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.layoutInvalid") }, { status: 400 });
     }
     saveOfficeLayoutSnapshot(snapshot);
     return NextResponse.json(
@@ -110,7 +111,7 @@ export async function PUT(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save office layout.";
+    const message = error instanceof Error ? error.message : t("apiOffice.layoutSaveFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

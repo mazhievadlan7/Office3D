@@ -1,4 +1,5 @@
 import { TelephonyError } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Voice agent provider: the platform that actually holds the conversation.
@@ -45,7 +46,7 @@ export const resolveVoiceAgentConfig = (
 
   if (missing.length > 0) {
     throw new TelephonyError(
-      `The voice agent is not configured. Missing: ${missing.join(", ")}.`,
+      t("libTelephony.voiceAgentNotConfigured", { missing: missing.join(", ") }),
       503,
     );
   }

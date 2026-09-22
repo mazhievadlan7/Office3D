@@ -6,6 +6,7 @@ import type {
   SkillRegistryId,
   SkillRegistrySearchOptions,
 } from "@/lib/skills/registry/types";
+import { t } from "@/lib/i18n";
 
 export * from "@/lib/skills/registry/types";
 export { ClawHubRegistry, resolveClawHubApiUrl } from "@/lib/skills/registry/clawhub";
@@ -27,7 +28,7 @@ export const findSkillRegistry = (
 ): SkillRegistry => {
   const found = registries.find((registry) => registry.id === id);
   if (!found) {
-    throw new Error(`Unknown skill registry: ${id}`);
+    throw new Error(t("libSkills.unknownRegistry", { id }));
   }
   return found;
 };

@@ -12,6 +12,7 @@ import type {
   StudioSettingsPatch,
   StudioSettingsPublic,
 } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 type GatewayClientLike = {
   call: (method: string, params: unknown) => Promise<unknown>;
@@ -84,7 +85,7 @@ export async function runStudioBootstrapLoadOperation(params: {
 
     return commands;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load agents.";
+    const message = err instanceof Error ? err.message : t("opsAgents.loadFailed");
     return [{ kind: "set-error", message }];
   }
 }

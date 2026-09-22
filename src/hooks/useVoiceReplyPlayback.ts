@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceReplyProvider } from "@/lib/voiceReply/provider";
+import { t } from "@/lib/i18n";
 
 export type VoiceReplyPlaybackRequest = {
   text: string;
@@ -150,7 +151,7 @@ export const useVoiceReplyPlayback = (params: {
         };
         const handleError = () => {
           cleanup();
-          reject(new Error("Voice reply playback failed."));
+          reject(new Error(t("libHooks.voiceReplyPlaybackFailed")));
         };
         audio.addEventListener("ended", handleDone);
         audio.addEventListener("pause", handleDone);
@@ -192,7 +193,7 @@ export const useVoiceReplyPlayback = (params: {
         const body = (await response.json().catch(() => null)) as
           | { error?: string }
           | null;
-        throw new Error(body?.error?.trim() || "Voice reply request failed.");
+        throw new Error(body?.error?.trim() || t("libHooks.voiceReplyRequestFailed"));
       }
       return response.blob();
     },

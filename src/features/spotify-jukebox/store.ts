@@ -14,6 +14,7 @@ import {
   type PlayerState,
   type SpotifyTrack,
 } from "./spotifyApi";
+import { t } from "@/lib/i18n";
 
 const SOUNDCLAW_PLAYBACK_STARTED_EVENT = "soundclaw:playback-started";
 
@@ -101,7 +102,7 @@ export const useJukeboxStore = create<JukeboxStore>((set, get) => ({
       const playerState = await fetchPlayerState(token);
       set({ playerState, isLoadingPlayer: false });
     } catch {
-      set({ isLoadingPlayer: false, error: "Could not reach Spotify." });
+      set({ isLoadingPlayer: false, error: t("opsJukebox.unreachable") });
     }
   },
 
@@ -113,7 +114,7 @@ export const useJukeboxStore = create<JukeboxStore>((set, get) => ({
       const results = await searchTracks(token, query);
       set({ searchResults: results, isSearching: false });
     } catch {
-      set({ isSearching: false, error: "Search failed." });
+      set({ isSearching: false, error: t("opsJukebox.searchFailed") });
     }
   },
 
@@ -130,7 +131,7 @@ export const useJukeboxStore = create<JukeboxStore>((set, get) => ({
       await get().refreshPlayer();
       emitPlaybackStarted();
     } catch {
-      set({ error: "Playback failed. Make sure Spotify is open on a device." });
+      set({ error: t("opsJukebox.playbackFailed") });
     }
   },
 

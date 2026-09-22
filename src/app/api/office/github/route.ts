@@ -8,6 +8,7 @@ import {
   type GitHubInlineCommentSide,
   type GitHubReviewAction,
 } from "@/lib/office/github";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to load GitHub server room data.";
+      error instanceof Error ? error.message : t("apiOffice.githubLoadFailed");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -70,14 +71,14 @@ export async function POST(request: Request) {
     if (action) {
       if (!repo || !number) {
         return NextResponse.json(
-          { error: "repo, number, and action are required." },
+          { error: t("apiOffice.githubReviewFieldsRequired") },
           { status: 400 },
         );
       }
 
       if (!["APPROVE", "COMMENT", "REQUEST_CHANGES"].includes(action)) {
         return NextResponse.json(
-          { error: "Unsupported review action." },
+          { error: t("apiOffice.githubUnsupportedReviewAction") },
           { status: 400 },
         );
       }
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
 
     if (!repo || !number || !path || !line || !side || !commentBody?.trim()) {
       return NextResponse.json(
-        { error: "repo, number, path, line, side, and body are required." },
+        { error: t("apiOffice.githubCommentFieldsRequired") },
         { status: 400 },
       );
     }
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to submit GitHub review.";
+      error instanceof Error ? error.message : t("apiOffice.githubReviewFailed");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

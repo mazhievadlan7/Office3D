@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 /**
  * Agent phone calls.
  *
@@ -126,7 +128,7 @@ export const assertE164 = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!E164.test(trimmed)) {
     throw new TelephonyError(
-      `${field} must be an E.164 phone number such as +14155550100, got "${value}".`,
+      t("libTelephony.invalidE164", { field, value }),
     );
   }
   return trimmed;
@@ -138,11 +140,11 @@ export const MAX_SPOKEN_CHARS = 1500;
 export const assertSpeakableText = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new TelephonyError(`${field} is required.`);
+    throw new TelephonyError(t("libTelephony.fieldRequired", { field }));
   }
   if (trimmed.length > MAX_SPOKEN_CHARS) {
     throw new TelephonyError(
-      `${field} is ${trimmed.length} characters, over the ${MAX_SPOKEN_CHARS} limit.`,
+      t("libTelephony.fieldTooLong", { field, length: trimmed.length, limit: MAX_SPOKEN_CHARS }),
     );
   }
   return trimmed;

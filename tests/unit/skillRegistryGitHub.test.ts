@@ -156,7 +156,7 @@ describe("GitHubSkillRegistry.fetchPackage", () => {
     mockRepo({});
     await expect(
       new GitHubSkillRegistry("https://api.test", null).fetchPackage("owner/missing"),
-    ).rejects.toThrow(/GitHub fetch of "owner\/missing" failed/);
+    ).rejects.toThrow(/Не удалось получить «owner\/missing» с GitHub/);
   });
 
   it("sends_the_token_only_when_one_is_configured", async () => {

@@ -19,6 +19,7 @@ import type {
   StandupTriggerKind,
 } from "@/lib/office/standup/types";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { matchesPhrase, t } from "@/lib/i18n";
 
 type JiraIssueRecord = StandupTicketSummary & {
   assigneeName: string | null;
@@ -75,7 +76,7 @@ const loadGitHubCommitSummaries = (): {
         hasFailingChecks: false,
         sourceState: buildSourceState("github", {
           ready: false,
-          error: dashboard.message ?? "GitHub is not ready.",
+          error: dashboard.message ?? t("libOffice.standupGithubNotReady"),
         }),
       };
     }
@@ -94,7 +95,7 @@ const loadGitHubCommitSummaries = (): {
       url: entry.url,
     }));
     const hasFailingChecks = combined.some((entry) =>
-      (entry.statusSummary ?? "").toLowerCase().includes("failing")
+      matchesPhrase(entry.statusSummary ?? "", "libOffice.checksFailing")
     );
     return {
       commits,
@@ -110,7 +111,7 @@ const loadGitHubCommitSummaries = (): {
       hasFailingChecks: false,
       sourceState: buildSourceState("github", {
         ready: false,
-        error: error instanceof Error ? error.message : "Failed to load GitHub activity.",
+        error: error instanceof Error ? error.message : t("libOffice.standupGithubLoadFailed"),
       }),
     };
   }
@@ -140,7 +141,7 @@ const loadJiraIssues = async (
       sourceState: buildSourceState("jira", {
         ready: false,
         stale: true,
-        error: "Jira is disabled.",
+        error: t("libOffice.standupJiraDisabled"),
       }),
     };
   }
@@ -150,7 +151,7 @@ const loadJiraIssues = async (
       sourceState: buildSourceState("jira", {
         ready: false,
         stale: true,
-        error: "Jira credentials are incomplete.",
+        error: t("libOffice.standupJiraCredentialsIncomplete"),
       }),
     };
   }
@@ -163,7 +164,7 @@ const loadJiraIssues = async (
       sourceState: buildSourceState("jira", {
         ready: false,
         stale: true,
-        error: error instanceof Error ? error.message : "Jira base URL is invalid.",
+        error: error instanceof Error ? error.message : t("libOffice.standupJiraBaseUrlInvalid"),
       }),
     };
   }
@@ -174,7 +175,7 @@ const loadJiraIssues = async (
       sourceState: buildSourceState("jira", {
         ready: false,
         stale: true,
-        error: "Add a Jira project key or JQL query.",
+        error: t("libOffice.standupJiraQueryMissing"),
       }),
     };
   }
@@ -207,14 +208,14 @@ const loadJiraIssues = async (
       | null;
     if (!response.ok) {
       throw new Error(
-        payload?.errorMessages?.join(" ") || "Failed to load Jira issues."
+        payload?.errorMessages?.join(" ") || t("libOffice.standupJiraLoadFailed")
       );
     }
     const issues: JiraIssueRecord[] = (payload?.issues ?? []).map((issue) => ({
       id: issue.id ?? issue.key ?? randomUUID(),
       key: issue.key ?? "JIRA",
-      title: coerceText(issue.fields?.summary) || "Untitled issue",
-      status: coerceText(issue.fields?.status?.name) || "Unknown",
+      title: coerceText(issue.fields?.summary) || t("libOffice.standupUntitledIssue"),
+      status: coerceText(issue.fields?.status?.name) || t("libOffice.standupUnknownStatus"),
       url: issue.key ? `${jiraBaseUrl}/browse/${issue.key}` : null,
       assigneeName: coerceText(issue.fields?.assignee?.displayName) || null,
       assigneeEmail: coerceText(issue.fields?.assignee?.emailAddress) || null,
@@ -232,7 +233,7 @@ const loadJiraIssues = async (
       sourceState: buildSourceState("jira", {
         ready: false,
         stale: true,
-        error: error instanceof Error ? error.message : "Failed to load Jira issues.",
+        error: error instanceof Error ? error.message : t("libOffice.standupJiraLoadFailed"),
       }),
     };
   }
@@ -294,7 +295,7 @@ const buildSpeech = (agentName: string, currentTask: string, blockers: string[])
   const headline = `${agentName}: ${currentTask}`.trim();
   if (headline.length <= 110 && blockers.length === 0) return headline;
   if (blockers.length > 0) {
-    const blockerText = `Blocked by ${blockers[0]}.`;
+    const blockerText = t("libOffice.standupBlockedBy", { blocker: blockers[0] });
     const combined = `${headline}. ${blockerText}`.trim();
     if (combined.length <= 120) return combined;
   }
@@ -329,10 +330,10 @@ export const buildStandupMeeting = async (params: {
       agent.latestPreview ||
       agent.lastUserMessage ||
       githubResult.commits[0]?.title ||
-      "Reviewing current work.";
+      t("libOffice.standupReviewingWork");
     const blockers = splitBlockers(manual.blockers);
     if (blockers.length === 0 && githubResult.hasFailingChecks) {
-      blockers.push("GitHub checks are failing.");
+      blockers.push(t("libOffice.standupChecksFailing"));
     }
     const manualNotes = [manual.note].map(coerceText).filter(Boolean);
     return {

@@ -93,7 +93,7 @@ describe("skills gateway client", () => {
     } as unknown as GatewayClient;
 
     await expect(loadAgentSkillStatus(client, "  ")).rejects.toThrow(
-      "Agent id is required to load skill status."
+      "Для загрузки статуса навыков нужен идентификатор агента."
     );
     expect(client.call).not.toHaveBeenCalled();
   });
@@ -101,7 +101,7 @@ describe("skills gateway client", () => {
   it("installs skill dependencies with normalized params", async () => {
     const response = {
       ok: true,
-      message: "Installed",
+      message: "Установлено",
       stdout: "",
       stderr: "",
       code: 0,
@@ -130,10 +130,10 @@ describe("skills gateway client", () => {
     } as unknown as GatewayClient;
 
     await expect(installSkill(client, { name: " ", installId: "id" })).rejects.toThrow(
-      "Skill name is required to install dependencies."
+      "Для установки зависимостей нужно указать имя навыка."
     );
     await expect(installSkill(client, { name: "browser", installId: " " })).rejects.toThrow(
-      "Install option id is required to install dependencies."
+      "Для установки зависимостей нужно указать вариант установки."
     );
     expect(client.call).not.toHaveBeenCalled();
   });
@@ -187,7 +187,7 @@ describe("skills gateway client", () => {
     } as unknown as GatewayClient;
 
     await expect(updateSkill(client, { skillKey: " ", apiKey: "token" })).rejects.toThrow(
-      "Skill key is required to update skill setup."
+      "Для изменения настройки навыка нужен ключ навыка."
     );
     expect(client.call).not.toHaveBeenCalled();
   });

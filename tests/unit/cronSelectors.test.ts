@@ -64,21 +64,21 @@ describe("cron selectors", () => {
 
 describe("cron formatting", () => {
   it("formats_every_schedule_with_h_m_s_ms_suffixes", () => {
-    expect(formatCronSchedule({ kind: "every", everyMs: 3_600_000 })).toBe("Every 1h");
-    expect(formatCronSchedule({ kind: "every", everyMs: 60_000 })).toBe("Every 1m");
-    expect(formatCronSchedule({ kind: "every", everyMs: 1_000 })).toBe("Every 1s");
-    expect(formatCronSchedule({ kind: "every", everyMs: 1_500 })).toBe("Every 1500ms");
+    expect(formatCronSchedule({ kind: "every", everyMs: 3_600_000 })).toBe("Раз в 1 ч");
+    expect(formatCronSchedule({ kind: "every", everyMs: 60_000 })).toBe("Раз в 1 мин");
+    expect(formatCronSchedule({ kind: "every", everyMs: 1_000 })).toBe("Раз в 1 с");
+    expect(formatCronSchedule({ kind: "every", everyMs: 1_500 })).toBe("Раз в 1500 мс");
   });
 
   it("formats_cron_schedule_with_optional_tz", () => {
-    expect(formatCronSchedule({ kind: "cron", expr: "0 0 * * *" })).toBe("Cron: 0 0 * * *");
+    expect(formatCronSchedule({ kind: "cron", expr: "0 0 * * *" })).toBe("Расписание cron: 0 0 * * *");
     expect(formatCronSchedule({ kind: "cron", expr: "0 0 * * *", tz: "UTC" })).toBe(
-      "Cron: 0 0 * * * (UTC)"
+      "Расписание cron: 0 0 * * * (UTC)"
     );
   });
 
   it("formats_at_schedule_as_raw_when_not_parseable", () => {
-    expect(formatCronSchedule({ kind: "at", at: "not-a-date" })).toBe("At: not-a-date");
+    expect(formatCronSchedule({ kind: "at", at: "not-a-date" })).toBe("Однократно: not-a-date");
   });
 
   it("formats_cron_payload_text", () => {
@@ -99,6 +99,6 @@ describe("cron formatting", () => {
       state: {},
     };
 
-    expect(formatCronJobDisplay(job)).toBe("Job name\nEvery 1m\nhi");
+    expect(formatCronJobDisplay(job)).toBe("Job name\nРаз в 1 мин\nhi");
   });
 });

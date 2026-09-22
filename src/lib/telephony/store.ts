@@ -8,6 +8,7 @@ import {
   type TranscriptSpeaker,
   type TranscriptTurn,
 } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Live calls, held in the server process.
@@ -39,7 +40,7 @@ export const getCall = (sid: string): CallRecord | null =>
 export const requireCall = (sid: string): CallRecord => {
   const call = getCall(sid);
   if (!call) {
-    throw new TelephonyError(`No call with SID "${sid}".`, 404);
+    throw new TelephonyError(t("libTelephony.callNotFound", { sid }), 404);
   }
   return call;
 };

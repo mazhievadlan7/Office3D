@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MessageRecord } from "@/lib/messaging/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Messages the office has sent.
@@ -68,7 +69,7 @@ export const useOfficeMessaging = ({
     try {
       const response = await fetch("/api/messaging/messages", { cache: "no-store" });
       if (!response.ok) {
-        throw new Error(await readError(response, "Messages could not be read"));
+        throw new Error(await readError(response, t("opsOffice.messagesReadFailed")));
       }
       const body = (await response.json()) as {
         ready?: boolean;
@@ -102,7 +103,7 @@ export const useOfficeMessaging = ({
           body: JSON.stringify(params),
         });
         if (!response.ok) {
-          return await readError(response, "The message could not be sent");
+          return await readError(response, t("opsOffice.messageSendFailed"));
         }
         const body = (await response.json()) as { message?: MessageRecord };
         if (body.message && mountedRef.current) {

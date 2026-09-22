@@ -104,7 +104,7 @@ describe("assertWebhookAuthorized", () => {
           withHeader(presented),
           CHANNEL_ENV as unknown as NodeJS.ProcessEnv,
         ),
-      ).toThrow(/Unauthorized/);
+      ).toThrow(/Нет доступа/);
     }
   });
 
@@ -227,7 +227,7 @@ describe("GET /api/telephony/calls/[sid]/audio", () => {
     const response = await audio("conv_1");
 
     expect(response.status).toBe(409);
-    expect((await response.json()).error).toMatch(/no live audio feed/);
+    expect((await response.json()).error).toMatch(/прослушать звонок в реальном времени нельзя/);
     expect(spy).not.toHaveBeenCalled();
   });
 

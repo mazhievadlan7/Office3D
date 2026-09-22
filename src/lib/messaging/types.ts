@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 /**
  * Messages an office agent sends.
  *
@@ -57,11 +59,11 @@ export const MAX_MESSAGE_CHARS = 900;
 export const assertMessageText = (value: string, field: string): string => {
   const trimmed = value.replace(/\s+/g, " ").trim();
   if (!trimmed) {
-    throw new MessagingError(`${field} is required.`);
+    throw new MessagingError(t("libMessaging.fieldRequired", { field }));
   }
   if (trimmed.length > MAX_MESSAGE_CHARS) {
     throw new MessagingError(
-      `${field} is ${trimmed.length} characters, over the ${MAX_MESSAGE_CHARS} limit.`,
+      t("libMessaging.fieldTooLong", { field, length: trimmed.length, limit: MAX_MESSAGE_CHARS }),
     );
   }
   return trimmed;
@@ -75,7 +77,7 @@ export const normalizeWhatsAppUserId = (value: string, field: string): string =>
   const trimmed = value.trim().replace(/^\+/, "").replace(/[\s()-]/g, "");
   if (!/^[1-9]\d{7,14}$/.test(trimmed)) {
     throw new MessagingError(
-      `${field} must be a phone number in international form such as +14155550100, got "${value}".`,
+      t("libMessaging.invalidPhone", { field, value }),
     );
   }
   return trimmed;

@@ -55,7 +55,7 @@ describe("skills remove client", () => {
         workspaceDir: "/tmp/workspace",
         managedSkillsDir: "/tmp/managed",
       })
-    ).rejects.toThrow("skillKey is required.");
+    ).rejects.toThrow("Не указано поле skillKey.");
 
     await expect(
       removeSkillFromGateway({
@@ -66,6 +66,6 @@ describe("skills remove client", () => {
         workspaceDir: "/tmp/workspace",
         managedSkillsDir: "/tmp/managed",
       })
-    ).rejects.toThrow("baseDir is required.");
+    ).rejects.toThrow("Не указано поле baseDir.");
   });
 });

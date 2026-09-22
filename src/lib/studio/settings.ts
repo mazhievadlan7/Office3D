@@ -22,6 +22,7 @@ import {
   type TaskBoardPreference,
   type TaskBoardPreferencePatch,
 } from "@/features/office/tasks/types";
+import { t } from "@/lib/i18n";
 
 export type StudioGatewaySettings = {
   url: string;
@@ -495,7 +496,7 @@ const normalizeTaskBoardCard = (
   const record = isRecord(value) ? value : {};
   return {
     id: coerceString(record.id) || fallback?.id || "",
-    title: coerceString(record.title) || fallback?.title || "Untitled task",
+    title: coerceString(record.title) || fallback?.title || t("libTasks.untitled"),
     description: coerceString(record.description) || fallback?.description || "",
     status: isTaskBoardStatus(record.status) ? record.status : (fallback?.status ?? "todo"),
     source: isTaskBoardSource(record.source)
@@ -542,8 +543,8 @@ const normalizeTaskBoardPreference = (
   };
 };
 
-const DEFAULT_OFFICE_TITLE = "Office3D Headquarters";
-const DEFAULT_REMOTE_OFFICE_LABEL = "Remote Office";
+const DEFAULT_OFFICE_TITLE = t("office.defaultTitle");
+const DEFAULT_REMOTE_OFFICE_LABEL = t("office.remoteLabel");
 const DEFAULT_REMOTE_OFFICE_SOURCE_KIND = "presence_endpoint" as const;
 
 const normalizeOfficeTitle = (

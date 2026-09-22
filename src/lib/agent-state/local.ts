@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { t } from "@/lib/i18n";
 
 export type GatewayAgentStateMove = { from: string; to: string };
 
@@ -32,10 +33,10 @@ const moveIfExists = (src: string, dest: string, moves: GatewayAgentStateMove[])
 export const trashAgentStateLocally = (params: { agentId: string }): TrashAgentStateResult => {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("agentId is required.");
+    throw new Error(t("libAgentState.agentIdRequired"));
   }
   if (!isSafeAgentId(agentId)) {
-    throw new Error(`Invalid agentId: ${agentId}`);
+    throw new Error(t("libAgentState.invalidAgentId", { agentId }));
   }
 
   const base = resolveStateDir();
@@ -61,7 +62,7 @@ const ensureUnderBase = (base: string, candidate: string) => {
   const resolvedCandidate = fs.realpathSync(candidate);
   const prefix = resolvedBase.endsWith(path.sep) ? resolvedBase : `${resolvedBase}${path.sep}`;
   if (resolvedCandidate !== resolvedBase && !resolvedCandidate.startsWith(prefix)) {
-    throw new Error(`trashDir is not under ${base}: ${candidate}`);
+    throw new Error(t("libAgentState.trashDirOutsideBase", { base, candidate }));
   }
   return { resolvedBase, resolvedCandidate };
 };
@@ -73,19 +74,19 @@ export const restoreAgentStateLocally = (params: {
   const agentId = params.agentId.trim();
   const trashDirRaw = params.trashDir.trim();
   if (!agentId) {
-    throw new Error("agentId is required.");
+    throw new Error(t("libAgentState.agentIdRequired"));
   }
   if (!isSafeAgentId(agentId)) {
-    throw new Error(`Invalid agentId: ${agentId}`);
+    throw new Error(t("libAgentState.invalidAgentId", { agentId }));
   }
   if (!trashDirRaw) {
-    throw new Error("trashDir is required.");
+    throw new Error(t("libAgentState.trashDirRequired"));
   }
 
   const base = resolveStateDir();
   const trashRoot = path.join(base, "trash", "studio-delete-agent");
   if (!fs.existsSync(trashDirRaw)) {
-    throw new Error(`trashDir does not exist: ${trashDirRaw}`);
+    throw new Error(t("libAgentState.trashDirMissing", { path: trashDirRaw }));
   }
   // Validate trashDir is strictly under the expected trash root, not just anywhere under base.
   // This prevents path traversal where an attacker could reference legitimate directories
@@ -96,7 +97,7 @@ export const restoreAgentStateLocally = (params: {
   const restoreIfExists = (src: string, dest: string) => {
     if (!fs.existsSync(src)) return;
     if (fs.existsSync(dest)) {
-      throw new Error(`Refusing to restore over existing path: ${dest}`);
+      throw new Error(t("libAgentState.restoreTargetExists", { path: dest }));
     }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.renameSync(src, dest);

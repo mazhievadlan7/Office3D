@@ -19,7 +19,7 @@ describe("chatInteractionWorkflow", () => {
     expect(intent).toEqual({
       kind: "deny",
       reason: "not-connected",
-      message: "Connect to gateway before stopping a run.",
+      message: "Подключитесь к шлюзу, прежде чем останавливать запуск.",
     });
   });
 
@@ -34,7 +34,7 @@ describe("chatInteractionWorkflow", () => {
     expect(intent).toEqual({
       kind: "deny",
       reason: "missing-session-key",
-      message: "Missing session key for agent.",
+      message: "У агента нет ключа сессии.",
     });
   });
 
@@ -74,7 +74,7 @@ describe("chatInteractionWorkflow", () => {
     expect(intent).toEqual({
       kind: "deny",
       reason: "missing-agent",
-      message: "Failed to start new session: agent not found.",
+      message: "Не удалось начать новую сессию: агент не найден.",
     });
   });
 
@@ -87,7 +87,7 @@ describe("chatInteractionWorkflow", () => {
     expect(intent).toEqual({
       kind: "deny",
       reason: "missing-session-key",
-      message: "Missing session key for agent.",
+      message: "У агента нет ключа сессии.",
     });
   });
 

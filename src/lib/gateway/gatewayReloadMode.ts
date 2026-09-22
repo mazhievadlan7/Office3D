@@ -1,5 +1,6 @@
 import { GatewayResponseError, type GatewayClient } from "@/lib/gateway/GatewayClient";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
+import { t } from "@/lib/i18n";
 
 type GatewayConfigSnapshot = {
   config?: Record<string, unknown>;
@@ -62,7 +63,7 @@ export async function ensureGatewayReloadModeHotForLocalStudio(params: {
     const exists = snapshot.exists !== false;
     const baseHash = exists ? snapshot.hash?.trim() : undefined;
     if (exists && !baseHash) {
-      throw new Error("Gateway config hash unavailable; re-run config.get.");
+      throw new Error(t("libGateway.configHashUnavailable"));
     }
 
     const baseConfig = isRecord(snapshot.config) ? snapshot.config : {};

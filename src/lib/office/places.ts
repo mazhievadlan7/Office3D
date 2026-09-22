@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export const OFFICE_INTERACTION_TARGETS = [
   "desk",
   "server_room",
@@ -40,28 +42,28 @@ export const OFFICE_SKILL_TRIGGER_PLACE_REGISTRY: Record<
   }
 > = {
   desk: {
-    label: "Desk",
+    label: t("libOffice.placeDesk"),
     interactionTarget: "desk",
     animationHoldKey: "deskHoldByAgentId",
   },
   github: {
-    label: "GitHub / Server Room",
+    label: t("libOffice.placeServerRoom"),
     interactionTarget: "server_room",
     animationHoldKey: "githubHoldByAgentId",
   },
   gym: {
-    label: "Gym",
+    label: t("libOffice.placeGym"),
     interactionTarget: "gym",
     animationHoldKey: "gymHoldByAgentId",
     alsoSetsSkillGymHold: true,
   },
   jukebox: {
-    label: "Jukebox",
+    label: t("libOffice.placeJukebox"),
     interactionTarget: "jukebox",
     animationHoldKey: "jukeboxHoldByAgentId",
   },
   qa_lab: {
-    label: "QA Lab",
+    label: t("libOffice.placeQaLab"),
     interactionTarget: "qa_lab",
     animationHoldKey: "qaHoldByAgentId",
   },
@@ -90,6 +92,9 @@ export const DEFAULT_SKILL_TRIGGER_FALLBACKS_BY_SKILL_KEY: Record<
       "blocked tasks",
       "add to my todo",
       "show my todo",
+      "список дел",
+      "мои дела",
+      "заблокированн",
     ],
     movementTarget: "desk",
     skipIfAlreadyThere: true,
@@ -103,6 +108,11 @@ export const DEFAULT_SKILL_TRIGGER_FALLBACKS_BY_SKILL_KEY: Record<
       "mark this done",
       "block this task",
       "what tasks do we have",
+      "добавь задачу",
+      "создай задачу",
+      "новая задача",
+      "статус задачи",
+      "какие задачи",
     ],
     movementTarget: "desk",
     skipIfAlreadyThere: true,
@@ -117,6 +127,11 @@ export const DEFAULT_SKILL_TRIGGER_FALLBACKS_BY_SKILL_KEY: Record<
       "find a song",
       "queue this song",
       "music link",
+      "включи музыку",
+      "включи песню",
+      "поставь песню",
+      "найди песню",
+      "плейлист",
     ],
     movementTarget: "jukebox",
     skipIfAlreadyThere: true,

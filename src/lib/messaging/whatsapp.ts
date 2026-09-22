@@ -1,5 +1,6 @@
 import type { MessagingConfig } from "@/lib/messaging/provider";
 import { MessagingError } from "@/lib/messaging/types";
+import { t } from "@/lib/i18n";
 
 /**
  * WhatsApp messages through ElevenLabs.
@@ -52,9 +53,7 @@ export const sendWhatsAppTemplateMessage = async (
     });
   } catch (error) {
     throw new MessagingError(
-      `Could not reach ElevenLabs: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      t("libMessaging.elevenLabsUnreachable", { message: error instanceof Error ? error.message : String(error) }),
       502,
       error,
     );
@@ -73,7 +72,7 @@ export const sendWhatsAppTemplateMessage = async (
     const detail =
       asString(record.detail) ??
       asString(record.message) ??
-      `ElevenLabs returned ${response.status}.`;
+      t("libMessaging.elevenLabsStatus", { status: response.status });
     // The status is preserved: 401 is a bad key and 422 usually a template
     // name or language that does not match an approved one, and telling those
     // apart saves a deployment looking in the wrong place.
@@ -88,7 +87,7 @@ export const sendWhatsAppTemplateMessage = async (
     // reporting it as sent would put a delivery in the log that cannot be
     // traced.
     throw new MessagingError(
-      "ElevenLabs accepted the request but returned no conversation id.",
+      t("libMessaging.noConversationId"),
       502,
       parsed,
     );

@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 const AVATAR_PALETTE = [
   "#1d4ed8",
   "#0f766e",
@@ -52,7 +54,7 @@ const buildAvatarLabel = (seed: string) => {
 export const buildAvatarSvg = (seed: string): string => {
   const trimmed = seed.trim();
   if (!trimmed) {
-    throw new Error("Avatar seed is required.");
+    throw new Error(t("libAvatars.seedRequired"));
   }
 
   const hash = hashSeed(trimmed);

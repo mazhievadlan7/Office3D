@@ -130,7 +130,7 @@ describe("POST /api/skills/registry/install", () => {
       runtime: "hermes",
     });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Unknown registry/);
+    expect((await response.json()).error).toMatch(/Неизвестный реестр: npm/);
   });
 
   it("rejects_a_runtime_that_has_nowhere_to_install_to", async () => {
@@ -142,13 +142,13 @@ describe("POST /api/skills/registry/install", () => {
       runtime: "demo",
     });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Cannot install skills into "demo"/);
+    expect((await response.json()).error).toMatch(/Нельзя установить навыки в «demo»/);
   });
 
   it("rejects_a_missing_slug", async () => {
     const response = await postInstall({ registry: "github", runtime: "hermes" });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/slug is required/);
+    expect((await response.json()).error).toMatch(/Не заполнено обязательное поле: slug/);
   });
 
   it("reports_a_fetch_failure_as_a_client_error_and_writes_nothing", async () => {
@@ -161,7 +161,7 @@ describe("POST /api/skills/registry/install", () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/GitHub fetch of "owner\/missing" failed/);
+    expect((await response.json()).error).toMatch(/Не удалось получить «owner\/missing» с GitHub/);
     expect(fs.readdirSync(skillsDir)).toEqual([]);
   });
 });

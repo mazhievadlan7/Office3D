@@ -1,4 +1,5 @@
 import { MessagingError } from "@/lib/messaging/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Where office messages go.
@@ -55,7 +56,7 @@ export const resolveMessagingConfig = (
   const { missing } = describeMessagingReadiness(env);
   if (missing.length > 0) {
     throw new MessagingError(
-      `Messaging is not configured. Missing: ${missing.join(", ")}.`,
+      t("libMessaging.notConfigured", { missing: missing.join(", ") }),
       503,
     );
   }

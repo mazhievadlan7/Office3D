@@ -340,9 +340,9 @@ describe("runtime event bridge helpers", () => {
       '[[meta]]{"role":"user","timestamp":1704067200000}',
       "> hi",
       '[[meta]]{"role":"assistant","timestamp":1704067201000}',
-      "Run aborted.",
+      "Запуск прерван.",
     ]);
-    expect(history.lastAssistant).toBe("Run aborted.");
+    expect(history.lastAssistant).toBe("Запуск прерван.");
     expect(history.lastAssistantAt).toBe(abortedAt);
     expect(history.lastRole).toBe("assistant");
     expect(history.lastUser).toBe("hi");
@@ -546,10 +546,10 @@ Continue where you left off and finish the task.`,
         '[[meta]]{"role":"user","timestamp":1704068940000}',
         "> hi",
         '[[meta]]{"role":"assistant","timestamp":1704068941000}',
-        "Run aborted.",
+        "Запуск прерван.",
       ],
-      lastResult: "Run aborted.",
-      latestPreview: "Run aborted.",
+      lastResult: "Запуск прерван.",
+      latestPreview: "Запуск прерван.",
       lastAssistantMessageAt: Date.parse("2024-01-01T00:29:01.000Z"),
       lastUserMessage: "hi",
       historyLoadedAt: loadedAt,

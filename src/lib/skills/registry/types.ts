@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 /**
  * Remote skill sources.
  *
@@ -92,24 +94,24 @@ const UNSAFE_SEGMENTS = new Set([".", ".."]);
 export const assertSafeSkillFilePath = (path: string): string => {
   const trimmed = path.trim();
   if (!trimmed) {
-    throw new Error("Skill file path is empty.");
+    throw new Error(t("libSkills.filePathEmpty"));
   }
   if (trimmed.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
-    throw new Error(`Skill file path must be relative: ${path}`);
+    throw new Error(t("libSkills.filePathNotRelative", { path }));
   }
   if (trimmed.includes("\\")) {
-    throw new Error(`Skill file path must use forward slashes: ${path}`);
+    throw new Error(t("libSkills.filePathBackslashes", { path }));
   }
   if (trimmed.includes("\0")) {
-    throw new Error(`Skill file path contains a null byte: ${path}`);
+    throw new Error(t("libSkills.filePathNullByte", { path }));
   }
   const segments = trimmed.split("/");
   for (const segment of segments) {
     if (segment === "") {
-      throw new Error(`Skill file path has an empty segment: ${path}`);
+      throw new Error(t("libSkills.filePathEmptySegment", { path }));
     }
     if (UNSAFE_SEGMENTS.has(segment)) {
-      throw new Error(`Skill file path may not traverse directories: ${path}`);
+      throw new Error(t("libSkills.filePathTraversal", { path }));
     }
   }
   return trimmed;
@@ -125,11 +127,11 @@ export const assertValidSkillPackageFiles = (
   files: RegistrySkillFile[],
 ): RegistrySkillFile[] => {
   if (files.length === 0) {
-    throw new Error("Skill package contains no files.");
+    throw new Error(t("libSkills.packageEmpty"));
   }
   if (files.length > MAX_SKILL_FILE_COUNT) {
     throw new Error(
-      `Skill package has ${files.length} files, over the ${MAX_SKILL_FILE_COUNT} limit.`,
+      t("libSkills.packageTooManyFiles", { count: files.length, max: MAX_SKILL_FILE_COUNT }),
     );
   }
 
@@ -138,7 +140,7 @@ export const assertValidSkillPackageFiles = (
   const validated = files.map((file) => {
     const path = assertSafeSkillFilePath(file.path);
     if (seen.has(path)) {
-      throw new Error(`Skill package lists ${path} more than once.`);
+      throw new Error(t("libSkills.packageDuplicatePath", { path }));
     }
     seen.add(path);
     totalBytes += Buffer.byteLength(file.contents, "utf8");
@@ -147,11 +149,11 @@ export const assertValidSkillPackageFiles = (
 
   if (totalBytes > MAX_SKILL_PACKAGE_BYTES) {
     throw new Error(
-      `Skill package is ${totalBytes} bytes, over the ${MAX_SKILL_PACKAGE_BYTES} limit.`,
+      t("libSkills.packageTooLarge", { bytes: totalBytes, max: MAX_SKILL_PACKAGE_BYTES }),
     );
   }
   if (!seen.has(SKILL_MANIFEST_FILENAME)) {
-    throw new Error(`Skill package has no ${SKILL_MANIFEST_FILENAME}.`);
+    throw new Error(t("libSkills.packageNoManifest", { manifest: SKILL_MANIFEST_FILENAME }));
   }
   return validated;
 };

@@ -14,6 +14,7 @@ import {
   assertValidSkillPackageFiles,
   type RegistrySkillPackage,
 } from "@/lib/skills/registry/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Writes a fetched skill into a directory on disk. Both supported runtimes
@@ -33,7 +34,7 @@ export const sanitizeSkillDirectoryName = (candidate: string): string => {
     .replace(/[-.]+$/, "")
     .slice(0, MAX_SKILL_NAME_LENGTH);
   if (!cleaned) {
-    throw new Error(`Cannot derive a directory name from "${candidate}".`);
+    throw new Error(t("libSkills.cannotDeriveDirName", { candidate }));
   }
   return cleaned;
 };
@@ -81,7 +82,7 @@ export class FilesystemSkillInstaller implements SkillInstaller {
     if (!isPathInside(this.root, target)) {
       throw new SkillInstallError(
         this.runtime,
-        `Refusing to touch "${target}", which is outside ${this.root}.`,
+        t("libSkills.refuseOutsideRoot", { target, root: this.root }),
       );
     }
   }
@@ -144,9 +145,7 @@ export class FilesystemSkillInstaller implements SkillInstaller {
       fs.rmSync(staging, { recursive: true, force: true });
       throw new SkillInstallError(
         this.runtime,
-        `Failed to install "${pkg.summary.slug}" into ${directory}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("libSkills.installIntoDirFailed", { slug: pkg.summary.slug, directory, message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }
@@ -169,7 +168,7 @@ export class FilesystemSkillInstaller implements SkillInstaller {
     const directory = path.join(this.root, sanitized);
     this.assertInsideRoot(directory);
     if (directory === path.resolve(this.root)) {
-      throw new SkillInstallError(this.runtime, "Refusing to remove the skills root.");
+      throw new SkillInstallError(this.runtime, t("libSkills.refuseRemoveSkillsRoot"));
     }
     if (!fs.existsSync(directory)) return false;
     // Only directories that look like skills are removable, so a stray path
@@ -177,7 +176,7 @@ export class FilesystemSkillInstaller implements SkillInstaller {
     if (!fs.existsSync(path.join(directory, SKILL_MANIFEST_FILENAME))) {
       throw new SkillInstallError(
         this.runtime,
-        `${directory} has no ${SKILL_MANIFEST_FILENAME}; refusing to remove it.`,
+        t("libSkills.noManifestRefuseRemove", { directory, manifest: SKILL_MANIFEST_FILENAME }),
       );
     }
     fs.rmSync(directory, { recursive: true, force: true });

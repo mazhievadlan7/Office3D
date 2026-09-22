@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { TelephonyError } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Authenticates the voice agent calling back into Office3D.
@@ -30,7 +31,7 @@ export const resolveWebhookSecret = (
     // Refused rather than accepted quietly: a short secret on a public
     // endpoint is worse than none, because it looks protected.
     throw new TelephonyError(
-      `OFFICE3D_TELEPHONY_WEBHOOK_SECRET is ${secret.length} characters; it must be at least ${MIN_SECRET_CHARS}.`,
+      t("libTelephony.webhookSecretTooShort", { length: secret.length, min: MIN_SECRET_CHARS }),
       503,
     );
   }
@@ -58,7 +59,7 @@ export const assertWebhookAuthorized = (
   const secret = resolveWebhookSecret(env);
   if (!secret) {
     throw new TelephonyError(
-      "Operator instructions are off: set OFFICE3D_TELEPHONY_WEBHOOK_SECRET to enable the agent callback.",
+      t("libTelephony.operatorChannelOff"),
       503,
     );
   }
@@ -66,7 +67,7 @@ export const assertWebhookAuthorized = (
   const presented = request.headers.get(TELEPHONY_WEBHOOK_HEADER)?.trim() ?? "";
   if (!presented || !matches(presented, secret)) {
     // Deliberately says nothing about which part was wrong.
-    throw new TelephonyError("Unauthorized.", 401);
+    throw new TelephonyError(t("libTelephony.unauthorized"), 401);
   }
 };
 

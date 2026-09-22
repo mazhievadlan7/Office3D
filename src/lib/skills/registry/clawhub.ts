@@ -8,6 +8,7 @@ import {
   type SkillRegistry,
   type SkillRegistrySearchOptions,
 } from "@/lib/skills/registry/types";
+import { t } from "@/lib/i18n";
 
 /**
  * ClawHub — the public skill registry for OpenClaw.
@@ -135,7 +136,7 @@ export class ClawHubRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `ClawHub search failed: ${error instanceof Error ? error.message : String(error)}`,
+        t("libSkills.clawhubSearchFailed", { message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }
@@ -153,7 +154,7 @@ export class ClawHubRegistry implements SkillRegistry {
   ): Promise<RegistrySkillPackage> {
     const trimmedSlug = slug.trim();
     if (!trimmedSlug) {
-      throw new SkillRegistryError(this.id, "A skill slug is required.");
+      throw new SkillRegistryError(this.id, t("libSkills.slugRequired"));
     }
 
     const path = version?.trim()
@@ -170,9 +171,7 @@ export class ClawHubRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `ClawHub fetch of "${trimmedSlug}" failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("libSkills.clawhubFetchFailed", { slug: trimmedSlug, message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }
@@ -181,7 +180,7 @@ export class ClawHubRegistry implements SkillRegistry {
     const summarySource = asRecord(record?.package) ?? record;
     const summary = normalizeClawHubSummary({ slug: trimmedSlug, ...(summarySource ?? {}) });
     if (!summary) {
-      throw new SkillRegistryError(this.id, `ClawHub returned no package for "${trimmedSlug}".`);
+      throw new SkillRegistryError(this.id, t("libSkills.clawhubNoPackage", { slug: trimmedSlug }));
     }
 
     let files: RegistrySkillFile[];
@@ -190,9 +189,7 @@ export class ClawHubRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `ClawHub package "${trimmedSlug}" is unusable: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("libSkills.clawhubPackageUnusable", { slug: trimmedSlug, message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }

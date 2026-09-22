@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveUserPath } from "@/lib/clawdbot/paths";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ type PathAutocompleteOptions = {
 const normalizeQuery = (query: string): string => {
   const trimmed = query.trim();
   if (!trimmed) {
-    throw new Error("Query is required.");
+    throw new Error(t("apiPaths.queryRequired"));
   }
   if (trimmed === "~") {
     return "~/";
@@ -84,7 +85,7 @@ const listPathAutocompleteEntries = ({
   const resolvedHome = path.resolve(homedir());
   const resolvedQuery = resolveUserPath(normalized, homedir);
   if (!isWithinHome(resolvedQuery, resolvedHome)) {
-    throw new Error("Path must stay within the home directory.");
+    throw new Error(t("apiPaths.outsideHome"));
   }
 
   const endsWithSlash = normalized.endsWith("/") || normalized.endsWith(path.sep);
@@ -92,14 +93,14 @@ const listPathAutocompleteEntries = ({
   const prefix = endsWithSlash ? "" : path.basename(resolvedQuery);
 
   if (!isWithinHome(directoryPath, resolvedHome)) {
-    throw new Error("Path must stay within the home directory.");
+    throw new Error(t("apiPaths.outsideHome"));
   }
   if (!fs.existsSync(directoryPath)) {
-    throw new Error(`Directory does not exist: ${directoryPath}`);
+    throw new Error(t("apiPaths.directoryMissing", { path: directoryPath }));
   }
   const stat = fs.statSync(directoryPath);
   if (!stat.isDirectory()) {
-    throw new Error(`Path is not a directory: ${directoryPath}`);
+    throw new Error(t("apiPaths.notADirectory", { path: directoryPath }));
   }
 
   const limit = Number.isFinite(maxResults) && maxResults > 0 ? Math.floor(maxResults) : 10;
@@ -140,9 +141,13 @@ export async function GET(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Failed to list path suggestions.";
+      err instanceof Error ? err.message : t("apiPaths.suggestionsFailed");
     console.error(message);
-    const status = message.includes("does not exist") ? 404 : 400;
+    const status =
+      message.includes("does not exist") ||
+      message.startsWith(t("apiPaths.directoryMissing", { path: "" }))
+        ? 404
+        : 400;
     return NextResponse.json({ error: message }, { status });
   }
 }

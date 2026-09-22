@@ -64,10 +64,10 @@ describe("placeVoiceAgentCall", () => {
     // sent per call as an override rather than set in the dashboard.
     const override =
       sent.conversation_initiation_client_data.conversation_config_override.agent;
-    expect(override.prompt.prompt).toContain("You are Nova, calling on behalf of Northwind.");
+    expect(override.prompt.prompt).toContain("Вы — Nova, звоните от имени Northwind.");
     expect(override.prompt.prompt).toContain("Handles overdue invoices");
     expect(override.first_message).toBe(
-      "Hello, this is Nova, an AI assistant calling from Northwind. Do you have a moment?",
+      "Здравствуйте, это Nova, ИИ-ассистент, звоню от имени Northwind. Удобно сейчас говорить?",
     );
 
     expect(placed).toEqual({
@@ -92,7 +92,7 @@ describe("placeVoiceAgentCall", () => {
     vi.stubGlobal("fetch", spy);
     await expect(
       placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller({ agentId: "  " }) }, CONFIG),
-    ).rejects.toThrow(/agentId is required/);
+    ).rejects.toThrow(/Не указан идентификатор агента/);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe("placeVoiceAgentCall", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ success: true, message: "ok" })));
     await expect(
       placeVoiceAgentCall({ toNumber: "+14155550100", caller: caller() }, CONFIG),
-    ).rejects.toThrow(/did not start the call/);
+    ).rejects.toThrow(/ElevenLabs не начал звонок/);
   });
 
   it("preserves_the_api_status_so_a_bad_key_is_distinguishable", async () => {
@@ -260,7 +260,7 @@ describe("fetchConversation", () => {
   it("requires_a_conversation_id", async () => {
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
-    await expect(fetchConversation("  ", CONFIG)).rejects.toThrow(/conversation id is required/);
+    await expect(fetchConversation("  ", CONFIG)).rejects.toThrow(/Не указан идентификатор разговора/);
     expect(spy).not.toHaveBeenCalled();
   });
 });

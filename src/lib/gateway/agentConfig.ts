@@ -1,5 +1,6 @@
 import { GatewayResponseError, type GatewayClient } from "@/lib/gateway/GatewayClient";
 import { hasCyrillic, transliterate } from "@/lib/text/transliterate";
+import { t } from "@/lib/i18n";
 
 export type AgentHeartbeatActiveHours = {
   start: string;
@@ -143,7 +144,7 @@ export const slugifyAgentName = (name: string): string => {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   if (!slug) {
-    throw new Error("Name produced an empty folder name.");
+    throw new Error(t("libGateway.emptyFolderName"));
   }
   return slug;
 };
@@ -251,7 +252,7 @@ type GatewayStatusSnapshot = {
 const resolveHeartbeatAgentId = (agentId: string) => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
   return trimmed;
 };
@@ -307,7 +308,7 @@ export const triggerHeartbeatNow = async (
   const resolvedAgentId = resolveHeartbeatAgentId(agentId);
   return client.call<HeartbeatWakeResult>("wake", {
     mode: "now",
-    text: `Office3D heartbeat trigger (${resolvedAgentId}).`,
+    text: t("libGateway.heartbeatWakeText", { agentId: resolvedAgentId }),
   });
 };
 
@@ -327,7 +328,7 @@ const applyGatewayConfigPatch = async (params: {
   const requiresBaseHash = params.exists !== false;
   const baseHash = requiresBaseHash ? params.baseHash?.trim() : undefined;
   if (requiresBaseHash && !baseHash) {
-    throw new Error("Gateway config hash unavailable; re-run config.get.");
+    throw new Error(t("libGateway.configHashUnavailable"));
   }
   const payload: Record<string, unknown> = {
     raw: JSON.stringify(params.patch, null, 2),
@@ -356,7 +357,7 @@ export const renameGatewayAgent = async (params: {
 }) => {
   const trimmed = params.name.trim();
   if (!trimmed) {
-    throw new Error("Agent name is required.");
+    throw new Error(t("libGateway.agentNameRequired"));
   }
   await params.client.call("agents.update", { agentId: params.agentId, name: trimmed });
   return { id: params.agentId, name: trimmed };
@@ -382,20 +383,20 @@ export const createGatewayAgent = async (params: {
 }): Promise<ConfigAgentEntry> => {
   const trimmed = params.name.trim();
   if (!trimmed) {
-    throw new Error("Agent name is required.");
+    throw new Error(t("libGateway.agentNameRequired"));
   }
 
   const snapshot = await params.client.call<GatewayConfigSnapshot>("config.get", {});
   const configPath = typeof snapshot.path === "string" ? snapshot.path.trim() : "";
   if (!configPath) {
     throw new Error(
-      'Gateway did not return a config path; cannot compute a default workspace for "agents.create".',
+      t("libGateway.noConfigPath"),
     );
   }
   const stateDir = dirnameLike(configPath);
   if (!stateDir) {
     throw new Error(
-      `Gateway config path "${configPath}" is missing a directory; cannot compute workspace.`,
+      t("libGateway.configPathNoDir", { configPath }),
     );
   }
   const idGuess = slugifyAgentName(trimmed);
@@ -415,7 +416,7 @@ export const createGatewayAgent = async (params: {
   })) as { ok?: boolean; agentId?: string; name?: string; workspace?: string };
   const agentId = typeof result?.agentId === "string" ? result.agentId.trim() : "";
   if (!agentId) {
-    throw new Error("Gateway returned an invalid agents.create response (missing agentId).");
+    throw new Error(t("libGateway.agentsCreateMissingAgentId"));
   }
 
   if (!needsRename) {
@@ -461,7 +462,7 @@ export const removeGatewayAgentFromConfigOnly = async (params: {
 }): Promise<{ removed: boolean }> => {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
 
   const snapshot = await params.client.call<GatewayConfigSnapshot>("config.get", {});
@@ -541,7 +542,7 @@ export type AgentSkillsAccessMode = "all" | "none" | "allowlist";
 const resolveRequiredAgentId = (agentId: string): string => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
   return trimmed;
 };
@@ -593,7 +594,7 @@ const buildAgentSkillsConfig = (params: {
   if (params.mode === "allowlist") {
     const rawSkills = params.skillNames;
     if (!rawSkills) {
-      throw new Error("Skills allowlist is required when mode is allowlist.");
+      throw new Error(t("libGateway.skillsAllowlistRequired"));
     }
     const normalizedNext = normalizeSkillAllowlist(rawSkills);
     if (Array.isArray(currentRawSkills)) {
@@ -618,7 +619,7 @@ const buildAgentSkillsConfig = (params: {
     }
     const rawSkills = params.skillNames;
     if (!rawSkills) {
-      throw new Error("Skills allowlist is required when mode is allowlist.");
+      throw new Error(t("libGateway.skillsAllowlistRequired"));
     }
     next.skills = normalizeSkillAllowlist(rawSkills);
     return next;
@@ -653,7 +654,7 @@ export const updateGatewayAgentSkillsAllowlist = async (params: {
 }): Promise<void> => {
   const agentId = resolveRequiredAgentId(params.agentId);
   if (params.mode === "allowlist" && !params.skillNames) {
-    throw new Error("Skills allowlist is required when mode is allowlist.");
+    throw new Error(t("libGateway.skillsAllowlistRequired"));
   }
 
   const attemptWrite = async (attempt: number): Promise<void> => {
@@ -674,7 +675,7 @@ export const updateGatewayAgentSkillsAllowlist = async (params: {
     const requiresBaseHash = snapshot.exists !== false;
     const baseHash = requiresBaseHash ? snapshot.hash?.trim() : undefined;
     if (requiresBaseHash && !baseHash) {
-      throw new Error("Gateway config hash unavailable; re-run config.get.");
+      throw new Error(t("libGateway.configHashUnavailable"));
     }
     if (baseHash) {
       payload.baseHash = baseHash;
@@ -707,10 +708,10 @@ export const updateGatewayAgentOverrides = async (params: {
 }): Promise<void> => {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
   if (params.overrides.tools?.allow !== undefined && params.overrides.tools?.alsoAllow !== undefined) {
-    throw new Error("Agent tools overrides cannot set both allow and alsoAllow.");
+    throw new Error(t("libGateway.toolsAllowConflict"));
   }
   const hasSandboxOverrides =
     Boolean(params.overrides.sandbox?.mode) || Boolean(params.overrides.sandbox?.workspaceAccess);
@@ -795,7 +796,7 @@ export const updateGatewayAgentOverrides = async (params: {
     const requiresBaseHash = snapshot.exists !== false;
     const baseHash = requiresBaseHash ? snapshot.hash?.trim() : undefined;
     if (requiresBaseHash && !baseHash) {
-      throw new Error("Gateway config hash unavailable; re-run config.get.");
+      throw new Error(t("libGateway.configHashUnavailable"));
     }
     if (baseHash) payload.baseHash = baseHash;
     try {

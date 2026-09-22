@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export type CreateBootstrapFacts = {
   completion: { agentId: string; agentName: string };
   createdAgent: { agentId: string; sessionKey: string } | null;
@@ -16,13 +18,13 @@ export type CreateBootstrapCommand =
   | { kind: "set-mobile-pane"; pane: "chat" };
 
 const buildMissingCreatedAgentMessage = (agentName: string): string =>
-  `Agent "${agentName}" was created, but Studio could not load it yet.`;
+  t("opsAgents.createdNotLoaded", { name: agentName });
 
 const buildBootstrapGlobalErrorMessage = (errorMessage: string): string =>
-  `Agent created, but default permissions could not be applied: ${errorMessage}`;
+  t("opsAgents.createdPermissionsFailed", { message: errorMessage });
 
 const buildBootstrapModalErrorMessage = (errorMessage: string): string =>
-  `Default permissions failed: ${errorMessage}`;
+  t("opsAgents.defaultPermissionsFailedDetail", { message: errorMessage });
 
 export function planCreateAgentBootstrapCommands(
   facts: CreateBootstrapFacts

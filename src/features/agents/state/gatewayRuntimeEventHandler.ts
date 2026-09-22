@@ -37,6 +37,7 @@ import {
 } from "@/lib/text/message-extract";
 import { planRuntimeChatEvent } from "@/features/agents/state/runtimeChatEventWorkflow";
 import { planRuntimeAgentEvent } from "@/features/agents/state/runtimeAgentEventWorkflow";
+import { t } from "@/lib/i18n";
 
 // This module is the runtime event orchestrator. It keeps one gateway intake path, maps
 // transport-specific session keys back to agents, delegates stream-specific planning to the
@@ -201,7 +202,7 @@ export function createGatewayRuntimeEventHandler(
           deps.dispatch({
             type: "appendOutput",
             agentId: effect.agentId,
-            line: "Run aborted.",
+            line: t("opsChat.runAborted"),
             transcript: {
               source: "runtime-chat",
               runId: effect.runId,

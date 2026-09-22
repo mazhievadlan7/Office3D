@@ -10,11 +10,12 @@ import {
   type PackagedSkillInstallRequest,
   type PackagedSkillInstallResult,
 } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const normalizeRequired = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("libSkills.fieldRequired", { field }));
   }
   return trimmed;
 };
@@ -41,9 +42,9 @@ const validateWorkspaceInstallTarget = (params: {
     const targetLabel =
       normalizeOptional(params.agentName) ||
       normalizeOptional(params.agentId) ||
-      "the selected agent";
+      t("libSkills.selectedAgentFallback");
     throw new Error(
-      `Cannot install a packaged skill because the workspace reported for ${targetLabel} resolves to the gateway root workspace (${params.workspaceDir}). Re-select the agent and refresh the marketplace before installing.`
+      t("libSkills.installRootWorkspace", { targetLabel, workspaceDir: params.workspaceDir })
     );
   }
 };
@@ -62,25 +63,25 @@ const buildInstallerMessage = (params: {
     .join("\n");
 
   return [
-    "Create these exact skill files inside the current workspace.",
-    "You must use the file tools and write the files exactly as provided.",
-    "Do not modify filenames, frontmatter, spacing, or content.",
-    "Create parent directories if they do not exist.",
-    "After writing the files, verify they exist and then reply only with: INSTALLED",
+    t("libSkills.installerCreateFiles"),
+    t("libSkills.installerUseFileTools"),
+    t("libSkills.installerNoModify"),
+    t("libSkills.installerCreateDirs"),
+    t("libSkills.installerReply"),
     "",
-    "Files:",
+    t("libSkills.installerFiles"),
     fileEntries,
   ].join("\n");
 };
 
 const resolveRunId = (payload: unknown): string => {
   if (!payload || typeof payload !== "object") {
-    throw new Error("Gateway returned an invalid chat.send response.");
+    throw new Error(t("libGateway.invalidChatSendResponse"));
   }
   const record = payload as Record<string, unknown>;
   const runId = typeof record.runId === "string" ? record.runId.trim() : "";
   if (!runId) {
-    throw new Error("Gateway returned an invalid chat.send response (missing runId).");
+    throw new Error(t("libGateway.chatSendMissingRunId"));
   }
   return runId;
 };
@@ -97,10 +98,10 @@ export const installPackagedSkillViaGatewayAgent = async (params: {
   const packageId = normalizeRequired(params.request.packageId, "packageId");
   const packagedSkill = getPackagedSkillById(packageId);
   if (!packagedSkill) {
-    throw new Error(`Unknown packaged skill: ${packageId}`);
+    throw new Error(t("libSkills.unknownPackagedSkill", { packageId }));
   }
   if (params.request.source !== "openclaw-workspace") {
-    throw new Error("Gateway-native packaged install currently supports workspace skills only.");
+    throw new Error(t("libSkills.gatewayInstallWorkspaceOnly"));
   }
 
   let workspaceDir = normalizeRequired(params.request.workspaceDir, "workspaceDir");
@@ -130,7 +131,7 @@ export const installPackagedSkillViaGatewayAgent = async (params: {
     installerAgentId =
       typeof created?.agentId === "string" ? created.agentId.trim() : "";
     if (!installerAgentId) {
-      throw new Error("Gateway returned an invalid agents.create response (missing agentId).");
+      throw new Error(t("libGateway.agentsCreateMissingAgentId"));
     }
 
     await updateGatewayAgentOverrides({

@@ -1,4 +1,5 @@
 import { GatewayResponseError, type GatewayClient } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export type GatewayExecApprovalSecurity = "deny" | "allowlist" | "full";
 export type GatewayExecApprovalAsk = "off" | "on-miss" | "always";
@@ -64,7 +65,7 @@ const setExecApprovalsWithRetry = async (params: {
   const requiresBaseHash = params.exists !== false;
   const baseHash = requiresBaseHash ? params.baseHash?.trim() : undefined;
   if (requiresBaseHash && !baseHash) {
-    throw new Error("Exec approvals hash unavailable; re-run exec.approvals.get.");
+    throw new Error(t("libGateway.execApprovalsHashUnavailable"));
   }
   const payload: Record<string, unknown> = { file: params.file };
   if (baseHash) payload.baseHash = baseHash;
@@ -95,7 +96,7 @@ export async function upsertGatewayAgentExecApprovals(params: {
 }): Promise<void> {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
 
   const snapshot = await params.client.call<ExecApprovalsSnapshot>("exec.approvals.get", {});
@@ -149,7 +150,7 @@ export async function readGatewayAgentExecApprovals(params: {
 } | null> {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libGateway.agentIdRequired"));
   }
 
   const snapshot = await params.client.call<ExecApprovalsSnapshot>("exec.approvals.get", {});

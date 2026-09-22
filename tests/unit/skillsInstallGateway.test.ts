@@ -140,7 +140,7 @@ describe("skills install gateway", () => {
           agentName: "soundclaw",
         },
       })
-    ).rejects.toThrow(/gateway root workspace/i);
+    ).rejects.toThrow(/указывает на корневое рабочее пространство шлюза/i);
 
     expect(call).toHaveBeenCalledTimes(3);
     expect(call).toHaveBeenNthCalledWith(1, "agents.files.get", {

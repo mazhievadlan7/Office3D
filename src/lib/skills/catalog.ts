@@ -2,6 +2,7 @@ import type {
   RemovableSkillSource,
   SkillStatusEntry,
 } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 export type PackagedSkillId = "soundclaw" | "task-manager" | "todo-board";
 
@@ -28,7 +29,7 @@ const PACKAGED_SKILLS: PackagedSkillDefinition[] = [
     packageId: "todo-board",
     skillKey: "todo-board",
     name: "todo",
-    description: "Maintain a shared workspace TODO list with blocked tasks.",
+    description: t("libSkills.todoDescription"),
     installSource: "openclaw-workspace",
     creatorName: "iamlukethedev",
     creatorUrl: "http://x.com/iamlukethedev/",
@@ -38,7 +39,7 @@ const PACKAGED_SKILLS: PackagedSkillDefinition[] = [
     skillKey: "task-manager",
     name: "task-manager",
     description:
-      "Capture actionable requests as persistent tasks and keep a shared Kanban task store in sync.",
+      t("libSkills.taskManagerDescription"),
     installSource: "openclaw-workspace",
     creatorName: "iamlukethedev",
     creatorUrl: "https://github.com/iamlukethedev",
@@ -47,7 +48,7 @@ const PACKAGED_SKILLS: PackagedSkillDefinition[] = [
     packageId: "soundclaw",
     skillKey: "soundclaw",
     name: "soundclaw",
-    description: "Control Spotify playback, search music, and return shareable music links.",
+    description: t("libSkills.soundclawDescription"),
     installSource: "openclaw-workspace",
     creatorName: "iamlukethedev",
     creatorUrl: "https://github.com/iamlukethedev",

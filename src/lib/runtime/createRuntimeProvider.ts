@@ -5,6 +5,7 @@ import { HermesRuntimeProvider } from "@/lib/runtime/hermes/provider";
 import { OpenClawRuntimeProvider } from "@/lib/runtime/openclaw/provider";
 import type { RuntimeProvider } from "@/lib/runtime/types";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 export const createRuntimeProvider = (
   providerId: RuntimeProvider["id"] | StudioGatewayAdapterType,
@@ -15,22 +16,22 @@ export const createRuntimeProvider = (
     case "local":
       return new CustomRuntimeProvider(client, runtimeUrl, {
         id: "local",
-        label: "Local Runtime",
-        runtimeName: "Local Runtime",
+        label: t("libRuntime.localRuntimeName"),
+        runtimeName: t("libRuntime.localRuntimeName"),
         routeProfile: "local",
       });
     case "office3d":
       return new CustomRuntimeProvider(client, runtimeUrl, {
         id: "office3d",
-        label: "Office3D Runtime",
-        runtimeName: "Office3D Runtime",
+        label: t("libRuntime.office3dRuntimeName"),
+        runtimeName: t("libRuntime.office3dRuntimeName"),
         routeProfile: "office3d",
       });
     case "custom":
       return new CustomRuntimeProvider(client, runtimeUrl, {
         id: "custom",
-        label: "Custom Runtime",
-        runtimeName: "Custom Runtime",
+        label: t("libRuntime.customRuntimeName"),
+        runtimeName: t("libRuntime.customRuntimeName"),
         routeProfile: "custom",
       });
     case "demo":

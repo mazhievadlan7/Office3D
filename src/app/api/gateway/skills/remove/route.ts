@@ -9,6 +9,20 @@ import {
 } from "@/lib/ssh/gateway-host";
 import { removeSkillOverSsh } from "@/lib/ssh/skills-remove";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { matchesPhrase, t, type TranslationKey } from "@/lib/i18n";
+
+const INVALID_REQUEST_PHRASES: TranslationKey[] = [
+  "apiCommon.fieldRequired",
+  "apiCommon.invalidRequestPayload",
+  "apiGateway.unsupportedSkillSource",
+  "libSkills.fieldRequired",
+  "libSkills.removeOutsideRoot",
+  "libSkills.removeSkillsRoot",
+  "libSkills.notADirectory",
+  "libSkills.removeNonSkillDir",
+  "libSsh.gatewayUrlMissing",
+  "libSsh.invalidGatewayUrl",
+];
 
 export const runtime = "nodejs";
 
@@ -19,11 +33,11 @@ const REMOVABLE_SOURCES = new Set<RemovableSkillSource>([
 
 const normalizeRequired = (value: unknown, field: string): string => {
   if (typeof value !== "string") {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("apiCommon.fieldRequired", { field }));
   }
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("apiCommon.fieldRequired", { field }));
   }
   return trimmed;
 };
@@ -39,13 +53,13 @@ const resolveSkillRemovalSshTarget = (): string | null => {
 
 const normalizeRemoveRequest = (body: unknown): SkillRemoveRequest => {
   if (!body || typeof body !== "object") {
-    throw new Error("Invalid request payload.");
+    throw new Error(t("apiCommon.invalidRequestPayload"));
   }
 
   const record = body as Partial<Record<keyof SkillRemoveRequest, unknown>>;
   const sourceRaw = normalizeRequired(record.source, "source");
   if (!REMOVABLE_SOURCES.has(sourceRaw as RemovableSkillSource)) {
-    throw new Error(`Unsupported skill source for removal: ${sourceRaw}`);
+    throw new Error(t("apiGateway.unsupportedSkillSource", { source: sourceRaw }));
   }
 
   return {
@@ -69,16 +83,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to remove skill.";
+    const message = err instanceof Error ? err.message : t("apiGateway.skillRemoveFailed");
+    // Our own validation errors are matched by phrase; the English ones come
+    // from the Python script that removes a skill over SSH.
     const status =
+      INVALID_REQUEST_PHRASES.some((key) => matchesPhrase(message, key)) ||
       message.includes("required") ||
-      message.includes("Invalid request payload") ||
       message.includes("Unsupported skill source") ||
       message.includes("Refusing to remove") ||
       message.includes("not a directory") ||
       message.includes("Remote workspace skill removal is not supported over SSH") ||
-      message.includes("Gateway URL is missing") ||
-      message.includes("Invalid gateway URL") ||
       message.includes("require OPENCLAW_GATEWAY_SSH_TARGET")
         ? 400
         : 500;

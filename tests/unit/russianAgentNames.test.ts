@@ -63,7 +63,7 @@ describe("slugifyAgentName", () => {
   });
 
   it("still_refuses_a_name_with_nothing_usable_in_any_alphabet", () => {
-    expect(() => slugifyAgentName("!!!")).toThrow("Name produced an empty folder name.");
+    expect(() => slugifyAgentName("!!!")).toThrow("Из имени не удалось получить имя папки.");
   });
 });
 

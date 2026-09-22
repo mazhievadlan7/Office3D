@@ -9,6 +9,7 @@ import {
   saveOfficeVersion,
   upsertOffice,
 } from "@/lib/office/store";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
       publishedMap,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load office data.";
+    const message = error instanceof Error ? error.message : t("apiOffice.loadFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -45,7 +46,7 @@ export async function PUT(request: Request) {
       const officeId = asString(body.officeId);
       const name = asString(body.name);
       if (!officeId || !name) {
-        return NextResponse.json({ error: "officeId and name are required." }, { status: 400 });
+        return NextResponse.json({ error: t("apiOffice.officeIdAndNameRequired") }, { status: 400 });
       }
       const office = upsertOffice({
         workspaceId,
@@ -60,7 +61,7 @@ export async function PUT(request: Request) {
       const versionId = asString(body.versionId);
       const createdBy = asString(body.createdBy) || "studio";
       if (!officeId || !versionId) {
-        return NextResponse.json({ error: "officeId and versionId are required." }, { status: 400 });
+        return NextResponse.json({ error: t("apiOffice.officeIdAndVersionRequired") }, { status: 400 });
       }
       const incomingMap = body.map as OfficeMap | undefined;
       const fallback = createEmptyOfficeMap({
@@ -80,9 +81,9 @@ export async function PUT(request: Request) {
       });
       return NextResponse.json({ version: record });
     }
-    return NextResponse.json({ error: "Unsupported office action." }, { status: 400 });
+    return NextResponse.json({ error: t("apiOffice.unsupportedAction") }, { status: 400 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save office data.";
+    const message = error instanceof Error ? error.message : t("apiOffice.saveFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

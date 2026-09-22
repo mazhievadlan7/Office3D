@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export const normalizeCustomBaseUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -31,7 +33,7 @@ export async function requestCustomRuntime<T = unknown>({
 }: CustomRuntimeProxyInput): Promise<T> {
   const normalizedRuntimeUrl = normalizeCustomBaseUrl(runtimeUrl);
   if (!normalizedRuntimeUrl) {
-    throw new Error("Custom runtime URL is not configured.");
+    throw new Error(t("libRuntime.customUrlMissing"));
   }
   const response = await fetch("/api/runtime/custom", {
     method: "POST",
@@ -51,7 +53,7 @@ export async function requestCustomRuntime<T = unknown>({
   if (!response.ok) {
     const text = await response.text();
     throw new Error(
-      text.trim() || `Custom runtime request failed (${response.status}) for ${pathname}.`
+      text.trim() || t("libRuntime.customRequestFailed", { status: response.status, pathname })
     );
   }
   const contentType = response.headers.get("content-type") ?? "";

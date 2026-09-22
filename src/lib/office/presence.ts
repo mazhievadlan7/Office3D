@@ -4,6 +4,7 @@ import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { readConfigAgentList } from "@/lib/gateway/agentConfig";
 import type { OfficeAgentState } from "@/lib/office/schema";
+import { t } from "@/lib/i18n";
 
 export type OfficeAgentPresence = {
   agentId: string;
@@ -100,7 +101,7 @@ export const fetchRemoteOfficePresenceSnapshot = async (params: {
 }): Promise<OfficePresenceSnapshot> => {
   const presenceUrl = params.presenceUrl.trim();
   if (!presenceUrl) {
-    throw new Error("Remote office presence URL is not configured.");
+    throw new Error(t("libOffice.presenceUrlMissing"));
   }
   const controller = new AbortController();
   const timeoutMs = Math.max(1_000, params.timeoutMs ?? 15_000);
@@ -121,13 +122,13 @@ export const fetchRemoteOfficePresenceSnapshot = async (params: {
       signal: controller.signal,
     });
     if (!response.ok) {
-      throw new Error(`Remote office presence request failed with status ${response.status}.`);
+      throw new Error(t("libOffice.presenceRequestFailed", { status: response.status }));
     }
     const payload = (await response.json()) as unknown;
     return normalizeOfficePresenceSnapshot(payload, "remote");
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Remote office presence request timed out after ${timeoutMs}ms.`);
+      throw new Error(t("libOffice.presenceTimeout", { timeoutMs }));
     }
     throw error;
   } finally {

@@ -10,6 +10,7 @@ import {
   type StudioStandupPreferencePatch,
 } from "@/lib/studio/settings";
 import { validateJiraBaseUrl } from "@/lib/security/urlSafety";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     const gatewayUrl = readGatewayUrl(request);
     if (!gatewayUrl) {
       return NextResponse.json(
-        { error: "gatewayUrl is required." },
+        { error: t("apiOffice.standupGatewayUrlRequired") },
         { status: 400 }
       );
     }
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ gatewayUrl, config: sanitizeStandupPreference(config) });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to load standup config.";
+      error instanceof Error ? error.message : t("apiOffice.standupConfigLoadFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -46,12 +47,12 @@ export async function PUT(request: Request) {
     const gatewayUrl = typeof body.gatewayUrl === "string" ? body.gatewayUrl.trim() : "";
     if (!gatewayUrl) {
       return NextResponse.json(
-        { error: "gatewayUrl is required." },
+        { error: t("apiOffice.standupGatewayUrlRequired") },
         { status: 400 }
       );
     }
     if (!body.config || typeof body.config !== "object") {
-      return NextResponse.json({ error: "config is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.standupConfigRequired") }, { status: 400 });
     }
     if (body.config.jira?.baseUrl?.trim()) {
       validateJiraBaseUrl(body.config.jira.baseUrl);
@@ -67,7 +68,7 @@ export async function PUT(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to save standup config.";
+      error instanceof Error ? error.message : t("apiOffice.standupConfigSaveFailed");
     const status =
       message.includes("gatewayUrl is required") ||
       message.includes("config is required") ||

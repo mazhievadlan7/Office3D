@@ -11,6 +11,7 @@ import {
 } from "@/lib/runtime/agentMessaging";
 import { normalizeGatewayEvent } from "@/lib/runtime/normalizeGatewayEvent";
 import type { RuntimeCapability, RuntimeEvent, RuntimeProvider } from "@/lib/runtime/types";
+import { t } from "@/lib/i18n";
 
 const DEMO_RUNTIME_CAPABILITIES: ReadonlySet<RuntimeCapability> = new Set([
   "agents",
@@ -28,11 +29,11 @@ const DEMO_RUNTIME_CAPABILITIES: ReadonlySet<RuntimeCapability> = new Set([
 
 export class DemoRuntimeProvider implements RuntimeProvider {
   readonly id = "demo" as const;
-  readonly label = "Demo";
+  readonly label = t("libRuntime.demoLabel");
   readonly metadata = {
     id: this.id,
     label: this.label,
-    runtimeName: "Demo",
+    runtimeName: t("libRuntime.demoLabel"),
   } as const;
   readonly capabilities = DEMO_RUNTIME_CAPABILITIES;
 

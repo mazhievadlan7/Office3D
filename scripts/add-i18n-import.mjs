@@ -19,6 +19,9 @@ let end = -1;
 let depth = 0;
 for (let i = 0; i < lines.length; i += 1) {
   const line = lines[i];
+  // The import block is at the top; an "import" line further down is inside a
+  // string (an embedded Python script, say) and must not count.
+  if (depth === 0 && end !== -1 && !/^import\b/.test(line) && line.trim() !== "") break;
   if (depth === 0 && !/^import\b/.test(line)) continue;
   depth += (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
   if (depth === 0) end = i;

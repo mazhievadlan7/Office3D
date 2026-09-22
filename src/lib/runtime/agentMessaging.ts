@@ -1,6 +1,7 @@
 import { buildAgentMainSessionKey, parseAgentIdFromSessionKey } from "@/lib/gateway/GatewayClient";
 import { buildAgentInstruction } from "@/lib/text/message-extract";
 import { randomUUID } from "@/lib/uuid";
+import { t } from "@/lib/i18n";
 
 export type RuntimeAgentMessageMode = "direct" | "interval";
 
@@ -35,7 +36,7 @@ type GatewayAgentsListResult = {
 };
 
 const resolveLabel = (sourceAgentId?: string | null, sourceLabel?: string | null) =>
-  sourceLabel?.trim() || sourceAgentId?.trim() || "another agent";
+  sourceLabel?.trim() || sourceAgentId?.trim() || t("libRuntime.anotherAgent");
 
 export const buildDirectedAgentMessageInstruction = (
   payload: RuntimeAgentMessagePayload,
@@ -46,22 +47,22 @@ export const buildDirectedAgentMessageInstruction = (
   const cadenceHint = payload.cadenceHint?.trim();
   if (mode === "interval") {
     return [
-      `You received an interval coordination message from ${sourceLabel}.`,
-      "Treat this as an ongoing collaboration thread instead of a one-off interruption.",
-      "Respond in plain text with the next useful update, question, or checkpoint.",
-      cadenceHint ? `Cadence hint: ${cadenceHint}` : null,
+      t("libRuntime.intervalMessageIntro", { sourceLabel }),
+      t("libRuntime.intervalOngoingThread"),
+      t("libRuntime.intervalRespond"),
+      cadenceHint ? t("libRuntime.cadenceHint", { cadenceHint }) : null,
       "",
-      `Message: ${message}`,
+      t("libRuntime.messageLine", { message }),
     ]
       .filter(Boolean)
       .join("\n");
   }
   return [
-    `You received a direct agent message from ${sourceLabel}.`,
-    "Reply in plain text only and stay focused on the request.",
-    "Do not use tools unless the runtime already allows them for this session.",
+    t("libRuntime.directMessageIntro", { sourceLabel }),
+    t("libRuntime.directReplyPlain"),
+    t("libRuntime.directNoTools"),
     "",
-    `Message: ${message}`,
+    t("libRuntime.messageLine", { message }),
   ].join("\n");
 };
 
@@ -75,14 +76,14 @@ export const buildAgentHandoffInstruction = (
   const deliverables =
     payload.deliverables?.map((entry) => entry.trim()).filter(Boolean) ?? [];
   return [
-    `You received a work handoff from ${sourceLabel}.`,
-    "Acknowledge ownership, then continue the work in plain text.",
-    "If anything is ambiguous, ask one focused clarification question instead of guessing.",
+    t("libRuntime.handoffIntro", { sourceLabel }),
+    t("libRuntime.handoffAcknowledge"),
+    t("libRuntime.handoffClarify"),
     "",
-    `Task: ${task}`,
-    context ? `Context: ${context}` : null,
-    acceptanceCriteria ? `Acceptance criteria: ${acceptanceCriteria}` : null,
-    deliverables.length > 0 ? "Deliverables:\n- " + deliverables.join("\n- ") : null,
+    t("libRuntime.handoffTask", { task }),
+    context ? t("libRuntime.handoffContext", { context }) : null,
+    acceptanceCriteria ? t("libRuntime.handoffAcceptance", { acceptanceCriteria }) : null,
+    deliverables.length > 0 ? t("libRuntime.handoffDeliverables") + deliverables.join("\n- ") : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -95,7 +96,7 @@ const resolveSessionKeyFromAgentList = async (
   const agentsResult = await client.call<GatewayAgentsListResult>("agents.list", {});
   const remoteAgents = Array.isArray(agentsResult.agents) ? agentsResult.agents : [];
   if (!remoteAgents.some((entry) => (entry.id?.trim() ?? "") === targetAgentId)) {
-    throw new Error("Target agent is no longer available.");
+    throw new Error(t("libRuntime.targetAgentUnavailable"));
   }
   return buildAgentMainSessionKey(targetAgentId, agentsResult.mainKey?.trim() || "main");
 };
@@ -107,7 +108,7 @@ export const sendDirectedAgentMessageViaRuntime = async (
   const targetAgentId = payload.targetAgentId.trim();
   const message = payload.message.trim();
   if (!targetAgentId || !message) {
-    throw new Error("Target agent and message are required.");
+    throw new Error(t("libRuntime.targetAndMessageRequired"));
   }
   const sessionKey = await resolveSessionKeyFromAgentList(client, targetAgentId);
   return client.call("chat.send", {
@@ -129,7 +130,7 @@ export const sendAgentHandoffViaRuntime = async (
   const targetAgentId = payload.targetAgentId.trim();
   const task = payload.task.trim();
   if (!targetAgentId || !task) {
-    throw new Error("Target agent and handoff task are required.");
+    throw new Error(t("libRuntime.targetAndTaskRequired"));
   }
   const sessionKey = await resolveSessionKeyFromAgentList(client, targetAgentId);
   return client.call("chat.send", {

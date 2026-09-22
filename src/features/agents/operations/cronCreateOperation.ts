@@ -11,19 +11,20 @@ import {
   type CronJobSummary,
 } from "@/lib/cron/types";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
-export const CRON_ACTION_BUSY_MESSAGE = "Please wait for the current cron action to finish.";
+export const CRON_ACTION_BUSY_MESSAGE = t("opsSettings.cronBusy");
 
 const resolveCreateAgentId = (agentId: string) => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Failed to create cron job: missing agent id.");
+    throw new Error(t("opsSettings.cronCreateMissingAgentId"));
   }
   return trimmed;
 };
 
 const resolveCreateErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Failed to create cron job.";
+  error instanceof Error ? error.message : t("opsSettings.cronCreateFailed");
 
 export type CronBusyState = {
   createBusy: boolean;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { TelephonyError } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /** Every telephony response is live state; none of it may be cached. */
 export const NO_STORE = { "Cache-Control": "no-store" } as const;
@@ -22,5 +23,5 @@ export const telephonyError = (error: unknown): NextResponse => {
     return telephonyJson({ error: error.message }, error.status);
   }
   console.error("[telephony] unhandled error", error);
-  return telephonyJson({ error: "Telephony failed unexpectedly." }, 500);
+  return telephonyJson({ error: t("apiTelephony.unexpected") }, 500);
 };

@@ -4,6 +4,7 @@ import type {
   GitHubInlineCommentSide,
   GitHubPullRequestDetail,
 } from "@/lib/office/github";
+import { t } from "@/lib/i18n";
 
 export type GitHubDiffFile = GitHubPullRequestDetail["files"][number];
 
@@ -42,7 +43,7 @@ export const getDiffLineTone = (line: string): string => {
 };
 
 export const parseDiffPatch = (patch: string | null): ParsedDiffLine[] => {
-  const lines = (patch ?? "Diff preview unavailable for this file.").split("\n");
+  const lines = (patch ?? t("opsGithub.diffUnavailable")).split("\n");
   const parsed: ParsedDiffLine[] = [];
   let oldLine = 0;
   let newLine = 0;

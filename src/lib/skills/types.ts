@@ -1,5 +1,6 @@
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { readGatewayAgentFile } from "@/lib/gateway/agentFiles";
+import { t } from "@/lib/i18n";
 
 export type SkillStatusConfigCheck = {
   path: string;
@@ -110,7 +111,7 @@ export type PackagedSkillInstallResult = {
 const resolveAgentId = (agentId: string): string => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Agent id is required to load skill status.");
+    throw new Error(t("libSkills.agentIdRequiredForStatus"));
   }
   return trimmed;
 };
@@ -193,10 +194,10 @@ export const installSkill = async (
   params: SkillInstallRequest
 ): Promise<SkillInstallResult> => {
   return client.call<SkillInstallResult>("skills.install", {
-    name: resolveRequiredValue(params.name, "Skill name is required to install dependencies."),
+    name: resolveRequiredValue(params.name, t("libSkills.skillNameRequiredForDeps")),
     installId: resolveRequiredValue(
       params.installId,
-      "Install option id is required to install dependencies."
+      t("libSkills.installOptionRequired")
     ),
     ...(typeof params.timeoutMs === "number" ? { timeoutMs: params.timeoutMs } : {}),
   });
@@ -207,7 +208,7 @@ export const updateSkill = async (
   params: SkillUpdateRequest
 ): Promise<SkillUpdateResult> => {
   return client.call<SkillUpdateResult>("skills.update", {
-    skillKey: resolveRequiredValue(params.skillKey, "Skill key is required to update skill setup."),
+    skillKey: resolveRequiredValue(params.skillKey, t("libSkills.skillKeyRequiredForSetup")),
     ...(typeof params.enabled === "boolean" ? { enabled: params.enabled } : {}),
     ...(typeof params.apiKey === "string" ? { apiKey: params.apiKey } : {}),
   });

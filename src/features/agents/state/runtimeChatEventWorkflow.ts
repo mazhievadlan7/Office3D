@@ -12,6 +12,7 @@ import {
   formatThinkingMarkdown,
   isUiMetadataPrefix,
 } from "@/lib/text/message-extract";
+import { t } from "@/lib/i18n";
 
 export type RuntimeChatWorkflowCommand =
   | { kind: "applyChatTerminalDecision"; decision: ChatTerminalDecision }
@@ -357,7 +358,7 @@ export const planRuntimeChatEvent = (
   if (payload.state === "error") {
     commands.push({
       kind: "appendOutput",
-      line: payload.errorMessage ? `Error: ${payload.errorMessage}` : "Run error.",
+      line: payload.errorMessage ? t("opsChat.errorLine", { message: payload.errorMessage ?? "" }) : t("opsChat.runError"),
       transcript: {
         source: "runtime-chat",
         runId: payload.runId ?? null,

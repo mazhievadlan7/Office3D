@@ -226,7 +226,7 @@ export const buildSkillMarketplaceEntry = (
   const missingDetails = buildSkillMissingDetails(skill);
   if (packagedSkill && !skill.baseDir.trim()) {
     missingDetails.unshift(
-      "Install this packaged Office3D skill to make it available on the gateway.",
+      t("libSkills.installPackagedHint"),
     );
   }
   return {
@@ -258,7 +258,7 @@ export const buildSkillMarketplaceCollections = (
     .filter((entry) => entry.metadata.featured)
     .slice(0, 6);
   if (featured.length > 0) {
-    collections.push({ id: "featured", label: "Featured", entries: featured });
+    collections.push({ id: "featured", label: t("libSkills.collectionFeatured"), entries: featured });
   }
 
   const office3d = entries.filter((entry) =>
@@ -285,7 +285,7 @@ export const buildSkillMarketplaceCollections = (
   if (setupRequired.length > 0) {
     collections.push({
       id: "setup-required",
-      label: "Needs setup",
+      label: t("skills.filterNeedsSetup"),
       entries: setupRequired,
     });
   }

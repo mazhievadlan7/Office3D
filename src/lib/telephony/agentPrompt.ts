@@ -1,4 +1,5 @@
 import { TelephonyError } from "@/lib/telephony/types";
+import { t } from "@/lib/i18n";
 
 /**
  * The prompt an office agent speaks with on the phone.
@@ -35,11 +36,11 @@ const MAX_ROLE_CHARS = 400;
 const sanitizeLine = (value: string, field: string, limit: number): string => {
   const flattened = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
   if (!flattened) {
-    throw new TelephonyError(`${field} is required.`);
+    throw new TelephonyError(t("libTelephony.fieldRequired", { field }));
   }
   if (flattened.length > limit) {
     throw new TelephonyError(
-      `${field} is ${flattened.length} characters, over the ${limit} limit.`,
+      t("libTelephony.fieldTooLong", { field, length: flattened.length, limit }),
     );
   }
   return flattened;
@@ -68,10 +69,7 @@ export type OfficeCallerIdentity = {
  * transfer that obligation elsewhere.
  */
 export const AI_DISCLOSURE_RULE =
-  "You are an AI voice assistant, not a human. Say so plainly in your opening " +
-  "line, and confirm it immediately and without deflection whenever anyone " +
-  "asks whether they are speaking to a person, a bot, a recording or an AI. " +
-  "Never claim or imply that you are human.";
+  t("libTelephony.aiDisclosureRule");
 
 /**
  * Told to the agent only when the callback is actually configured.
@@ -82,11 +80,11 @@ export const AI_DISCLOSURE_RULE =
  */
 const OPERATOR_CHANNEL_RULES = [
   "",
-  "A colleague may be watching this call and may send you a note:",
-  `- Before each of your turns, call the ${OPERATOR_TOOL_NAME} tool.`,
-  "- If it returns an instruction, follow it in your next line, in your own words.",
-  "- If it returns nothing, carry on as you were.",
-  "- Do not read the tool call or the note aloud. If you are asked whether a person is involved, say yes, honestly.",
+  t("libTelephony.operatorIntro"),
+  t("libTelephony.operatorCallTool", { toolName: OPERATOR_TOOL_NAME }),
+  t("libTelephony.operatorFollow"),
+  t("libTelephony.operatorNothing"),
+  t("libTelephony.operatorSilent"),
 ];
 
 export const buildOfficeAgentPrompt = (identity: OfficeCallerIdentity): string => {
@@ -99,18 +97,20 @@ export const buildOfficeAgentPrompt = (identity: OfficeCallerIdentity): string =
     : null;
 
   const lines = [
-    `You are ${name}${organisation ? `, calling on behalf of ${organisation}` : ""}.`,
-    role ? `Your role: ${role}.` : null,
+    organisation
+      ? t("libTelephony.promptIdentityWithOrg", { name, organisation })
+      : t("libTelephony.promptIdentity", { name }),
+    role ? t("libTelephony.promptRole", { role }) : null,
     "",
     AI_DISCLOSURE_RULE,
     "",
-    "On this call:",
-    "- Give your name early, and say why you are calling in one sentence.",
-    "- Speak the way a person on a phone does: short turns, plain words, no lists read aloud.",
-    "- Let the other person interrupt you, and stop talking when they do.",
-    "- Answer only from what you actually know. If you do not know, say so and offer to follow up rather than guessing.",
-    "- If they ask to be taken off the line, or ask not to be called again, acknowledge it, say it will be recorded, and end the call politely.",
-    "- Do not ask for passwords, card numbers, or one-time codes. If they start to give you one, stop them.",
+    t("libTelephony.promptOnThisCall"),
+    t("libTelephony.promptGiveName"),
+    t("libTelephony.promptSpeakNaturally"),
+    t("libTelephony.promptAllowInterrupt"),
+    t("libTelephony.promptOnlyKnown"),
+    t("libTelephony.promptOptOut"),
+    t("libTelephony.promptNoSecrets"),
     ...(identity.operatorChannel ? OPERATOR_CHANNEL_RULES : []),
   ].filter((line) => line !== null);
 
@@ -124,8 +124,8 @@ export const buildOfficeAgentFirstMessage = (identity: OfficeCallerIdentity): st
     ? sanitizeLine(identity.organisation, "organisation", MAX_NAME_CHARS)
     : null;
   return organisation
-    ? `Hello, this is ${name}, an AI assistant calling from ${organisation}. Do you have a moment?`
-    : `Hello, this is ${name}, an AI assistant. Do you have a moment?`;
+    ? t("libTelephony.firstMessageWithOrg", { name, organisation })
+    : t("libTelephony.firstMessage", { name });
 };
 
 /**

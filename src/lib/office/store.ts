@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import { createEmptyOfficeMap, normalizeOfficeMap, type OfficeMap } from "@/lib/office/schema";
+import { t } from "@/lib/i18n";
 
 export type OfficeRecord = {
   id: string;
@@ -234,7 +235,7 @@ export const publishOfficeVersion = (params: {
       entry.id === params.officeVersionId
   );
   if (!match) {
-    throw new Error("Office version not found.");
+    throw new Error(t("libOffice.versionNotFound"));
   }
   const now = new Date().toISOString();
   const current = store.published.find((entry) => entry.workspaceId === params.workspaceId);

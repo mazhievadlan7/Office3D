@@ -8,6 +8,7 @@ import {
   upsertGatewayAgentExecApprovals,
 } from "@/lib/gateway/execApprovals";
 import { readConfigAgentList, updateGatewayAgentOverrides } from "@/lib/gateway/agentConfig";
+import { t } from "@/lib/i18n";
 
 export type ExecutionRoleId = "conservative" | "collaborative" | "autonomous";
 export type CommandModeId = "off" | "ask" | "auto";
@@ -84,12 +85,12 @@ export const resolvePresetDefaultsForRole = (role: ExecutionRoleId): AgentPermis
 export const resolveEffectivePermissionsSummary = (draft: AgentPermissionsDraft): string => {
   const commandLabel =
     draft.commandMode === "auto"
-      ? "Commands: Auto"
+      ? t("opsAgents.permCommandsAuto")
       : draft.commandMode === "ask"
-      ? "Commands: Ask"
-      : "Commands: Off";
-  const webLabel = draft.webAccess ? "Web: On" : "Web: Off";
-  const fileLabel = draft.fileTools ? "File tools: On" : "File tools: Off";
+      ? t("opsAgents.permCommandsAsk")
+      : t("opsAgents.permCommandsOff");
+  const webLabel = draft.webAccess ? t("opsAgents.permWebOn") : t("opsAgents.permWebOff");
+  const fileLabel = draft.fileTools ? t("opsAgents.permFileToolsOn") : t("opsAgents.permFileToolsOff");
   return `${commandLabel} | ${webLabel} | ${fileLabel}`;
 };
 
@@ -356,7 +357,7 @@ export async function updateAgentPermissionsViaStudio(params: {
 }): Promise<void> {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("opsAgents.agentIdRequired"));
   }
 
   const role = resolveRoleForCommandMode(params.draft.commandMode);
@@ -404,7 +405,7 @@ export async function updateExecutionRoleViaStudio(params: {
 }): Promise<void> {
   const agentId = params.agentId.trim();
   if (!agentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("opsAgents.agentIdRequired"));
   }
 
   await upsertExecApprovalsPolicyForRole({

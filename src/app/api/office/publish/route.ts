@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { listOfficeVersions, publishOfficeVersion } from "@/lib/office/store";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export async function PUT(request: Request) {
     const officeVersionId = asString(body.officeVersionId);
     const publishedBy = asString(body.publishedBy) || "studio";
     if (!workspaceId || !officeId) {
-      return NextResponse.json({ error: "workspaceId and officeId are required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.publishIdsRequired") }, { status: 400 });
     }
     let selectedVersionId = officeVersionId;
     if (!selectedVersionId) {
@@ -22,7 +23,7 @@ export async function PUT(request: Request) {
       selectedVersionId = versions[0]?.id ?? "";
     }
     if (!selectedVersionId) {
-      return NextResponse.json({ error: "No office version available to publish." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.noVersionToPublish") }, { status: 400 });
     }
     const published = publishOfficeVersion({
       workspaceId,
@@ -32,7 +33,7 @@ export async function PUT(request: Request) {
     });
     return NextResponse.json({ published });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to publish office version.";
+    const message = error instanceof Error ? error.message : t("apiOffice.publishFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

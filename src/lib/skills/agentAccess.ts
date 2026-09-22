@@ -5,6 +5,7 @@ import {
 } from "@/lib/gateway/agentConfig";
 import { filterOsCompatibleSkills } from "@/lib/skills/presentation";
 import type { SkillStatusEntry } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const normalizeSkillName = (value: string): string => value.trim();
 
@@ -27,12 +28,12 @@ export const setAgentSkillEnabled = async (params: {
 }): Promise<void> => {
   const resolvedSkillName = normalizeSkillName(params.skillName);
   if (!resolvedSkillName) {
-    throw new Error("Skill name is required.");
+    throw new Error(t("libSkills.skillNameRequired"));
   }
 
   const visibleSkillNames = resolveVisibleAgentSkillNames(params.visibleSkills);
   if (visibleSkillNames.length === 0) {
-    throw new Error("Cannot update skill access: no skills available for this agent.");
+    throw new Error(t("libSkills.noSkillsForAgent"));
   }
 
   const existingAllowlist = await readGatewayAgentSkillsAllowlist({

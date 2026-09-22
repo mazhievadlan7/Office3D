@@ -9,6 +9,7 @@ import {
   loadActiveStandupMeeting,
   updateStandupMeeting,
 } from "@/lib/office/standup/store";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ export async function GET() {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to load standup meeting.";
+      error instanceof Error ? error.message : t("apiOffice.standupMeetingLoadFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -34,7 +35,7 @@ export async function PUT(request: Request) {
     };
     const action = typeof body.action === "string" ? body.action : "";
     if (!action) {
-      return NextResponse.json({ error: "action is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.standupActionRequired") }, { status: 400 });
     }
     const store = updateStandupMeeting((meeting) => {
       if (!meeting) return null;
@@ -60,7 +61,7 @@ export async function PUT(request: Request) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to update standup meeting.";
+      error instanceof Error ? error.message : t("apiOffice.standupMeetingUpdateFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

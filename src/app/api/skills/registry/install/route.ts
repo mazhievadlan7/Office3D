@@ -12,6 +12,7 @@ import {
   findSkillRegistry,
   type SkillRegistryId,
 } from "@/lib/skills/registry";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -28,26 +29,26 @@ class InvalidRequestError extends Error {}
 
 const requireString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new InvalidRequestError(`${field} is required.`);
+    throw new InvalidRequestError(t("apiCommon.fieldRequired", { field }));
   }
   return value.trim();
 };
 
 const normalizeInstallRequest = (body: unknown): InstallRequest => {
   if (!body || typeof body !== "object") {
-    throw new InvalidRequestError("Invalid request payload.");
+    throw new InvalidRequestError(t("apiCommon.invalidRequestPayload"));
   }
   const record = body as Record<string, unknown>;
 
   const registry = requireString(record.registry, "registry") as SkillRegistryId;
   if (!KNOWN_REGISTRIES.has(registry)) {
-    throw new InvalidRequestError(`Unknown registry: ${registry}`);
+    throw new InvalidRequestError(t("apiSkills.unknownRegistry", { registry }));
   }
 
   const target = requireString(record.runtime, "runtime") as SkillRuntimeId;
   if (!SKILL_INSTALL_RUNTIMES.includes(target)) {
     throw new InvalidRequestError(
-      `Cannot install skills into "${target}". Supported: ${SKILL_INSTALL_RUNTIMES.join(", ")}.`,
+      t("apiSkills.unsupportedInstallRuntime", { target, supported: SKILL_INSTALL_RUNTIMES.join(", ") }),
     );
   }
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     payload = normalizeInstallRequest(await request.json());
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Invalid request payload.";
+      error instanceof Error ? error.message : t("apiCommon.invalidRequestPayload");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     const message =
-      error instanceof Error ? error.message : "Failed to install the skill.";
+      error instanceof Error ? error.message : t("apiSkills.installFailed");
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -104,7 +105,7 @@ export async function GET(request: Request) {
   const target = (url.searchParams.get("runtime") ?? "openclaw") as SkillRuntimeId;
   if (!SKILL_INSTALL_RUNTIMES.includes(target)) {
     return NextResponse.json(
-      { error: `Unknown runtime: ${target}` },
+      { error: t("apiSkills.unknownRuntime", { runtime: target }) },
       { status: 400 },
     );
   }

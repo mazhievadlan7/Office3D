@@ -149,7 +149,7 @@ describe("/api/gateway/media route", () => {
     const body = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(400);
-    expect(body.error).toMatch(/symlink/i);
+    expect(body.error).toBe("Символические ссылки в путях к медиафайлам не допускаются.");
 
     fs.rmSync(symlinkPath, { force: true });
   });

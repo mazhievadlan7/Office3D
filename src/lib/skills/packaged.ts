@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 type PackagedSkillFile = {
   relativePath: string;
   content: string;
@@ -458,10 +460,10 @@ export const readPackagedSkillFiles = (
 ): PackagedSkillFile[] => {
   const files = PACKAGED_SKILL_FILES[packageId];
   if (!files || files.length === 0) {
-    throw new Error(`Packaged skill assets are missing: ${packageId}`);
+    throw new Error(t("libSkills.packagedAssetsMissing", { packageId }));
   }
   if (!files.some((file) => file.relativePath === "SKILL.md")) {
-    throw new Error(`Packaged skill is missing SKILL.md: ${packageId}`);
+    throw new Error(t("libSkills.packagedMissingManifest", { packageId }));
   }
   return files.map((file) => ({ ...file }));
 };

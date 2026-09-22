@@ -24,6 +24,7 @@ import type {
   RuntimeProvider,
   RuntimeProviderId,
 } from "@/lib/runtime/types";
+import { t } from "@/lib/i18n";
 
 const CUSTOM_RUNTIME_CAPABILITIES: ReadonlySet<RuntimeCapability> = new Set([
   "agents",
@@ -193,9 +194,9 @@ const buildChatFailureMessage = (
   if (trimmed) return trimmed;
   const healthStatus = resolveOptionalString(health?.status);
   if (healthStatus) {
-    return `Custom runtime chat failed (${statusCode}). Runtime health is ${healthStatus}.`;
+    return t("libRuntime.customChatFailedWithHealth", { status: statusCode, health: healthStatus });
   }
-  return `Custom runtime chat failed (${statusCode}).`;
+  return t("libRuntime.customChatFailed", { status: statusCode });
 };
 
 const buildSyntheticAgents = (
@@ -257,12 +258,12 @@ export class CustomRuntimeProvider implements RuntimeProvider {
     }
   ) {
     this.id = options?.id ?? "custom";
-    this.label = options?.label ?? "Custom";
+    this.label = options?.label ?? t("libRuntime.customLabel");
     this.baseUrl = normalizeCustomBaseUrl(runtimeUrl);
     this.metadata = {
       id: this.id,
       label: this.label,
-      runtimeName: options?.runtimeName ?? `${this.label} Runtime`,
+      runtimeName: options?.runtimeName ?? t("libRuntime.runtimeNameFromLabel", { label: this.label }),
       vendor: options?.vendor ?? null,
       routeProfile: options?.routeProfile ?? this.id,
     };
@@ -307,9 +308,9 @@ export class CustomRuntimeProvider implements RuntimeProvider {
       case "config.get":
       case "config.patch":
       case "config.set":
-        throw new Error(`Custom runtime does not support ${method}.`);
+        throw new Error(t("libRuntime.customMethodUnsupported", { method }));
       default:
-        throw new Error(`Custom runtime does not implement ${method}.`);
+        throw new Error(t("libRuntime.customMethodNotImplemented", { method }));
     }
   }
 
@@ -378,7 +379,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
 
   private async callAgentsList() {
     const descriptor = await this.describeRuntime();
-    const runtimeName = descriptor.metadata.runtimeName ?? this.metadata.runtimeName ?? "Custom Runtime";
+    const runtimeName = descriptor.metadata.runtimeName ?? this.metadata.runtimeName ?? t("libRuntime.customRuntimeName");
     const agents = buildSyntheticAgents(descriptor.state, runtimeName);
     return {
       defaultId: agents[0]?.id ?? "main",
@@ -406,7 +407,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
         updatedAt: session.updatedAt,
         displayName: session.agentId,
         origin: {
-          label: descriptor.metadata.runtimeName ?? "Custom Runtime",
+          label: descriptor.metadata.runtimeName ?? t("libRuntime.customRuntimeName"),
           provider: "custom",
         },
         modelProvider: "custom",
@@ -476,7 +477,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
     const params = isRecord(rawParams) ? rawParams : {};
     const sessionKey = typeof params.sessionKey === "string" ? params.sessionKey.trim() : "";
     if (!sessionKey) {
-      throw new Error("Custom runtime requires sessionKey for chat.history.");
+      throw new Error(t("libRuntime.customHistoryNeedsSessionKey"));
     }
     const session = this.sessions.get(sessionKey) ?? null;
     return {
@@ -495,7 +496,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
     const message = typeof params.message === "string" ? params.message.trim() : "";
     const runId = typeof params.idempotencyKey === "string" ? params.idempotencyKey.trim() : "";
     if (!sessionKey || !message) {
-      throw new Error("Custom runtime requires sessionKey and message for chat.send.");
+      throw new Error(t("libRuntime.customSendNeedsParams"));
     }
     const agentId = parseAgentIdFromSessionKey(sessionKey) ?? "main";
     const descriptor = await this.describeRuntime();
@@ -548,7 +549,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
       })) as unknown;
       const assistantText = resolveAssistantTextFromResponse(payload);
       if (!assistantText) {
-        throw new Error("Custom runtime returned an empty assistant response.");
+        throw new Error(t("libRuntime.customEmptyResponse"));
       }
       const assistantTimestamp = Date.now();
       session.messages.push({
@@ -674,7 +675,7 @@ export class CustomRuntimeProvider implements RuntimeProvider {
     const params = isRecord(rawParams) ? rawParams : {};
     const key = typeof params.key === "string" ? params.key.trim() : "";
     if (!key) {
-      throw new Error("Custom runtime requires key for sessions.reset.");
+      throw new Error(t("libRuntime.customResetNeedsKey"));
     }
     this.sessions.delete(key);
     const activeRunId = this.activeRunIdBySessionKey.get(key);

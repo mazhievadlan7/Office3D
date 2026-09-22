@@ -2,6 +2,7 @@ import { telephonyError, telephonyJson } from "@/app/api/telephony/respond";
 import { drainPendingSay, getCall } from "@/lib/telephony/store";
 import { TelephonyError } from "@/lib/telephony/types";
 import { assertWebhookAuthorized } from "@/lib/telephony/webhookAuth";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ const readConversationId = (body: ToolRequest): string => {
   // are accepted so a dashboard configured either way works.
   const raw = body.conversation_id ?? body.conversationId;
   if (typeof raw !== "string" || !raw.trim()) {
-    throw new TelephonyError("conversation_id is required.");
+    throw new TelephonyError(t("apiTelephony.conversationIdRequired"));
   }
   return raw.trim();
 };
@@ -41,10 +42,10 @@ export async function POST(request: Request) {
     try {
       parsed = await request.json();
     } catch {
-      throw new TelephonyError("Could not read the request body as JSON.");
+      throw new TelephonyError(t("apiCommon.bodyNotJson"));
     }
     if (!parsed || typeof parsed !== "object") {
-      throw new TelephonyError("Expected a JSON object.");
+      throw new TelephonyError(t("apiCommon.expectedJsonObject"));
     }
 
     const conversationId = readConversationId(parsed as ToolRequest);

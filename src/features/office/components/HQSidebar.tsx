@@ -185,7 +185,7 @@ export function HQSidebar({
                   >
                     <span>{TAB_LABELS[tab]}</span>
                     {showBadge ? (
-                      <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300" aria-label={`${inboxCount} unread`}>
+                      <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300" aria-label={t("hq.unreadCount", { count: inboxCount })}>
                         {inboxCount}
                       </span>
                     ) : null}

@@ -8,6 +8,7 @@ import {
   planCreateAgentBootstrapCommands,
   type CreateBootstrapCommand,
 } from "@/features/agents/operations/createAgentBootstrapWorkflow";
+import { t } from "@/lib/i18n";
 
 type CreateCompletion = {
   agentId: string;
@@ -24,9 +25,9 @@ export const CREATE_AGENT_DEFAULT_PERMISSIONS: Readonly<AgentPermissionsDraft> =
 
 const resolveBootstrapErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
-    return error.message || "Failed to apply default permissions.";
+    return error.message || t("opsAgents.defaultPermissionsFailed");
   }
-  return "Failed to apply default permissions.";
+  return t("opsAgents.defaultPermissionsFailed");
 };
 
 export async function applyCreateAgentBootstrapPermissions(params: {

@@ -26,6 +26,7 @@ import { resolveStudioProxyGatewayUrl } from "@/lib/gateway/proxy-url";
 import { ensureGatewayReloadModeHotForLocalStudio } from "@/lib/gateway/gatewayReloadMode";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import { GatewayResponseError } from "@/lib/gateway/errors";
+import { matchesPhrase, t } from "@/lib/i18n";
 
 const gatewayDebugEnabled = process.env.NODE_ENV !== "production";
 
@@ -277,10 +278,10 @@ export class GatewayClient {
 
   async connect(options: GatewayConnectOptions) {
     if (!options.gatewayUrl.trim()) {
-      throw new Error("Gateway URL is required.");
+      throw new Error(t("libGateway.urlRequired"));
     }
     if (this.client) {
-      throw new Error("Gateway is already connected or connecting.");
+      throw new Error(t("libGateway.alreadyConnecting"));
     }
 
     this.manualDisconnect = false;
@@ -318,7 +319,7 @@ export class GatewayClient {
               code: connectFailed.code,
               message: connectFailed.message,
             })
-          : new Error(`Gateway closed (${code}): ${reason}`);
+          : new Error(t("libGateway.closed", { code, reason }));
         if (this.rejectConnect) {
           this.rejectConnect(err);
           this.clearConnectPromise();
@@ -351,7 +352,7 @@ export class GatewayClient {
           connectTimeoutId = window.setTimeout(() => {
             reject(
               new Error(
-                "Timed out connecting to the gateway. Check that it is running, or change the gateway address and try again."
+                t("libGateway.connectTimedOut")
               )
             );
           }, GATEWAY_CONNECT_TIMEOUT_MS);
@@ -388,10 +389,10 @@ export class GatewayClient {
 
   async call<T = unknown>(method: string, params: unknown): Promise<T> {
     if (!method.trim()) {
-      throw new Error("Gateway method is required.");
+      throw new Error(t("libGateway.methodRequired"));
     }
     if (!this.client || !this.client.connected) {
-      throw new Error("Gateway is not connected.");
+      throw new Error(t("libGateway.notConnected"));
     }
 
     const payload = await this.client.request<T>(method, params);
@@ -422,7 +423,11 @@ export const isGatewayDisconnectLikeError = (err: unknown): boolean => {
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
   if (!msg) return false;
+  // Our own messages are matched by phrase; the English ones come from
+  // OpenClaw's own gateway client.
   if (
+    matchesPhrase(err.message, "libGateway.notConnected") ||
+    matchesPhrase(err.message, "libGateway.remoteNotConnected") ||
     msg.includes("gateway not connected") ||
     msg.includes("gateway is not connected") ||
     msg.includes("gateway client stopped")
@@ -430,7 +435,8 @@ export const isGatewayDisconnectLikeError = (err: unknown): boolean => {
     return true;
   }
 
-  const match = msg.match(/gateway closed \((\d+)\)/);
+  const match =
+    msg.match(/gateway closed \((\d+)\)/) ?? msg.match(/шлюз закрыл соединение \((\d+)\)/);
   if (!match) return false;
   const code = Number(match[1]);
   return Number.isFinite(code) && code === 1012;
@@ -492,7 +498,7 @@ export const syncGatewaySessionSettings = async ({
 }: SyncGatewaySessionSettingsParams) => {
   const key = sessionKey.trim();
   if (!key) {
-    throw new Error("Session key is required.");
+    throw new Error(t("libGateway.sessionKeyRequired"));
   }
   const includeModel = model !== undefined;
   const includeThinkingLevel = thinkingLevel !== undefined;
@@ -506,7 +512,7 @@ export const syncGatewaySessionSettings = async ({
     !includeExecSecurity &&
     !includeExecAsk
   ) {
-    throw new Error("At least one session setting must be provided.");
+    throw new Error(t("libGateway.sessionSettingRequired"));
   }
   const payload: SessionSettingsPatchPayload = { key };
   if (includeModel) {
@@ -528,19 +534,19 @@ export const syncGatewaySessionSettings = async ({
 };
 
 const doctorFixHint =
-  "Run `npx openclaw doctor --fix` on the gateway host (or `pnpm openclaw doctor --fix` in a source checkout).";
+  t("libGateway.hintDoctorFix");
 
 const protocolMismatchHint =
-  "This gateway looks too old for Office3D's protocol v3. Upgrade OpenClaw, use the Hermes adapter, or run `npm run demo-gateway` for a no-framework office demo.";
+  t("libGateway.hintProtocolMismatch");
 
 const tailscaleGatewayHint =
-  "If this is a remote OpenClaw/Tailscale gateway, confirm the Studio host can reach the `wss://...` address and approve the first device pairing on the gateway host with `openclaw devices approve --latest`.";
+  t("libGateway.hintTailscale");
 
 const pairingRequiredHint =
-  "This gateway is asking for first-time device approval. Run `openclaw devices approve --latest` on the gateway host, then restart Office3D and reconnect from this browser.";
+  t("libGateway.hintPairingRequired");
 
 const requiresDeviceIdentityHint =
-  "This gateway rejected the client as a control UI without device identity. For remote OpenClaw/Tailscale connections, update to the latest Office3D build and approve the device pairing on the gateway host.";
+  t("libGateway.hintDeviceIdentity");
 
 const isGatewayProtocolMismatchError = (error: GatewayResponseError) => {
   if (error.code.trim().toUpperCase() !== "INVALID_REQUEST") return false;
@@ -569,37 +575,40 @@ const isGatewayProtocolMismatchError = (error: GatewayResponseError) => {
 const formatGatewayError = (error: unknown) => {
   if (error instanceof GatewayResponseError) {
     if (isGatewayProtocolMismatchError(error)) {
-      return `Gateway error (${error.code}): ${error.message}. ${protocolMismatchHint}`;
+      return t("libGateway.errorWithHint", { code: error.code, message: error.message, hint: protocolMismatchHint });
     }
     if (error.code === "INVALID_REQUEST" && /invalid config/i.test(error.message)) {
-      return `Gateway error (${error.code}): ${error.message}. ${doctorFixHint}`;
+      return t("libGateway.errorWithHint", { code: error.code, message: error.message, hint: doctorFixHint });
     }
     if (error.code === "studio.upstream_timeout") {
-      return `Gateway error (${error.code}): ${error.message} ${tailscaleGatewayHint}`;
+      return t("libGateway.errorWithHintNoPeriod", { code: error.code, message: error.message, hint: tailscaleGatewayHint });
     }
     if (error.code === "studio.upstream_rejected") {
       const lower = error.message.toLowerCase();
       if (lower.includes("pairing required")) {
-        return `Gateway error (${error.code}): ${error.message}. ${pairingRequiredHint}`;
+        return t("libGateway.errorWithHint", { code: error.code, message: error.message, hint: pairingRequiredHint });
       }
       if (lower.includes("device identity")) {
-        return `Gateway error (${error.code}): ${error.message}. ${requiresDeviceIdentityHint}`;
+        return t("libGateway.errorWithHint", { code: error.code, message: error.message, hint: requiresDeviceIdentityHint });
       }
     }
-    return `Gateway error (${error.code}): ${error.message}`;
+    return t("libGateway.error", { code: error.code, message: error.message });
   }
   if (error instanceof Error) {
-    if (/timed out connecting to the gateway/i.test(error.message)) {
+    if (
+      matchesPhrase(error.message, "libGateway.connectTimedOut") ||
+      /timed out connecting to the gateway/i.test(error.message)
+    ) {
       // A local timeout carries no information about why the upstream did
       // not respond. Suggest the directions the operator can actually check,
       // without biasing toward a protocol mismatch — that is only one of
       // several possible root causes (network, origin allowlist, upstream
       // policy, credentials, nginx idle timeout, ...).
-      return `${error.message} Verify that the gateway is reachable at the configured URL, that origin and credentials meet the gateway's requirements, and (if testing locally with a self-built gateway) consider \`npm run demo-gateway\` to isolate the problem.`;
+      return t("libGateway.connectTimeoutHint", { message: error.message });
     }
     return error.message;
   }
-  return "Unknown gateway error.";
+  return t("libGateway.unknownError");
 };
 
 export type GatewayConnectionState = {
@@ -818,7 +827,7 @@ export const useGatewayConnection = (
         setHasLastKnownGoodState(hasPersistedProfileForSelected);
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Failed to load gateway settings.";
+          const message = err instanceof Error ? err.message : t("libGateway.settingsLoadFailed");
           setError(message);
         }
       } finally {

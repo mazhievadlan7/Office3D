@@ -41,9 +41,9 @@ describe("phone number validation", () => {
 describe("spoken text validation", () => {
   it("requires_text_and_caps_its_length", () => {
     expect(assertSpeakableText("  hello  ", "message")).toBe("hello");
-    expect(() => assertSpeakableText("   ", "message")).toThrow(/required/);
+    expect(() => assertSpeakableText("   ", "message")).toThrow(/Не указано поле message/);
     expect(() => assertSpeakableText("x".repeat(MAX_SPOKEN_CHARS + 1), "message")).toThrow(
-      /over the/,
+      /Поле message слишком длинное: символов — 1501, допустимо не больше 1500/,
     );
   });
 });
@@ -100,7 +100,7 @@ describe("call store", () => {
 
   it("reports_an_unknown_call_as_not_found", () => {
     expect(getCall("nope")).toBeNull();
-    expect(() => requireCall("nope")).toThrow(/No call with SID/);
+    expect(() => requireCall("nope")).toThrow(/Звонок с SID «nope» не найден/);
   });
 
   it("lists_calls_newest_first", () => {

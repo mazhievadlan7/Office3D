@@ -44,6 +44,7 @@ import {
   type SkillStatusEntry,
   type SkillStatusReport,
 } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 export type RestartingMutationBlockState = MutationBlockState & { kind: MutationWorkflowKind };
 export type SkillSetupMessage = { kind: "success" | "error"; message: string };
@@ -78,6 +79,8 @@ export type UseAgentSettingsMutationControllerParams = {
   setError: (message: string) => void;
 };
 
+const CRON_UNSUPPORTED_MESSAGE = t("opsSettings.cronUnsupported");
+
 export function useAgentSettingsMutationController(params: UseAgentSettingsMutationControllerParams) {
   const { agents, loadAgents, setMobilePaneChat, status } = params;
   const skillsLoadRequestIdRef = useRef(0);
@@ -100,7 +103,6 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
     useState<RestartingMutationBlockState | null>(null);
   const REMOTE_MUTATION_EXEC_TIMEOUT_MS = 45_000;
   const SKILL_INSTALL_TIMEOUT_MS = 120_000;
-  const CRON_UNSUPPORTED_MESSAGE = "This runtime does not support automations.";
 
   const hasRenameMutationBlock = restartingMutationBlock?.kind === "rename-agent";
   const hasDeleteMutationBlock = restartingMutationBlock?.kind === "delete-agent";
@@ -153,7 +155,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       if (!resolvedAgentId) {
         if (requestId === skillsLoadRequestIdRef.current) {
           setSettingsSkillsReport(null);
-          setSettingsSkillsError("Failed to load skills: missing agent id.");
+          setSettingsSkillsError(t("opsSettings.skillsLoadMissingAgentId"));
         }
         return;
       }
@@ -169,7 +171,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         if (requestId !== skillsLoadRequestIdRef.current) {
           return;
         }
-        const message = err instanceof Error ? err.message : "Failed to load skills.";
+        const message = err instanceof Error ? err.message : t("opsSettings.skillsLoadFailed");
         setSettingsSkillsReport(null);
         setSettingsSkillsError(message);
         if (!isGatewayDisconnectLikeError(err)) {
@@ -229,7 +231,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       const resolvedAgentId = agentId.trim();
       if (!resolvedAgentId) {
         setSettingsCronJobs([]);
-        setSettingsCronError("Failed to load schedules: missing agent id.");
+        setSettingsCronError(t("opsSettings.schedulesLoadMissingAgentId"));
         return;
       }
       setSettingsCronLoading(true);
@@ -239,7 +241,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         const filtered = filterCronJobsForAgent(result.jobs, resolvedAgentId);
         setSettingsCronJobs(sortCronJobsByUpdatedAt(filtered));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load schedules.";
+        const message = err instanceof Error ? err.message : t("opsSettings.schedulesLoadFailed");
         setSettingsCronJobs([]);
         setSettingsCronError(message);
         if (!isGatewayDisconnectLikeError(err)) {
@@ -335,8 +337,8 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
           executeMutation: async () => {
             const timeoutLabel =
               input.kind === "delete-agent"
-                ? "Delete agent request timed out."
-                : "Rename agent request timed out.";
+                ? t("opsAgents.deleteTimedOut")
+                : t("opsAgents.renameTimedOut");
             await Promise.race([
               input.executeMutation(),
               new Promise<never>((_, reject) => {
@@ -344,7 +346,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
                   () =>
                     reject(
                       new Error(
-                        `${timeoutLabel} The gateway did not respond in time.`
+                        t("opsAgents.gatewayNoResponse", { label: timeoutLabel })
                       )
                     ),
                   REMOTE_MUTATION_EXEC_TIMEOUT_MS
@@ -376,8 +378,8 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
     onTimeout: () => {
       const timeoutMessage =
         restartingMutationBlock?.kind === "delete-agent"
-          ? "Gateway restart timed out after deleting the agent."
-          : "Gateway restart timed out after renaming the agent.";
+          ? t("opsAgents.restartTimedOutAfterDelete")
+          : t("opsAgents.restartTimedOutAfterRename");
       setRestartingMutationBlock(null);
       params.setError(timeoutMessage);
     },
@@ -449,7 +451,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       const agent = params.agents.find((entry) => entry.agentId === decision.normalizedAgentId);
       if (!agent) return;
       const confirmed = window.confirm(
-        `Delete ${agent.name}? This removes the agent record from OpenClaw and clears its scheduled automations. Office3D will not touch workspace files.`
+        t("opsAgents.deleteConfirm", { name: agent.name })
       );
       if (!confirmed) return;
 
@@ -457,7 +459,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         kind: "delete-agent",
         agentId: decision.normalizedAgentId,
         agentName: agent.name,
-        label: `Delete ${agent.name}`,
+        label: t("opsAgents.deleteLabel", { name: agent.name }),
         executeMutation: async () => {
           await deleteAgentRecordViaStudio({
             client: params.client,
@@ -504,7 +506,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
           onJobs: setSettingsCronJobs,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to create automation.";
+        const message = err instanceof Error ? err.message : t("opsSettings.automationCreateFailed");
         if (!isGatewayDisconnectLikeError(err)) {
           console.error(message);
         }
@@ -546,7 +548,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         await runCronJobNow(params.client, resolvedJobId);
         await loadCronJobsForSettingsAgent(resolvedAgentId);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to run schedule.";
+        const message = err instanceof Error ? err.message : t("opsSettings.scheduleRunFailed");
         setSettingsCronError(message);
         console.error(message);
       } finally {
@@ -584,7 +586,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         }
         await loadCronJobsForSettingsAgent(resolvedAgentId);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to delete schedule.";
+        const message = err instanceof Error ? err.message : t("opsSettings.scheduleDeleteFailed");
         setSettingsCronError(message);
         console.error(message);
       } finally {
@@ -613,7 +615,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         kind: "rename-agent",
         agentId: decision.normalizedAgentId,
         agentName: name,
-        label: `Rename ${agent.name}`,
+        label: t("opsAgents.renameLabel", { name: agent.name }),
         executeMutation: async () => {
           await renameGatewayAgent({
             client: params.client,
@@ -645,7 +647,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
 
       await params.enqueueConfigMutation({
         kind: "update-agent-permissions",
-        label: `Update permissions for ${agent.name}`,
+        label: t("opsAgents.updatePermissionsLabel", { name: agent.name }),
         run: async () => {
           await updateAgentPermissionsViaStudio({
             client: params.client,
@@ -719,7 +721,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       try {
         await params.enqueueConfigMutation({
           kind: "update-agent-skills",
-          label: `Update skills for ${agent?.name ?? decision.normalizedAgentId}`,
+          label: t("opsAgents.updateSkillsLabel", { name: agent?.name ?? decision.normalizedAgentId }),
           run: async () => {
             await input.run(decision.normalizedAgentId);
             await params.loadAgents();
@@ -728,7 +730,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
           },
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update skills.";
+        const message = err instanceof Error ? err.message : t("opsSettings.skillsUpdateFailed");
         setSettingsSkillsError(message);
         if (!isGatewayDisconnectLikeError(err)) {
           console.error(message);
@@ -808,7 +810,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
             )
           );
           if (normalizedSkillNames.length === 0) {
-            throw new Error("Cannot set selected skills mode: choose at least one skill.");
+            throw new Error(t("opsSettings.selectedSkillsEmpty"));
           }
           await updateGatewayAgentSkillsAllowlist({
             client: params.client,
@@ -882,7 +884,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
           },
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update skill setup.";
+        const message = err instanceof Error ? err.message : t("opsSettings.skillSetupUpdateFailed");
         setSettingsSkillsError(message);
         setSkillMessage(normalizedSkillKey, {
           kind: "error",
@@ -904,7 +906,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         agentId,
         decisionKind: "install-skill",
         skillKey,
-        label: `Install dependencies for ${name.trim() || skillKey.trim()}`,
+        label: t("opsSettings.installDepsLabel", { name: name.trim() || skillKey.trim() }),
         run: async () => {
           const result = await installSkill(params.client, {
             name,
@@ -912,7 +914,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
             timeoutMs: SKILL_INSTALL_TIMEOUT_MS,
           });
           return {
-            successMessage: result.message || "Installed",
+            successMessage: result.message || t("opsSettings.installed"),
           };
         },
       });
@@ -928,12 +930,12 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       const report = settingsSkillsReport;
       const normalizedSkillKey = skill.skillKey.trim();
       if (!normalizedSkillKey) {
-        const message = "Skill key is required to remove the skill.";
+        const message = t("opsSettings.skillKeyRequired");
         setSettingsSkillsError(message);
         return;
       }
       if (!report) {
-        const message = "Cannot remove skill: skills are not loaded.";
+        const message = t("opsSettings.skillsNotLoaded");
         setSettingsSkillsError(message);
         setSkillMessage(normalizedSkillKey, {
           kind: "error",
@@ -943,7 +945,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       }
       const normalizedSource = skill.source.trim();
       if (!canRemoveSkillSource(normalizedSource)) {
-        const message = `Skill source cannot be removed from Studio: ${normalizedSource || "unknown"}.`;
+        const message = t("opsSettings.skillSourceNotRemovable", { source: normalizedSource || "unknown" });
         setSettingsSkillsError(message);
         setSkillMessage(normalizedSkillKey, {
           kind: "error",
@@ -956,7 +958,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         agentId,
         decisionKind: "remove-skill",
         skillKey: normalizedSkillKey,
-        label: `Remove ${normalizedSkillKey}`,
+        label: t("opsSettings.removeSkillLabel", { skill: normalizedSkillKey }),
         run: async () => {
           const result = await removeSkillFromGateway({
             client: params.client,
@@ -968,8 +970,8 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
           });
           return {
             successMessage: result.removed
-              ? "Skill removed from gateway files"
-              : "Skill files were already removed",
+              ? t("opsSettings.skillRemovedFromGateway")
+              : t("opsSettings.skillFilesAlreadyRemoved"),
           };
         },
       });
@@ -982,7 +984,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
       const normalizedSkillKey = skillKey.trim();
       const apiKey = (settingsSkillApiKeyDrafts[normalizedSkillKey] ?? "").trim();
       if (!apiKey) {
-        const message = "API key cannot be empty.";
+        const message = t("opsSettings.apiKeyEmpty");
         setSettingsSkillsError(message);
         setSkillMessage(normalizedSkillKey, {
           kind: "error",
@@ -994,7 +996,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         agentId,
         decisionKind: "save-skill-api-key",
         skillKey: normalizedSkillKey,
-        label: `Save API key for ${normalizedSkillKey}`,
+        label: t("opsSettings.saveApiKeyLabel", { skill: normalizedSkillKey }),
         refreshConfigSnapshot: true,
         run: async () => {
           await updateSkill(params.client, {
@@ -1002,7 +1004,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
             apiKey,
           });
           return {
-            successMessage: "API key saved",
+            successMessage: t("opsSettings.apiKeySaved"),
           };
         },
       });
@@ -1017,7 +1019,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
         agentId,
         decisionKind: "set-skill-global-enabled",
         skillKey: normalizedSkillKey,
-        label: `${enabled ? "Enable" : "Disable"} ${normalizedSkillKey}`,
+        label: `${enabled ? t("opsSettings.enableLabel") : t("opsSettings.disableLabel")} ${normalizedSkillKey}`,
         refreshConfigSnapshot: true,
         run: async () => {
           await updateSkill(params.client, {
@@ -1025,7 +1027,7 @@ export function useAgentSettingsMutationController(params: UseAgentSettingsMutat
             enabled,
           });
           return {
-            successMessage: enabled ? "Skill enabled globally" : "Skill disabled globally",
+            successMessage: enabled ? t("opsSettings.skillEnabledGlobally") : t("opsSettings.skillDisabledGlobally"),
           };
         },
       });

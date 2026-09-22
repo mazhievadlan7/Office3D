@@ -41,6 +41,7 @@ import {
 } from "@/lib/office/deskDirectives";
 import { extractText, extractThinking } from "@/lib/text/message-extract";
 import { randomUUID } from "@/lib/uuid";
+import { t } from "@/lib/i18n";
 
 // Office animation is derived in two passes:
 // 1. Event reduction records short-lived latches from fresh gateway traffic.
@@ -1239,7 +1240,7 @@ export const reconcileOfficeAnimationTriggerState = (params: {
     cleaningCues.unshift({
       id: randomUUID(),
       agentId,
-      agentName: agent.name || "Agent",
+      agentName: agent.name || t("office.agentFallback"),
       ts: nowMs,
     });
   }

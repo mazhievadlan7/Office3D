@@ -1,4 +1,5 @@
 import { MessagingError, type MessageRecord } from "@/lib/messaging/types";
+import { t } from "@/lib/i18n";
 
 /**
  * Messages this process has sent.
@@ -38,7 +39,7 @@ export const recordMessage = (record: MessageRecord): MessageRecord => {
 export const requireMessage = (id: string): MessageRecord => {
   const record = getMessage(id);
   if (!record) {
-    throw new MessagingError(`No message with id "${id}".`, 404);
+    throw new MessagingError(t("libMessaging.messageNotFound", { id }), 404);
   }
   return record;
 };

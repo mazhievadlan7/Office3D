@@ -132,9 +132,9 @@ describe("cron create flow state", () => {
         onJobs,
         deps: { buildInput, createCronJob, listCronJobs },
       })
-    ).rejects.toThrow("Please wait for the current cron action to finish.");
+    ).rejects.toThrow("Дождитесь завершения текущего действия с задачей по расписанию.");
 
-    expect(onError).toHaveBeenCalledWith("Please wait for the current cron action to finish.");
+    expect(onError).toHaveBeenCalledWith("Дождитесь завершения текущего действия с задачей по расписанию.");
     expect(onBusyChange).not.toHaveBeenCalled();
     expect(onJobs).not.toHaveBeenCalled();
     expect(buildInput).not.toHaveBeenCalled();
@@ -161,9 +161,9 @@ describe("cron create flow state", () => {
         onJobs,
         deps: { buildInput, createCronJob, listCronJobs },
       })
-    ).rejects.toThrow("Failed to create cron job: missing agent id.");
+    ).rejects.toThrow("Не удалось создать задачу по расписанию: не указан ID агента.");
 
-    expect(onError).toHaveBeenCalledWith("Failed to create cron job: missing agent id.");
+    expect(onError).toHaveBeenCalledWith("Не удалось создать задачу по расписанию: не указан ID агента.");
     expect(onBusyChange).not.toHaveBeenCalled();
     expect(onJobs).not.toHaveBeenCalled();
     expect(buildInput).not.toHaveBeenCalled();

@@ -366,7 +366,7 @@ describe("updateGatewayAgentOverrides", () => {
           },
         },
       })
-    ).rejects.toThrow("Agent tools overrides cannot set both allow and alsoAllow.");
+    ).rejects.toThrow("В переопределениях инструментов агента нельзя одновременно задавать allow и alsoAllow.");
 
     expect(client.call).not.toHaveBeenCalled();
   });

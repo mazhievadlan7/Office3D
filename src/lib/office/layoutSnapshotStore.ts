@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
 import type { OfficeLayoutSnapshot } from "@/lib/office/layoutSnapshot";
+import { t } from "@/lib/i18n";
 
 type LayoutSnapshotStore = {
   schemaVersion: 1;
@@ -67,7 +68,7 @@ export const loadOfficeLayoutSnapshot = (gatewayUrl: string) => {
 export const saveOfficeLayoutSnapshot = (snapshot: OfficeLayoutSnapshot) => {
   const key = normalizeGatewayKey(snapshot.gatewayUrl);
   if (!key) {
-    throw new Error("Gateway URL is required to save office layout snapshot.");
+    throw new Error(t("libOffice.layoutSnapshotGatewayRequired"));
   }
   const store = readStore();
   store.snapshots[key] = snapshot;

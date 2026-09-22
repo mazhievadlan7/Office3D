@@ -12,6 +12,7 @@ import { sendChatMessageViaStudio } from "@/features/agents/operations/chatSendO
 import { mergePendingLivePatch } from "@/features/agents/state/livePatchQueue";
 import { buildNewSessionAgentPatch, type AgentState } from "@/features/agents/state/store";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 type ChatInteractionDispatchAction =
   | { type: "updateAgent"; agentId: string; patch: Partial<AgentState> }
@@ -28,14 +29,14 @@ const buildQueuedAttachmentMessage = (message: string, attachments: RuntimeAttac
   const trimmed = message.trim();
   const attachmentBlocks = attachments.map((attachment) => {
     const lines = [
-      `[Attached file: ${attachment.name}]`,
+      t("opsChat.attachedFileStart", { name: attachment.name }),
       `URL: ${attachment.url}`,
       `Content-Type: ${attachment.contentType}`,
     ];
     if (attachment.extractedText?.trim()) {
       lines.push("", attachment.extractedText.trim());
     }
-    lines.push(`[End attached file: ${attachment.name}]`);
+    lines.push(t("opsChat.attachedFileEnd", { name: attachment.name }));
     return lines.join("\n");
   });
   return [trimmed, ...attachmentBlocks].filter(Boolean).join("\n\n").trim();
@@ -223,7 +224,7 @@ export function useChatInteractionController(
         params.dispatch({
           type: "appendOutput",
           agentId,
-          line: "Error: Agent not found.",
+          line: t("opsChat.agentNotFoundLine"),
         });
         return;
       }
@@ -333,13 +334,13 @@ export function useChatInteractionController(
           sessionKey: stopIntent.sessionKey,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to stop run.";
+        const message = err instanceof Error ? err.message : t("opsChat.stopFailed");
         params.setError(message);
         console.error(message);
         params.dispatch({
           type: "appendOutput",
           agentId,
-          line: `Stop failed: ${message}`,
+          line: t("opsChat.stopFailedLine", { message }),
         });
       } finally {
         setStopBusyAgentId((current) => {
@@ -383,12 +384,12 @@ export function useChatInteractionController(
         params.setInspectSidebarNull();
         params.setMobilePaneChat();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to start new session.";
+        const message = err instanceof Error ? err.message : t("opsChat.newSessionFailed");
         params.setError(message);
         params.dispatch({
           type: "appendOutput",
           agentId,
-          line: `New session failed: ${message}`,
+          line: t("opsChat.newSessionFailedLine", { message }),
         });
       }
     },

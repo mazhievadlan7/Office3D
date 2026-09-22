@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { t } from "@/lib/i18n";
 
 type BrowserPreviewState = {
   mediaUrl: string | null;
@@ -58,7 +59,7 @@ export function useBrowserPreview(url: string | null, enabled: boolean) {
         };
         if (!response.ok) {
           throw new Error(
-            payload.error?.trim() || "Unable to capture GitHub browser preview.",
+            payload.error?.trim() || t("opsGithub.previewCaptureFailed"),
           );
         }
         if (requestIdRef.current !== requestId) return;
@@ -77,7 +78,7 @@ export function useBrowserPreview(url: string | null, enabled: boolean) {
           error:
             error instanceof Error
               ? error.message
-              : "Unable to capture GitHub browser preview.",
+              : t("opsGithub.previewCaptureFailed"),
         });
       }
     })();

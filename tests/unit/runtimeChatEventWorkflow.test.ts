@@ -311,7 +311,7 @@ describe("runtime chat event workflow", () => {
     expect(result.commands[0]).toEqual(
       expect.objectContaining({
         kind: "appendOutput",
-        line: "Error: boom",
+        line: "Ошибка: boom",
       })
     );
     const policy = findCommand(result.commands, "applyPolicyIntents");

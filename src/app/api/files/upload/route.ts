@@ -5,6 +5,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -87,20 +88,20 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file");
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
+      return NextResponse.json({ error: t("apiFiles.noFileUploaded") }, { status: 400 });
     }
     if (file.size <= 0) {
-      return NextResponse.json({ error: "Uploaded file is empty." }, { status: 400 });
+      return NextResponse.json({ error: t("apiFiles.uploadEmpty") }, { status: 400 });
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      return NextResponse.json({ error: "File exceeds 10 MB limit." }, { status: 400 });
+      return NextResponse.json({ error: t("apiFiles.tooLarge") }, { status: 400 });
     }
 
     const contentType = resolveUploadContentType(file);
     if (!contentType) {
       const ext = path.extname(file.name || "").trim().toLowerCase();
       return NextResponse.json(
-        { error: `Unsupported file type: ${ext || file.type.trim().toLowerCase() || "(unknown)"}` },
+        { error: t("apiFiles.unsupportedType", { type: ext || file.type.trim().toLowerCase() || "—" }) },
         { status: 400 }
       );
     }
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
       extractedText,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Upload failed.";
+    const message = error instanceof Error ? error.message : t("apiFiles.uploadFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

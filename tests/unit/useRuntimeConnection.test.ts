@@ -90,7 +90,7 @@ describe("useRuntimeConnection", () => {
     render(createElement(Probe));
 
     expect(screen.getByTestId("providerId")).toHaveTextContent("custom");
-    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Custom Runtime");
+    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Пользовательская среда выполнения");
   });
 
   it("selects the local runtime provider from the active adapter type", async () => {
@@ -132,7 +132,7 @@ describe("useRuntimeConnection", () => {
     render(createElement(Probe));
 
     expect(screen.getByTestId("providerId")).toHaveTextContent("local");
-    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Local Runtime");
+    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Локальная среда выполнения");
   });
 
   it("selects the office3d runtime provider from the active adapter type", async () => {
@@ -174,6 +174,6 @@ describe("useRuntimeConnection", () => {
     render(createElement(Probe));
 
     expect(screen.getByTestId("providerId")).toHaveTextContent("office3d");
-    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Office3D Runtime");
+    expect(screen.getByTestId("providerLabel")).toHaveTextContent("Среда выполнения Office3D");
   });
 });

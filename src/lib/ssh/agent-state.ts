@@ -1,4 +1,5 @@
 import { runSshJson } from "@/lib/ssh/gateway-host";
+import { t } from "@/lib/i18n";
 
 export type GatewayAgentStateMove = { from: string; to: string };
 
@@ -118,7 +119,7 @@ export const trashAgentStateOverSsh = (params: {
     sshTarget: params.sshTarget,
     argv: ["bash", "-s", "--", params.agentId],
     input: TRASH_SCRIPT,
-    label: `trash agent state (${params.agentId})`,
+    label: t("libSsh.labelTrashAgentState", { agentId: params.agentId }),
   });
   return result as TrashAgentStateResult;
 };
@@ -132,7 +133,7 @@ export const restoreAgentStateOverSsh = (params: {
     sshTarget: params.sshTarget,
     argv: ["bash", "-s", "--", params.agentId, params.trashDir],
     input: RESTORE_SCRIPT,
-    label: `restore agent state (${params.agentId})`,
+    label: t("libSsh.labelRestoreAgentState", { agentId: params.agentId }),
   });
   return result as RestoreAgentStateResult;
 };

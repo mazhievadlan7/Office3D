@@ -1,4 +1,5 @@
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export type StopRunIntent =
   | { kind: "deny"; reason: "not-connected" | "missing-session-key"; message: string }
@@ -15,7 +16,7 @@ export const planStopRunIntent = (input: {
     return {
       kind: "deny",
       reason: "not-connected",
-      message: "Connect to gateway before stopping a run.",
+      message: t("opsChat.connectBeforeStop"),
     };
   }
   const sessionKey = input.sessionKey.trim();
@@ -23,7 +24,7 @@ export const planStopRunIntent = (input: {
     return {
       kind: "deny",
       reason: "missing-session-key",
-      message: "Missing session key for agent.",
+      message: t("opsChat.missingSessionKey"),
     };
   }
   if (input.busyAgentId === input.agentId) {
@@ -47,7 +48,7 @@ export const planNewSessionIntent = (input: {
     return {
       kind: "deny",
       reason: "missing-agent",
-      message: "Failed to start new session: agent not found.",
+      message: t("opsChat.newSessionAgentNotFound"),
     };
   }
   const sessionKey = input.sessionKey.trim();
@@ -55,7 +56,7 @@ export const planNewSessionIntent = (input: {
     return {
       kind: "deny",
       reason: "missing-session-key",
-      message: "Missing session key for agent.",
+      message: t("opsChat.missingSessionKey"),
     };
   }
   return {

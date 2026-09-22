@@ -10,6 +10,7 @@ import {
   type SkillRegistry,
   type SkillRegistrySearchOptions,
 } from "@/lib/skills/registry/types";
+import { t } from "@/lib/i18n";
 
 /**
  * GitHub as a skill source.
@@ -55,7 +56,7 @@ export const parseGitHubSlug = (slug: string): GitHubSkillLocation => {
     .filter((part) => part.length > 0);
 
   if (parts.length < 2) {
-    throw new Error(`Expected "owner/repo" or "owner/repo/path", got "${slug}".`);
+    throw new Error(t("libSkills.githubSlugFormat", { slug }));
   }
   const [owner, repo, ...rest] = parts;
   // "tree/<ref>" appears in URLs copied from the GitHub UI; the ref belongs in
@@ -117,7 +118,7 @@ export class GitHubSkillRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `GitHub search failed: ${error instanceof Error ? error.message : String(error)}`,
+        t("libSkills.githubSearchFailed", { message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }
@@ -178,13 +179,13 @@ export class GitHubSkillRegistry implements SkillRegistry {
 
     const listing = await this.readPath(location, directory, ref, signal);
     if (!Array.isArray(listing)) {
-      throw new Error(`Expected a directory at "${directory || "/"}".`);
+      throw new Error(t("libSkills.expectedDirectory", { path: directory || "/" }));
     }
 
     for (const raw of listing) {
       if (collected.length >= MAX_SKILL_FILE_COUNT) {
         throw new Error(
-          `Skill directory has more than ${MAX_SKILL_FILE_COUNT} files.`,
+          t("libSkills.tooManySkillFiles", { max: MAX_SKILL_FILE_COUNT }),
         );
       }
       const entry = asRecord(raw) as GitHubContentEntry | null;
@@ -249,9 +250,7 @@ export class GitHubSkillRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `GitHub fetch of "${slug}" failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("libSkills.githubFetchFailed", { slug, message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }
@@ -262,9 +261,7 @@ export class GitHubSkillRegistry implements SkillRegistry {
     } catch (error) {
       throw new SkillRegistryError(
         this.id,
-        `GitHub skill "${slug}" is unusable: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("libSkills.githubSkillUnusable", { slug, message: error instanceof Error ? error.message : String(error) }),
         error,
       );
     }

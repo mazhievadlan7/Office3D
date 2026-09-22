@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function GET(
     const resolvedUploads = path.resolve(uploadsDir());
     const resolvedTarget = path.resolve(targetPath);
     if (!resolvedTarget.startsWith(`${resolvedUploads}${path.sep}`) && resolvedTarget !== resolvedUploads) {
-      return NextResponse.json({ error: "Invalid file path." }, { status: 400 });
+      return NextResponse.json({ error: t("apiFiles.invalidPath") }, { status: 400 });
     }
 
     const bytes = await fs.readFile(resolvedTarget);
@@ -57,7 +58,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "File not found.";
+    const message = error instanceof Error ? error.message : t("apiFiles.notFound");
     return NextResponse.json({ error: message }, { status: 404 });
   }
 }

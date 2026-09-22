@@ -5,6 +5,7 @@ import type {
   CronSessionTarget,
   CronWakeMode,
 } from "@/lib/cron/types";
+import { t } from "@/lib/i18n";
 
 export type CronCreateTemplateId =
   | "morning-brief"
@@ -43,7 +44,7 @@ type ZonedParts = {
 const resolveName = (name: string) => {
   const trimmed = name.trim();
   if (!trimmed) {
-    throw new Error("Cron job name is required.");
+    throw new Error(t("libCron.nameRequired"));
   }
   return trimmed;
 };
@@ -51,7 +52,7 @@ const resolveName = (name: string) => {
 const resolveAgentId = (agentId: string) => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libCron.agentIdRequired"));
   }
   return trimmed;
 };
@@ -59,7 +60,7 @@ const resolveAgentId = (agentId: string) => {
 const resolveTaskText = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) {
-    throw new Error("Task text is required.");
+    throw new Error(t("libCron.taskTextRequired"));
   }
   return trimmed;
 };
@@ -67,7 +68,7 @@ const resolveTaskText = (text: string) => {
 const resolveAtSchedule = (raw: string): CronSchedule => {
   const ms = Date.parse(raw);
   if (!Number.isFinite(ms)) {
-    throw new Error("Invalid run time.");
+    throw new Error(t("libCron.invalidRunTime"));
   }
   return { kind: "at", at: new Date(ms).toISOString() };
 };
@@ -80,7 +81,7 @@ const resolveTimeZone = (timeZoneRaw: string | undefined): string => {
     // Validate IANA timezone.
     new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
   } catch {
-    throw new Error("Invalid timezone.");
+    throw new Error(t("libCron.invalidTimezone"));
   }
   return timeZone;
 };
@@ -89,15 +90,15 @@ const resolveTimeOfDay = (raw: string | undefined): TimeOfDay => {
   const value = (raw ?? "").trim();
   const match = value.match(/^(\d{2}):(\d{2})$/);
   if (!match) {
-    throw new Error("Daily schedule time is required.");
+    throw new Error(t("libCron.dailyTimeRequired"));
   }
   const hour = Number.parseInt(match[1], 10);
   const minute = Number.parseInt(match[2], 10);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
-    throw new Error("Daily schedule time is required.");
+    throw new Error(t("libCron.dailyTimeRequired"));
   }
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
-    throw new Error("Daily schedule time is required.");
+    throw new Error(t("libCron.dailyTimeRequired"));
   }
   return { hour, minute };
 };
@@ -142,7 +143,7 @@ const resolveZonedParts = (ms: number, timeZone: string): ZonedParts => {
     values.minute === undefined ||
     values.second === undefined
   ) {
-    throw new Error("Invalid timezone.");
+    throw new Error(t("libCron.invalidTimezone"));
   }
   return values as ZonedParts;
 };
@@ -230,7 +231,7 @@ const resolveEverySchedule = (
 ): CronSchedule => {
   const amount = Number.isFinite(draft.everyAmount) ? Math.floor(draft.everyAmount ?? 0) : 0;
   if (amount <= 0) {
-    throw new Error("Invalid interval amount.");
+    throw new Error(t("libCron.invalidInterval"));
   }
 
   const unit = draft.everyUnit ?? "minutes";

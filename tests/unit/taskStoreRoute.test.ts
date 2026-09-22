@@ -79,7 +79,7 @@ describe("task store route", () => {
     const response = await PUT(makeRequest("PUT", { notTask: true }));
     expect(response.status).toBe(400);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("Task payload is required");
+    expect(body.error).toContain("Не переданы данные задачи.");
   });
 
   it("PUT returns 400 for empty id or title", async () => {
@@ -108,7 +108,7 @@ describe("task store route", () => {
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("Invalid status");
+    expect(body.error).toContain("Некорректный статус: «banana».");
   });
 
   it("PUT returns 400 for invalid source enum", async () => {
@@ -122,7 +122,7 @@ describe("task store route", () => {
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("Invalid source");
+    expect(body.error).toContain("Некорректный источник: «alien».");
   });
 
   it("PUT returns 400 for invalid JSON body", async () => {
@@ -138,7 +138,7 @@ describe("task store route", () => {
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("Invalid JSON");
+    expect(body.error).toContain("Некорректный JSON в теле запроса.");
   });
 
   it("DELETE returns 404 for non-existent task", async () => {
@@ -150,7 +150,7 @@ describe("task store route", () => {
     );
     expect(response.status).toBe(404);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("not found");
+    expect(body.error).toContain("Задача не найдена.");
   });
 
   it("DELETE returns 400 for missing id", async () => {
@@ -162,7 +162,7 @@ describe("task store route", () => {
     );
     expect(response.status).toBe(400);
     const body = (await response.json()) as { error?: string };
-    expect(body.error).toContain("id is required");
+    expect(body.error).toContain("Не указан идентификатор задачи.");
   });
 
   it("DELETE returns 400 for invalid JSON body", async () => {

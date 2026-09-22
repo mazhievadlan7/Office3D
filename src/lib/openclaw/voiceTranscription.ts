@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { t } from "@/lib/i18n";
 
 const CONFIGURED_OPENCLAW_PACKAGE_ROOT = process.env.OPENCLAW_PACKAGE_ROOT?.trim() ?? "";
 
@@ -154,7 +155,7 @@ export const sanitizeVoiceFileName = (
 export const buildVoiceTranscriptionErrorMessage = (
   decision: MediaUnderstandingDecision | null | undefined,
 ): string => {
-  if (!decision) return "OpenClaw did not return a transcript.";
+  if (!decision) return t("libOpenclaw.noTranscript");
   const outcome = decision.outcome?.trim() || "unknown";
   const reasons = (decision.attachments ?? [])
     .flatMap((attachment) => attachment.attempts ?? [])
@@ -163,15 +164,15 @@ export const buildVoiceTranscriptionErrorMessage = (
   const detail = reasons[0] ? ` ${reasons[0]}` : "";
   switch (outcome) {
     case "disabled":
-      return `OpenClaw audio transcription is disabled.${detail}`.trim();
+      return t("libOpenclaw.transcriptionDisabledDetail", { detail }).trim();
     case "no-attachment":
-      return "OpenClaw did not receive any audio to transcribe.";
+      return t("libOpenclaw.noAudio");
     case "scope-deny":
-      return `OpenClaw blocked audio transcription for this request.${detail}`.trim();
+      return t("libOpenclaw.transcriptionBlocked", { detail }).trim();
     case "skipped":
-      return `OpenClaw skipped audio transcription.${detail}`.trim();
+      return t("libOpenclaw.transcriptionSkipped", { detail }).trim();
     default:
-      return `OpenClaw did not return a transcript.${detail}`.trim();
+      return t("libOpenclaw.noTranscriptDetail", { detail }).trim();
   }
 };
 
@@ -201,7 +202,7 @@ const resolveOpenClawPackageRoot = (): string => {
   if (configuredCandidate) {
     const indexPath = path.join(configuredCandidate, OPENCLAW_DIST_INDEX_RELATIVE_PATH);
     if (fs.existsSync(indexPath)) return configuredCandidate;
-    throw new Error("OPENCLAW_PACKAGE_ROOT does not point to a valid OpenClaw installation.");
+    throw new Error(t("libOpenclaw.packageRootInvalid"));
   }
 
   const installedCandidate = resolveInstalledOpenClawPackageRoot();
@@ -211,7 +212,7 @@ const resolveOpenClawPackageRoot = (): string => {
   }
 
   throw new Error(
-    "OpenClaw could not be resolved from the current Node runtime. Install the `openclaw` package or set OPENCLAW_PACKAGE_ROOT.",
+    t("libOpenclaw.notResolvable"),
   );
 };
 
@@ -235,7 +236,7 @@ const loadOpenClawSdk = async (): Promise<OpenClawTranscriptionSdk> => {
     }
 
     if (!loadConfig) {
-      throw new Error("The installed OpenClaw runtime does not expose a loadConfig() module.");
+      throw new Error(t("libOpenclaw.noLoadConfig"));
     }
 
     const runnerCandidates = distEntries.filter((entry) => /^runner-.*\.js$/.test(entry));
@@ -262,7 +263,7 @@ const loadOpenClawSdk = async (): Promise<OpenClawTranscriptionSdk> => {
       }
     }
 
-    throw new Error("The installed OpenClaw runtime does not expose the audio transcription runner.");
+    throw new Error(t("libOpenclaw.noTranscriptionRunner"));
   })().catch((error) => {
     sdkPromise = null;
     throw error;
@@ -278,7 +279,7 @@ export const transcribeVoiceWithOpenClaw = async (params: {
   const sdk = await loadOpenClawSdk();
   const cfg = sdk.loadConfig();
   if (cfg.tools?.media?.audio?.enabled === false) {
-    throw new Error("OpenClaw audio transcription is disabled.");
+    throw new Error(t("libOpenclaw.transcriptionDisabled"));
   }
 
   const mimeType = normalizeVoiceMimeType(params.mimeType);

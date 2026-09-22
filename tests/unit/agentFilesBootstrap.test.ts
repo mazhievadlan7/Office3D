@@ -39,7 +39,7 @@ describe("writeGatewayAgentFiles", () => {
         agentId: "   ",
         files: { "AGENTS.md": "# mission" },
       })
-    ).rejects.toThrow("agentId is required.");
+    ).rejects.toThrow("Не указан идентификатор агента.");
     expect(client.call).not.toHaveBeenCalled();
   });
 });

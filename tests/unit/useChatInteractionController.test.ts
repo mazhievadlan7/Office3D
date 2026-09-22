@@ -428,7 +428,7 @@ describe("useChatInteractionController", () => {
     expect(ctx.dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: "agent-1",
-      line: "Stop failed: abort failed",
+      line: "Остановка не удалась: abort failed",
     });
     expect(ctx.getValue().stopBusyAgentId).toBeNull();
   });
@@ -514,11 +514,11 @@ describe("useChatInteractionController", () => {
       await ctx.getValue().handleNewSession("agent-1");
     });
 
-    expect(ctx.setError).toHaveBeenCalledWith("Missing session key for agent.");
+    expect(ctx.setError).toHaveBeenCalledWith("У агента нет ключа сессии.");
     expect(ctx.dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: "agent-1",
-      line: "New session failed: Missing session key for agent.",
+      line: "Не удалось начать новую сессию: У агента нет ключа сессии.",
     });
   });
 

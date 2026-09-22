@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 const ENVELOPE_PREFIX = /^\[([^\]]+)\]\s*/;
 const ENVELOPE_CHANNELS = [
   "WebChat",
@@ -498,7 +500,7 @@ export const parseToolMarkdown = (
   const [labelLine, ...rest] = content.split(/\r?\n/);
   return {
     kind,
-    label: labelLine?.trim() || (kind === "result" ? "Tool result" : "Tool call"),
+    label: labelLine?.trim() || (kind === "result" ? t("libText.toolResult") : t("libText.toolCall")),
     body: rest.join("\n").trim(),
   };
 };

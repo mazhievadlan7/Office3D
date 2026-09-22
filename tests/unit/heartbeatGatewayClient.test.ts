@@ -75,7 +75,7 @@ describe("heartbeat gateway client", () => {
 
     expect(client.call).toHaveBeenCalledWith("wake", {
       mode: "now",
-      text: "Office3D heartbeat trigger (agent-1).",
+      text: "Запуск пульса из Office3D (agent-1).",
     });
   });
 });

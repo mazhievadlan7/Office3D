@@ -6,6 +6,7 @@ import {
   type CronJobRestoreInput,
 } from "@/lib/cron/types";
 import { deleteGatewayAgent } from "@/lib/gateway/agentConfig";
+import { t } from "@/lib/i18n";
 
 type FetchJson = typeof defaultFetchJson;
 
@@ -45,7 +46,7 @@ const runDeleteFlow = async (
 ): Promise<DeleteAgentTransactionResult> => {
   const trimmedAgentId = agentId.trim();
   if (!trimmedAgentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("opsAgents.agentIdRequired"));
   }
 
   let trashed = EMPTY_TRASH_RESULT;
@@ -137,7 +138,7 @@ export const deleteAgentRecordViaStudio = async (params: {
 }): Promise<void> => {
   const trimmedAgentId = params.agentId.trim();
   if (!trimmedAgentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("opsAgents.agentIdRequired"));
   }
   const logError = params.logError ?? ((message, error) => console.error(message, error));
   let removedCronJobs: CronJobRestoreInput[] = [];
@@ -162,7 +163,7 @@ export const trashAgentStateViaStudio = async (params: {
 }): Promise<TrashAgentStateResult> => {
   const trimmedAgentId = params.agentId.trim();
   if (!trimmedAgentId) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("opsAgents.agentIdRequired"));
   }
   const fetchJson = params.fetchJson ?? defaultFetchJson;
   const { result } = await fetchJson<{ result: TrashAgentStateResult }>(

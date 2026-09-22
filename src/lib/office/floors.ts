@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export type FloorProvider =
   | "openclaw"
   | "hermes"
@@ -36,8 +38,8 @@ export type FloorDefinition = {
 export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   {
     id: "lobby",
-    label: "Lobby",
-    shortLabel: "Lobby",
+    label: t("libOffice.floorLobby"),
+    shortLabel: t("libOffice.floorLobby"),
     provider: "demo",
     kind: "lobby",
     zone: "building",
@@ -47,7 +49,7 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "openclaw-ground",
-    label: "OpenClaw Floor",
+    label: t("libOffice.floorOpenclaw"),
     shortLabel: "OpenClaw",
     provider: "openclaw",
     kind: "runtime",
@@ -58,7 +60,7 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "hermes-first",
-    label: "Hermes Floor",
+    label: t("libOffice.floorHermes"),
     shortLabel: "Hermes",
     provider: "hermes",
     kind: "runtime",
@@ -69,8 +71,8 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "local-runtime",
-    label: "Local Runtime Floor",
-    shortLabel: "Local",
+    label: t("libOffice.floorLocalRuntime"),
+    shortLabel: t("libOffice.floorLocalShort"),
     provider: "local",
     kind: "runtime",
     zone: "building",
@@ -80,7 +82,7 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "office3d-runtime",
-    label: "Office3D Runtime Floor",
+    label: t("libOffice.floorOffice3dRuntime"),
     shortLabel: "Office3D",
     provider: "office3d",
     kind: "runtime",
@@ -91,8 +93,8 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "custom-second",
-    label: "Custom Floor",
-    shortLabel: "Custom",
+    label: t("libOffice.floorCustom"),
+    shortLabel: t("libOffice.floorCustomShort"),
     provider: "custom",
     kind: "runtime",
     zone: "building",
@@ -102,8 +104,8 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "training",
-    label: "Training Floor",
-    shortLabel: "Training",
+    label: t("libOffice.floorTraining"),
+    shortLabel: t("libOffice.floorTrainingShort"),
     provider: "demo",
     kind: "training",
     zone: "building",
@@ -113,8 +115,8 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "traders-floor",
-    label: "Trader's Floor",
-    shortLabel: "Traders",
+    label: t("libOffice.floorTraders"),
+    shortLabel: t("libOffice.floorTradersShort"),
     provider: "demo",
     kind: "market",
     zone: "building",
@@ -124,8 +126,8 @@ export const OFFICE_FLOORS: readonly FloorDefinition[] = [
   },
   {
     id: "campus",
-    label: "Outside / Campus",
-    shortLabel: "Campus",
+    label: t("libOffice.floorCampus"),
+    shortLabel: t("libOffice.floorCampusShort"),
     provider: "demo",
     kind: "campus",
     zone: "outside",

@@ -70,7 +70,7 @@ describe("/api/path-suggestions route", () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
-    expect(body.error).toMatch(/home/i);
+    expect(body.error).toBe("Путь должен оставаться в пределах домашнего каталога.");
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
@@ -81,7 +81,7 @@ describe("/api/path-suggestions route", () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(404);
-    expect(body.error).toMatch(/does not exist/i);
+    expect(body.error).toMatch(/^Каталог не существует: /);
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

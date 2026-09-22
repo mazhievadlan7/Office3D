@@ -141,7 +141,7 @@ describe("AgentBrainPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Agent ID is missing for this agent.")).toBeInTheDocument();
+      expect(screen.getByText("У этого агента не указан ID.")).toBeInTheDocument();
     });
   });
 

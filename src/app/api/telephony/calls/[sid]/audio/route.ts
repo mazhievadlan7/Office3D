@@ -3,6 +3,7 @@ import { fetchConversationAudio } from "@/lib/telephony/elevenlabs";
 import { requireCall } from "@/lib/telephony/store";
 import { TelephonyError, isTerminalCallStatus } from "@/lib/telephony/types";
 import { resolveVoiceAgentConfig } from "@/lib/telephony/voiceAgent";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function GET(
 
     if (!isTerminalCallStatus(call.status)) {
       throw new TelephonyError(
-        "The recording is available once the call has ended; there is no live audio feed.",
+        t("apiTelephony.recordingAfterEnd"),
         409,
       );
     }

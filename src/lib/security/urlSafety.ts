@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { t } from "@/lib/i18n";
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 
@@ -38,13 +39,13 @@ export const isPrivateOrLoopbackHostname = (hostname: string): boolean => {
 export const validateBrowserPreviewTarget = (value: string): URL => {
   const parsed = new URL(value);
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("Browser preview only supports http(s) URLs.");
+    throw new Error(t("libSecurity.previewHttpOnly"));
   }
   if (parsed.username || parsed.password) {
-    throw new Error("Browser preview does not allow embedded URL credentials.");
+    throw new Error(t("libSecurity.previewNoCredentials"));
   }
   if (isPrivateOrLoopbackHostname(parsed.hostname)) {
-    throw new Error("Browser preview does not allow loopback or private-network targets.");
+    throw new Error(t("libSecurity.previewNoPrivate"));
   }
   return parsed;
 };
@@ -52,20 +53,20 @@ export const validateBrowserPreviewTarget = (value: string): URL => {
 export const validateJiraBaseUrl = (value: string): string => {
   const parsed = new URL(value);
   if (parsed.protocol !== "https:") {
-    throw new Error("Jira base URL must use https.");
+    throw new Error(t("libSecurity.jiraHttpsOnly"));
   }
   if (parsed.username || parsed.password) {
-    throw new Error("Jira base URL must not include embedded credentials.");
+    throw new Error(t("libSecurity.jiraNoCredentials"));
   }
   const hostname = parsed.hostname.trim().toLowerCase();
   if (!hostname.endsWith(".atlassian.net")) {
-    throw new Error("Jira base URL must be an Atlassian Cloud host.");
+    throw new Error(t("libSecurity.jiraAtlassianOnly"));
   }
   if (parsed.pathname !== "/" && parsed.pathname !== "") {
-    throw new Error("Jira base URL must not include a path.");
+    throw new Error(t("libSecurity.jiraNoPath"));
   }
   if (parsed.search || parsed.hash) {
-    throw new Error("Jira base URL must not include a query string or hash.");
+    throw new Error(t("libSecurity.jiraNoQuery"));
   }
   return parsed.origin;
 };

@@ -92,7 +92,7 @@ describe("agentSettingsMutationWorkflow", () => {
     expect(result).toEqual({
       kind: "deny",
       reason: "reserved-main-delete",
-      message: "The main agent cannot be deleted.",
+      message: "Главного агента удалить нельзя.",
     });
   });
 

@@ -12,6 +12,7 @@ import type { AgentState } from "@/features/agents/state/store";
 import { randomUUID } from "@/lib/uuid";
 import type { TranscriptAppendMeta } from "@/features/agents/state/transcript";
 import type { RuntimeAttachment } from "@/lib/runtime/types";
+import { t } from "@/lib/i18n";
 
 type SendDispatchAction =
   | { type: "updateAgent"; agentId: string; patch: Partial<AgentState> }
@@ -111,7 +112,7 @@ export async function sendChatMessageViaStudio(params: {
     params.dispatch({
       type: "appendOutput",
       agentId,
-      line: "Error: Agent not found.",
+      line: t("opsChat.agentNotFoundLine"),
     });
     return;
   }
@@ -172,7 +173,7 @@ export async function sendChatMessageViaStudio(params: {
 
   try {
     if (!params.sessionKey) {
-      throw new Error("Missing session key for agent.");
+      throw new Error(t("opsChat.missingSessionKey"));
     }
 
     let createdSession = agent.sessionCreated;
@@ -263,7 +264,7 @@ export async function sendChatMessageViaStudio(params: {
       });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Gateway error";
+    const msg = err instanceof Error ? err.message : t("opsChat.gatewayError");
     params.dispatch({
       type: "updateAgent",
       agentId,
@@ -272,7 +273,7 @@ export async function sendChatMessageViaStudio(params: {
     params.dispatch({
       type: "appendOutput",
       agentId,
-      line: `Error: ${msg}`,
+      line: t("opsChat.errorLine", { message: msg }),
     });
   }
 }

@@ -5,6 +5,7 @@ import {
   updatePendingApprovalById,
 } from "@/features/agents/approvals/pendingStore";
 import { shouldTreatExecApprovalResolveErrorAsUnknownId } from "@/features/agents/approvals/execApprovalLifecycleWorkflow";
+import { t } from "@/lib/i18n";
 
 type GatewayClientLike = {
   call: (method: string, params: unknown) => Promise<unknown>;
@@ -149,7 +150,7 @@ export const resolveExecApprovalViaStudio = async (params: {
       removeLocalApproval(id);
       return;
     }
-    const message = err instanceof Error ? err.message : "Failed to resolve exec approval.";
+    const message = err instanceof Error ? err.message : t("opsApprovals.resolveFailed");
     setLocalApprovalState(false, message);
   }
 };

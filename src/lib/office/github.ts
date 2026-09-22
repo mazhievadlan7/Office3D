@@ -1,4 +1,5 @@
 import * as childProcess from "node:child_process";
+import { t } from "@/lib/i18n";
 
 export type GitHubAuthState = "ready" | "missing-gh" | "unauthenticated";
 
@@ -141,17 +142,17 @@ const runJsonCommand = <T>(command: string, args: string[], label: string): T =>
   const result = runCommand(command, args);
   if (result.status !== 0) {
     throw new Error(
-      extractCommandMessage(result.stderr, result.stdout, `Failed to run ${label}.`),
+      extractCommandMessage(result.stderr, result.stdout, t("libOffice.githubRunFailed", { label })),
     );
   }
   const trimmed = result.stdout.trim();
   if (!trimmed) {
-    throw new Error(`Empty JSON response from ${label}.`);
+    throw new Error(t("libOffice.githubEmptyJson", { label }));
   }
   try {
     return JSON.parse(trimmed) as T;
   } catch {
-    throw new Error(`Invalid JSON response from ${label}.`);
+    throw new Error(t("libOffice.githubInvalidJson", { label }));
   }
 };
 
@@ -159,7 +160,7 @@ const runTextCommand = (command: string, args: string[], label: string): string 
   const result = runCommand(command, args);
   if (result.status !== 0) {
     throw new Error(
-      extractCommandMessage(result.stderr, result.stdout, `Failed to run ${label}.`),
+      extractCommandMessage(result.stderr, result.stdout, t("libOffice.githubRunFailed", { label })),
     );
   }
   return result.stdout;
@@ -172,14 +173,14 @@ const getGitHubAuthState = (): { authState: GitHubAuthState; viewerLogin: string
       return {
         authState: "missing-gh",
         viewerLogin: null,
-        message: extractCommandMessage(version.stderr, version.stdout, "GitHub CLI is not installed."),
+        message: extractCommandMessage(version.stderr, version.stdout, t("libOffice.githubCliMissing")),
       };
     }
   } catch {
     return {
       authState: "missing-gh",
       viewerLogin: null,
-      message: "GitHub CLI is not installed.",
+      message: t("libOffice.githubCliMissing"),
     };
   }
 
@@ -194,7 +195,7 @@ const getGitHubAuthState = (): { authState: GitHubAuthState; viewerLogin: string
     return {
       authState: "unauthenticated",
       viewerLogin: null,
-      message: error instanceof Error ? error.message : "GitHub CLI is not authenticated.",
+      message: error instanceof Error ? error.message : t("libOffice.githubCliUnauthenticated"),
     };
   }
 };
@@ -239,9 +240,9 @@ const summarizeStatusChecks = (value: unknown): string | null => {
       passed += 1;
     }
   }
-  if (failed > 0) return `${failed} failing`;
-  if (pending > 0) return `${pending} pending`;
-  if (passed > 0) return `${passed} passing`;
+  if (failed > 0) return t("libOffice.checksFailing", { count: failed });
+  if (pending > 0) return t("libOffice.checksPending", { count: pending });
+  if (passed > 0) return t("libOffice.checksPassing", { count: passed });
   return null;
 };
 
@@ -261,7 +262,7 @@ const normalizeSummary = (value: unknown, fallbackRepo: string | null = null): G
     "unknown/unknown";
   return {
     number: toNumber(record.number),
-    title: trimText(record.title) ?? "Untitled pull request",
+    title: trimText(record.title) ?? t("libOffice.githubUntitledPr"),
     url: trimText(record.url) ?? "",
     repo,
     author: trimText(toRecord(record.author).login) ?? "unknown",
@@ -283,7 +284,7 @@ const normalizeStatusChecks = (value: unknown): GitHubStatusCheck[] => {
         trimText(record.name) ??
         trimText(record.context) ??
         trimText(record.workflowName) ??
-        "Unnamed check",
+        t("libOffice.githubUnnamedCheck"),
       status: trimText(record.state) ?? trimText(record.status),
       conclusion: trimText(record.conclusion),
       workflow: trimText(record.workflowName),
@@ -321,7 +322,7 @@ const normalizeCommits = (value: unknown): GitHubCommitEntry[] => {
     const record = toRecord(entry);
     return {
       oid: trimText(record.oid) ?? "",
-      messageHeadline: trimText(record.messageHeadline) ?? "Commit",
+      messageHeadline: trimText(record.messageHeadline) ?? t("libOffice.githubCommitFallback"),
       authoredDate: trimText(record.authoredDate),
     };
   });
@@ -380,7 +381,7 @@ const loadPullRequestDiff = (repo: string, number: number): { diff: string; diff
       return { diff, diffTruncated: false };
     }
     return {
-      diff: `${diff.slice(0, DIFF_PREVIEW_LIMIT).trimEnd()}\n\n... diff truncated ...`,
+      diff: t("libOffice.githubDiffTruncated", { diff: diff.slice(0, DIFF_PREVIEW_LIMIT).trimEnd() }),
       diffTruncated: true,
     };
   } catch {
@@ -517,7 +518,7 @@ export const submitGitHubPullRequestReview = (params: {
 }) => {
   const auth = getGitHubAuthState();
   if (auth.authState !== "ready") {
-    throw new Error(auth.message ?? "GitHub CLI is not ready.");
+    throw new Error(auth.message ?? t("libOffice.githubCliNotReady"));
   }
 
   const args = ["pr", "review", String(params.number), "--repo", params.repo];
@@ -532,9 +533,9 @@ export const submitGitHubPullRequestReview = (params: {
   const body =
     params.body?.trim() ||
     (params.action === "COMMENT"
-      ? "Reviewed in Office3D."
+      ? t("libOffice.githubReviewedBody")
       : params.action === "REQUEST_CHANGES"
-        ? "Please address the requested updates from Office3D."
+        ? t("libOffice.githubChangesBody")
         : "");
   if (body) {
     args.push("--body", body);
@@ -546,7 +547,7 @@ export const submitGitHubPullRequestReview = (params: {
       extractCommandMessage(
         result.stderr,
         result.stdout,
-        "Failed to submit the GitHub review.",
+        t("libOffice.githubReviewFailed"),
       ),
     );
   }
@@ -555,10 +556,10 @@ export const submitGitHubPullRequestReview = (params: {
     ok: true,
     message:
       params.action === "APPROVE"
-        ? "Pull request approved."
+        ? t("libOffice.githubPrApproved")
         : params.action === "REQUEST_CHANGES"
-          ? "Requested changes on pull request."
-          : "Review comment submitted.",
+          ? t("libOffice.githubChangesRequested")
+          : t("libOffice.githubReviewCommentSent"),
   };
 };
 
@@ -579,7 +580,7 @@ const resolvePullRequestHeadOid = (repo: string, number: number): string => {
     "gh pr view headRefOid",
   ).trim();
   if (!oid) {
-    throw new Error("Unable to determine the latest pull request commit.");
+    throw new Error(t("libOffice.githubHeadUnknown"));
   }
   return oid;
 };
@@ -595,12 +596,12 @@ export const submitGitHubInlineComment = (params: {
 }) => {
   const auth = getGitHubAuthState();
   if (auth.authState !== "ready") {
-    throw new Error(auth.message ?? "GitHub CLI is not ready.");
+    throw new Error(auth.message ?? t("libOffice.githubCliNotReady"));
   }
 
   const trimmedBody = params.body.trim();
   if (!trimmedBody) {
-    throw new Error("Comment body is required.");
+    throw new Error(t("libOffice.githubCommentRequired"));
   }
 
   const commitId = params.commitId?.trim() || resolvePullRequestHeadOid(params.repo, params.number);
@@ -630,13 +631,13 @@ export const submitGitHubInlineComment = (params: {
       extractCommandMessage(
         result.stderr,
         result.stdout,
-        "Failed to submit the GitHub inline comment.",
+        t("github.inlineFailed"),
       ),
     );
   }
 
   return {
     ok: true,
-    message: "Inline comment submitted.",
+    message: t("github.inlineSubmitted"),
   };
 };

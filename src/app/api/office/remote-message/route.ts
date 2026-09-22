@@ -4,6 +4,7 @@ import { NodeGatewayClient, buildAgentMainSessionKey } from "@/lib/gateway/nodeG
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import { resolveOfficePreference } from "@/lib/studio/settings";
 import { buildDirectedAgentMessageInstruction, type RuntimeAgentMessageMode } from "@/lib/runtime/agentMessaging";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 const MAX_REMOTE_MESSAGE_CHARS = 2_000;
@@ -47,14 +48,14 @@ export async function POST(request: Request) {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const mode: RuntimeAgentMessageMode = body.mode === "interval" ? "interval" : "direct";
     if (!requestedAgentId) {
-      return NextResponse.json({ error: "Remote agent ID is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteAgentIdRequired") }, { status: 400 });
     }
     if (!message) {
-      return NextResponse.json({ error: "Remote message is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteMessageRequired") }, { status: 400 });
     }
     if (message.length > MAX_REMOTE_MESSAGE_CHARS) {
       return NextResponse.json(
-        { error: `Remote message must be ${MAX_REMOTE_MESSAGE_CHARS} characters or fewer.` },
+        { error: t("apiOffice.remoteMessageTooLong", { max: MAX_REMOTE_MESSAGE_CHARS }) },
         { status: 400 },
       );
     }
@@ -63,18 +64,18 @@ export async function POST(request: Request) {
     const gatewayUrl = settings.gateway?.url?.trim() || "";
     const officePreference = resolveOfficePreference(settings, gatewayUrl);
     if (!officePreference.remoteOfficeEnabled) {
-      return NextResponse.json({ error: "Remote office is disabled." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.remoteOfficeDisabled") }, { status: 400 });
     }
     if (officePreference.remoteOfficeSourceKind !== "openclaw_gateway") {
       return NextResponse.json(
-        { error: "Remote messaging currently works only with the remote gateway source." },
+        { error: t("apiOffice.remoteMessagingGatewayOnly") },
         { status: 400 },
       );
     }
     const remoteGatewayUrl = officePreference.remoteOfficeGatewayUrl.trim();
     if (!remoteGatewayUrl) {
       return NextResponse.json(
-        { error: "Remote office gateway URL is not configured." },
+        { error: t("apiOffice.remoteGatewayUrlMissing") },
         { status: 400 },
       );
     }
@@ -89,12 +90,12 @@ export async function POST(request: Request) {
     const remoteAgents = Array.isArray(agentsResult.agents) ? agentsResult.agents : [];
     if (remoteAgents.length === 0) {
       return NextResponse.json(
-        { error: "Remote agent list is unavailable right now." },
+        { error: t("apiOffice.remoteAgentListUnavailable") },
         { status: 503 },
       );
     }
     if (!remoteAgents.some((agent) => (agent.id?.trim() ?? "") === requestedAgentId)) {
-      return NextResponse.json({ error: "Remote agent is no longer available." }, { status: 404 });
+      return NextResponse.json({ error: t("apiOffice.remoteAgentGone") }, { status: 404 });
     }
 
     const sessionKey = buildAgentMainSessionKey(requestedAgentId, mainKey);
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
         targetAgentId: requestedAgentId,
         message,
         mode,
-        sourceLabel: "another office user",
+        sourceLabel: t("apiOffice.anotherOfficeUser"),
       }),
       deliver: false,
       idempotencyKey: randomUUID(),
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to send remote office message.";
+      error instanceof Error ? error.message : t("apiOffice.remoteMessageFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     gatewayClient.close();

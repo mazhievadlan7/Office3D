@@ -115,6 +115,6 @@ describe("buildOfficeDeskMonitor", () => {
     );
 
     expect(monitor.mode).toBe("waiting");
-    expect(monitor.title).toBe("Waiting");
+    expect(monitor.title).toBe("Ожидание");
   });
 });

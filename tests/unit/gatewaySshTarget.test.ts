@@ -35,12 +35,12 @@ describe("gateway ssh target resolution", () => {
   it("throws_on_missing_gateway_url_when_no_env_override", () => {
     expect(() =>
       resolveGatewaySshTargetFromGatewayUrl("", {} as unknown as NodeJS.ProcessEnv)
-    ).toThrow("Gateway URL is missing.");
+    ).toThrow("Не указан адрес шлюза.");
   });
 
   it("throws_on_invalid_gateway_url", () => {
     expect(() =>
       resolveGatewaySshTargetFromGatewayUrl("not a url", {} as unknown as NodeJS.ProcessEnv)
-    ).toThrow("Invalid gateway URL:");
+    ).toThrow("Некорректный адрес шлюза: not a url");
   });
 });

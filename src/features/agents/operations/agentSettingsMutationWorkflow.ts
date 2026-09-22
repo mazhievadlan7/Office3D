@@ -2,6 +2,7 @@ import {
   resolveMutationStartGuard,
   type MutationStartGuardResult,
 } from "@/features/agents/operations/mutationLifecycleWorkflow";
+import { t } from "@/lib/i18n";
 
 export const RESERVED_MAIN_AGENT_ID = "main";
 
@@ -112,7 +113,7 @@ export const planAgentSettingsMutation = (
     return {
       kind: "deny",
       reason: "reserved-main-delete",
-      message: "The main agent cannot be deleted.",
+      message: t("opsAgents.mainCannotBeDeleted"),
     };
   }
 

@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export const fetchJson = async <T>(
   input: RequestInfo | URL,
   init?: RequestInit
@@ -16,7 +18,7 @@ export const fetchJson = async <T>(
     const errorMessage =
       data && typeof data === "object" && "error" in data && typeof data.error === "string"
         ? data.error
-        : `Request failed with status ${res.status}.`;
+        : t("libHttp.requestFailed", { status: res.status });
     throw new Error(errorMessage);
   }
   return data as T;

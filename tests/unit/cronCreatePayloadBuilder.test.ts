@@ -77,7 +77,7 @@ describe("cron create payload builder", () => {
       scheduleAt: "not-a-date",
     };
 
-    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Invalid run time.");
+    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Некорректное время запуска.");
   });
 
   it("rejects_invalid_interval_amount_for_every_schedule", () => {
@@ -90,7 +90,7 @@ describe("cron create payload builder", () => {
       everyUnit: "minutes",
     };
 
-    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Invalid interval amount.");
+    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Некорректный интервал.");
   });
 
   it("rejects_every_days_without_time", () => {
@@ -105,7 +105,7 @@ describe("cron create payload builder", () => {
     };
 
     expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow(
-      "Daily schedule time is required."
+      "Укажите время для ежедневного расписания."
     );
   });
 
@@ -121,6 +121,6 @@ describe("cron create payload builder", () => {
       everyTimeZone: "Mars/OlympusMons",
     };
 
-    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Invalid timezone.");
+    expect(() => buildCronJobCreateInput("agent-1", draft)).toThrow("Некорректный часовой пояс.");
   });
 });

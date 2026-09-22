@@ -116,7 +116,7 @@ describe("gatewayEventIngressWorkflow", () => {
       agentId: "agent-1",
       sessionKey: "agent:agent-1:studio:test-session",
       dedupeKey: "cron:job-1:session-1",
-      line: "Cron finished (ok): job-1\n\ncron summary",
+      line: "Задача по расписанию завершена (ok): job-1\n\ncron summary",
       timestampMs: 123,
       activityAtMs: 123,
     });
@@ -191,7 +191,7 @@ describe("gatewayEventIngressWorkflow", () => {
       agentId: "agent-1",
       sessionKey: "agent:agent-1:studio:test-session",
       dedupeKey: "cron:job-4:none",
-      line: "Cron finished (unknown): job-4\n\n(no output)",
+      line: "Задача по расписанию завершена (unknown): job-4\n\n(нет вывода)",
       timestampMs: 4321,
       activityAtMs: null,
     });

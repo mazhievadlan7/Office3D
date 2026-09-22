@@ -57,8 +57,8 @@ describe("normalizeWhatsAppUserId", () => {
   });
 
   it("rejects_something_that_is_not_a_number", () => {
-    expect(() => normalizeWhatsAppUserId("my wife", "to")).toThrow(/international form/);
-    expect(() => normalizeWhatsAppUserId("0123", "to")).toThrow(/international form/);
+    expect(() => normalizeWhatsAppUserId("my wife", "to")).toThrow(/в международном формате/);
+    expect(() => normalizeWhatsAppUserId("0123", "to")).toThrow(/в международном формате/);
   });
 });
 

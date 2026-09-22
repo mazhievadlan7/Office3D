@@ -14,11 +14,11 @@ describe("createAgentBootstrapWorkflow", () => {
     expect(commands).toEqual([
       {
         kind: "set-create-modal-error",
-        message: 'Agent "Agent One" was created, but Studio could not load it yet.',
+        message: "Агент «Agent One» создан, но Studio пока не может его загрузить.",
       },
       {
         kind: "set-global-error",
-        message: 'Agent "Agent One" was created, but Studio could not load it yet.',
+        message: "Агент «Agent One» создан, но Studio пока не может его загрузить.",
       },
       { kind: "set-create-block", value: null },
       { kind: "set-create-modal-open", open: false },
@@ -67,11 +67,11 @@ describe("createAgentBootstrapWorkflow", () => {
     expect(selectIndex).toBeGreaterThan(flushIndex);
     expect(commands).toContainEqual({
       kind: "set-global-error",
-      message: "Agent created, but default permissions could not be applied: permissions exploded",
+      message: "Агент создан, но не удалось применить разрешения по умолчанию: permissions exploded",
     });
     expect(commands).toContainEqual({
       kind: "set-create-modal-error",
-      message: "Default permissions failed: permissions exploded",
+      message: "Не удалось применить разрешения по умолчанию: permissions exploded",
     });
     expect(commands).toContainEqual({ kind: "select-agent", agentId: "agent-1" });
     expect(commands).toContainEqual({

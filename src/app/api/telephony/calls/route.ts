@@ -13,6 +13,7 @@ import {
   resolveVoiceAgentConfig,
 } from "@/lib/telephony/voiceAgent";
 import { describeOperatorChannelReadiness } from "@/lib/telephony/webhookAuth";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -44,18 +45,18 @@ const readBody = async (request: Request): Promise<CallRequest> => {
   try {
     const parsed: unknown = await request.json();
     if (!parsed || typeof parsed !== "object") {
-      throw new TelephonyError("Expected a JSON object.");
+      throw new TelephonyError(t("apiCommon.expectedJsonObject"));
     }
     return parsed as CallRequest;
   } catch (error) {
     if (error instanceof TelephonyError) throw error;
-    throw new TelephonyError("Could not read the request body as JSON.");
+    throw new TelephonyError(t("apiCommon.bodyNotJson"));
   }
 };
 
 const readString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new TelephonyError(`${field} is required.`);
+    throw new TelephonyError(t("apiCommon.fieldRequired", { field }));
   }
   return value.trim();
 };

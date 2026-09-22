@@ -214,7 +214,7 @@ import {
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
-import { t } from "@/lib/i18n";
+import { matchesPhrase, t } from "@/lib/i18n";
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -2088,8 +2088,8 @@ export function OfficeScreen({
         return (
           message.includes("Permission denied") ||
           message.includes("OPENCLAW_GATEWAY_SSH_TARGET") ||
-          message.includes("Invalid gateway URL") ||
-          message.includes("Gateway URL is missing")
+          matchesPhrase(message, "libSsh.invalidGatewayUrl") ||
+          matchesPhrase(message, "libSsh.gatewayUrlMissing")
         );
       };
       const logDeleteError = (message: string, error: unknown) => {

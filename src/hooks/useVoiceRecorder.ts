@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { t } from "@/lib/i18n";
 
 export type VoiceSendPayload = {
   blob: Blob;
@@ -52,14 +53,14 @@ const stopVoiceStream = (stream: MediaStream | null) => {
 const resolveVoiceErrorMessage = (error: unknown): string => {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-      return "Microphone access was denied.";
+      return t("libHooks.micAccessDenied");
     }
     if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-      return "No microphone was found.";
+      return t("libHooks.micNotFound");
     }
   }
   if (error instanceof Error) return error.message;
-  return "Voice capture failed.";
+  return t("libHooks.voiceCaptureFailed");
 };
 
 export const useVoiceRecorder = (params: {
@@ -108,7 +109,7 @@ export const useVoiceRecorder = (params: {
       }
       if (!params.onVoiceSend) {
         setState("idle");
-        setError("Voice input is not available here.");
+        setError(t("libHooks.voiceInputUnavailableHere"));
         return;
       }
       setState("transcribing");
@@ -131,15 +132,15 @@ export const useVoiceRecorder = (params: {
   const start = useCallback(async () => {
     if (state === "requesting" || state === "recording" || state === "transcribing") return;
     if (!params.enabled) {
-      setError("Voice input is not available right now.");
+      setError(t("libHooks.voiceInputUnavailableNow"));
       return;
     }
     if (!params.onVoiceSend) {
-      setError("Voice input is not available here.");
+      setError(t("libHooks.voiceInputUnavailableHere"));
       return;
     }
     if (!supported) {
-      setError("This browser does not support microphone recording.");
+      setError(t("libHooks.micRecordingUnsupported"));
       return;
     }
     try {
@@ -163,7 +164,7 @@ export const useVoiceRecorder = (params: {
         clearCapture();
         stopRequestedRef.current = false;
         setState("idle");
-        setError("Voice capture failed.");
+        setError(t("libHooks.voiceCaptureFailed"));
       };
       recorder.onstop = () => {
         void finalizeVoiceCapture(recorder.mimeType);

@@ -1,11 +1,12 @@
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
 import { removeSkillViaGatewayAgent } from "@/lib/skills/remove-gateway";
 import type { SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
+import { t } from "@/lib/i18n";
 
 const normalizeRequired = (value: string, field: string): string => {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${field} is required.`);
+    throw new Error(t("libSkills.fieldRequired", { field }));
   }
   return trimmed;
 };

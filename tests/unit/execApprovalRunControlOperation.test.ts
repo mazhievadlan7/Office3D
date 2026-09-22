@@ -163,7 +163,7 @@ describe("execApprovalRunControlOperation", () => {
         agentId: "agent-1",
         sessionKey: "agent:agent-1:main",
         echoUserMessage: false,
-        message: `${EXEC_APPROVAL_AUTO_RESUME_MARKER}\nContinue where you left off and finish the task.`,
+        message: `${EXEC_APPROVAL_AUTO_RESUME_MARKER}\nПродолжите с того места, где остановились, и завершите задачу.`,
       })
     );
 

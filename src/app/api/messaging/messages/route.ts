@@ -12,6 +12,7 @@ import {
   type MessageRecord,
 } from "@/lib/messaging/types";
 import { sendWhatsAppTemplateMessage } from "@/lib/messaging/whatsapp";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -34,12 +35,12 @@ const fail = (error: unknown) => {
     return json({ error: error.message }, error.status);
   }
   console.error("[messaging] unhandled error", error);
-  return json({ error: "Sending failed unexpectedly." }, 500);
+  return json({ error: t("apiMessaging.unexpected") }, 500);
 };
 
 const readString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new MessagingError(`${field} is required.`);
+    throw new MessagingError(t("apiCommon.fieldRequired", { field }));
   }
   return value.trim();
 };
@@ -50,10 +51,10 @@ export async function POST(request: Request) {
     try {
       parsed = await request.json();
     } catch {
-      throw new MessagingError("Could not read the request body as JSON.");
+      throw new MessagingError(t("apiCommon.bodyNotJson"));
     }
     if (!parsed || typeof parsed !== "object") {
-      throw new MessagingError("Expected a JSON object.");
+      throw new MessagingError(t("apiCommon.expectedJsonObject"));
     }
     const body = parsed as Record<string, unknown>;
 

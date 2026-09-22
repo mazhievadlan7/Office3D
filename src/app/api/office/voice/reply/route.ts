@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { synthesizeVoiceReply, type VoiceReplyProvider } from "@/lib/voiceReply/provider";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -17,11 +18,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as VoiceReplyRequestBody;
     const text = typeof body.text === "string" ? body.text.replace(/\s+/g, " ").trim() : "";
     if (!text) {
-      return NextResponse.json({ error: "Voice reply text is required." }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.voiceReplyTextRequired") }, { status: 400 });
     }
     if (text.length > MAX_REPLY_CHARS) {
       return NextResponse.json(
-        { error: `Voice reply text exceeds ${MAX_REPLY_CHARS} characters.` },
+        { error: t("apiOffice.voiceReplyTooLong", { max: MAX_REPLY_CHARS }) },
         { status: 400 }
       );
     }
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to synthesize the voice reply.";
+      error instanceof Error ? error.message : t("apiOffice.voiceReplyFailed");
     const status = message.includes("Missing ELEVENLABS_API_KEY") ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }

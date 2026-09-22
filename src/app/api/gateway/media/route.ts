@@ -10,6 +10,7 @@ import { loadStudioSettings } from "@/lib/studio/settings-store";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -32,13 +33,13 @@ const expandTildeLocal = (value: string): string => {
 
 const validateRawMediaPath = (raw: string): { trimmed: string; mime: string } => {
   const trimmed = raw.trim();
-  if (!trimmed) throw new Error("path is required");
-  if (trimmed.length > 4096) throw new Error("path too long");
-  if (/[^\S\r\n]*[\0\r\n]/.test(trimmed)) throw new Error("path contains invalid characters");
+  if (!trimmed) throw new Error(t("apiGateway.mediaPathRequired"));
+  if (trimmed.length > 4096) throw new Error(t("apiGateway.mediaPathTooLong"));
+  if (/[^\S\r\n]*[\0\r\n]/.test(trimmed)) throw new Error(t("apiGateway.mediaPathInvalidChars"));
 
   const ext = path.extname(trimmed).toLowerCase();
   const mime = MIME_BY_EXT[ext];
-  if (!mime) throw new Error(`Unsupported media extension: ${ext || "(none)"}`);
+  if (!mime) throw new Error(t("apiGateway.mediaUnsupportedExtension", { ext: ext || "—" }));
 
   return { trimmed, mime };
 };
@@ -48,7 +49,7 @@ const resolveAndValidateLocalMediaPath = (raw: string): { resolved: string; mime
 
   const expanded = expandTildeLocal(trimmed);
   if (!path.isAbsolute(expanded)) {
-    throw new Error("path must be absolute or start with ~/");
+    throw new Error(t("apiGateway.mediaPathNotAbsolute"));
   }
 
   const resolved = path.resolve(expanded);
@@ -56,7 +57,7 @@ const resolveAndValidateLocalMediaPath = (raw: string): { resolved: string; mime
   const allowedRoot = path.join(os.homedir(), ".openclaw");
   const allowedPrefix = `${allowedRoot}${path.sep}`;
   if (!(resolved === allowedRoot || resolved.startsWith(allowedPrefix))) {
-    throw new Error(`Refusing to read media outside ${allowedRoot}`);
+    throw new Error(t("apiGateway.mediaOutsideRoot", { root: allowedRoot }));
   }
 
   return { resolved, mime };
@@ -72,7 +73,7 @@ const validateRemoteMediaPath = (raw: string): { remotePath: string; mime: strin
   const { trimmed, mime } = validateRawMediaPath(raw);
 
   if (!(trimmed.startsWith("/") || trimmed === "~" || trimmed.startsWith("~/"))) {
-    throw new Error("path must be absolute or start with ~/");
+    throw new Error(t("apiGateway.mediaPathNotAbsolute"));
   }
 
   // Remote side enforces ~/.openclaw; this guard lets Studio on macOS request
@@ -83,7 +84,7 @@ const validateRemoteMediaPath = (raw: string): { remotePath: string; mime: strin
     normalized.startsWith("~/.openclaw/") ||
     normalized.includes("/.openclaw/");
   if (!inOpenclaw) {
-    throw new Error("Refusing to read remote media outside ~/.openclaw");
+    throw new Error(t("apiGateway.mediaRemoteOutsideRoot"));
   }
 
   return { remotePath: trimmed, mime };
@@ -95,7 +96,7 @@ const readLocalMedia = async (
 ): Promise<{ bytes: Buffer; size: number }> => {
   const entry = await fs.lstat(resolvedPath);
   if (entry.isSymbolicLink()) {
-    throw new Error("symlinked media paths are not allowed");
+    throw new Error(t("apiGateway.mediaSymlinkNotAllowed"));
   }
 
   const [realResolvedPath, realAllowedRoot] = await Promise.all([
@@ -104,15 +105,15 @@ const readLocalMedia = async (
   ]);
 
   if (!isWithinAllowedRoot(realResolvedPath, realAllowedRoot)) {
-    throw new Error(`Refusing to read media outside ${realAllowedRoot}`);
+    throw new Error(t("apiGateway.mediaOutsideRoot", { root: realAllowedRoot }));
   }
 
   const stat = await fs.stat(realResolvedPath);
   if (!stat.isFile()) {
-    throw new Error("path is not a file");
+    throw new Error(t("apiGateway.mediaNotAFile"));
   }
   if (stat.size > MAX_MEDIA_BYTES) {
-    throw new Error(`media file too large (${stat.size} bytes)`);
+    throw new Error(t("apiGateway.mediaTooLarge", { size: stat.size }));
   }
   const buf = await fs.readFile(realResolvedPath);
   return { bytes: buf, size: stat.size };
@@ -208,7 +209,7 @@ export async function GET(request: Request) {
       argv: ["bash", "-s", "--", remotePath],
       label: "gateway media read",
       input: REMOTE_READ_SCRIPT,
-      fallbackMessage: `Failed to fetch media over ssh (${sshTarget})`,
+      fallbackMessage: t("apiGateway.mediaSshFailed", { target: sshTarget }),
       maxBuffer: Math.ceil(MAX_MEDIA_BYTES * 1.6),
     }) as {
       ok?: boolean;
@@ -219,7 +220,7 @@ export async function GET(request: Request) {
 
     const b64 = payload.data ?? "";
     if (!b64) {
-      throw new Error("Remote media fetch returned empty data");
+      throw new Error(t("apiGateway.mediaRemoteEmpty"));
     }
 
     const buf = Buffer.from(b64, "base64");
@@ -234,7 +235,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch media";
+    const message = err instanceof Error ? err.message : t("apiGateway.mediaFetchFailed");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

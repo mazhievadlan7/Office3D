@@ -131,7 +131,7 @@ describe("session settings mutations helper", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: "agent-1",
-      line: "Model update failed: network timeout",
+      line: "Не удалось обновить модель: network timeout",
     });
   });
 
@@ -166,7 +166,7 @@ describe("session settings mutations helper", () => {
       type: "appendOutput",
       agentId: "agent-1",
       line:
-        "Model update not applied: this gateway blocks sessions.patch for WebChat clients; message sending still works.",
+        "Модель не изменена: этот шлюз запрещает sessions.patch для клиентов WebChat; отправка сообщений по-прежнему работает.",
     });
 
     const failureLines = dispatch.mock.calls
@@ -184,7 +184,7 @@ describe("session settings mutations helper", () => {
           action.type === "appendOutput" &&
           "line" in action &&
           typeof action.line === "string" &&
-          action.line.startsWith("Model update failed:")
+          action.line.startsWith("Не удалось обновить модель:")
       );
     expect(failureLines).toHaveLength(0);
   });

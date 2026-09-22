@@ -40,7 +40,7 @@ describe("session settings sync helper", () => {
         sessionKey: "",
         model: "openai/gpt-5",
       })
-    ).rejects.toThrow("Session key is required.");
+    ).rejects.toThrow("Не указан ключ сессии.");
   });
 
   it("throws when no settings are provided", async () => {
@@ -50,7 +50,7 @@ describe("session settings sync helper", () => {
         client,
         sessionKey: "agent:1:studio:abc",
       })
-    ).rejects.toThrow("At least one session setting must be provided.");
+    ).rejects.toThrow("Нужно указать хотя бы одну настройку сессии.");
   });
 
   it("patches model and thinking level together", async () => {

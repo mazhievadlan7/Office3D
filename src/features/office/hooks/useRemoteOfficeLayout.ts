@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { OfficeLayoutSnapshot } from "@/lib/office/layoutSnapshot";
+import { t } from "@/lib/i18n";
 
 type UseRemoteOfficeLayoutParams = {
   enabled: boolean;
@@ -47,7 +48,7 @@ export const useRemoteOfficeLayout = ({
             "error" in payload &&
             typeof payload.error === "string"
               ? payload.error
-              : "Failed to load remote office layout.";
+              : t("opsOffice.remoteLayoutLoadFailed");
           throw new Error(errorMessage);
         }
         if (cancelled) return;
@@ -64,7 +65,7 @@ export const useRemoteOfficeLayout = ({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Failed to load remote office layout.",
+            : t("opsOffice.remoteLayoutLoadFailed"),
         );
       } finally {
         if (!cancelled) {

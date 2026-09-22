@@ -245,6 +245,159 @@ export const ru = {
   "analytics.totalTokens": "Всего токенов",
   "analytics.totalTokensHint": "Ввод + вывод + кэш.",
 
+  // --- API: общие ошибки -----------------------------------------------------
+  "apiCommon.bodyNotJson": "Не удалось прочитать тело запроса как JSON.",
+  "apiCommon.expectedJsonObject": "Ожидался объект JSON.",
+  "apiCommon.fieldRequired": "Не заполнено обязательное поле: {field}",
+  "apiCommon.invalidJsonBody": "Некорректный JSON в теле запроса.",
+  "apiCommon.invalidRequestPayload": "Некорректные данные запроса.",
+
+  // --- API: файлы ------------------------------------------------------------
+  "apiFiles.invalidPath": "Некорректный путь к файлу.",
+  "apiFiles.noFileUploaded": "Файл не загружен.",
+  "apiFiles.notFound": "Файл не найден.",
+  "apiFiles.tooLarge": "Файл превышает ограничение в 10 МБ.",
+  "apiFiles.unsupportedType": "Неподдерживаемый тип файла: {type}",
+  "apiFiles.uploadEmpty": "Загруженный файл пуст.",
+  "apiFiles.uploadFailed": "Не удалось загрузить файл.",
+
+  // --- API: шлюз -------------------------------------------------------------
+  "apiGateway.agentIdRequired": "Не указан идентификатор агента (agentId).",
+  "apiGateway.invalidAgentId": "Некорректный идентификатор агента: {agentId}",
+  "apiGateway.mediaFetchFailed": "Не удалось получить медиафайл.",
+  "apiGateway.mediaNotAFile": "Путь указывает не на файл.",
+  "apiGateway.mediaOutsideRoot": "Чтение медиафайлов вне {root} запрещено",
+  "apiGateway.mediaPathInvalidChars": "Путь к медиафайлу содержит недопустимые символы.",
+  "apiGateway.mediaPathNotAbsolute": "Путь должен быть абсолютным или начинаться с ~/",
+  "apiGateway.mediaPathRequired": "Не указан путь к медиафайлу.",
+  "apiGateway.mediaPathTooLong": "Слишком длинный путь к медиафайлу.",
+  "apiGateway.mediaRemoteEmpty": "Удалённый запрос медиафайла вернул пустые данные.",
+  "apiGateway.mediaRemoteOutsideRoot": "Чтение удалённых медиафайлов вне ~/.openclaw запрещено",
+  "apiGateway.mediaSshFailed": "Не удалось получить медиафайл по SSH ({target})",
+  "apiGateway.mediaSymlinkNotAllowed": "Символические ссылки в путях к медиафайлам не допускаются.",
+  "apiGateway.mediaTooLarge": "Медиафайл слишком большой (размер в байтах: {size}).",
+  "apiGateway.mediaUnsupportedExtension": "Неподдерживаемое расширение медиафайла: {ext}",
+  "apiGateway.restoreAgentFailed": "Не удалось восстановить состояние агента.",
+  "apiGateway.skillRemoveFailed": "Не удалось удалить навык.",
+  "apiGateway.trashAgentFailed":
+    "Не удалось переместить рабочее пространство и состояние агента в корзину.",
+  "apiGateway.trashDirRequired": "Не указан каталог корзины (trashDir).",
+  "apiGateway.unsupportedSkillSource": "Неподдерживаемый источник навыка для удаления: {source}",
+
+  // --- API: сообщения --------------------------------------------------------
+  "apiMessaging.unexpected": "Непредвиденный сбой отправки.",
+
+  // --- API: офис -------------------------------------------------------------
+  "apiOffice.anotherOfficeUser": "другого пользователя офиса",
+  "apiOffice.browserLocalOnly":
+    "Скриншот браузера доступен только при подключении к локальному шлюзу.",
+  "apiOffice.browserNoMediaPath": "Скриншот браузера не вернул путь к медиафайлу.",
+  "apiOffice.browserNoTargetTab": "Предпросмотр браузера не вернул целевую вкладку.",
+  "apiOffice.browserPreviewFailed": "Не удалось построить предпросмотр браузера.",
+  "apiOffice.browserRequestFailed": "Сбой запроса к браузеру.",
+  "apiOffice.browserUrlInvalid": "URL должен быть абсолютным публичным адресом http(s).",
+  "apiOffice.browserUrlRequired": "Не указан URL.",
+  "apiOffice.githubCommentFieldsRequired":
+    "Необходимо указать репозиторий, номер, путь, строку, сторону и текст комментария.",
+  "apiOffice.githubLoadFailed": "Не удалось загрузить данные серверной GitHub.",
+  "apiOffice.githubReviewFailed": "Не удалось отправить ревью в GitHub.",
+  "apiOffice.githubReviewFieldsRequired": "Необходимо указать репозиторий, номер и действие.",
+  "apiOffice.githubUnsupportedReviewAction": "Неподдерживаемое действие ревью.",
+  "apiOffice.layoutInvalid": "Некорректный снимок макета офиса.",
+  "apiOffice.layoutLoadFailed": "Не удалось загрузить макет офиса.",
+  "apiOffice.layoutRequestFailed":
+    "Запрос макета удалённого офиса завершился со статусом {status}.",
+  "apiOffice.layoutSaveFailed": "Не удалось сохранить макет офиса.",
+  "apiOffice.layoutTimeout": "Истекло время ожидания макета удалённого офиса.",
+  "apiOffice.loadFailed": "Не удалось загрузить данные офиса.",
+  "apiOffice.noVersionToPublish": "Нет версии офиса для публикации.",
+  "apiOffice.officeIdAndNameRequired": "Необходимо указать идентификатор и название офиса.",
+  "apiOffice.officeIdAndVersionRequired": "Необходимо указать идентификаторы офиса и версии.",
+  "apiOffice.presenceFailed": "Не удалось загрузить присутствие в офисе.",
+  "apiOffice.publishFailed": "Не удалось опубликовать версию офиса.",
+  "apiOffice.publishIdsRequired":
+    "Необходимо указать идентификаторы рабочего пространства и офиса.",
+  "apiOffice.remoteAgentGone": "Удалённый агент больше недоступен.",
+  "apiOffice.remoteAgentIdRequired": "Не указан идентификатор удалённого агента.",
+  "apiOffice.remoteAgentListUnavailable": "Список удалённых агентов сейчас недоступен.",
+  "apiOffice.remoteGatewayUrlMissing": "URL шлюза удалённого офиса не настроен.",
+  "apiOffice.remoteHandoffFailed": "Не удалось передать задачу в удалённый офис.",
+  "apiOffice.remoteHandoffGatewayOnly":
+    "Передача задач пока работает только с источником «удалённый шлюз».",
+  "apiOffice.remoteHandoffTaskRequired": "Не указана задача для передачи удалённому агенту.",
+  "apiOffice.remoteHandoffTooLong": "Задача для передачи должна быть не длиннее {max} символов.",
+  "apiOffice.remoteMessageFailed": "Не удалось отправить сообщение в удалённый офис.",
+  "apiOffice.remoteMessageRequired": "Не указано сообщение для удалённого агента.",
+  "apiOffice.remoteMessageTooLong":
+    "Сообщение для удалённого агента должно быть не длиннее {max} символов.",
+  "apiOffice.remoteMessagingGatewayOnly":
+    "Отправка сообщений пока работает только с источником «удалённый шлюз».",
+  "apiOffice.remoteOfficeDisabled": "Удалённый офис отключён.",
+  "apiOffice.saveFailed": "Не удалось сохранить данные офиса.",
+  "apiOffice.standupActionRequired": "Не указано действие.",
+  "apiOffice.standupConfigLoadFailed": "Не удалось загрузить настройки планёрки.",
+  "apiOffice.standupConfigRequired": "Не переданы настройки планёрки.",
+  "apiOffice.standupConfigSaveFailed": "Не удалось сохранить настройки планёрки.",
+  "apiOffice.standupGatewayUrlRequired": "Не указан URL шлюза.",
+  "apiOffice.standupMeetingLoadFailed": "Не удалось загрузить планёрку.",
+  "apiOffice.standupMeetingUpdateFailed": "Не удалось обновить планёрку.",
+  "apiOffice.standupStartFailed": "Не удалось начать планёрку.",
+  "apiOffice.unsupportedAction": "Неподдерживаемое действие с офисом.",
+  "apiOffice.voiceAudioRequired": "Не передан аудиофайл.",
+  "apiOffice.voiceReplyFailed": "Не удалось синтезировать голосовой ответ.",
+  "apiOffice.voiceReplyTextRequired": "Не указан текст голосового ответа.",
+  "apiOffice.voiceReplyTooLong": "Текст голосового ответа длиннее {max} символов.",
+  "apiOffice.voiceTranscribeFailed": "Не удалось распознать речь.",
+  "apiOffice.voiceUploadEmpty": "Аудиозапись пуста.",
+  "apiOffice.voiceUploadTooLarge": "Размер аудиозаписи превышает лимит в {max} байт.",
+
+  // --- API: подсказки путей --------------------------------------------------
+  "apiPaths.directoryMissing": "Каталог не существует: {path}",
+  "apiPaths.notADirectory": "Путь не является каталогом: {path}",
+  "apiPaths.outsideHome": "Путь должен оставаться в пределах домашнего каталога.",
+  "apiPaths.queryRequired": "Не указан запрос.",
+  "apiPaths.suggestionsFailed": "Не удалось получить подсказки путей.",
+
+  // --- API: своя среда выполнения --------------------------------------------
+  "apiRuntime.pathnameRequired": "Не указан путь запроса (pathname).",
+  "apiRuntime.proxyFailed": "Сбой прокси пользовательской среды выполнения.",
+  "apiRuntime.runtimeUrlNotAllowed":
+    "Хост среды выполнения (runtimeUrl) не входит в список разрешённых.",
+  "apiRuntime.runtimeUrlProtocol":
+    "Адрес среды выполнения (runtimeUrl) должен использовать http, https, ws или wss.",
+  "apiRuntime.runtimeUrlRequired": "Не указан адрес среды выполнения (runtimeUrl).",
+
+  // --- API: навыки -----------------------------------------------------------
+  "apiSkills.installFailed": "Не удалось установить навык.",
+  "apiSkills.unknownRegistry": "Неизвестный реестр: {registry}",
+  "apiSkills.unknownRuntime": "Неизвестная среда выполнения: {runtime}",
+  "apiSkills.unsupportedInstallRuntime":
+    "Нельзя установить навыки в «{target}». Поддерживаются: {supported}.",
+
+  // --- API: настройки студии -------------------------------------------------
+  "apiStudio.invalidSettings": "Некорректные данные настроек.",
+  "apiStudio.settingsLoadFailed": "Не удалось загрузить настройки.",
+  "apiStudio.settingsSaveFailed": "Не удалось сохранить настройки.",
+
+  // --- API: задачи -----------------------------------------------------------
+  "apiTasks.archiveFailed": "Внутренняя ошибка при архивировании задачи.",
+  "apiTasks.idAndTitleRequired": "Необходимо указать идентификатор и название задачи.",
+  "apiTasks.idRequired": "Не указан идентификатор задачи.",
+  "apiTasks.invalidSource": "Некорректный источник: «{source}».",
+  "apiTasks.invalidStatus": "Некорректный статус: «{status}».",
+  "apiTasks.notFound": "Задача не найдена.",
+  "apiTasks.payloadRequired": "Не переданы данные задачи.",
+  "apiTasks.readFailed": "Внутренняя ошибка при чтении хранилища задач.",
+  "apiTasks.writeFailed": "Внутренняя ошибка при записи в хранилище задач.",
+
+  // --- API: телефония --------------------------------------------------------
+  "apiTelephony.callEnded": "Этот звонок уже завершён.",
+  "apiTelephony.conversationIdRequired": "Не указан идентификатор разговора (conversation_id).",
+  "apiTelephony.operatorNotConfigured": "Указания оператора не настроены. Не хватает: {missing}.",
+  "apiTelephony.recordingAfterEnd":
+    "Запись доступна после завершения звонка; прослушать звонок в реальном времени нельзя.",
+  "apiTelephony.unexpected": "Непредвиденный сбой телефонии.",
+
   // --- Банкомат (расходы) --------------------------------------------------
   "atm.accountRow": "Счёт {index} · {name}",
   "atm.accountSummary": "Сводка по счёту",
@@ -868,6 +1021,7 @@ export const ru = {
   "hq.tabInbox": "Входящие",
   "hq.tabKanban": "Канбан",
   "hq.tabPlaybooks": "Плейбуки",
+  "hq.unreadCount": "Непрочитанных: {count}",
 
   // --- Личность агента -------------------------------------------------------
   "identity.emoji": "Эмодзи",
@@ -959,6 +1113,547 @@ export const ru = {
   "kanbanScreen.close": "Закрыть канбан-доску",
   "kanbanScreen.subtitle": "Маршрутизация задач штаба, расписания и проверка.",
   "kanbanScreen.title": "Канбан-доска",
+
+  // --- Состояние агентов -----------------------------------------------------
+  "libAgentState.agentIdRequired": "Не указан agentId.",
+  "libAgentState.invalidAgentId": "Некорректный agentId: {agentId}.",
+  "libAgentState.restoreTargetExists": "Восстановление отменено: путь уже существует: {path}",
+  "libAgentState.trashDirMissing": "Каталог корзины не существует: {path}",
+  "libAgentState.trashDirOutsideBase": "Каталог корзины {candidate} находится вне {base}.",
+  "libAgentState.trashDirRequired": "Не указан каталог корзины (trashDir).",
+
+  // --- Варианты аватара ------------------------------------------------------
+  "libAvatars.bottomCuffed": "С подворотами",
+  "libAvatars.bottomPants": "Брюки",
+  "libAvatars.bottomShorts": "Шорты",
+  "libAvatars.colorAmber": "Янтарный",
+  "libAvatars.colorBlack": "Чёрный",
+  "libAvatars.colorBrown": "Коричневый",
+  "libAvatars.colorCream": "Кремовый",
+  "libAvatars.colorCyan": "Бирюзовый",
+  "libAvatars.colorGraphite": "Графитовый",
+  "libAvatars.colorMint": "Мятный",
+  "libAvatars.colorNavy": "Тёмно-синий",
+  "libAvatars.colorPink": "Розовый",
+  "libAvatars.colorRose": "Алый",
+  "libAvatars.colorSky": "Небесный",
+  "libAvatars.colorSlate": "Сланцевый",
+  "libAvatars.colorViolet": "Фиолетовый",
+  "libAvatars.colorWhite": "Белый",
+  "libAvatars.hairAuburn": "Каштановый",
+  "libAvatars.hairBlonde": "Блонд",
+  "libAvatars.hairBun": "Пучок",
+  "libAvatars.hairEspresso": "Эспрессо",
+  "libAvatars.hairInk": "Чёрный",
+  "libAvatars.hairParted": "С пробором",
+  "libAvatars.hairShort": "Короткая",
+  "libAvatars.hairSpiky": "Ёжик",
+  "libAvatars.hairWalnut": "Ореховый",
+  "libAvatars.hatBeanie": "Шапка",
+  "libAvatars.hatCap": "Кепка",
+  "libAvatars.hatNone": "Без головного убора",
+  "libAvatars.seedRequired": "Не указано зерно аватара.",
+  "libAvatars.skinDeep": "Тёмная",
+  "libAvatars.skinFair": "Очень светлая",
+  "libAvatars.skinLight": "Светлая",
+  "libAvatars.skinRich": "Очень тёмная",
+  "libAvatars.skinTan": "Смуглая",
+  "libAvatars.skinWarm": "Тёплая",
+  "libAvatars.topHoodie": "Худи",
+  "libAvatars.topJacket": "Куртка",
+  "libAvatars.topTee": "Футболка",
+
+  // --- Ключи и учётные данные ------------------------------------------------
+  "libCredentials.agentMessages": "Сообщения агентов.",
+  "libCredentials.elevenlabsAgentIdLabel": "ID агента ElevenLabs",
+  "libCredentials.elevenlabsAgentIdPurpose":
+    "Разговорный агент, созданный в панели ElevenLabs, который говорит в телефонных звонках. Используется вместе с ELEVENLABS_API_KEY.",
+  "libCredentials.elevenlabsApiKeyLabel": "Ключ API ElevenLabs",
+  "libCredentials.elevenlabsApiKeyPurpose": "Синтез речи для голосовых ответов агентов.",
+  "libCredentials.elevenlabsApiKeyRequiredFor": "Голосовые ответы. Без него офис молчит.",
+  "libCredentials.elevenlabsPhoneNumberIdLabel": "ID телефонного номера ElevenLabs",
+  "libCredentials.elevenlabsPhoneNumberIdPurpose":
+    "Номер, зарегистрированный в ElevenLabs, с которого звонят агенты. Один номер обслуживает всех агентов офиса.",
+  "libCredentials.gatewayTokenLabel": "Токен шлюза",
+  "libCredentials.gatewayTokenPurpose": "Аутентифицирует подключение к шлюзу среды выполнения.",
+  "libCredentials.gatewayTokenRequiredFor": "Шлюзы, которые требуют токен.",
+  "libCredentials.githubTokenLabel": "Токен GitHub",
+  "libCredentials.githubTokenPurpose":
+    "Поднимает анонимный лимит GitHub в 60 запросов в час при просмотре и установке навыков; кроме того, это единственный способ получить доступ к приватному репозиторию.",
+  "libCredentials.hermesApiKeyLabel": "Ключ API Hermes",
+  "libCredentials.hermesApiKeyPurpose":
+    "Bearer-токен, который адаптер Hermes передаёт в HTTP API Hermes.",
+  "libCredentials.hermesApiKeyRequiredFor": "Среда выполнения Hermes, если её API требует ключ.",
+  "libCredentials.higgsfieldApiKeyLabel": "Ключ API Higgsfield",
+  "libCredentials.higgsfieldApiKeyPurpose":
+    "Генерация изображений, видео и аудио для навыков, использующих Higgsfield.",
+  "libCredentials.liveCallInstructions": "Отправка агенту инструкций во время звонка.",
+  "libCredentials.orgNameLabel": "Название организации",
+  "libCredentials.orgNamePurpose":
+    "Организация, от имени которой звонят агенты. Значение читается на сервере, чтобы сессия браузера не могла выбрать, кого агент представляет в реальном звонке.",
+  "libCredentials.publicUrlLabel": "Публичный URL",
+  "libCredentials.publicUrlPurpose":
+    "Адрес, по которому голосовой агент обращается к этому развёртыванию. Нужен только для заметок оператора во время звонка — это единственная часть телефонии, где провайдер обращается к нам, а не наоборот.",
+  "libCredentials.qwenApiKeyLabel": "Ключ API Qwen",
+  "libCredentials.qwenApiKeyPurpose":
+    "Доступ к моделям Qwen для навыков, которые обращаются к ним напрямую.",
+  "libCredentials.studioAccessTokenLabel": "Токен доступа к Studio",
+  "libCredentials.studioAccessTokenPurpose": "Закрывает доступ к приложению.",
+  "libCredentials.studioAccessTokenRequiredFor":
+    "Любое развёртывание не на loopback-адресе. Без него сервер отказывается открывать публичный адрес.",
+  "libCredentials.telephonyWebhookSecretLabel": "Секрет вебхука телефонии",
+  "libCredentials.telephonyWebhookSecretPurpose":
+    "Аутентифицирует обратный вызов голосового агента во время звонка, когда он запрашивает заметку оператора. Этот адрес открыт в интернет и не защищён проверкой доступа сессии, поэтому без секрета он остаётся закрытым.",
+  "libCredentials.voiceAgentCalls": "Телефонные звонки голосового агента.",
+  "libCredentials.whatsappNumberIdLabel": "ID номера WhatsApp",
+  "libCredentials.whatsappNumberIdPurpose":
+    "Номер WhatsApp Business, зарегистрированный в ElevenLabs, с которого агенты отправляют сообщения.",
+  "libCredentials.whatsappTemplateLabel": "Шаблон WhatsApp",
+  "libCredentials.whatsappTemplateLanguageLabel": "Язык шаблона WhatsApp",
+  "libCredentials.whatsappTemplateLanguagePurpose":
+    "Код языка шаблона, например en. Должен совпадать с одобренным шаблоном.",
+  "libCredentials.whatsappTemplatePurpose":
+    "Одобренный шаблон WhatsApp, который отправляют агенты. WhatsApp не доставляет произвольный текст тому, кто недавно не писал первым, поэтому шаблон — единственный вариант, который предлагает API.",
+  "libCredentials.youtubeApiKeyLabel": "Ключ YouTube Data API",
+  "libCredentials.youtubeApiKeyPurpose":
+    "Поиск по YouTube и получение метаданных для навыков, которые это используют.",
+
+  // --- Расписания ------------------------------------------------------------
+  "libCron.agentIdRequired": "Не указан ID агента.",
+  "libCron.dailyTimeRequired": "Укажите время для ежедневного расписания.",
+  "libCron.deleteFailed": "Не удалось удалить задачу по расписанию «{name}» ({id}).",
+  "libCron.invalidInterval": "Некорректный интервал.",
+  "libCron.invalidRunTime": "Некорректное время запуска.",
+  "libCron.invalidTimezone": "Некорректный часовой пояс.",
+  "libCron.jobIdRequired": "Не указан ID задачи по расписанию.",
+  "libCron.nameRequired": "Не указано название задачи по расписанию.",
+  "libCron.restoreFailed":
+    "Не удалось восстановить задачу по расписанию «{name}» ({agentId}): {message}",
+  "libCron.scheduleAt": "Однократно: {at}",
+  "libCron.scheduleCron": "Расписание cron: {expr}",
+  "libCron.scheduleCronTz": "Расписание cron: {expr} ({tz})",
+  "libCron.scheduleEvery": "Раз в {interval}",
+  "libCron.taskTextRequired": "Не указан текст задачи.",
+  "libCron.unitHours": "{count} ч",
+  "libCron.unitMinutes": "{count} мин",
+  "libCron.unitMs": "{count} мс",
+  "libCron.unitSeconds": "{count} с",
+
+  // --- Клиент шлюза ----------------------------------------------------------
+  "libGateway.agentIdRequired": "Не указан идентификатор агента.",
+  "libGateway.agentNameRequired": "Не указано имя агента.",
+  "libGateway.agentsCreateMissingAgentId":
+    "Шлюз вернул некорректный ответ на agents.create (нет agentId).",
+  "libGateway.alreadyConnecting": "Шлюз уже подключён или подключается.",
+  "libGateway.chatSendMissingRunId": "Шлюз вернул некорректный ответ на chat.send (нет runId).",
+  "libGateway.closed": "Шлюз закрыл соединение ({code}): {reason}",
+  "libGateway.configHashUnavailable": "Хеш конфигурации шлюза недоступен; повторите config.get.",
+  "libGateway.configPathNoDir":
+    "В пути к конфигурации шлюза «{configPath}» нет каталога; невозможно определить рабочее пространство.",
+  "libGateway.connectFailed": "Не удалось подключиться к шлюзу.",
+  "libGateway.connectTimedOut":
+    "Не удалось дождаться подключения к шлюзу. Проверьте, что он запущен, или укажите другой адрес шлюза и повторите.",
+  "libGateway.connectTimeoutHint":
+    "{message} Проверьте, что шлюз доступен по указанному URL, что origin и учётные данные соответствуют требованиям шлюза, и (если вы тестируете собственный шлюз локально) попробуйте `npm run demo-gateway`, чтобы локализовать проблему.",
+  "libGateway.emptyFolderName": "Из имени не удалось получить имя папки.",
+  "libGateway.error": "Ошибка шлюза ({code}): {message}",
+  "libGateway.errorWithHint": "Ошибка шлюза ({code}): {message}. {hint}",
+  "libGateway.errorWithHintNoPeriod": "Ошибка шлюза ({code}): {message} {hint}",
+  "libGateway.execApprovalsHashUnavailable":
+    "Хеш одобрений команд недоступен; повторите exec.approvals.get.",
+  "libGateway.heartbeatWakeText": "Запуск пульса из Office3D ({agentId}).",
+  "libGateway.hintDeviceIdentity":
+    "Шлюз отклонил клиента как интерфейс управления без идентификации устройства. Для удалённых подключений OpenClaw/Tailscale обновите Office3D до последней сборки и одобрите сопряжение устройства на хосте шлюза.",
+  "libGateway.hintDoctorFix":
+    "Выполните `npx openclaw doctor --fix` на хосте шлюза (или `pnpm openclaw doctor --fix` в копии исходного кода).",
+  "libGateway.hintPairingRequired":
+    "Шлюз запрашивает первичное одобрение устройства. Выполните `openclaw devices approve --latest` на хосте шлюза, затем перезапустите Office3D и переподключитесь из этого браузера.",
+  "libGateway.hintProtocolMismatch":
+    "Похоже, этот шлюз слишком старый для протокола v3 Office3D. Обновите OpenClaw, используйте адаптер Hermes или запустите `npm run demo-gateway`, чтобы открыть демо офиса без фреймворка.",
+  "libGateway.hintTailscale":
+    "Если это удалённый шлюз OpenClaw/Tailscale, убедитесь, что хост Studio может достучаться до адреса `wss://…`, и одобрите первое сопряжение устройства на хосте шлюза командой `openclaw devices approve --latest`.",
+  "libGateway.invalidChatSendResponse": "Шлюз вернул некорректный ответ на chat.send.",
+  "libGateway.methodRequired": "Не указан метод шлюза.",
+  "libGateway.noConfigPath":
+    "Шлюз не вернул путь к конфигурации; невозможно определить рабочее пространство по умолчанию для «agents.create».",
+  "libGateway.nodeClientAlreadyConnected": "Клиент шлюза уже подключён.",
+  "libGateway.notConnected": "Шлюз не подключён.",
+  "libGateway.remoteClientClosed": "Клиент удалённого шлюза закрыт.",
+  "libGateway.remoteConnectTimeout": "Истекло время ожидания подключения к удалённому шлюзу.",
+  "libGateway.remoteConnectionClosed": "Соединение с удалённым шлюзом закрыто.",
+  "libGateway.remoteConnectionClosedWithReason": "Соединение с удалённым шлюзом закрыто: {reason}",
+  "libGateway.remoteConnectionFailed": "Ошибка подключения к удалённому шлюзу.",
+  "libGateway.remoteHandshakeTimeout": "Истекло время ожидания рукопожатия с удалённым шлюзом.",
+  "libGateway.remoteNoNonce": "Удалённый шлюз запросил аутентификацию устройства без nonce.",
+  "libGateway.remoteNotConnected": "Удалённый шлюз не подключён.",
+  "libGateway.remoteRequestTimeout": "Истекло время ожидания ответа удалённого шлюза на {method}.",
+  "libGateway.remoteUrlMissing": "URL шлюза удалённого офиса не настроен.",
+  "libGateway.requestFailed": "Ошибка запроса к шлюзу.",
+  "libGateway.sendRequestFailed": "Не удалось отправить запрос шлюзу.",
+  "libGateway.sessionKeyRequired": "Не указан ключ сессии.",
+  "libGateway.sessionSettingRequired": "Нужно указать хотя бы одну настройку сессии.",
+  "libGateway.settingsLoadFailed": "Не удалось загрузить настройки шлюза.",
+  "libGateway.skillsAllowlistRequired": "Для режима «allowlist» нужен список разрешённых навыков.",
+  "libGateway.toolsAllowConflict":
+    "В переопределениях инструментов агента нельзя одновременно задавать allow и alsoAllow.",
+  "libGateway.unknownError": "Неизвестная ошибка шлюза.",
+  "libGateway.urlRequired": "Не указан URL шлюза.",
+
+  // --- Голосовой ввод и воспроизведение --------------------------------------
+  "libHooks.micAccessDenied": "Доступ к микрофону запрещён.",
+  "libHooks.micNotFound": "Микрофон не найден.",
+  "libHooks.micRecordingUnsupported": "Этот браузер не поддерживает запись с микрофона.",
+  "libHooks.voiceCaptureFailed": "Не удалось записать голос.",
+  "libHooks.voiceInputUnavailableHere": "Голосовой ввод здесь недоступен.",
+  "libHooks.voiceInputUnavailableNow": "Голосовой ввод сейчас недоступен.",
+  "libHooks.voiceReplyPlaybackFailed": "Не удалось воспроизвести голосовой ответ.",
+  "libHooks.voiceReplyRequestFailed": "Не удалось получить голосовой ответ.",
+
+  // --- HTTP-запросы ----------------------------------------------------------
+  "libHttp.requestFailed": "Ошибка запроса: статус {status}.",
+
+  // --- Сообщения: библиотека -------------------------------------------------
+  "libMessaging.elevenLabsStatus": "ElevenLabs вернул статус {status}.",
+  "libMessaging.elevenLabsUnreachable": "Не удалось связаться с ElevenLabs: {message}",
+  "libMessaging.fieldRequired": "Не указано поле {field}.",
+  "libMessaging.fieldTooLong":
+    "Поле {field} слишком длинное: символов — {length}, допустимо не больше {limit}.",
+  "libMessaging.invalidPhone":
+    "Поле {field} должно содержать номер телефона в международном формате, например +14155550100; получено «{value}».",
+  "libMessaging.messageNotFound": "Сообщение с id «{id}» не найдено.",
+  "libMessaging.noConversationId":
+    "ElevenLabs принял запрос, но не вернул идентификатор разговора.",
+  "libMessaging.notConfigured": "Обмен сообщениями не настроен. Не заданы: {missing}.",
+
+  // --- Офис: библиотека ------------------------------------------------------
+  "libOffice.checksFailing": "проверок с ошибкой: {count}",
+  "libOffice.checksPassing": "проверок пройдено: {count}",
+  "libOffice.checksPending": "проверок в ожидании: {count}",
+  "libOffice.floorCampus": "Снаружи / кампус",
+  "libOffice.floorCampusShort": "Кампус",
+  "libOffice.floorCustom": "Свой этаж",
+  "libOffice.floorCustomShort": "Свой",
+  "libOffice.floorHermes": "Этаж Hermes",
+  "libOffice.floorLobby": "Лобби",
+  "libOffice.floorLocalRuntime": "Этаж локальной среды выполнения",
+  "libOffice.floorLocalShort": "Локальный",
+  "libOffice.floorOffice3dRuntime": "Этаж среды выполнения Office3D",
+  "libOffice.floorOpenclaw": "Этаж OpenClaw",
+  "libOffice.floorTraders": "Торговый этаж",
+  "libOffice.floorTradersShort": "Трейдеры",
+  "libOffice.floorTraining": "Учебный этаж",
+  "libOffice.floorTrainingShort": "Обучение",
+  "libOffice.githubChangesBody": "Просьба внести правки, запрошенные в Office3D.",
+  "libOffice.githubChangesRequested": "К пул-реквесту запрошены изменения.",
+  "libOffice.githubCliMissing": "GitHub CLI не установлен.",
+  "libOffice.githubCliNotReady": "GitHub CLI не готов к работе.",
+  "libOffice.githubCliUnauthenticated": "GitHub CLI не авторизован.",
+  "libOffice.githubCommentRequired": "Текст комментария не может быть пустым.",
+  "libOffice.githubCommitFallback": "Коммит",
+  "libOffice.githubDiffTruncated": "{diff}\n\n… дифф обрезан …",
+  "libOffice.githubEmptyJson": "Пустой JSON-ответ от {label}.",
+  "libOffice.githubHeadUnknown": "Не удалось определить последний коммит пул-реквеста.",
+  "libOffice.githubInvalidJson": "Некорректный JSON-ответ от {label}.",
+  "libOffice.githubPrApproved": "Пул-реквест одобрен.",
+  "libOffice.githubReviewCommentSent": "Комментарий к ревью отправлен.",
+  "libOffice.githubReviewFailed": "Не удалось отправить ревью в GitHub.",
+  "libOffice.githubReviewedBody": "Проверено в Office3D.",
+  "libOffice.githubRunFailed": "Не удалось выполнить {label}.",
+  "libOffice.githubUnnamedCheck": "Проверка без названия",
+  "libOffice.githubUntitledPr": "Пул-реквест без названия",
+  "libOffice.layoutSnapshotGatewayRequired":
+    "Для сохранения снимка планировки офиса нужен URL шлюза.",
+  "libOffice.monitorBrowsingTitle": "Просмотр сайта",
+  "libOffice.monitorCurrentRequest": "Работа над текущим запросом.",
+  "libOffice.monitorErrorSubtitle": "Агент столкнулся с ошибкой.",
+  "libOffice.monitorErrorTitle": "Ошибка запуска",
+  "libOffice.monitorIdleSubtitle": "Недавней активности нет.",
+  "libOffice.monitorIdleTitle": "Простаивает",
+  "libOffice.monitorRequestedTask": "Работа над поставленной задачей.",
+  "libOffice.monitorWaitingSubtitle": "Ждёт следующей инструкции.",
+  "libOffice.monitorWaitingTitle": "Ожидание",
+  "libOffice.monitorWorkingSubtitle": "Агент сейчас активен.",
+  "libOffice.monitorWorkingTitle": "Работает",
+  "libOffice.placeDesk": "Стол",
+  "libOffice.placeGym": "Спортзал",
+  "libOffice.placeJukebox": "Музыкальный автомат",
+  "libOffice.placeQaLab": "Лаборатория QA",
+  "libOffice.placeServerRoom": "GitHub / серверная",
+  "libOffice.presenceRequestFailed":
+    "Запрос присутствия удалённого офиса завершился ошибкой: статус {status}.",
+  "libOffice.presenceTimeout": "Запрос присутствия удалённого офиса не ответил за {timeoutMs} мс.",
+  "libOffice.presenceUrlMissing": "URL присутствия удалённого офиса не настроен.",
+  "libOffice.standupBlockedBy": "Блокер: {blocker}.",
+  "libOffice.standupChecksFailing": "Проверки GitHub не проходят.",
+  "libOffice.standupGithubLoadFailed": "Не удалось загрузить активность GitHub.",
+  "libOffice.standupGithubNotReady": "GitHub не готов к работе.",
+  "libOffice.standupJiraBaseUrlInvalid": "Некорректный базовый URL Jira.",
+  "libOffice.standupJiraCredentialsIncomplete": "Учётные данные Jira заполнены не полностью.",
+  "libOffice.standupJiraDisabled": "Jira выключена.",
+  "libOffice.standupJiraLoadFailed": "Не удалось загрузить задачи Jira.",
+  "libOffice.standupJiraQueryMissing": "Укажите ключ проекта Jira или запрос JQL.",
+  "libOffice.standupReviewingWork": "Разбирает текущую работу.",
+  "libOffice.standupUnknownStatus": "Неизвестно",
+  "libOffice.standupUntitledIssue": "Задача без названия",
+  "libOffice.versionNotFound": "Версия офиса не найдена.",
+  "libOffice.zoneCoffee": "Кофейня",
+  "libOffice.zoneDesks": "Рабочая зона",
+  "libOffice.zoneGame": "Игровая",
+  "libOffice.zoneHallway": "Коридор",
+  "libOffice.zoneLounge": "Зона отдыха",
+  "libOffice.zoneMeeting": "Переговорная",
+
+  // --- Распознавание речи OpenClaw -------------------------------------------
+  "libOpenclaw.noAudio": "OpenClaw не получил аудио для распознавания.",
+  "libOpenclaw.noLoadConfig":
+    "Установленная среда выполнения OpenClaw не предоставляет модуль loadConfig().",
+  "libOpenclaw.noTranscript": "OpenClaw не вернул расшифровку.",
+  "libOpenclaw.noTranscriptDetail": "OpenClaw не вернул расшифровку.{detail}",
+  "libOpenclaw.noTranscriptionRunner":
+    "Установленная среда выполнения OpenClaw не предоставляет модуль распознавания речи.",
+  "libOpenclaw.notResolvable":
+    "Не удалось найти OpenClaw из текущей среды выполнения Node. Установите пакет `openclaw` или задайте OPENCLAW_PACKAGE_ROOT.",
+  "libOpenclaw.packageRootInvalid":
+    "OPENCLAW_PACKAGE_ROOT не указывает на корректную установку OpenClaw.",
+  "libOpenclaw.transcriptionBlocked":
+    "OpenClaw заблокировал распознавание речи для этого запроса.{detail}",
+  "libOpenclaw.transcriptionDisabled": "Распознавание речи в OpenClaw отключено.",
+  "libOpenclaw.transcriptionDisabledDetail": "Распознавание речи в OpenClaw отключено.{detail}",
+  "libOpenclaw.transcriptionSkipped": "OpenClaw пропустил распознавание речи.{detail}",
+
+  // --- Среды выполнения ------------------------------------------------------
+  "libRuntime.anotherAgent": "другой агент",
+  "libRuntime.cadenceHint": "Подсказка по периодичности: {cadenceHint}",
+  "libRuntime.customChatFailed": "Ошибка чата пользовательской среды выполнения ({status}).",
+  "libRuntime.customChatFailedWithHealth":
+    "Ошибка чата пользовательской среды выполнения ({status}). Состояние среды: {health}.",
+  "libRuntime.customEmptyResponse":
+    "Пользовательская среда выполнения вернула пустой ответ ассистента.",
+  "libRuntime.customHistoryNeedsSessionKey":
+    "Пользовательской среде выполнения нужен sessionKey для chat.history.",
+  "libRuntime.customLabel": "Пользовательская",
+  "libRuntime.customMethodNotImplemented":
+    "Пользовательская среда выполнения не реализует {method}.",
+  "libRuntime.customMethodUnsupported":
+    "Пользовательская среда выполнения не поддерживает {method}.",
+  "libRuntime.customRequestFailed":
+    "Запрос к пользовательской среде выполнения не выполнен ({status}) для {pathname}.",
+  "libRuntime.customResetNeedsKey":
+    "Пользовательской среде выполнения нужен key для sessions.reset.",
+  "libRuntime.customRuntimeName": "Пользовательская среда выполнения",
+  "libRuntime.customSendNeedsParams":
+    "Пользовательской среде выполнения нужны sessionKey и message для chat.send.",
+  "libRuntime.customUrlMissing": "URL пользовательской среды выполнения не настроен.",
+  "libRuntime.demoLabel": "Демо",
+  "libRuntime.directMessageIntro":
+    "Вам пришло прямое сообщение от агента. Отправитель: {sourceLabel}.",
+  "libRuntime.directNoTools":
+    "Не используйте инструменты, если среда выполнения уже не разрешила их для этой сессии.",
+  "libRuntime.directReplyPlain": "Отвечайте только обычным текстом и не отходите от сути запроса.",
+  "libRuntime.handoffAcceptance": "Критерии приёмки: {acceptanceCriteria}",
+  "libRuntime.handoffAcknowledge":
+    "Подтвердите, что берёте работу на себя, и продолжайте её обычным текстом.",
+  "libRuntime.handoffClarify":
+    "Если что-то неясно, задайте один конкретный уточняющий вопрос вместо догадок.",
+  "libRuntime.handoffContext": "Контекст: {context}",
+  "libRuntime.handoffDeliverables": "Результаты:\n- ",
+  "libRuntime.handoffIntro": "Вам передали работу. Отправитель: {sourceLabel}.",
+  "libRuntime.handoffTask": "Задача: {task}",
+  "libRuntime.intervalMessageIntro":
+    "Вам пришло периодическое координационное сообщение. Отправитель: {sourceLabel}.",
+  "libRuntime.intervalOngoingThread":
+    "Считайте это продолжением совместной работы, а не разовым отвлечением.",
+  "libRuntime.intervalRespond":
+    "Ответьте обычным текстом: следующее полезное обновление, вопрос или контрольная точка.",
+  "libRuntime.localRuntimeName": "Локальная среда выполнения",
+  "libRuntime.messageLine": "Сообщение: {message}",
+  "libRuntime.office3dRuntimeName": "Среда выполнения Office3D",
+  "libRuntime.runtimeNameFromLabel": "Среда выполнения {label}",
+  "libRuntime.targetAgentUnavailable": "Целевой агент больше недоступен.",
+  "libRuntime.targetAndMessageRequired": "Нужно указать целевого агента и сообщение.",
+  "libRuntime.targetAndTaskRequired": "Нужно указать целевого агента и задачу для передачи.",
+
+  // --- Безопасность адресов --------------------------------------------------
+  "libSecurity.jiraAtlassianOnly": "Базовый URL Jira должен указывать на хост Atlassian Cloud.",
+  "libSecurity.jiraHttpsOnly": "Базовый URL Jira должен использовать https.",
+  "libSecurity.jiraNoCredentials": "Базовый URL Jira не должен содержать учётные данные.",
+  "libSecurity.jiraNoPath": "Базовый URL Jira не должен содержать путь.",
+  "libSecurity.jiraNoQuery":
+    "Базовый URL Jira не должен содержать строку запроса или фрагмент (#).",
+  "libSecurity.previewHttpOnly": "Предпросмотр в браузере поддерживает только адреса http(s).",
+  "libSecurity.previewNoCredentials":
+    "Предпросмотр в браузере не допускает учётные данные внутри URL.",
+  "libSecurity.previewNoPrivate":
+    "Предпросмотр в браузере не допускает loopback-адреса и адреса частной сети.",
+
+  // --- Навыки: установка и удаление ------------------------------------------
+  "libSkills.agentIdRequiredForStatus": "Для загрузки статуса навыков нужен идентификатор агента.",
+  "libSkills.cannotDeriveDirName": "Не удалось получить имя каталога из «{candidate}».",
+  "libSkills.clawhubFetchFailed": "Не удалось получить «{slug}» из ClawHub: {message}",
+  "libSkills.clawhubNoPackage": "ClawHub не вернул пакет для «{slug}».",
+  "libSkills.clawhubPackageUnusable": "Пакет ClawHub «{slug}» непригоден: {message}",
+  "libSkills.clawhubSearchFailed": "Ошибка поиска в ClawHub: {message}",
+  "libSkills.collectionFeatured": "Рекомендуемые",
+  "libSkills.expectedDirectory": "Ожидался каталог по пути «{path}».",
+  "libSkills.fieldRequired": "Не указано поле {field}.",
+  "libSkills.filePathBackslashes":
+    "В пути к файлу навыка должны использоваться прямые слеши: {path}",
+  "libSkills.filePathEmpty": "Путь к файлу навыка пуст.",
+  "libSkills.filePathEmptySegment": "Путь к файлу навыка содержит пустой сегмент: {path}",
+  "libSkills.filePathNotRelative": "Путь к файлу навыка должен быть относительным: {path}",
+  "libSkills.filePathNullByte": "Путь к файлу навыка содержит нулевой байт: {path}",
+  "libSkills.filePathTraversal":
+    "Путь к файлу навыка не может выходить за пределы каталога: {path}",
+  "libSkills.gatewayInstallWorkspaceOnly":
+    "Установка упакованных навыков через шлюз пока поддерживает только навыки рабочего пространства.",
+  "libSkills.githubFetchFailed": "Не удалось получить «{slug}» с GitHub: {message}",
+  "libSkills.githubSearchFailed": "Ошибка поиска на GitHub: {message}",
+  "libSkills.githubSkillUnusable": "Навык GitHub «{slug}» непригоден: {message}",
+  "libSkills.githubSlugFormat": "Ожидалось «owner/repo» или «owner/repo/path», получено «{slug}».",
+  "libSkills.installIntoDirFailed": "Не удалось установить «{slug}» в {directory}: {message}",
+  "libSkills.installOptionRequired": "Для установки зависимостей нужно указать вариант установки.",
+  "libSkills.installPackagedHint":
+    "Установите этот упакованный навык Office3D, чтобы он стал доступен на шлюзе.",
+  "libSkills.installRootWorkspace":
+    "Не удалось установить упакованный навык: рабочее пространство, полученное для {targetLabel}, указывает на корневое рабочее пространство шлюза ({workspaceDir}). Выберите агента заново и обновите каталог навыков перед установкой.",
+  "libSkills.installerCreateDirs": "Создайте родительские каталоги, если их нет.",
+  "libSkills.installerCreateFiles":
+    "Создайте в текущем рабочем пространстве в точности эти файлы навыка.",
+  "libSkills.installerFiles": "Файлы:",
+  "libSkills.installerNoModify": "Не меняйте имена файлов, frontmatter, отступы и содержимое.",
+  "libSkills.installerReply":
+    "После записи файлов убедитесь, что они существуют, и ответьте только словом: INSTALLED",
+  "libSkills.installerUseFileTools":
+    "Используйте файловые инструменты и запишите файлы точно в том виде, в каком они даны.",
+  "libSkills.noManifestRefuseRemove": "В {directory} нет {manifest}; удаление отменено.",
+  "libSkills.noSkillsForAgent":
+    "Не удалось изменить доступ к навыкам: у этого агента нет доступных навыков.",
+  "libSkills.notADirectory": "Путь навыка не является каталогом: {path}",
+  "libSkills.packageDuplicatePath": "Файл {path} указан в пакете навыка больше одного раза.",
+  "libSkills.packageEmpty": "В пакете навыка нет файлов.",
+  "libSkills.packageNoManifest": "В пакете навыка нет {manifest}.",
+  "libSkills.packageTooLarge": "Размер пакета навыка — {bytes} байт, больше лимита {max}.",
+  "libSkills.packageTooManyFiles": "Файлов в пакете навыка: {count}, больше лимита {max}.",
+  "libSkills.packagedAssetsMissing": "Не найдены файлы упакованного навыка: {packageId}",
+  "libSkills.packagedMissingManifest": "В упакованном навыке нет SKILL.md: {packageId}",
+  "libSkills.refuseOutsideRoot": "Отказано в доступе к «{target}»: путь находится вне {root}.",
+  "libSkills.refuseRemoveSkillsRoot": "Корневой каталог навыков удалять нельзя.",
+  "libSkills.removeNonSkillDir": "Удаление отменено: каталог не похож на навык: {path}",
+  "libSkills.removeOutsideRoot": "Удаление отменено: навык вне разрешённого каталога: {path}",
+  "libSkills.removeSkillsRoot": "Удаление отменено: это корневой каталог навыков: {path}",
+  "libSkills.removerAllowedRoot": "Допустимый корень: {path}",
+  "libSkills.removerDeleteOne":
+    "Удалите ровно один установленный каталог навыка в контексте текущего рабочего пространства.",
+  "libSkills.removerRule1": "1. Не выполняйте действий за пределами допустимого корня.",
+  "libSkills.removerRule2": "2. Не удаляйте сам допустимый корневой каталог.",
+  "libSkills.removerRule3":
+    "3. Если целевой каталог существует, перед удалением убедитесь, что в нём есть SKILL.md.",
+  "libSkills.removerRule4":
+    "4. Если целевого каталога нет, ответьте только словом: REMOVED_ALREADY",
+  "libSkills.removerRule5": "5. Если удаление прошло успешно, ответьте только словом: REMOVED",
+  "libSkills.removerRule6": "6. Не изменяйте никакие другие файлы и каталоги.",
+  "libSkills.removerRules": "Правила:",
+  "libSkills.removerTargetDir": "Целевой каталог: {path}",
+  "libSkills.removerTools":
+    "Можно использовать инструменты среды выполнения или файловые инструменты.",
+  "libSkills.selectedAgentFallback": "выбранного агента",
+  "libSkills.skillKeyRequiredForSetup": "Для изменения настройки навыка нужен ключ навыка.",
+  "libSkills.skillNameRequired": "Не указано имя навыка.",
+  "libSkills.skillNameRequiredForDeps": "Для установки зависимостей нужно указать имя навыка.",
+  "libSkills.slugRequired": "Не указан идентификатор (slug) навыка.",
+  "libSkills.soundclawDescription":
+    "Управляет воспроизведением в Spotify, ищет музыку и возвращает ссылки, которыми можно поделиться.",
+  "libSkills.taskManagerDescription":
+    "Фиксирует запросы, требующие действий, как постоянные задачи и синхронизирует общее хранилище задач канбана.",
+  "libSkills.todoDescription":
+    "Ведёт общий список задач рабочего пространства с учётом заблокированных.",
+  "libSkills.tooManySkillFiles": "В каталоге навыка больше {max} файлов.",
+  "libSkills.unknownPackagedSkill": "Неизвестный упакованный навык: {packageId}",
+  "libSkills.unknownRegistry": "Неизвестный реестр навыков: {id}",
+
+  // --- Доступ по SSH ---------------------------------------------------------
+  "libSsh.commandFailed": "Команда не выполнена ({label}).",
+  "libSsh.emptyJsonOutput": "Команда вернула пустой JSON ({label}).",
+  "libSsh.gatewayUrlMissing":
+    "Не указан адрес шлюза. Задайте его в настройках Studio или в переменной {envName}.",
+  "libSsh.invalidGatewayUrl": "Некорректный адрес шлюза: {url}",
+  "libSsh.invalidJsonOutput": "Команда вернула некорректный JSON ({label}).",
+  "libSsh.invalidPort": "Переменная {envName} должна содержать допустимый номер порта.",
+  "libSsh.invalidStrictHostKey":
+    "Переменная {envName} должна иметь одно из значений: accept-new, yes, no.",
+  "libSsh.labelRemoveSkill": "удаление навыка {skillKey}",
+  "libSsh.labelRestoreAgentState": "восстановление состояния агента {agentId}",
+  "libSsh.labelTrashAgentState": "перемещение состояния агента {agentId} в корзину",
+  "libSsh.sshExecFailed": "Не удалось запустить ssh: {message}",
+
+  // --- Общие задачи ----------------------------------------------------------
+  "libTasks.historyArchived": "Задача перенесена в архив.",
+  "libTasks.historyCreated": "Задача создана.",
+  "libTasks.idRequired": "Не указан ID задачи.",
+  "libTasks.storeRequestFailed": "Не удалось выполнить запрос к хранилищу задач.",
+  "libTasks.titleRequired": "Не указано название задачи.",
+  "libTasks.untitled": "Задача без названия",
+
+  // --- Телефония: библиотека -------------------------------------------------
+  "libTelephony.agentIdRequired": "Не указан идентификатор агента.",
+  "libTelephony.aiDisclosureRule":
+    "Вы — голосовой ИИ-ассистент, а не человек. Прямо скажите об этом в первой же реплике и сразу, без увёрток, подтверждайте это всякий раз, когда вас спрашивают, говорят ли с человеком, ботом, записью или ИИ. Никогда не утверждайте и не намекайте, что вы человек.",
+  "libTelephony.callNotFound": "Звонок с SID «{sid}» не найден.",
+  "libTelephony.callRefused": "ElevenLabs отклонил звонок.",
+  "libTelephony.conversationIdRequired": "Не указан идентификатор разговора.",
+  "libTelephony.elevenLabsStatus": "ElevenLabs вернул статус {status}.",
+  "libTelephony.elevenLabsUnreachable": "Не удалось связаться с ElevenLabs: {message}",
+  "libTelephony.fieldRequired": "Не указано поле {field}.",
+  "libTelephony.fieldTooLong":
+    "Поле {field} слишком длинное: символов — {length}, допустимо не больше {limit}.",
+  "libTelephony.firstMessage": "Здравствуйте, это {name}, ИИ-ассистент. Удобно сейчас говорить?",
+  "libTelephony.firstMessageWithOrg":
+    "Здравствуйте, это {name}, ИИ-ассистент, звоню от имени {organisation}. Удобно сейчас говорить?",
+  "libTelephony.invalidE164":
+    "Поле {field} должно содержать номер в формате E.164, например +14155550100; получено «{value}».",
+  "libTelephony.noConversationId":
+    "ElevenLabs не начал звонок: в ответе нет идентификатора разговора.",
+  "libTelephony.operatorCallTool": "- Перед каждой своей репликой вызывайте инструмент {toolName}.",
+  "libTelephony.operatorChannelOff":
+    "Указания оператора отключены: задайте OFFICE3D_TELEPHONY_WEBHOOK_SECRET, чтобы включить обратный вызов агента.",
+  "libTelephony.operatorFollow":
+    "- Если он вернул указание, выполните его в следующей реплике своими словами.",
+  "libTelephony.operatorIntro": "Коллега может следить за этим звонком и присылать вам заметки:",
+  "libTelephony.operatorNothing": "- Если он ничего не вернул, продолжайте как прежде.",
+  "libTelephony.operatorSilent":
+    "- Не зачитывайте вслух вызов инструмента или заметку. Если вас спросят, участвует ли в разговоре человек, честно ответьте, что да.",
+  "libTelephony.overrideHint":
+    "{message} Если дело в переопределении промпта, включите «allow overrides» для промпта и первой реплики этого агента в панели ElevenLabs.",
+  "libTelephony.promptAllowInterrupt":
+    "- Позволяйте собеседнику перебивать вас и замолкайте, когда он это делает.",
+  "libTelephony.promptGiveName":
+    "- Представьтесь в начале и одной фразой объясните, зачем звоните.",
+  "libTelephony.promptIdentity": "Вы — {name}.",
+  "libTelephony.promptIdentityWithOrg": "Вы — {name}, звоните от имени {organisation}.",
+  "libTelephony.promptNoSecrets":
+    "- Не спрашивайте пароли, номера карт и одноразовые коды. Если собеседник начинает их называть, остановите его.",
+  "libTelephony.promptOnThisCall": "В этом звонке:",
+  "libTelephony.promptOnlyKnown":
+    "- Отвечайте только на основе того, что действительно знаете. Если не знаете — так и скажите и предложите вернуться с ответом позже, а не гадайте.",
+  "libTelephony.promptOptOut":
+    "- Если собеседник просит исключить его из обзвона или больше не звонить, подтвердите это, скажите, что просьба будет зафиксирована, и вежливо завершите звонок.",
+  "libTelephony.promptRole": "Ваша роль: {role}.",
+  "libTelephony.promptSpeakNaturally":
+    "- Говорите, как человек по телефону: короткие реплики, простые слова, не зачитывайте списки.",
+  "libTelephony.recordingStatus": "вернул статус {status} для записи.",
+  "libTelephony.unauthorized": "Нет доступа.",
+  "libTelephony.voiceAgentNotConfigured": "Голосовой агент не настроен. Не заданы: {missing}.",
+  "libTelephony.webhookSecretTooShort":
+    "Длина OFFICE3D_TELEPHONY_WEBHOOK_SECRET — {length} симв.; нужно не меньше {min}.",
+
+  // --- Разбор сообщений ------------------------------------------------------
+  "libText.toolCall": "Вызов инструмента",
+  "libText.toolResult": "Результат инструмента",
+
+  // --- Голосовые ответы: библиотека ------------------------------------------
+  "libVoiceReply.missingApiKey": "Не задан ELEVENLABS_API_KEY.",
+  "libVoiceReply.synthesisFailed": "Не удалось синтезировать голос в ElevenLabs.",
+  "libVoiceReply.unsupportedProvider": "Этот провайдер голосовых ответов не поддерживается.",
 
   // --- Вывески автоматов -----------------------------------------------------
   "machines.atm": "БАНКОМАТ",
@@ -1312,6 +2007,240 @@ export const ru = {
   "onboarding.welcomeWatchLead": "Ваши ИИ-агенты в реальном времени в общем 3D-офисе",
   "onboarding.whatAgentsDo": "Что можно делать с агентами:",
   "onboarding.yourCompany": "Ваша компания",
+
+  // --- Операции с агентами ---------------------------------------------------
+  "opsAgents.agentIdRequired": "Требуется ID агента.",
+  "opsAgents.connectBeforeCreate": "Подключитесь к шлюзу, прежде чем создавать агента.",
+  "opsAgents.createFailed": "Не удалось создать агента.",
+  "opsAgents.createLabel": "Создание агента {name}",
+  "opsAgents.createdNotLoaded": "Агент «{name}» создан, но Studio пока не может его загрузить.",
+  "opsAgents.createdPermissionsFailed":
+    "Агент создан, но не удалось применить разрешения по умолчанию: {message}",
+  "opsAgents.defaultPermissionsFailed": "Не удалось применить разрешения по умолчанию.",
+  "opsAgents.defaultPermissionsFailedDetail":
+    "Не удалось применить разрешения по умолчанию: {message}",
+  "opsAgents.deleteConfirm":
+    "Удалить агента {name}? Запись агента будет удалена из OpenClaw, а его автоматизации по расписанию — очищены. Файлы рабочего пространства Office3D не тронет.",
+  "opsAgents.deleteFailed": "Не удалось удалить агента.",
+  "opsAgents.deleteLabel": "Удаление агента {name}",
+  "opsAgents.deleteTimedOut": "Истекло время ожидания запроса на удаление агента.",
+  "opsAgents.filesInitFailed": "Не удалось инициализировать файлы агента.",
+  "opsAgents.filesLoadFailed": "Не удалось загрузить файлы агента.",
+  "opsAgents.filesMissingAgentId": "У этого агента не указан ID.",
+  "opsAgents.filesSaveFailed": "Не удалось сохранить файлы агента.",
+  "opsAgents.gatewayBackSyncing": "Шлюз снова в сети, синхронизация агентов",
+  "opsAgents.gatewayClientUnavailable": "Клиент шлюза недоступен.",
+  "opsAgents.gatewayNoResponse": "{label} Шлюз не ответил вовремя.",
+  "opsAgents.gatewayRestartInProgress": "Идёт перезапуск шлюза",
+  "opsAgents.loadFailed": "Не удалось загрузить агентов.",
+  "opsAgents.mainCannotBeDeleted": "Главного агента удалить нельзя.",
+  "opsAgents.nameRequired": "Укажите имя агента.",
+  "opsAgents.permCommandsAsk": "Команды: с подтверждением",
+  "opsAgents.permCommandsAuto": "Команды: автоматически",
+  "opsAgents.permCommandsOff": "Команды: выключены",
+  "opsAgents.permFileToolsOff": "Файловые инструменты: выключены",
+  "opsAgents.permFileToolsOn": "Файловые инструменты: включены",
+  "opsAgents.permWebOff": "Веб: выключен",
+  "opsAgents.permWebOn": "Веб: включён",
+  "opsAgents.renameFailed": "Не удалось переименовать агента.",
+  "opsAgents.renameLabel": "Переименование агента {name}",
+  "opsAgents.renameTimedOut": "Истекло время ожидания запроса на переименование агента.",
+  "opsAgents.restartTimedOutAfterDelete":
+    "Истекло время ожидания перезапуска шлюза после удаления агента.",
+  "opsAgents.restartTimedOutAfterRename":
+    "Истекло время ожидания перезапуска шлюза после переименования агента.",
+  "opsAgents.submittingConfigChange": "Отправка изменения конфигурации",
+  "opsAgents.updatePermissionsLabel": "Обновление разрешений агента {name}",
+  "opsAgents.updateSkillsLabel": "Обновление навыков агента {name}",
+  "opsAgents.waitingActiveRuns": "Ожидание завершения активных запусков",
+  "opsAgents.waitingGatewayRestart": "Ожидание перезапуска шлюза",
+
+  // --- Одобрения: операции ---------------------------------------------------
+  "opsApprovals.autoResumeMessage":
+    "{marker}\nПродолжите с того места, где остановились, и завершите задачу.",
+  "opsApprovals.resolveFailed": "Не удалось обработать одобрение команды.",
+  "opsApprovals.unknownCommand": "Неизвестная команда",
+
+  // --- Чат: операции ---------------------------------------------------------
+  "opsChat.agentNotFoundLine": "Ошибка: агент не найден.",
+  "opsChat.attachedFileEnd": "[Конец вложенного файла: {name}]",
+  "opsChat.attachedFileStart": "[Вложенный файл: {name}]",
+  "opsChat.connectBeforeStop": "Подключитесь к шлюзу, прежде чем останавливать запуск.",
+  "opsChat.cronFinished": "Задача по расписанию завершена ({status}): {jobId}",
+  "opsChat.errorLine": "Ошибка: {message}",
+  "opsChat.gatewayError": "Ошибка шлюза",
+  "opsChat.missingSessionKey": "У агента нет ключа сессии.",
+  "opsChat.modelUpdateBlocked":
+    "Модель не изменена: этот шлюз запрещает sessions.patch для клиентов WebChat; отправка сообщений по-прежнему работает.",
+  "opsChat.modelUpdateFailed": "Не удалось обновить модель",
+  "opsChat.newSessionAgentNotFound": "Не удалось начать новую сессию: агент не найден.",
+  "opsChat.newSessionFailed": "Не удалось начать новую сессию.",
+  "opsChat.newSessionFailedLine": "Не удалось начать новую сессию: {message}",
+  "opsChat.noOutput": "(нет вывода)",
+  "opsChat.runAborted": "Запуск прерван.",
+  "opsChat.runError": "Ошибка запуска.",
+  "opsChat.setModelFailed": "Не удалось задать модель.",
+  "opsChat.setThinkingFailed": "Не удалось задать уровень размышлений.",
+  "opsChat.stopFailed": "Не удалось остановить запуск.",
+  "opsChat.stopFailedLine": "Остановка не удалась: {message}",
+  "opsChat.thinkingUpdateBlocked":
+    "Уровень размышлений не изменён: этот шлюз запрещает sessions.patch для клиентов WebChat; отправка сообщений по-прежнему работает.",
+  "opsChat.thinkingUpdateFailed": "Не удалось обновить уровень размышлений",
+
+  // --- Конструктор компании: операции ----------------------------------------
+  "opsCompany.clearingMain": "Очищаем состояние прежнего главного агента.",
+  "opsCompany.creatingAgent": "Создаём агента {name}.",
+  "opsCompany.noPlanningResponse": "Агент-планировщик завершил работу, но ответа ассистента нет.",
+  "opsCompany.planningPromptRequired": "Требуется запрос для планирования.",
+  "opsCompany.planningTimedOut": "Истекло время ожидания ответа агента-планировщика.",
+  "opsCompany.reconfiguringMain": "Перенастраиваем главного агента как {name}.",
+  "opsCompany.refreshingFirstRole": "Обновляем сессию первой роли.",
+  "opsCompany.replacingMany": "Заменяем текущих агентов ({count}).",
+  "opsCompany.replacingOne": "Заменяем текущего агента.",
+  "opsCompany.syncing": "Переносим новую компанию в офис.",
+  "opsCompany.waitForRun": "Дождитесь, пока {name} завершит текущий запуск.",
+
+  // --- GitHub: операции ------------------------------------------------------
+  "opsGithub.diffUnavailable": "Предпросмотр изменений для этого файла недоступен.",
+  "opsGithub.previewCaptureFailed": "Не удалось сделать снимок страницы GitHub в браузере.",
+  "opsGithub.unknownUpdate": "Время обновления неизвестно",
+  "opsGithub.updatedDaysAgo": "Обновлено {days} дн. назад",
+  "opsGithub.updatedHoursAgo": "Обновлено {hours} ч назад",
+  "opsGithub.updatedJustNow": "Обновлено только что",
+  "opsGithub.updatedMinutesAgo": "Обновлено {minutes} мин назад",
+
+  // --- Музыкальный автомат: операции -----------------------------------------
+  "opsJukebox.paused": "Музыкальный автомат в офисе поставлен на паузу.",
+  "opsJukebox.playbackFailed":
+    "Не удалось начать воспроизведение. Убедитесь, что Spotify открыт на каком-либо устройстве.",
+  "opsJukebox.playing": "В офисном музыкальном автомате играет: {artist} — «{track}».",
+  "opsJukebox.resumed": "Музыкальный автомат в офисе снова играет.",
+  "opsJukebox.searchFailed": "Поиск не удался.",
+  "opsJukebox.skippedNext": "Музыкальный автомат в офисе переключён на следующий трек.",
+  "opsJukebox.started": "Музыкальный автомат в офисе запущен.",
+  "opsJukebox.unknownArtist": "Неизвестный исполнитель",
+  "opsJukebox.unreachable": "Не удалось связаться со Spotify.",
+  "opsJukebox.wentPrevious": "Музыкальный автомат в офисе вернулся к предыдущему треку.",
+
+  // --- Маркет навыков: операции ----------------------------------------------
+  "opsMarket.depsInstalled": "Зависимости для навыка {skill} установлены.",
+  "opsMarket.disabledForGateway": "Навык отключён на этом шлюзе.",
+  "opsMarket.enabledFor": "Навык {skill} включён для агента {agent}.",
+  "opsMarket.enabledForGateway": "Навык включён на этом шлюзе.",
+  "opsMarket.installEnableFailed": "Не удалось установить и включить навык.",
+  "opsMarket.installedAndEnabled": "Навык {skill} установлен и включён для агента {agent}.",
+  "opsMarket.installedInWorkspace":
+    "Навык {skill} установлен в выбранное рабочее пространство. Включите его для агента на вкладке Office3D.",
+  "opsMarket.loadFailed": "Не удалось загрузить данные маркетплейса навыков.",
+  "opsMarket.mainAgentFallback": "главный агент",
+  "opsMarket.noGuidedInstall": "Для навыка {skill} нет пошаговой установки.",
+  "opsMarket.noPackagedSkill": "Для «{entry}» не найден пакетный навык маркетплейса.",
+  "opsMarket.noSkillManagement": "Эта среда выполнения не поддерживает управление навыками.",
+  "opsMarket.progressDone": "Навык task-manager установлен и включён.",
+  "opsMarket.progressEnablingGateway": "Включение task-manager на этом шлюзе.",
+  "opsMarket.progressEnablingMain": "Включение task-manager для главного агента.",
+  "opsMarket.progressInstalling": "Установка task-manager в рабочее пространство.",
+  "opsMarket.progressPreparing": "Подготовка установки навыка в рабочее пространство.",
+  "opsMarket.progressRefreshing": "Обновление состояния навыков в Office3D.",
+  "opsMarket.removedFrom": "Навык {skill} убран у агента {agent}.",
+  "opsMarket.removedFromGateway": "Навык {skill} удалён из файлов шлюза.",
+  "opsMarket.selectAgentToInstall": "Выберите агента, чтобы устанавливать навыки из маркетплейса.",
+  "opsMarket.selectAgentToManage": "Выберите агента, чтобы управлять навыками из маркетплейса.",
+  "opsMarket.selectedAgentFallback": "выбранный агент",
+  "opsMarket.thatEntryFallback": "этой записи",
+  "opsMarket.updateFailed": "Не удалось обновить навык.",
+
+  // --- Офис: операции --------------------------------------------------------
+  "opsOffice.callFeedReadFailed": "Не удалось прочитать ленту звонков",
+  "opsOffice.callPlaceFailed": "Не удалось совершить звонок",
+  "opsOffice.dailyBudget": "Дневной бюджет",
+  "opsOffice.instructionSendFailed": "Не удалось отправить указание",
+  "opsOffice.messageSendFailed": "Не удалось отправить сообщение",
+  "opsOffice.messagesReadFailed": "Не удалось прочитать сообщения",
+  "opsOffice.monthlyBudget": "Месячный бюджет",
+  "opsOffice.perAgentSoftLimit": "Мягкий лимит на агента",
+  "opsOffice.remoteGatewayPresenceLoadFailed":
+    "Не удалось загрузить присутствие на удалённом шлюзе.",
+  "opsOffice.remoteLayoutLoadFailed": "Не удалось загрузить планировку удалённого офиса.",
+  "opsOffice.remotePresenceLoadFailed": "Не удалось загрузить присутствие в удалённом офисе.",
+  "opsOffice.standupAdvanceFailed": "Не удалось продвинуть планёрку дальше.",
+  "opsOffice.standupLoadFailed": "Не удалось загрузить состояние планёрки.",
+  "opsOffice.standupMeetingRefreshFailed": "Не удалось обновить планёрку.",
+  "opsOffice.standupScheduledStartFailed": "Не удалось начать планёрку по расписанию.",
+  "opsOffice.standupSpeakingFailed": "Не удалось начать выступления на планёрке.",
+  "opsOffice.standupStateRefreshFailed": "Не удалось обновить состояние планёрки.",
+  "opsOffice.unknownTool": "Неизвестно",
+  "opsOffice.usageLoadFailed": "Не удалось загрузить аналитику использования.",
+
+  // --- Настройки агента: операции --------------------------------------------
+  "opsSettings.apiKeyEmpty": "Ключ API не может быть пустым.",
+  "opsSettings.apiKeySaved": "Ключ API сохранён",
+  "opsSettings.automationCreateFailed": "Не удалось создать автоматизацию.",
+  "opsSettings.cronBusy": "Дождитесь завершения текущего действия с задачей по расписанию.",
+  "opsSettings.cronCreateFailed": "Не удалось создать задачу по расписанию.",
+  "opsSettings.cronCreateMissingAgentId":
+    "Не удалось создать задачу по расписанию: не указан ID агента.",
+  "opsSettings.cronUnsupported": "Эта среда выполнения не поддерживает автоматизации.",
+  "opsSettings.disableLabel": "Отключение",
+  "opsSettings.enableLabel": "Включение",
+  "opsSettings.installDepsLabel": "Установка зависимостей для {name}",
+  "opsSettings.installed": "Установлено",
+  "opsSettings.modelsLoadFailed": "Не удалось загрузить модели.",
+  "opsSettings.removeSkillLabel": "Удаление навыка {skill}",
+  "opsSettings.repairSandboxToolAccess": "Восстановление доступа к инструментам песочницы",
+  "opsSettings.saveApiKeyLabel": "Сохранение ключа API для {skill}",
+  "opsSettings.scheduleDeleteFailed": "Не удалось удалить расписание.",
+  "opsSettings.scheduleRunFailed": "Не удалось запустить расписание.",
+  "opsSettings.schedulesLoadFailed": "Не удалось загрузить расписания.",
+  "opsSettings.schedulesLoadMissingAgentId":
+    "Не удалось загрузить расписания: не указан ID агента.",
+  "opsSettings.selectedSkillsEmpty":
+    "Нельзя включить режим выбранных навыков: выберите хотя бы один навык.",
+  "opsSettings.skillDisabledGlobally": "Навык отключён глобально",
+  "opsSettings.skillEnabledGlobally": "Навык включён глобально",
+  "opsSettings.skillFilesAlreadyRemoved": "Файлы навыка уже удалены",
+  "opsSettings.skillKeyRequired": "Чтобы удалить навык, нужен его ключ.",
+  "opsSettings.skillRemovedFromGateway": "Навык удалён из файлов шлюза",
+  "opsSettings.skillSetupUpdateFailed": "Не удалось обновить настройку навыка.",
+  "opsSettings.skillSourceNotRemovable":
+    "Навык из этого источника нельзя удалить из Studio: {source}.",
+  "opsSettings.skillsLoadFailed": "Не удалось загрузить навыки.",
+  "opsSettings.skillsLoadMissingAgentId": "Не удалось загрузить навыки: не указан ID агента.",
+  "opsSettings.skillsNotLoaded": "Нельзя удалить навык: навыки не загружены.",
+  "opsSettings.skillsUpdateFailed": "Не удалось обновить навыки.",
+  "opsSettings.tabAdvanced": "Дополнительно",
+  "opsSettings.tabAutomations": "Автоматизации",
+  "opsSettings.tabBehavior": "Поведение",
+  "opsSettings.tabCapabilities": "Возможности",
+  "opsSettings.tabSkills": "Навыки",
+  "opsSettings.tabSystem": "Настройка системы",
+
+  // --- Канбан: операции ------------------------------------------------------
+  "opsTasks.archiveFailed": "Не удалось отправить задачу в архив в общем хранилище.",
+  "opsTasks.blockers": "Блокеры: {blockers}",
+  "opsTasks.createFailed": "Не удалось создать задачу в общем хранилище.",
+  "opsTasks.debugPersisted": "Входящий запрос сохранён в общее хранилище задач.",
+  "opsTasks.debugQueued":
+    "Обнаружен входящий запрос пользователя, он поставлен в очередь на сохранение.",
+  "opsTasks.incomingRequest": "Входящий запрос",
+  "opsTasks.moveFailed": "Не удалось переместить задачу в общем хранилище.",
+  "opsTasks.newTask": "Новая задача",
+  "opsTasks.openclawLoadFailed": "Не удалось загрузить задачи из OpenClaw.",
+  "opsTasks.playbooksLoadFailed": "Не удалось загрузить сценарии.",
+  "opsTasks.recoveredExists": "Восстановленный запрос уже есть на доске.",
+  "opsTasks.recoveredLatest":
+    "Последний запрос пользователя восстановлен из истории и состояния агента.",
+  "opsTasks.recoveredRequest": "Восстановленный запрос",
+  "opsTasks.standupTask": "Задача с планёрки",
+  "opsTasks.storeLoadFailed": "Не удалось загрузить общее хранилище задач.",
+  "opsTasks.storeRouteUnavailable": "Маршрут общего хранилища задач недоступен.",
+  "opsTasks.storeRouteUnavailableRestart":
+    "Маршрут общего хранилища задач недоступен. Перезапустите сервер разработки, чтобы включить синхронизацию задач.",
+  "opsTasks.syncLiveFailed": "Не удалось синхронизировать текущий запрос с общим хранилищем задач.",
+  "opsTasks.task": "Задача",
+  "opsTasks.triggeredPlaybook": "Задача из запущенного сценария",
+  "opsTasks.untitled": "Задача без названия",
+  "opsTasks.updateFailed": "Не удалось обновить задачу в общем хранилище.",
 
   // --- Телефон офиса -------------------------------------------------------
   "phone.agentLabel": "Агент",

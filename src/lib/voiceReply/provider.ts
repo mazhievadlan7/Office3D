@@ -1,3 +1,5 @@
+
+import { t } from "@/lib/i18n";
 export type VoiceReplyProvider = "elevenlabs";
 
 export type VoiceReplySynthesisRequest = {
@@ -32,7 +34,7 @@ const synthesizeWithElevenLabs = async (
   // TODO: Create Office3D voice and text skill.
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   if (!apiKey) {
-    throw new Error("Missing ELEVENLABS_API_KEY.");
+    throw new Error(t("libVoiceReply.missingApiKey"));
   }
   const voiceId = normalizeVoiceId(request.voiceId);
   const speed = normalizeVoiceSpeed(request.speed);
@@ -61,7 +63,7 @@ const synthesizeWithElevenLabs = async (
   );
   if (!response.ok) {
     const detail = (await response.text().catch(() => "")).trim();
-    throw new Error(detail || "ElevenLabs voice synthesis failed.");
+    throw new Error(detail || t("libVoiceReply.synthesisFailed"));
   }
   return response;
 };
@@ -74,6 +76,6 @@ export const synthesizeVoiceReply = async (
     case "elevenlabs":
       return synthesizeWithElevenLabs(request);
     default:
-      throw new Error("Unsupported voice reply provider.");
+      throw new Error(t("libVoiceReply.unsupportedProvider"));
   }
 };

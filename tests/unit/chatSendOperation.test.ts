@@ -230,7 +230,7 @@ describe("sendChatMessageViaStudio", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: agent.agentId,
-      line: "Error: invalid model ref",
+      line: "Ошибка: invalid model ref",
     });
   });
 
@@ -537,7 +537,7 @@ describe("sendChatMessageViaStudio", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "appendOutput",
       agentId: agent.agentId,
-      line: "Error: boom",
+      line: "Ошибка: boom",
     });
   });
 

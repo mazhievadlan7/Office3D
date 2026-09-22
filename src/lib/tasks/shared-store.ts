@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { t } from "@/lib/i18n";
 // import os from "node:os";
 import path from "node:path";
 
@@ -171,7 +172,7 @@ const appendHistory = (
       {
         at: next.updatedAt,
         type: "created",
-        note: "Task created.",
+        note: t("libTasks.historyCreated"),
         fromStatus: null,
         toStatus: next.status,
       },
@@ -184,7 +185,7 @@ const appendHistory = (
       {
         at: next.updatedAt,
         type: "archived",
-        note: "Task archived.",
+        note: t("libTasks.historyArchived"),
         fromStatus: existing.status,
         toStatus: existing.status,
       },
@@ -233,7 +234,7 @@ export const upsertSharedTask = (
 
   const next: SharedTaskRecord = {
     id: task.id.trim(),
-    title: truncateField(task.title.trim() || existing?.title || "Untitled task", MAX_TITLE_LENGTH),
+    title: truncateField(task.title.trim() || existing?.title || t("libTasks.untitled"), MAX_TITLE_LENGTH),
     description: truncateField(task.description?.trim() ?? existing?.description ?? "", MAX_DESCRIPTION_LENGTH),
     status: isTaskBoardStatus(rawStatus) ? rawStatus : "todo",
     source: isTaskBoardSource(rawSource) ? rawSource : "office3d_manual",

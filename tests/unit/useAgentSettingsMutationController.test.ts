@@ -110,7 +110,7 @@ vi.mock("@/lib/skills/types", () => ({
   })),
   installSkill: vi.fn(async () => ({
     ok: true,
-    message: "Installed",
+    message: "Установлено",
     stdout: "",
     stderr: "",
     code: 0,
@@ -259,7 +259,7 @@ describe("useAgentSettingsMutationController", () => {
     });
     mockedInstallSkill.mockResolvedValue({
       ok: true,
-      message: "Installed",
+      message: "Установлено",
       stdout: "",
       stderr: "",
       code: 0,
@@ -312,7 +312,7 @@ describe("useAgentSettingsMutationController", () => {
       await ctx.getValue().handleDeleteAgent("main");
     });
 
-    expect(ctx.setError).toHaveBeenCalledWith("The main agent cannot be deleted.");
+    expect(ctx.setError).toHaveBeenCalledWith("Главного агента удалить нельзя.");
     expect(ctx.enqueueConfigMutation).not.toHaveBeenCalled();
     expect(mockedDeleteAgentViaStudio).not.toHaveBeenCalled();
   });
@@ -437,7 +437,7 @@ describe("useAgentSettingsMutationController", () => {
     await act(async () => {
       timeoutHookParams!.onTimeout();
     });
-    expect(ctx.setError).toHaveBeenCalledWith("Gateway restart timed out after renaming the agent.");
+    expect(ctx.setError).toHaveBeenCalledWith("Истекло время ожидания перезапуска шлюза после переименования агента.");
 
     mockedRunLifecycle.mockImplementation(async ({ deps }) => {
       deps.setQueuedBlock();
@@ -491,7 +491,7 @@ describe("useAgentSettingsMutationController", () => {
     expect(mockedPerformCronCreateFlow).not.toHaveBeenCalled();
     expect(mockedRunCronJobNow).not.toHaveBeenCalled();
     expect(mockedRemoveCronJob).not.toHaveBeenCalled();
-    expect(ctx.getValue().settingsCronError).toBe("This runtime does not support automations.");
+    expect(ctx.getValue().settingsCronError).toBe("Эта среда выполнения не поддерживает автоматизации.");
   });
 
   it("loads_skills_when_settings_skills_tab_is_active", async () => {
@@ -586,7 +586,7 @@ describe("useAgentSettingsMutationController", () => {
 
     expect(mockedUpdateGatewayAgentSkillsAllowlist).not.toHaveBeenCalled();
     expect(ctx.getValue().settingsSkillsError).toBe(
-      "Cannot set selected skills mode: choose at least one skill."
+      "Нельзя включить режим выбранных навыков: выберите хотя бы один навык."
     );
   });
 
@@ -621,7 +621,7 @@ describe("useAgentSettingsMutationController", () => {
     expect(ctx.getValue().settingsSkillsBusyKey).toBeNull();
     expect(ctx.getValue().settingsSkillMessages.browser).toEqual({
       kind: "success",
-      message: "Installed",
+      message: "Установлено",
     });
     expect(mockedLoadAgentSkillStatus).toHaveBeenCalledTimes(2);
   });
@@ -709,7 +709,7 @@ describe("useAgentSettingsMutationController", () => {
     expect(ctx.getValue().settingsSkillsBusyKey).toBeNull();
     expect(ctx.getValue().settingsSkillMessages.browser).toEqual({
       kind: "success",
-      message: "Skill removed from gateway files",
+      message: "Навык удалён из файлов шлюза",
     });
   });
 
@@ -747,7 +747,7 @@ describe("useAgentSettingsMutationController", () => {
     expect(ctx.getValue().settingsSkillApiKeyDrafts.browser).toBe("token-123");
     expect(ctx.getValue().settingsSkillMessages.browser).toEqual({
       kind: "success",
-      message: "API key saved",
+      message: "Ключ API сохранён",
     });
   });
 
@@ -781,7 +781,7 @@ describe("useAgentSettingsMutationController", () => {
     expect(ctx.refreshGatewayConfigSnapshot).toHaveBeenCalledTimes(1);
     expect(ctx.getValue().settingsSkillMessages.browser).toEqual({
       kind: "success",
-      message: "Skill disabled globally",
+      message: "Навык отключён глобально",
     });
   });
 
@@ -841,10 +841,10 @@ describe("useAgentSettingsMutationController", () => {
     });
 
     expect(mockedUpdateSkill).not.toHaveBeenCalled();
-    expect(ctx.getValue().settingsSkillsError).toBe("API key cannot be empty.");
+    expect(ctx.getValue().settingsSkillsError).toBe("Ключ API не может быть пустым.");
     expect(ctx.getValue().settingsSkillMessages.browser).toEqual({
       kind: "error",
-      message: "API key cannot be empty.",
+      message: "Ключ API не может быть пустым.",
     });
   });
 

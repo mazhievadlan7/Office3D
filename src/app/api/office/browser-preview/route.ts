@@ -6,6 +6,7 @@ import {
 } from "@/lib/office/browserPreview";
 import { validateBrowserPreviewTarget } from "@/lib/security/urlSafety";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -46,9 +47,9 @@ const buildBrowserHeaders = (token: string | null): HeadersInit => {
 const parseBrowserError = async (response: Response): Promise<string> => {
   try {
     const payload = (await response.json()) as { error?: string; message?: string };
-    return payload.error?.trim() || payload.message?.trim() || response.statusText || "Browser request failed";
+    return payload.error?.trim() || payload.message?.trim() || response.statusText || t("apiOffice.browserRequestFailed");
   } catch {
-    return response.statusText || "Browser request failed";
+    return response.statusText || t("apiOffice.browserRequestFailed");
   }
 };
 
@@ -116,7 +117,7 @@ const ensurePreviewTab = async (
     body: JSON.stringify({ url: browserUrl }),
   }, token);
   if (!opened.targetId) {
-    throw new Error("Browser preview did not return a target tab.");
+    throw new Error(t("apiOffice.browserNoTargetTab"));
   }
   return { targetId: opened.targetId, resolvedUrl: opened.url || browserUrl };
 };
@@ -126,7 +127,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const rawUrl = (searchParams.get("url") ?? "").trim();
     if (!rawUrl) {
-      return NextResponse.json({ error: "url is required" }, { status: 400 });
+      return NextResponse.json({ error: t("apiOffice.browserUrlRequired") }, { status: 400 });
     }
 
     let browserUrl: string;
@@ -134,7 +135,7 @@ export async function GET(request: Request) {
       browserUrl = validateBrowserPreviewTarget(rawUrl).toString();
     } catch {
       return NextResponse.json(
-        { error: "url must be an absolute public http(s) URL" },
+        { error: t("apiOffice.browserUrlInvalid") },
         { status: 400 }
       );
     }
@@ -150,7 +151,7 @@ export async function GET(request: Request) {
     const controlBaseUrl = resolveBrowserControlBaseUrl(gatewayUrl);
     if (!controlBaseUrl) {
       return NextResponse.json(
-        { error: "Browser screenshot preview only works when Studio is connected to a local gateway." },
+        { error: t("apiOffice.browserLocalOnly") },
         { status: 501 },
       );
     }
@@ -168,7 +169,7 @@ export async function GET(request: Request) {
     }, token);
 
     if (!screenshot.path?.trim()) {
-      throw new Error("Browser screenshot did not return a media path.");
+      throw new Error(t("apiOffice.browserNoMediaPath"));
     }
 
     const mediaUrl = `/api/gateway/media?path=${encodeURIComponent(screenshot.path)}`;
@@ -188,7 +189,7 @@ export async function GET(request: Request) {
       },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to build browser preview";
+    const message = err instanceof Error ? err.message : t("apiOffice.browserPreviewFailed");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -10,6 +10,7 @@ import {
   loadLocalGatewayDefaults,
   loadStudioSettings,
 } from "@/lib/studio/settings-store";
+import { t } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load studio settings.";
+    const message = err instanceof Error ? err.message : t("apiStudio.settingsLoadFailed");
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -41,11 +42,11 @@ export async function PUT(request: Request) {
   try {
     const rawBody = await request.text();
     if (!rawBody.trim()) {
-      return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
+      return NextResponse.json({ error: t("apiStudio.invalidSettings") }, { status: 400 });
     }
     const body = JSON.parse(rawBody) as unknown;
     if (!isPatch(body)) {
-      return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
+      return NextResponse.json({ error: t("apiStudio.invalidSettings") }, { status: 400 });
     }
     const settings = applyStudioSettingsPatch(body);
     return NextResponse.json(
@@ -57,7 +58,7 @@ export async function PUT(request: Request) {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to save studio settings.";
+    const message = err instanceof Error ? err.message : t("apiStudio.settingsSaveFailed");
     console.error(message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

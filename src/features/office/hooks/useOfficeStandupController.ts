@@ -11,6 +11,7 @@ import type {
   StudioStandupPreferencePatch,
   StudioStandupPreferencePublic,
 } from "@/lib/studio/settings";
+import { t } from "@/lib/i18n";
 
 type StandupConfigResponse = {
   gatewayUrl: string;
@@ -192,7 +193,7 @@ export const useOfficeStandupController = (params: {
       .catch((err) => {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to load standup state."
+            err instanceof Error ? err.message : t("opsOffice.standupLoadFailed")
           );
         }
       })
@@ -209,7 +210,7 @@ export const useOfficeStandupController = (params: {
       if (!pageVisible()) return;
       void refreshMeeting().catch((err) => {
         setError(
-          err instanceof Error ? err.message : "Failed to refresh standup meeting."
+          err instanceof Error ? err.message : t("opsOffice.standupMeetingRefreshFailed")
         );
       });
     }, isMeetingActive(meeting) ? 8000 : 60000);
@@ -223,7 +224,7 @@ export const useOfficeStandupController = (params: {
       if (!pageVisible()) return;
       void Promise.all([refreshConfig(), refreshMeeting()]).catch((err) => {
         setError(
-          err instanceof Error ? err.message : "Failed to refresh standup state."
+          err instanceof Error ? err.message : t("opsOffice.standupStateRefreshFailed")
         );
       });
     };
@@ -347,7 +348,7 @@ export const useOfficeStandupController = (params: {
       }
       void startMeeting("scheduled").catch((err) => {
         setError(
-          err instanceof Error ? err.message : "Failed to start the scheduled standup."
+          err instanceof Error ? err.message : t("opsOffice.standupScheduledStartFailed")
         );
       });
     }, 60000);
@@ -372,7 +373,7 @@ export const useOfficeStandupController = (params: {
       .then((payload) => setMeeting(payload.meeting))
       .catch((err) => {
         setError(
-          err instanceof Error ? err.message : "Failed to start standup speaking."
+          err instanceof Error ? err.message : t("opsOffice.standupSpeakingFailed")
         );
       });
   }, [meeting]);
@@ -399,7 +400,7 @@ export const useOfficeStandupController = (params: {
         .then((payload) => setMeeting(payload.meeting))
         .catch((err) => {
           setError(
-            err instanceof Error ? err.message : "Failed to advance standup progress."
+            err instanceof Error ? err.message : t("opsOffice.standupAdvanceFailed")
           );
         });
     }, remaining + 50);

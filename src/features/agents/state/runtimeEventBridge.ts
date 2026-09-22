@@ -13,6 +13,7 @@ import {
   stripUiMetadata,
 } from "@/lib/text/message-extract";
 import { normalizeAssistantDisplayText } from "@/lib/text/assistantText";
+import { t } from "@/lib/i18n";
 
 type LifecyclePhase = "start" | "end" | "error";
 
@@ -226,15 +227,15 @@ export const buildHistoryLines = (messages: ChatHistoryMessage[]): HistoryLinesR
   const resolveAssistantTerminalLine = (message: ChatHistoryMessage): string | null => {
     const stopReason =
       typeof message.stopReason === "string" ? message.stopReason.trim().toLowerCase() : "";
-    if (stopReason === "aborted") return "Run aborted.";
+    if (stopReason === "aborted") return t("opsChat.runAborted");
     if (stopReason === "error") {
       const errorMessage =
         typeof message.errorMessage === "string" ? message.errorMessage.trim() : "";
-      return errorMessage ? `Error: ${errorMessage}` : "Run error.";
+      return errorMessage ? t("opsChat.errorLine", { message: errorMessage }) : t("opsChat.runError");
     }
     const fallbackError =
       typeof message.errorMessage === "string" ? message.errorMessage.trim() : "";
-    return fallbackError ? `Error: ${fallbackError}` : null;
+    return fallbackError ? t("opsChat.errorLine", { message: fallbackError }) : null;
   };
   const isRestartSentinelMessage = (text: string) => {
     const trimmed = text.trim();

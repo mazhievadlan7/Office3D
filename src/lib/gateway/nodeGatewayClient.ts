@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { getPublicKeyAsync, signAsync, utils } from "@noble/ed25519";
 import { GatewayResponseError } from "@/lib/gateway/errors";
+import { t } from "@/lib/i18n";
 
 type GatewayResponseFrame = {
   type: "res";
@@ -195,10 +196,10 @@ export class NodeGatewayClient {
   async connect(params: { gatewayUrl: string; token?: string | null }) {
     const gatewayUrl = params.gatewayUrl.trim();
     if (!gatewayUrl) {
-      throw new Error("Remote office gateway URL is not configured.");
+      throw new Error(t("libGateway.remoteUrlMissing"));
     }
     if (this.socket) {
-      throw new Error("Node gateway client is already connected.");
+      throw new Error(t("libGateway.nodeClientAlreadyConnected"));
     }
     this.connectToken = params.token?.trim() ?? "";
     this.deviceIdentity = await createDeviceIdentity();
@@ -221,7 +222,7 @@ export class NodeGatewayClient {
           const nonce = typeof payload?.nonce === "string" ? payload.nonce.trim() : "";
           if (!nonce) {
             this.rejectConnectFlow(
-              new Error("Remote gateway requested device authentication without a nonce."),
+              new Error(t("libGateway.remoteNoNonce")),
             );
             this.close();
             return;
@@ -249,7 +250,7 @@ export class NodeGatewayClient {
               message:
                 typeof frame.error.message === "string"
                   ? frame.error.message
-                  : "Gateway connect failed.",
+                  : t("libGateway.connectFailed"),
               details: frame.error.details,
               retryable:
                 typeof frame.error.retryable === "boolean" ? frame.error.retryable : undefined,
@@ -261,7 +262,7 @@ export class NodeGatewayClient {
           );
           return;
         }
-        this.rejectConnectFlow(new Error("Gateway connect failed."));
+        this.rejectConnectFlow(new Error(t("libGateway.connectFailed")));
         return;
       }
       const pending = this.pending.get(frame.id);
@@ -278,7 +279,7 @@ export class NodeGatewayClient {
             message:
               typeof frame.error.message === "string"
                 ? frame.error.message
-                : "Gateway request failed.",
+                : t("libGateway.requestFailed"),
             details: frame.error.details,
             retryable:
               typeof frame.error.retryable === "boolean" ? frame.error.retryable : undefined,
@@ -290,7 +291,7 @@ export class NodeGatewayClient {
         );
         return;
       }
-      pending.reject(new Error("Gateway request failed."));
+      pending.reject(new Error(t("libGateway.requestFailed")));
     });
 
     socket.addEventListener("close", (event) => {
@@ -298,7 +299,9 @@ export class NodeGatewayClient {
       const reason = typeof event.reason === "string" ? event.reason : "";
       this.rejectAllPending(
         new Error(
-          `Remote gateway connection closed${reason.trim() ? `: ${reason}` : "."}`,
+          reason.trim()
+            ? t("libGateway.remoteConnectionClosedWithReason", { reason })
+            : t("libGateway.remoteConnectionClosed"),
         ),
       );
       if (this.socket === socket) {
@@ -308,7 +311,7 @@ export class NodeGatewayClient {
     });
 
     socket.addEventListener("error", () => {
-      const error = new Error("Remote gateway connection failed.");
+      const error = new Error(t("libGateway.remoteConnectionFailed"));
       this.rejectConnectFlow(error);
       this.rejectAllPending(error);
     });
@@ -323,13 +326,13 @@ export class NodeGatewayClient {
         const handleError = () => {
           socket.removeEventListener("open", handleOpen);
           socket.removeEventListener("error", handleError);
-          reject(new Error("Remote gateway connection failed."));
+          reject(new Error(t("libGateway.remoteConnectionFailed")));
         };
         socket.addEventListener("open", handleOpen, { once: true });
         socket.addEventListener("error", handleError, { once: true });
       }),
       CONNECT_TIMEOUT_MS,
-      "Timed out connecting to the remote gateway.",
+      t("libGateway.remoteConnectTimeout"),
     );
 
     this.connectPromise = new Promise<void>((resolve, reject) => {
@@ -340,13 +343,13 @@ export class NodeGatewayClient {
     await withTimeout(
       this.connectPromise,
       REQUEST_TIMEOUT_MS,
-      "Remote gateway connect handshake timed out.",
+      t("libGateway.remoteHandshakeTimeout"),
     );
   }
 
   async request<T = unknown>(method: string, params: unknown): Promise<T> {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN || this.closed) {
-      throw new Error("Remote gateway is not connected.");
+      throw new Error(t("libGateway.remoteNotConnected"));
     }
     const id = randomUUID();
     const response = withTimeout(
@@ -356,18 +359,18 @@ export class NodeGatewayClient {
           this.socket?.send(JSON.stringify({ type: "req", id, method, params }));
         } catch (error) {
           this.pending.delete(id);
-          reject(error instanceof Error ? error : new Error("Failed to send gateway request."));
+          reject(error instanceof Error ? error : new Error(t("libGateway.sendRequestFailed")));
         }
       }),
       REQUEST_TIMEOUT_MS,
-      `Remote gateway request timed out for ${method}.`,
+      t("libGateway.remoteRequestTimeout", { method }),
     ) as Promise<T>;
     return response;
   }
 
   close() {
     this.closed = true;
-    this.rejectAllPending(new Error("Remote gateway client closed."));
+    this.rejectAllPending(new Error(t("libGateway.remoteClientClosed")));
     if (this.socket) {
       try {
         this.socket.close();
@@ -402,7 +405,7 @@ export class NodeGatewayClient {
       this.socket.readyState !== WebSocket.OPEN ||
       !this.deviceIdentity
     ) {
-      throw new Error("Remote gateway is not connected.");
+      throw new Error(t("libGateway.remoteNotConnected"));
     }
     this.connectSent = true;
     if (this.connectTimer) {

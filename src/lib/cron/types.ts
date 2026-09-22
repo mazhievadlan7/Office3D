@@ -1,4 +1,5 @@
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export type CronSchedule =
   | { kind: "at"; at: string }
@@ -95,27 +96,27 @@ export const resolveLatestCronJobForAgent = (
 
 const formatEveryMs = (everyMs: number) => {
   if (everyMs % 3600000 === 0) {
-    return `${everyMs / 3600000}h`;
+    return t("libCron.unitHours", { count: everyMs / 3600000 });
   }
   if (everyMs % 60000 === 0) {
-    return `${everyMs / 60000}m`;
+    return t("libCron.unitMinutes", { count: everyMs / 60000 });
   }
   if (everyMs % 1000 === 0) {
-    return `${everyMs / 1000}s`;
+    return t("libCron.unitSeconds", { count: everyMs / 1000 });
   }
-  return `${everyMs}ms`;
+  return t("libCron.unitMs", { count: everyMs });
 };
 
 export const formatCronSchedule = (schedule: CronSchedule) => {
   if (schedule.kind === "every") {
-    return `Every ${formatEveryMs(schedule.everyMs)}`;
+    return t("libCron.scheduleEvery", { interval: formatEveryMs(schedule.everyMs) });
   }
   if (schedule.kind === "cron") {
-    return schedule.tz ? `Cron: ${schedule.expr} (${schedule.tz})` : `Cron: ${schedule.expr}`;
+    return schedule.tz ? t("libCron.scheduleCronTz", { expr: schedule.expr, tz: schedule.tz }) : t("libCron.scheduleCron", { expr: schedule.expr });
   }
   const atDate = new Date(schedule.at);
-  if (Number.isNaN(atDate.getTime())) return `At: ${schedule.at}`;
-  return `At: ${atDate.toLocaleString()}`;
+  if (Number.isNaN(atDate.getTime())) return t("libCron.scheduleAt", { at: schedule.at });
+  return t("libCron.scheduleAt", { at: atDate.toLocaleString() });
 };
 
 export const formatCronPayload = (payload: CronPayload) => {
@@ -158,7 +159,7 @@ export type CronJobRestoreInput = {
 const resolveJobId = (jobId: string): string => {
   const trimmed = jobId.trim();
   if (!trimmed) {
-    throw new Error("Cron job id is required.");
+    throw new Error(t("libCron.jobIdRequired"));
   }
   return trimmed;
 };
@@ -166,7 +167,7 @@ const resolveJobId = (jobId: string): string => {
 const resolveAgentId = (agentId: string): string => {
   const trimmed = agentId.trim();
   if (!trimmed) {
-    throw new Error("Agent id is required.");
+    throw new Error(t("libCron.agentIdRequired"));
   }
   return trimmed;
 };
@@ -174,7 +175,7 @@ const resolveAgentId = (agentId: string): string => {
 const resolveCronJobName = (name: string): string => {
   const trimmed = name.trim();
   if (!trimmed) {
-    throw new Error("Cron job name is required.");
+    throw new Error(t("libCron.nameRequired"));
   }
   return trimmed;
 };
@@ -255,7 +256,7 @@ export const restoreCronJobs = async (
       await createCronJob(client, job);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to restore cron job "${job.name}" (${job.agentId}): ${message}`);
+      throw new Error(t("libCron.restoreFailed", { name: job.name, agentId: job.agentId, message }));
     }
   }
 };
@@ -278,7 +279,7 @@ export const removeCronJobsForAgentWithBackup = async (
     }
     if (!removeResult.ok) {
       await restoreRemovedJobsBestEffort(client, removedJobs);
-      throw new Error(`Failed to delete cron job "${job.name}" (${job.id}).`);
+      throw new Error(t("libCron.deleteFailed", { name: job.name, id: job.id }));
     }
     if (removeResult.removed) {
       removedJobs.push(toCronJobRestoreInput(job, id));

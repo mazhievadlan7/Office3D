@@ -30,7 +30,7 @@ describe("/api/runtime/custom route", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "runtimeUrl is not in the allowed hosts list.",
+      error: "Хост среды выполнения (runtimeUrl) не входит в список разрешённых.",
     });
   });
 
@@ -80,7 +80,7 @@ describe("/api/runtime/custom route", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Invalid JSON request body.",
+      error: "Некорректный JSON в теле запроса.",
     });
   });
 });

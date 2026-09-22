@@ -292,9 +292,9 @@ describe("historySyncOperation", () => {
     expect(patch.status).toBeUndefined();
     expect(patch.runId).toBeUndefined();
     expect(Array.isArray(patch.outputLines)).toBe(true);
-    expect(patch.outputLines).toContain("Run aborted.");
-    expect(patch.lastResult).toBe("Run aborted.");
-    expect(patch.latestPreview).toBe("Run aborted.");
+    expect(patch.outputLines).toContain("Запуск прерван.");
+    expect(patch.lastResult).toBe("Запуск прерван.");
+    expect(patch.latestPreview).toBe("Запуск прерван.");
     expect(patch.lastAppliedHistoryRequestId).toBe("req-3d");
   });
 

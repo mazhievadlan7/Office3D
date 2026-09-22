@@ -4,6 +4,7 @@ import {
 } from "@/features/agents/components/chatItems";
 import type { AgentState } from "@/features/agents/state/store";
 import { parseToolMarkdown } from "@/lib/text/message-extract";
+import { t } from "@/lib/i18n";
 
 export type OfficeDeskMonitorMode =
   | "coding"
@@ -162,7 +163,7 @@ const derivePseudoEditor = (task: string): { fileName: string; language: string;
     language: "tsx",
     lines: [
       'export function Workbench() {',
-      toCommentLine(task.trim() || "Working on the requested task."),
+      toCommentLine(task.trim() || t("libOffice.monitorRequestedTask")),
       '  return (',
       '    <section>',
       '      <div>Implementing monitor preview...</div>',
@@ -195,7 +196,7 @@ const deriveEditorDocument = (params: {
     const task =
       params.agent.lastUserMessage ??
       [...params.entries].reverse().find((entry) => entry.kind === "user")?.text ??
-      "Working on the current request.";
+      t("libOffice.monitorCurrentRequest");
     const pseudo = derivePseudoEditor(task);
     if (!fileName) fileName = pseudo.fileName;
     if (!language) language = pseudo.language;
@@ -232,8 +233,8 @@ const summarizeMode = (params: {
   if (agent.status === "error") {
     return {
       mode: "error",
-      title: "Run error",
-      subtitle: agent.latestPreview ?? "The agent hit an error.",
+      title: t("libOffice.monitorErrorTitle"),
+      subtitle: agent.latestPreview ?? t("libOffice.monitorErrorSubtitle"),
     };
   }
   if (browserUrl) {
@@ -245,15 +246,15 @@ const summarizeMode = (params: {
     }
     return {
       mode: "browser",
-      title: "Browsing",
+      title: t("libOffice.monitorBrowsingTitle"),
       subtitle: hostname,
     };
   }
   if (agent.awaitingUserInput) {
     return {
       mode: "waiting",
-      title: "Waiting",
-      subtitle: agent.latestPreview ?? "Waiting for the next instruction.",
+      title: t("libOffice.monitorWaitingTitle"),
+      subtitle: agent.latestPreview ?? t("libOffice.monitorWaitingSubtitle"),
     };
   }
   if (
@@ -264,14 +265,14 @@ const summarizeMode = (params: {
   ) {
     return {
       mode: "coding",
-      title: "Working",
-      subtitle: agent.latestPreview ?? "Live agent activity.",
+      title: t("libOffice.monitorWorkingTitle"),
+      subtitle: agent.latestPreview ?? t("libOffice.monitorWorkingSubtitle"),
     };
   }
   return {
     mode: "idle",
-    title: "Idle",
-    subtitle: agent.latestPreview ?? "No recent live activity.",
+    title: t("libOffice.monitorIdleTitle"),
+    subtitle: agent.latestPreview ?? t("libOffice.monitorIdleSubtitle"),
   };
 };
 

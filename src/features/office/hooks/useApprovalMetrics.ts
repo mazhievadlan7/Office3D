@@ -9,6 +9,7 @@ import {
 } from "@/features/agents/approvals/execApprovalEvents";
 import type { ExecApprovalDecision } from "@/features/agents/approvals/types";
 import type { GatewayClient, GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 export type ApprovalRecord = {
   id: string;
@@ -99,7 +100,7 @@ export const useApprovalMetrics = ({
           id: resolved.id,
           agentId: null,
           sessionKey: null,
-          command: "Unknown command",
+          command: t("opsApprovals.unknownCommand"),
           createdAtMs: resolved.ts,
           expiresAtMs: resolved.ts,
           resolvedAtMs: resolved.ts,

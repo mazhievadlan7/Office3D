@@ -6,6 +6,7 @@ import type {
   StudioAnalyticsBudgetSettings,
 } from "@/lib/studio/settings";
 import type { GatewayClient, GatewayStatus } from "@/lib/gateway/GatewayClient";
+import { t } from "@/lib/i18n";
 
 type UsageMessageCounts = {
   total: number;
@@ -218,7 +219,7 @@ const normalizeToolUsage = (value: unknown) => {
   const tools = asArray(record?.tools).map((entry) => {
     const parsed = asRecord(entry);
     return {
-      name: asString(parsed?.name) ?? "Unknown",
+      name: asString(parsed?.name) ?? t("opsOffice.unknownTool"),
       count: asNumber(parsed?.count),
     };
   });
@@ -350,11 +351,11 @@ const calculateBudgetAlerts = (params: {
     }
   };
 
-  addAlert("daily", "Daily budget", todayCost, params.budgets.dailySpendLimitUsd);
-  addAlert("monthly", "Monthly budget", monthlyCost, params.budgets.monthlySpendLimitUsd);
+  addAlert("daily", t("opsOffice.dailyBudget"), todayCost, params.budgets.dailySpendLimitUsd);
+  addAlert("monthly", t("opsOffice.monthlyBudget"), monthlyCost, params.budgets.monthlySpendLimitUsd);
   addAlert(
     "per-agent",
-    "Per-agent soft limit",
+    t("opsOffice.perAgentSoftLimit"),
     maxAgentCost,
     params.budgets.perAgentSoftLimitUsd
   );
@@ -439,7 +440,7 @@ export const useUsageAnalytics = ({
       setServerTotals(asRecord(usageResult.totals) ? normalizeTotals(usageResult.totals) : null);
       setLastRefreshedAt(Date.now());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load usage analytics.");
+      setError(err instanceof Error ? err.message : t("opsOffice.usageLoadFailed"));
       setSessions([]);
       setCostDaily([]);
       setServerTotals(null);

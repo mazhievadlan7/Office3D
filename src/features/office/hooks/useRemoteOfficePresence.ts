@@ -12,6 +12,7 @@ import {
 } from "@/lib/gateway/GatewayClient";
 import { buildOfficePresenceSnapshotFromGateway } from "@/lib/office/gatewayPresence";
 import type { OfficePresenceSnapshot } from "@/lib/office/presence";
+import { t } from "@/lib/i18n";
 
 type UseRemoteOfficePresenceParams = {
   enabled: boolean;
@@ -100,7 +101,7 @@ export const useRemoteOfficePresence = ({
             "error" in payload &&
             typeof payload.error === "string"
               ? payload.error
-              : "Failed to load remote office presence.";
+              : t("opsOffice.remotePresenceLoadFailed");
           throw new Error(
             errorMessage
           );
@@ -123,7 +124,7 @@ export const useRemoteOfficePresence = ({
         const message =
           loadError instanceof Error
             ? loadError.message
-            : "Failed to load remote office presence.";
+            : t("opsOffice.remotePresenceLoadFailed");
         setError(message);
         if (lastLoggedErrorRef.current !== message) {
           console.warn("[remote-office] Presence polling failed.", {
@@ -230,7 +231,7 @@ export const useRemoteOfficePresence = ({
         const message =
           loadError instanceof Error
             ? loadError.message
-            : "Failed to load remote gateway presence.";
+            : t("opsOffice.remoteGatewayPresenceLoadFailed");
         setError(message);
         if (isGatewayDisconnectLikeError(loadError)) {
           gatewayConnected = false;

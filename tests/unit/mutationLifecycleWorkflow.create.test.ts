@@ -53,7 +53,7 @@ describe("mutationLifecycleWorkflow create lifecycle", () => {
     );
 
     expect(result).toBe(false);
-    expect(setCreateAgentModalError).toHaveBeenCalledWith("Connect to gateway before creating an agent.");
+    expect(setCreateAgentModalError).toHaveBeenCalledWith("Подключитесь к шлюзу, прежде чем создавать агента.");
     expect(enqueueConfigMutation).not.toHaveBeenCalled();
   });
 
@@ -77,7 +77,7 @@ describe("mutationLifecycleWorkflow create lifecycle", () => {
     );
 
     expect(result).toBe(false);
-    expect(setCreateAgentModalError).toHaveBeenCalledWith("Agent name is required.");
+    expect(setCreateAgentModalError).toHaveBeenCalledWith("Укажите имя агента.");
     expect(enqueueConfigMutation).not.toHaveBeenCalled();
   });
 

@@ -87,13 +87,13 @@ describe("POST /api/telephony/calls", () => {
   it("requires_the_agent_placing_the_call", async () => {
     const response = await post({ toNumber: "+447700900123" });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/agentId is required/);
+    expect((await response.json()).error).toMatch(/Не заполнено обязательное поле: agentId/);
   });
 
   it("requires_the_name_the_agent_speaks_as", async () => {
     const response = await post({ toNumber: "+447700900123", agentId: "agent-1" });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/agentName is required/);
+    expect((await response.json()).error).toMatch(/Не заполнено обязательное поле: agentName/);
   });
 
   it("builds_the_prompt_itself_and_ignores_one_sent_by_the_caller", async () => {
@@ -116,8 +116,8 @@ describe("POST /api/telephony/calls", () => {
     const sent = JSON.parse(String((spy.mock.calls[0] as [URL, RequestInit])[1].body));
     const prompt =
       sent.conversation_initiation_client_data.conversation_config_override.agent.prompt.prompt;
-    expect(prompt).toContain("You are Nova.");
-    expect(prompt).toContain("You are an AI voice assistant, not a human.");
+    expect(prompt).toContain("Вы — Nova.");
+    expect(prompt).toContain("Вы — голосовой ИИ-ассистент, а не человек.");
     expect(prompt).not.toContain("Bob");
     expect(prompt).not.toContain("Be human.");
   });
@@ -140,7 +140,7 @@ describe("POST /api/telephony/calls", () => {
     const agent = sent.conversation_initiation_client_data.conversation_config_override.agent;
     // Who an agent claims to represent on a real phone call is the
     // deployment's to decide, not a session's.
-    expect(agent.first_message).toContain("calling from Northwind");
+    expect(agent.first_message).toContain("ИИ-ассистент, звоню от имени Northwind");
     expect(JSON.stringify(sent)).not.toContain("Totally Not A Bank");
   });
 

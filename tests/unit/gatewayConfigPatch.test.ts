@@ -94,7 +94,7 @@ describe("gateway agent helpers", () => {
     } as unknown as GatewayClient;
 
     await expect(createGatewayAgent({ client, name: "   " })).rejects.toThrow(
-      "Agent name is required."
+      "Не указано имя агента."
     );
     expect(client.call).not.toHaveBeenCalled();
   });
@@ -117,7 +117,7 @@ describe("gateway agent helpers", () => {
     } as unknown as GatewayClient;
 
     await expect(createGatewayAgent({ client, name: "!!!" })).rejects.toThrow(
-      "Name produced an empty folder name."
+      "Из имени не удалось получить имя папки."
     );
     expect(client.call).toHaveBeenCalledTimes(1);
     expect((client.call as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe("config.get");
