@@ -8,6 +8,7 @@ import { createFakeHermes, DASHBOARD_TOKEN, DEFAULT_KEY } from "./helpers/fakeHe
 
 const { startHermesRuntime } = await import("../../server/hermes/index.js");
 const { deriveProfileKey } = await import("../../server/hermes/client.js");
+const { deriveMcpToken } = await import("../../server/hermes/mcp.js");
 const { slugifyProfileName, scheduleToHermes, parseIdentity, mergePatch } = await import(
   "../../server/hermes/adapter.js"
 );
@@ -72,6 +73,7 @@ describe("hermes adapter", () => {
         HERMES_DASHBOARD_URL: fake.url,
         HERMES_DASHBOARD_TOKEN: DASHBOARD_TOKEN,
         OFFICE3D_HERMES_KEY_SECRET: KEY_SECRET,
+        OFFICE3D_MCP_PORT: "0",
       },
       stateDir,
       log: () => {},
@@ -383,6 +385,148 @@ describe("hermes adapter", () => {
   it("gives_the_main_agent_the_kanban_tools_and_keeps_its_others", async () => {
     await runtime!.adapter.organization.reconcile();
     expect([...fake.toolsets.get("default")!].sort()).toEqual(["kanban", "memory", "terminal", "web"]);
+  });
+
+  // --- the team: proposals over MCP, decisions in the office ---------------------------
+
+  const mcp = async (profile: string, method: string, params: Record<string, unknown> = {}) => {
+    const res = await fetch(`${runtime!.mcpUrl}/mcp/${profile}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${deriveMcpToken(KEY_SECRET, profile)}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    return (await res.json()) as Loose;
+  };
+  const tool = (profile: string, name: string, args: Record<string, unknown>) => mcp(profile, "tools/call", { name, arguments: args });
+
+  it("hires_only_after_the_person_approves_the_main_agents_proposal", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const proposed = await tool("default", "office_propose_hire", {
+      name: "Маркетолог",
+      role: "продвижение",
+      reason: "Некому вести соцсети, а это ключ к миссии.",
+      instructions: "# Маркетолог\n\nВедёшь соцсети кофейни.",
+    });
+    expect(proposed.result.isError).toBeFalsy();
+    const proposal = proposed.result.structuredContent.proposal;
+    expect(proposal).toMatchObject({ kind: "hire", status: "pending", name: "Маркетолог" });
+    await client.waitForEvent((f) => f.event === "org.proposal" && f.payload.proposal.id === proposal.id);
+    // Nothing happens to the team until the person decides.
+    expect([...fake.profiles.keys()]).toEqual(["default"]);
+
+    const decided = await client.call("org.proposals.decide", { id: proposal.id, approve: true, note: "Бери" });
+    expect(decided.payload.proposal).toMatchObject({ status: "done", note: "Бери" });
+    const hired = fake.profiles.get(decided.payload.proposal.agentId)!;
+    expect(hired.soul.startsWith("# Маркетолог")).toBe(true);
+    expect(hired.soul).toContain("office3d:organization");
+
+    // The main agent hears the decision in its office chat.
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.sessionKey === "agent:main:main" && f.payload.state === "final");
+    const told = [...fake.runs.values()].at(-1)!;
+    expect(told.profile).toBe("default");
+    expect(told.input).toContain("одобрил найм «Маркетолог»");
+
+    const again = await client.call("org.proposals.decide", { id: proposal.id, approve: true });
+    expect(again).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    client.close();
+  });
+
+  it("tells_the_main_agent_when_the_person_rejects", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const proposed = await tool("default", "office_propose_hire", { name: "Юрист", role: "договоры", reason: "Много договоров." });
+    const id = proposed.result.structuredContent.proposal.id;
+    const decided = await client.call("org.proposals.decide", { id, approve: false, note: "Пока рано" });
+    expect(decided.payload.proposal.status).toBe("rejected");
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "final");
+    expect([...fake.runs.values()].at(-1)!.input).toContain("отклонил найм «Юрист»");
+    expect([...fake.profiles.keys()]).toEqual(["default"]);
+    const listed = await tool("default", "office_proposals", { status: "rejected" });
+    expect(listed.result.structuredContent.proposals).toHaveLength(1);
+    client.close();
+  });
+
+  it("dismisses_on_approval_and_hands_the_open_tasks_back_to_triage", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Курьер" });
+    const agentId = hired.payload.agentId;
+    const task = await client.call("tasks.create", { title: "Отвезти заказ", assignedAgentId: agentId });
+    expect(fake.kanbanTasks.get(task.payload.id)).toMatchObject({ assignee: agentId, status: "ready" });
+
+    const refused = await tool("default", "office_propose_dismiss", { agent_id: "main", reason: "так" });
+    expect(refused.result.isError).toBe(true);
+
+    const proposed = await tool("default", "office_propose_dismiss", { agent_id: agentId, reason: "Доставку отдали партнёру." });
+    const id = proposed.result.structuredContent.proposal.id;
+    const decided = await client.call("org.proposals.decide", { id, approve: true });
+    expect(decided.payload.proposal.status).toBe("done");
+    expect(fake.profiles.has(agentId)).toBe(false);
+    expect(fake.kanbanTasks.get(task.payload.id)).toMatchObject({ assignee: null, status: "triage" });
+    expect(JSON.stringify(fake.kanbanTasks.get(task.payload.id)!.comments)).toContain("уволен");
+    client.close();
+  });
+
+  it("gives_every_agent_its_own_office3d_mcp_access", async () => {
+    await runtime!.adapter.organization.reconcile();
+    const main = fake.profiles.get("default")!;
+    expect(main.mcp.office3d_team).toMatchObject({
+      url: `${runtime!.mcpUrl}/mcp/default`,
+      headers: { Authorization: "Bearer ${OFFICE3D_MCP_TOKEN}" },
+      enabled: true,
+    });
+    expect(main.env.OFFICE3D_MCP_TOKEN).toBe(deriveMcpToken(KEY_SECRET, "default"));
+
+    // A hire is a clone of the main profile: it must not keep the main
+    // agent's entry or token.
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Повар" });
+    const member = fake.profiles.get(hired.payload.agentId)!;
+    expect(Object.keys(member.mcp)).toEqual(["office3d"]);
+    expect(member.mcp.office3d.url).toBe(`${runtime!.mcpUrl}/mcp/${hired.payload.agentId}`);
+    expect(member.env.OFFICE3D_MCP_TOKEN).toBe(deriveMcpToken(KEY_SECRET, hired.payload.agentId));
+    expect(member.env.OFFICE3D_MCP_TOKEN).not.toBe(main.env.OFFICE3D_MCP_TOKEN);
+    client.close();
+  });
+
+  it("sets_up_a_profile_created_outside_the_office_when_it_first_appears", async () => {
+    await runtime!.adapter.organization.reconcile();
+    const main = fake.profiles.get("default")!;
+    fake.profiles.set("manual-1", { name: "manual-1", description: "", env: { ...main.env }, soul: "# Ручной", mcp: structuredClone(main.mcp) });
+    await runtime!.adapter.listProfiles({ fresh: true });
+    const deadline = Date.now() + 3000;
+    while (fake.profiles.get("manual-1")!.mcp.office3d_team && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+    const manual = fake.profiles.get("manual-1")!;
+    expect(Object.keys(manual.mcp)).toEqual(["office3d"]);
+    expect(manual.env.OFFICE3D_MCP_TOKEN).toBe(deriveMcpToken(KEY_SECRET, "manual-1"));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(manual.soul).toContain("office3d:organization");
+  });
+
+  it("gives_team_tools_to_the_main_agent_only", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Бариста" });
+    const member = hired.payload.agentId;
+    const mainTools = (await mcp("default", "tools/list")).result.tools.map((t: { name: string }) => t.name);
+    expect(mainTools).toEqual(["office_team_list", "office_propose_hire", "office_propose_dismiss", "office_proposals"]);
+    const memberTools = (await mcp(member, "tools/list")).result.tools.map((t: { name: string }) => t.name);
+    expect(memberTools).toEqual(["office_team_list"]);
+    const sneaky = await tool(member, "office_propose_hire", { name: "Друг", role: "друг", reason: "хочу" });
+    expect(sneaky.error.code).toBe(-32602);
+    const team = await tool(member, "office_team_list", {});
+    expect(team.result.structuredContent.team.map((m: { name: string }) => m.name)).toEqual(["Hermes", "Бариста"]);
+    client.close();
+  });
+
+  it("caps_how_many_proposals_can_wait_at_once", async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const ok = await tool("default", "office_propose_hire", { name: `Сотрудник ${i}`, role: "r", reason: "нужен" });
+      expect(ok.result.isError).toBeFalsy();
+    }
+    const duplicate = await tool("default", "office_propose_hire", { name: "сотрудник 3", role: "r", reason: "нужен" });
+    expect(duplicate.result.isError).toBeFalsy();
+    expect(duplicate.result.content[0].text).toContain("уже ждёт");
+    const over = await tool("default", "office_propose_hire", { name: "Лишний", role: "r", reason: "нужен" });
+    expect(over.result.isError).toBe(true);
+    expect(over.result.content[0].text).toContain("ждут решения");
   });
 
   it("answers_unknown_methods_with_not_implemented", async () => {

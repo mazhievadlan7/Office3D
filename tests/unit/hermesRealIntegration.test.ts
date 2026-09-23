@@ -54,7 +54,12 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
   beforeAll(async () => {
     const { startHermesRuntime } = await import("../../server/hermes/index.js");
     stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "office3d-hermes-itest-"));
-    runtime = await startHermesRuntime({ env: process.env, stateDir, log: () => {}, logError: console.error });
+    runtime = await startHermesRuntime({
+      env: { ...process.env, OFFICE3D_MCP_PORT: process.env.OFFICE3D_MCP_PORT ?? "0" },
+      stateDir,
+      log: () => {},
+      logError: console.error,
+    });
     ws = new WebSocket(runtime.url);
     ws.on("message", (raw) => {
       const frame = JSON.parse(raw.toString()) as Frame;
@@ -130,6 +135,33 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
       await call("org.setMission", { text: before.payload.mission ?? "" });
     }
   }, 60_000);
+
+  it.skipIf(!withDashboard)("lets_hermes_reach_the_office3d_team_tools_as_each_agent", async () => {
+    // Hermes itself connects, with the entry and token Office3D wrote into the
+    // profile — the dashboard's server test is a full MCP handshake plus
+    // tools/list from Hermes' side.
+    await runtime.adapter.organization.reconcile();
+    const probe = (profile: string, server: string) =>
+      runtime.client.dashboard(`/api/mcp/servers/${server}/test`, { method: "POST", query: { profile } });
+    const main = await probe("default", "office3d_team");
+    expect(main.ok).toBe(true);
+    expect(main.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(
+      ["office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
+    );
+
+    const hired = await call("agents.create", { name: "Проверка MCP" });
+    expect(hired.ok).toBe(true);
+    const member = hired.payload.agentId;
+    try {
+      const servers = await runtime.client.dashboard("/api/mcp/servers", { query: { profile: member } });
+      expect(servers.servers.map((server: { name: string }) => server.name)).toEqual(["office3d"]);
+      const memberProbe = await probe(member, "office3d");
+      expect(memberProbe.ok).toBe(true);
+      expect(memberProbe.tools.map((tool: { name: string }) => tool.name)).toEqual(["office_team_list"]);
+    } finally {
+      await call("agents.delete", { agentId: member });
+    }
+  }, 90_000);
 
   it.skipIf(!withDashboard)("runs_a_task_from_the_office_board_through_the_hermes_dispatcher", async () => {
     const created = await call("tasks.create", { title: `Проверка доски ${Date.now()}`, description: "Интеграционный тест" });

@@ -11,6 +11,26 @@ const { WebSocketServer } = require("ws");
 const { createHermesAdapter } = require("./adapter");
 const { createHermesClient, resolveHermesConfig } = require("./client");
 const { createHermesStore } = require("./store");
+const { createMcpHandler, startMcpServer, deriveMcpToken } = require("./mcp");
+
+const DEFAULT_MCP_PORT = 3010;
+// Retry a failed reconcile soon (Hermes still starting), then settle into a
+// slow sweep that picks up profiles created outside the office.
+const RECONCILE_RETRY_MS = [5_000, 15_000, 30_000, 60_000];
+const RECONCILE_SWEEP_MS = 10 * 60_000;
+
+/** Where Office3D's MCP server listens, and the URL Hermes reaches it at. */
+const resolveMcpConfig = (env) => {
+  const rawPort = String(env.OFFICE3D_MCP_PORT ?? "").trim();
+  const port = rawPort ? Number(rawPort) : DEFAULT_MCP_PORT;
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`OFFICE3D_MCP_PORT must be a port number, got "${rawPort}".`);
+  }
+  const host = String(env.OFFICE3D_MCP_HOST ?? "").trim() || "127.0.0.1";
+  const publicUrl = String(env.OFFICE3D_MCP_URL ?? "").trim().replace(/\/+$/, "");
+  if (publicUrl && !/^https?:\/\//.test(publicUrl)) throw new Error("OFFICE3D_MCP_URL must be an http(s) URL.");
+  return { host, port, publicUrl };
+};
 
 const timingSafeEqualString = (a, b) => {
   const left = Buffer.from(String(a ?? ""), "utf8");
@@ -26,7 +46,7 @@ const timingSafeEqualString = (a, b) => {
  * @param {(message: string, error?: unknown) => void} [options.logError]
  * @param {(agentId: string) => Promise<string> | string} [options.buildInstructions]
  * @param {(info: object) => void} [options.onRunFinished]
- * @returns {Promise<null | { url: string, token: string, client: any, adapter: any, store: any, close: () => Promise<void> }>}
+ * @returns {Promise<null | { url: string, token: string, client: any, adapter: any, store: any, mcpUrl: string, close: () => Promise<void> }>}
  *   null when Hermes is not configured (HERMES_API_URL unset).
  */
 const startHermesRuntime = async ({ env = process.env, stateDir, log = console.info, logError = console.error, buildInstructions, onRunFinished }) => {
@@ -42,14 +62,37 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     filePath: path.join(stateDir, "office3d", "hermes-adapter.json"),
     logError: (message, err) => logError(`[hermes] ${message}`, err),
   });
+  // The MCP server only makes sense with the dashboard: without it there are
+  // no profiles to give tools to, and no way to write their config.
+  let mcp = null;
+  let mcpUrl = "";
+  const mcpConfig = config.dashboardUrl ? resolveMcpConfig(env) : null;
+
   const adapter = createHermesAdapter({
     client,
     store,
     buildInstructions,
     onRunFinished,
+    mcpEndpoint: (profile) =>
+      mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,
     log: (message) => log(`[hermes] ${message}`),
     logError: (message, err) => logError(`[hermes] ${message}`, err),
   });
+
+  if (mcpConfig) {
+    const handler = createMcpHandler({
+      secret: config.keySecret,
+      profileExists: async (profile) => (await adapter.listProfiles()).some((p) => p.name === profile),
+      toolsFor: (profile) => adapter.team.toolsFor(profile),
+      version: process.env.npm_package_version || "0.0.0",
+      log: (message) => log(`[hermes] ${message}`),
+      logError: (message, err) => logError(`[hermes] ${message}`, err),
+    });
+    mcp = await startMcpServer({ host: mcpConfig.host, port: mcpConfig.port, handler });
+    mcpUrl = mcpConfig.publicUrl || `http://127.0.0.1:${mcp.port}`;
+    log(`[hermes] Office3D MCP server on ${mcpConfig.host}:${mcp.port}; agents reach it at ${mcpUrl}.`);
+  }
+  await adapter.team.recover();
 
   const token = crypto.randomBytes(32).toString("hex");
   const wss = new WebSocketServer({ host: "127.0.0.1", port: 0, maxPayload: 4 * 1024 * 1024 });
@@ -65,18 +108,37 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
   const { port } = wss.address();
 
   // Hermes may start after Office3D (compose starts both together), so an
-  // unreachable Hermes here is logged, not fatal; the office reports it when
-  // someone connects.
-  client
-    .health("default", { retry: false, timeoutMs: 5_000 })
-    .then((health) => {
-      const version = health?.version ? ` ${health.version}` : "";
-      log(`[hermes] Connected to Hermes${version} at ${config.apiUrl}.`);
-      // Every agent's organization block and the main agent's board tools,
-      // brought up to date with this office's mission and rules.
-      return adapter.organization.reconcile();
-    })
-    .catch((err) => log(`[hermes] Hermes is not reachable yet (${err.code || err.message}); will retry on demand.`));
+  // unreachable Hermes here is logged, not fatal: the office reports it when
+  // someone connects, and the reconcile below keeps retrying. Reconciling
+  // brings every agent's organization block, tools and Office3D MCP access up
+  // to date with this office; the slow sweep afterwards also covers profiles
+  // created outside the office.
+  let reconcileTimer = null;
+  let closed = false;
+  let failures = 0;
+  let announced = false;
+  const reconcile = async () => {
+    reconcileTimer = null;
+    if (closed) return;
+    try {
+      const health = await client.health("default", { retry: false, timeoutMs: 5_000 });
+      if (!announced) {
+        const version = health?.version ? ` ${health.version}` : "";
+        log(`[hermes] Connected to Hermes${version} at ${config.apiUrl}.`);
+        announced = true;
+      }
+      await adapter.organization.reconcile();
+      failures = 0;
+    } catch (err) {
+      if (failures === 0) log(`[hermes] Hermes is not reachable yet (${err.code || err.message}); retrying.`);
+      failures += 1;
+    }
+    if (closed) return;
+    const delay = failures > 0 ? RECONCILE_RETRY_MS[Math.min(failures - 1, RECONCILE_RETRY_MS.length - 1)] : RECONCILE_SWEEP_MS;
+    reconcileTimer = setTimeout(() => void reconcile(), delay);
+    reconcileTimer.unref?.();
+  };
+  void reconcile();
 
   return {
     url: `ws://127.0.0.1:${port}`,
@@ -84,8 +146,12 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     client,
     adapter,
     store,
+    mcpUrl,
     close: async () => {
+      closed = true;
+      if (reconcileTimer) clearTimeout(reconcileTimer);
       adapter.close();
+      await mcp?.close();
       // Closing the server alone waits for every open socket to go away.
       for (const socket of wss.clients) socket.terminate();
       await new Promise((resolve) => wss.close(() => resolve()));

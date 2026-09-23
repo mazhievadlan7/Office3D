@@ -2464,6 +2464,22 @@ export const ru = {
   "playbooks.unsupported": "Эта среда выполнения не предоставляет плейбуки по расписанию.",
   "playbooks.waiting": "Ожидание",
 
+  // --- proposals -------------------------------------------------------------
+  "proposals.approve": "Одобрить",
+  "proposals.dismissMessage": "Скрыть сообщение",
+  "proposals.dismissTitle": "Главный агент предлагает уволить",
+  "proposals.dismissed": "«{name}» уволен; его незавершённые задачи вернулись на разбор.",
+  "proposals.failed": "Не удалось выполнить: {error}",
+  "proposals.hireTitle": "Главный агент предлагает нанять",
+  "proposals.hired": "«{name}» нанят и уже в команде.",
+  "proposals.instructions": "Характер и обязанности",
+  "proposals.notePlaceholder": "Комментарий для главного агента (необязательно)",
+  "proposals.reason": "Причина",
+  "proposals.reject": "Отклонить",
+  "proposals.rejectedDone": "Предложение отклонено; главный агент получит ваш ответ.",
+  "proposals.title": "Предложение по команде",
+  "proposals.working": "Выполняется…",
+
   // --- QA-лаборатория --------------------------------------------------------
   "qa.activeWorkflow": "Текущий процесс",
   "qa.assignedAgent": "Закреплённый агент",

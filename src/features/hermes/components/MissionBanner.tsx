@@ -32,6 +32,18 @@ export function MissionBanner() {
     void load();
   }, [load]);
 
+  // Another tab (or window) changed the mission.
+  useEffect(() => {
+    if (!control) return;
+    return control.onEvent((frame) => {
+      if (frame.event !== "org.updated") return;
+      const payload = frame.payload as Partial<OrgState> | undefined;
+      if (typeof payload?.mission === "string") {
+        setOrg({ mission: payload.mission, missionUpdatedAt: payload.missionUpdatedAt ?? null });
+      }
+    });
+  }, [control]);
+
   if (!control) return null;
 
   const save = async () => {

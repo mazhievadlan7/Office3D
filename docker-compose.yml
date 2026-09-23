@@ -122,6 +122,11 @@ services:
       HERMES_DASHBOARD_URL: http://hermes:9120
       HERMES_DASHBOARD_TOKEN: ${HERMES_DASHBOARD_TOKEN:?set HERMES_DASHBOARD_TOKEN in .env}
       OFFICE3D_HERMES_KEY_SECRET: ${OFFICE3D_HERMES_KEY_SECRET:?set OFFICE3D_HERMES_KEY_SECRET in .env}
+      # Office3D's MCP server (team tools for the agents). Hermes reaches it
+      # over the backend network; the port is deliberately not published.
+      OFFICE3D_MCP_HOST: 0.0.0.0
+      OFFICE3D_MCP_PORT: "3010"
+      OFFICE3D_MCP_URL: http://office3d:3010
       # Backend selection. Empty means Hermes (HERMES_API_URL is set above);
       # set openclaw plus OFFICE3D_GATEWAY_URL to switch back.
       OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}

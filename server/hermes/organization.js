@@ -68,7 +68,8 @@ const renderOrgBlock = ({ mission, isMain, mainName }) => {
  * @param {object} deps
  * @param {any} deps.client
  * @param {any} deps.store
- * @param {() => Promise<Array<{name: string}>>} deps.listProfiles
+ * @param {(opts?: {fresh?: boolean}) => Promise<Array<{name: string}>>} deps.listProfiles
+ * @param {(profile: string) => Promise<boolean>} [deps.ensureAccess]  the profile's way into Office3D's MCP server
  * @param {(profile: {name: string}) => {name: string}} deps.describeAgent
  * @param {() => boolean} deps.hasDashboard
  * @param {new (code: string, message: string) => Error} deps.AdapterError
@@ -76,7 +77,18 @@ const renderOrgBlock = ({ mission, isMain, mainName }) => {
  * @param {(message: string) => void} [deps.log]
  * @param {(message: string, error?: unknown) => void} [deps.logError]
  */
-const createOrganization = ({ client, store, listProfiles, describeAgent, hasDashboard, AdapterError, broadcast, log = () => {}, logError = () => {} }) => {
+const createOrganization = ({
+  client,
+  store,
+  listProfiles,
+  ensureAccess = async () => false,
+  describeAgent,
+  hasDashboard,
+  AdapterError,
+  broadcast,
+  log = () => {},
+  logError = () => {},
+}) => {
   const mission = () => store.getOrganization().mission ?? { text: "", updatedAt: null };
 
   const mainName = async () => {
@@ -88,15 +100,36 @@ const createOrganization = ({ client, store, listProfiles, describeAgent, hasDas
   const blockFor = async (profile) =>
     renderOrgBlock({ mission: mission().text, isMain: profile === DEFAULT_PROFILE, mainName: await mainName() });
 
-  /** Rewrites one profile's organization block; returns whether it changed. */
-  const syncProfile = async (profile) => {
-    const current = await client.getSoul(profile);
-    const soul = typeof current?.content === "string" ? current.content : "";
-    const next = applyOrgBlock(soul, await blockFor(profile));
-    if (next === soul) return false;
-    await client.setSoul(profile, next);
-    return true;
+  // SOUL.md is read, changed and written back from several places — a sweep,
+  // a hire, the office's editor. One chain per profile keeps them from
+  // overwriting each other (a sweep that read the file before a hire wrote
+  // the new agent's character must not put the old text back).
+  const soulChains = new Map();
+  const withSoulLock = (profile, fn) => {
+    const previous = soulChains.get(profile) ?? Promise.resolve();
+    const next = previous.catch(() => {}).then(fn);
+    const tail = next.catch(() => {});
+    soulChains.set(profile, tail);
+    tail.then(() => {
+      if (soulChains.get(profile) === tail) soulChains.delete(profile);
+    });
+    return next;
   };
+
+  /** Writes `persona` as the agent's own SOUL.md, with the organization block. */
+  const writeSoul = (profile, persona) =>
+    withSoulLock(profile, async () => client.setSoul(profile, applyOrgBlock(persona, await blockFor(profile))));
+
+  /** Rewrites one profile's organization block; returns whether it changed. */
+  const syncProfile = (profile) =>
+    withSoulLock(profile, async () => {
+      const current = await client.getSoul(profile);
+      const soul = typeof current?.content === "string" ? current.content : "";
+      const next = applyOrgBlock(soul, await blockFor(profile));
+      if (next === soul) return false;
+      await client.setSoul(profile, next);
+      return true;
+    });
 
   const syncAll = async () => {
     const profiles = await listProfiles({ fresh: true });
@@ -129,10 +162,25 @@ const createOrganization = ({ client, store, listProfiles, describeAgent, hasDas
     return true;
   };
 
-  /** Startup and reconnect: bring every agent's block and the main agent's tools up to date. */
+  /** Everything a profile needs from the office: tool access, then its block. */
+  const setUpProfile = async (profile) => {
+    if (!hasDashboard()) return;
+    await ensureAccess(profile);
+    await syncProfile(profile);
+  };
+
+  /**
+   * Startup, then a periodic sweep: every agent's Office3D tool access, its
+   * organization block and the main agent's board tools, up to date.
+   */
   const reconcile = async () => {
     if (!hasDashboard()) return;
     await ensureMainKanbanTools().catch((err) => logError("Could not enable kanban tools for the main agent.", err));
+    const names = (await listProfiles({ fresh: true })).map((profile) => profile.name);
+    const access = await Promise.allSettled(names.map((name) => ensureAccess(name)));
+    access.forEach((result, index) => {
+      if (result.status === "rejected") logError(`Office3D MCP access not set up for ${names[index]}.`, result.reason);
+    });
     await syncAll();
   };
 
@@ -167,7 +215,7 @@ const createOrganization = ({ client, store, listProfiles, describeAgent, hasDas
     ].join("\n");
   };
 
-  return { handlers, syncProfile, syncAll, reconcile, runInstructions, stripOrgBlock, applyOrgBlock, blockFor };
+  return { handlers, syncProfile, syncAll, setUpProfile, reconcile, runInstructions, writeSoul, stripOrgBlock, applyOrgBlock, blockFor };
 };
 
 module.exports = { createOrganization, renderOrgBlock, applyOrgBlock, stripOrgBlock, BLOCK_START, BLOCK_END };

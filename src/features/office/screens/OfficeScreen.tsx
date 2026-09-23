@@ -15,6 +15,7 @@ import type { OfficeAgent } from "@/features/retro-office/core/types";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
+import { TeamProposalsTray } from "@/features/hermes/components/TeamProposalsTray";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
   buildAgentMainSessionKey,
@@ -953,6 +954,7 @@ export function OfficeScreen({
     () => ({
       available: status === "connected" && activeAdapterType === "hermes",
       call: <T,>(method: string, params: Record<string, unknown> = {}) => client.call<T>(method, params),
+      onEvent: (handler) => client.onEvent((frame) => handler({ event: frame.event, payload: frame.payload })),
     }),
     [activeAdapterType, client, status],
   );
@@ -1865,6 +1867,11 @@ export function OfficeScreen({
     setLoading,
     status,
   ]);
+
+  // A proposal the person approved changed the team behind the office's back.
+  const handleTeamChanged = useCallback(() => {
+    void loadAgents({ silent: true });
+  }, [loadAgents]);
 
   const handleCloseCreateAgentWizard = useCallback(
     (createdAgentId: string | null) => {
@@ -4915,6 +4922,8 @@ export function OfficeScreen({
           </div>
         </div>
       ) : null}
+
+      <TeamProposalsTray onTeamChanged={handleTeamChanged} />
 
       {deleteAgentStatusLine ? (
         <div className="pointer-events-none fixed left-1/2 top-5 z-40 -translate-x-1/2 px-4">

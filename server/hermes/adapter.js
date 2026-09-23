@@ -19,6 +19,8 @@ const crypto = require("node:crypto");
 const { HermesApiError } = require("./client");
 const { createProviderHandlers } = require("./providers");
 const { createKanbanHandlers } = require("./kanban");
+const { createTeam } = require("./team");
+const { createMcpAccess } = require("./mcp-access");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -44,13 +46,19 @@ const METHODS = [
   "exec.approvals.get", "exec.approvals.set", "exec.approval.resolve",
   "skills.status", "models.list",
   "cron.list", "cron.add", "cron.remove", "cron.patch", "cron.run",
-  "tasks.list", "tasks.create", "tasks.update", "tasks.delete",
+  "tasks.list", "tasks.create", "tasks.update", "tasks.delete", "tasks.comment",
+  "org.get", "org.setMission", "org.proposals.list", "org.proposals.decide",
 ];
-const EVENTS = ["chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved", "org.updated"];
+const EVENTS = [
+  "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved", "org.updated", "org.proposal",
+];
 
 class AdapterError extends Error {
   constructor(code, message) {
     super(message);
+    // Named, so modules that only see the instance (the MCP server) can tell
+    // a deliberate refusal, safe to show, from an internal failure.
+    this.name = "AdapterError";
     this.code = code;
   }
 }
@@ -221,7 +229,16 @@ const historyFromHermes = (messages) =>
  *   Extra per-run instructions (organization mission and rules).
  * @param {(info: object) => void} [deps.onRunFinished]  usage accounting hook
  */
-const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, onTaskCreated, log = () => {}, logError = () => {} }) => {
+const createHermesAdapter = ({
+  client,
+  store,
+  buildInstructions,
+  onRunFinished,
+  onTaskCreated,
+  mcpEndpoint = () => null,
+  log = () => {},
+  logError = () => {},
+}) => {
   const sockets = new Set();
   const runs = new Map(); // office run id → run record
   const approvals = new Map(); // office approval id → { profile, hermesRunId, requestId, officeRunId }
@@ -253,6 +270,9 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
   // --- profiles ------------------------------------------------------------------
 
+  const knownProfiles = new Set();
+  const mcpAccess = createMcpAccess({ client, endpointFor: mcpEndpoint, log });
+
   const listProfiles = async ({ fresh = false } = {}) => {
     if (!hasDashboard()) return [{ name: DEFAULT_PROFILE, is_default: true, description: "" }];
     if (!fresh && dashboardProfilesCache.value && Date.now() - dashboardProfilesCache.at < 3_000) {
@@ -262,6 +282,21 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     const profiles = (Array.isArray(result?.profiles) ? result.profiles : []).filter(
       (p) => isRecord(p) && client.isValidProfileName(p.name) && !(p.name !== DEFAULT_PROFILE && p.name === MAIN_AGENT_ID)
     );
+    // A profile this office has not set up yet — created in Hermes directly,
+    // or before this start — gets its organization block and tool access now
+    // rather than at the next sweep.
+    const unseen = profiles.filter((p) => !knownProfiles.has(p.name)).map((p) => p.name);
+    for (const name of unseen) knownProfiles.add(name);
+    if (unseen.length) {
+      queueMicrotask(() => {
+        for (const name of unseen) {
+          organization.setUpProfile(name).catch((err) => {
+            knownProfiles.delete(name);
+            logError(`Could not set up profile ${name}.`, err);
+          });
+        }
+      });
+    }
     if (!profiles.some((p) => p.name === DEFAULT_PROFILE)) {
       profiles.unshift({ name: DEFAULT_PROFILE, is_default: true, description: "" });
     }
@@ -288,6 +323,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     client,
     store,
     listProfiles,
+    ensureAccess: (profile) => mcpAccess.ensure(profile),
     describeAgent: (profile) => officeAgentFromProfile(profile),
     hasDashboard,
     AdapterError,
@@ -676,9 +712,14 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       }
       if (taken.has(profile)) throw new AdapterError("CONFLICT", "Не удалось подобрать свободное имя профиля.");
       await client.createProfile({ name: profile, clone_from: DEFAULT_PROFILE, description: str(p.role) || undefined });
+      knownProfiles.add(profile);
       try {
+        // First: the clone carries the main agent's Office3D access; replace
+        // it with its own before anything else can use it.
+        await mcpAccess.ensure(profile);
         await client.setProfileEnv(profile, "API_SERVER_KEY", client.profileKey(profile));
-        await client.setSoul(profile, organization.applyOrgBlock(defaultSoul(name), await organization.blockFor(profile)));
+        const persona = typeof p.instructions === "string" && p.instructions.trim() ? p.instructions.trim() : defaultSoul(name);
+        await organization.writeSoul(profile, persona);
       } catch (err) {
         // A profile nobody can reach is worse than none: roll back.
         await client.deleteProfile(profile).catch((cleanupErr) => logError(`Failed to remove half-created profile ${profile}.`, cleanupErr));
@@ -712,8 +753,12 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       }
       const profile = await assertAgentExists(agentId);
       await abortRuns((run) => run.agentId === agentId);
+      const name = officeAgentFromProfile({ name: profile }).name;
+      await kanban.releaseAssignee(profile, `Сотрудник «${name}» уволен; задача вернулась на разбор.`, logError);
       await client.deleteProfile(profile);
       servedProfiles.delete(profile);
+      knownProfiles.delete(profile);
+      mcpAccess.forget(profile);
       await store.removeAgent(agentId);
       dashboardProfilesCache = { at: 0, value: null };
       return { ok: true, removedBindings: 0 };
@@ -739,7 +784,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       const content = typeof p.content === "string" ? p.content : "";
       if (name === SOUL_FILE && hasDashboard()) {
         const profile = profileOf(agentId);
-        await client.setSoul(profile, organization.applyOrgBlock(content, await organization.blockFor(profile)));
+        await organization.writeSoul(profile, content);
         return {};
       }
       await store.setAgentFile(agentId, name, content);
@@ -1079,11 +1124,30 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     },
   };
 
+  const kanban = createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated });
+
+  const team = createTeam({
+    store,
+    listProfiles,
+    describeAgent: (profile) => officeAgentFromProfile(profile),
+    hire: ({ name, role, instructions }) => handlers["agents.create"]({ name, role, instructions }),
+    dismiss: (agentId) => handlers["agents.delete"]({ agentId }),
+    notifyMain: async (message, key) => {
+      await startChat({ sessionKey: mainSessionKey(MAIN_AGENT_ID), message, idempotencyKey: key });
+    },
+    hasDashboard,
+    AdapterError,
+    broadcast: (event, payload) => broadcast(event, payload),
+    log,
+    logError,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
-    createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated })
+    kanban.handlers,
+    team.handlers
   );
 
   const helloPayload = async () => {
@@ -1168,8 +1232,9 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
         send({ type: "res", id, ok: false, error: { code: "INVALID_REQUEST", message: "Сначала нужно подключиться." } });
         return;
       }
-      const handler = handlers[method];
-      if (!handler) {
+      // Own methods only: "toString" and friends are not gateway methods.
+      const handler = typeof method === "string" && Object.hasOwn(handlers, method) ? handlers[method] : null;
+      if (typeof handler !== "function") {
         send({
           type: "res",
           id,
@@ -1195,7 +1260,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, organization, _runs: runs, _approvals: approvals };
+  return { handleSocket, handlers, close, organization, team, listProfiles, _runs: runs, _approvals: approvals };
 };
 
 module.exports = {

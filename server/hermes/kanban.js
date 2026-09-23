@@ -119,9 +119,35 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
     return result.task;
   };
 
-  return {
-    readBoard,
+  /**
+   * Hands every open task of a leaving agent back to triage, unassigned, with
+   * a note on the card, so nothing waits on someone who is gone. A running
+   * task is taken off its worker first (Hermes closes the run as reclaimed).
+   * Returns the ids it released; a task it could not release is logged and
+   * skipped — the dismissal goes ahead either way.
+   */
+  const releaseAssignee = async (profile, note, logError = () => {}) => {
+    if (!hasDashboard()) return [];
+    const tasks = await readBoard(false);
+    const released = [];
+    for (const task of tasks) {
+      if (task.assignee !== profile || ["done", "archived"].includes(str(task.status))) continue;
+      const path = `/tasks/${encodeURIComponent(task.id)}`;
+      try {
+        if (task.status !== "triage") await client.kanban(path, { method: "PATCH", body: { status: "triage" } });
+        await client.kanban(path, { method: "PATCH", body: { assignee: "" } });
+        await client
+          .kanban(`${path}/comments`, { method: "POST", body: { body: note, author: "Office3D" } })
+          .catch(() => {});
+        released.push(str(task.id));
+      } catch (err) {
+        logError(`Could not release task ${task.id} from ${profile}.`, err);
+      }
+    }
+    return released;
+  };
 
+  const handlers = {
     async "tasks.list"(p) {
       requireDashboard();
       const tasks = await readBoard(p.includeArchived !== false);
@@ -197,6 +223,8 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
       return { ok: true };
     },
   };
+
+  return { handlers, readBoard, releaseAssignee };
 };
 
 module.exports = { createKanbanHandlers, taskToRecord, hermesStatusFor };

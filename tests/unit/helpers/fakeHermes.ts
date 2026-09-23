@@ -34,8 +34,12 @@ export const DEFAULT_KEY = "default-profile-key-0123456789";
 export const DASHBOARD_TOKEN = "dashboard-session-token-0123456789";
 
 export const createFakeHermes = async () => {
-  const profiles = new Map<string, { name: string; description: string; env: Record<string, string>; soul: string }>();
-  profiles.set("default", { name: "default", description: "", env: { API_SERVER_KEY: DEFAULT_KEY }, soul: "" });
+  type McpEntry = { url?: string; headers?: Record<string, string>; enabled?: boolean } & Record<string, unknown>;
+  const profiles = new Map<
+    string,
+    { name: string; description: string; env: Record<string, string>; soul: string; mcp: Record<string, McpEntry> }
+  >();
+  profiles.set("default", { name: "default", description: "", env: { API_SERVER_KEY: DEFAULT_KEY }, soul: "", mcp: {} });
   const sessions = new Map<
     string,
     { id: string; profile: string; title?: string; messages: Array<{ role: string; content: string; timestamp: number }> }
@@ -144,9 +148,18 @@ export const createFakeHermes = async () => {
         });
       }
       if (path === "/api/profiles" && req.method === "POST") {
-        const b = body as { name: string; description?: string };
+        const b = body as { name: string; description?: string; clone_from?: string };
         if (profiles.has(b.name)) return json(res, 400, { detail: `A profile named '${b.name}' already exists.` });
-        profiles.set(b.name, { name: b.name, description: b.description ?? "", env: {}, soul: "" });
+        // Like Hermes: a clone starts with the source's config (MCP servers
+        // included) and .env.
+        const source = b.clone_from ? profiles.get(b.clone_from) : undefined;
+        profiles.set(b.name, {
+          name: b.name,
+          description: b.description ?? "",
+          env: source ? { ...source.env } : {},
+          soul: "",
+          mcp: source ? structuredClone(source.mcp) : {},
+        });
         return json(res, 200, { ok: true, name: b.name });
       }
       const profileRoute = path.match(/^\/api\/profiles\/([^/]+)(\/soul|\/description|\/model)?$/);
@@ -169,9 +182,34 @@ export const createFakeHermes = async () => {
       }
       if (path === "/api/config" && req.method === "PUT") {
         const name = url.searchParams.get("profile") ?? "default";
-        const config = (body as { config: { platform_toolsets?: { api_server?: string[] } } }).config;
+        const config = (body as { config: { platform_toolsets?: { api_server?: string[] }; mcp_servers?: Record<string, McpEntry> } }).config;
         configPuts.push({ profile: name, config });
         if (config.platform_toolsets?.api_server) toolsets.set(name, new Set(config.platform_toolsets.api_server));
+        const target = profiles.get(name);
+        for (const [server, entry] of Object.entries(config.mcp_servers ?? {})) {
+          if (target) target.mcp[server] = { ...(target.mcp[server] ?? {}), ...entry };
+        }
+        return json(res, 200, { ok: true });
+      }
+      if (path === "/api/mcp/servers" && req.method === "GET") {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        return json(res, 200, {
+          servers: Object.entries(target?.mcp ?? {}).map(([name, entry]) => ({
+            name,
+            transport: "http",
+            url: entry.url,
+            auth: entry.headers?.Authorization ? "header" : null,
+            enabled: entry.enabled !== false,
+            source: "config",
+          })),
+        });
+      }
+      const mcpServerRoute = path.match(/^\/api\/mcp\/servers\/([^/]+)$/);
+      if (mcpServerRoute && req.method === "DELETE") {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        const name = decodeURIComponent(mcpServerRoute[1]);
+        if (!target?.mcp[name]) return json(res, 404, { detail: `Server '${name}' not found` });
+        delete target.mcp[name];
         return json(res, 200, { ok: true });
       }
       if (path === "/api/plugins/kanban/board") {

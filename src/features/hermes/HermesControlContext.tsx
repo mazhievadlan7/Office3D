@@ -8,9 +8,13 @@ import { createContext, useContext } from "react";
  * `available` is true only while the office is connected to Hermes; panels
  * render nothing Hermes-specific otherwise.
  */
+export type HermesControlEvent = { event: string; payload?: unknown };
+
 export type HermesControl = {
   available: boolean;
   call: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>;
+  /** Subscribes to gateway events; returns the unsubscribe function. */
+  onEvent: (handler: (event: HermesControlEvent) => void) => () => void;
 };
 
 const HermesControlContext = createContext<HermesControl | null>(null);
