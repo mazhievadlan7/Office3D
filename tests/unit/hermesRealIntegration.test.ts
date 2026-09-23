@@ -97,6 +97,23 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     expect(tools.some((f) => f.payload.data.name === "terminal")).toBe(true);
   }, 120_000);
 
+  it("lists_the_models_of_signed_in_providers", async () => {
+    const models = await call("models.list");
+    expect(models).toMatchObject({ ok: true });
+    expect(models.payload.models.length).toBeGreaterThan(0);
+    expect(models.payload.models[0].id).toMatch(/^[a-z0-9-]+\/.+/);
+  }, 30_000);
+
+  it.skipIf(!withDashboard)("reports_providers_and_the_main_agents_model", async () => {
+    const status = await call("hermes.providers.status");
+    expect(status).toMatchObject({ ok: true });
+    expect(status.payload.providers.length).toBeGreaterThan(0);
+    expect(status.payload.keys.some((k: { key: string }) => k.key === "OPENROUTER_API_KEY")).toBe(true);
+    expect(status.payload.keys.some((k: { key: string }) => k.key === "API_SERVER_KEY")).toBe(false);
+    const model = await call("hermes.agents.model", { agentId: "main" });
+    expect(model.payload.model).toBeTruthy();
+  }, 30_000);
+
   it.skipIf(!withDashboard)("creates_talks_to_and_removes_an_agent_profile", async () => {
     const created = await call("agents.create", { name: "Тестовый Агент" });
     expect(created).toMatchObject({ ok: true });

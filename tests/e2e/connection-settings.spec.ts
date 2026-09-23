@@ -16,7 +16,7 @@ test("voice reply settings persist to the studio settings API", async ({ page })
   // Connecting re-renders the office and closes an open panel, so the
   // settings are opened only once the gateway has answered.
   await expect(page.getByTitle(/\(Подключено\)$/)).toBeVisible({ timeout: 60_000 });
-  await page.getByTitle("Настройки голосовых ответов").click();
+  await page.getByTitle("Настройки офиса").click();
   await expect(page.getByRole("switch", { name: "Голосовые ответы" })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Голосовые ответы" })).toBeEnabled();
 

@@ -39,6 +39,13 @@ export const createFakeHermes = async () => {
   const sessions = new Map<string, { id: string; profile: string; messages: Array<{ role: string; content: string; timestamp: number }> }>();
   const runs = new Map<string, RunState>();
   const jobs = new Map<string, Record<string, unknown>>();
+  const envCatalog: Record<string, { category: string; provider: string; provider_label: string; is_password: boolean }> = {
+    OPENROUTER_API_KEY: { category: "provider", provider: "openrouter", provider_label: "OpenRouter", is_password: true },
+    TAVILY_API_KEY: { category: "tool", provider: "", provider_label: "", is_password: true },
+    API_SERVER_KEY: { category: "messaging", provider: "", provider_label: "", is_password: true },
+  };
+  const modelChoices = new Map<string, { provider: string; model: string }>();
+  const memoryResets: string[] = [];
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   let runCounter = 0;
@@ -153,6 +160,45 @@ export const createFakeHermes = async () => {
           return json(res, 200, { ok: true });
         }
       }
+      if (path === "/api/env" && req.method === "GET") {
+        const target = profiles.get("default")!;
+        return json(
+          res,
+          200,
+          Object.fromEntries(
+            Object.entries(envCatalog).map(([key, row]) => [
+              key,
+              { ...row, is_set: Boolean(target.env[key]), redacted_value: target.env[key] ? "…" + target.env[key].slice(-2) : null, channel_managed: false },
+            ])
+          )
+        );
+      }
+      if (path === "/api/env" && req.method === "DELETE") {
+        const name = url.searchParams.get("profile") ?? "default";
+        delete profiles.get(name)?.env[(body as { key: string }).key];
+        return json(res, 200, { ok: true });
+      }
+      if (path === "/api/providers/validate") {
+        const b = body as { value: string };
+        return json(res, 200, b.value === "bad-key" ? { ok: false, reachable: true, message: "That API key was rejected." } : { ok: true, reachable: true, message: "" });
+      }
+      if (path === "/api/providers/oauth") {
+        return json(res, 200, { providers: [{ id: "nous", name: "Nous Portal", flow: "device_code", status: { logged_in: false } }] });
+      }
+      if (path === "/api/providers/oauth/nous/start") {
+        return json(res, 200, { session_id: "s1", flow: "device_code", user_code: "ABCD-1234", verification_url: "https://portal.example/device", expires_in: 900, poll_interval: 3 });
+      }
+      if (path === "/api/providers/oauth/nous/poll/s1") return json(res, 200, { session_id: "s1", status: "approved", account_email: "boss@example.com" });
+      if (path === "/api/model/info") return json(res, 200, { model: "test-model", provider: "custom" });
+      if (path === "/api/memory/reset") {
+        memoryResets.push(`${url.searchParams.get("profile")}:${(body as { target: string }).target}`);
+        return json(res, 200, { ok: true, deleted: ["MEMORY.md"] });
+      }
+      const modelRoute = path.match(/^\/api\/profiles\/([^/]+)\/model$/);
+      if (modelRoute && req.method === "PUT") {
+        modelChoices.set(decodeURIComponent(modelRoute[1]), body as { provider: string; model: string });
+        return json(res, 200, { ok: true });
+      }
       if (path === "/api/env" && req.method === "PUT") {
         const name = url.searchParams.get("profile") ?? "default";
         const profile = profiles.get(name);
@@ -178,7 +224,14 @@ export const createFakeHermes = async () => {
     }
     if (path === "/health") return json(res, 200, { status: "ok" });
     if (path === "/v1/capabilities") return json(res, 200, { version: "fake" });
-    if (path === "/api/model/options") return json(res, 200, { data: [{ id: "test-model", name: "Test", provider: "custom" }] });
+    if (path === "/api/model/options") {
+      return json(res, 200, {
+        providers: [
+          { slug: "custom", name: "Custom endpoint", authenticated: true, is_current: true, models: ["test-model"], auth_type: "api_key", key_env: "" },
+          { slug: "openrouter", name: "OpenRouter", authenticated: false, models: [], auth_type: "api_key", key_env: "OPENROUTER_API_KEY", warning: "paste OPENROUTER_API_KEY" },
+        ],
+      });
+    }
     if (path === "/v1/skills") return json(res, 200, { data: [{ name: "search", description: "Поиск", enabled: true }] });
 
     if (path === "/api/sessions" && req.method === "POST") {
@@ -277,6 +330,8 @@ export const createFakeHermes = async () => {
     runs,
     jobs,
     requests,
+    modelChoices,
+    memoryResets,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

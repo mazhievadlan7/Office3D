@@ -17,6 +17,7 @@
 
 const crypto = require("node:crypto");
 const { HermesApiError } = require("./client");
+const { createProviderHandlers } = require("./providers");
 
 const MAIN_AGENT_ID = "main";
 const DEFAULT_PROFILE = "default";
@@ -224,6 +225,22 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
   const servedProfiles = new Set([DEFAULT_PROFILE]);
   const readiness = new Map(); // profile → Promise<void>
   let dashboardProfilesCache = { at: 0, value: null };
+  // Provider slugs Hermes reported last, to read "<provider>/<model>" choices.
+  let knownProviderSlugs = new Set();
+
+  /**
+   * The office stores a model choice as "<provider>/<model>". Hermes takes the
+   * two apart; a model id that itself contains a slash (OpenRouter's
+   * "anthropic/…") is only split when its prefix is a provider Hermes knows.
+   */
+  const splitModelChoice = (choice) => {
+    const value = str(choice);
+    const slash = value.indexOf("/");
+    if (slash > 0 && knownProviderSlugs.has(value.slice(0, slash))) {
+      return { provider: value.slice(0, slash), model: value.slice(slash + 1) };
+    }
+    return { model: value };
+  };
 
   const broadcast = (event, payload) => {
     for (const socket of sockets) socket.sendEvent(event, payload);
@@ -560,7 +577,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     const body = { input: message, session_id: sessionId };
     const instructions = await instructionsFor(agentId);
     if (instructions) body.instructions = instructions;
-    if (str(sessionSettings.model)) body.model = str(sessionSettings.model);
+    if (str(sessionSettings.model)) Object.assign(body, splitModelChoice(sessionSettings.model));
 
     const started = await client.startRun(profile, body, { idempotencyKey: `office3d-${officeRunId}` });
     const hermesRunId = str(started?.run_id);
@@ -634,6 +651,12 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
         await client.deleteProfile(profile).catch((cleanupErr) => logError(`Failed to remove half-created profile ${profile}.`, cleanupErr));
         throw err;
       }
+      // A clone copies the main agent's own notes (MEMORY.md) along with its
+      // config. A new hire starts with a clean memory of its own; what the
+      // team knows about the person they work for (USER.md) stays.
+      await client
+        .dashboard("/api/memory/reset", { method: "POST", query: { profile }, body: { target: "memory" } })
+        .catch((err) => logError(`Could not clear the cloned memory of ${profile}.`, err));
       await store.upsertAgent(profile, { name, createdAt: Date.now() });
       dashboardProfilesCache = { at: 0, value: null };
       ensureProfileServed(profile).catch((err) => log(`Profile ${profile} is not served yet: ${err.message}`));
@@ -929,22 +952,18 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
     async "models.list"() {
       const result = await client.modelOptions(DEFAULT_PROFILE);
-      const raw = Array.isArray(result?.data)
-        ? result.data
-        : Array.isArray(result?.models)
-          ? result.models
-          : Array.isArray(result?.options)
-            ? result.options
-            : [];
-      const models = raw
-        .map((entry) => {
-          if (typeof entry === "string") return { id: entry, name: entry };
-          if (!isRecord(entry)) return null;
-          const id = str(entry.id) || str(entry.model);
-          if (!id) return null;
-          return { id, name: str(entry.name) || str(entry.label) || id, provider: str(entry.provider) || undefined };
-        })
-        .filter(Boolean);
+      const providers = Array.isArray(result?.providers) ? result.providers : [];
+      const models = [];
+      for (const provider of providers) {
+        if (!isRecord(provider) || !provider.authenticated) continue;
+        const slug = str(provider.slug);
+        if (!slug || !Array.isArray(provider.models)) continue;
+        for (const model of provider.models) {
+          const name = str(String(model));
+          if (name) models.push({ id: `${slug}/${name}`, name, provider: slug });
+        }
+      }
+      knownProviderSlugs = new Set(providers.filter(isRecord).map((provider) => str(provider.slug)).filter(Boolean));
       return { models };
     },
 
@@ -1017,6 +1036,11 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       return { ok: true, ran: true };
     },
   };
+
+  Object.assign(
+    handlers,
+    createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log })
+  );
 
   const helloPayload = async () => {
     let agents = [];

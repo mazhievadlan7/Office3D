@@ -14,6 +14,7 @@ import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
 import type { OfficeAgent } from "@/features/retro-office/core/types";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
+import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
   buildAgentMainSessionKey,
@@ -948,6 +949,13 @@ export function OfficeScreen({
   const runtimeSupportsCron = supportsCapability("cron");
   const runtimeSupportsModels = supportsCapability("models");
   const runtimeSupportsRunLifecycle = supportsCapability("runtime-agent-events");
+  const hermesControl = useMemo<HermesControl>(
+    () => ({
+      available: status === "connected" && activeAdapterType === "hermes",
+      call: <T,>(method: string, params: Record<string, unknown> = {}) => client.call<T>(method, params),
+    }),
+    [activeAdapterType, client, status],
+  );
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
   const [agentsLoaded, setAgentsLoaded] = useState(false);
@@ -4576,6 +4584,7 @@ export function OfficeScreen({
     t("office.noAgentsInOffice");
 
   return (
+    <HermesControlProvider value={hermesControl}>
     <main className="relative h-full w-full overflow-hidden bg-black">
       {showGatewayLoadingOverlay ? (
         <div
@@ -5681,5 +5690,6 @@ export function OfficeScreen({
         onCreateCompany={handleCreateCompanyFromPlan}
       />
     </main>
+    </HermesControlProvider>
   );
 }

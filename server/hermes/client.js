@@ -367,6 +367,9 @@ const createHermesClient = (config, options = {}) => {
     dashboardStatus: (query, opts) => dashboard("/api/status", { query, ...opts }),
     dashboardSkills: (profile, opts) => dashboard("/api/skills", { query: { profile }, ...opts }),
 
+    /** Any dashboard route; the named helpers above cover the common ones. */
+    dashboard,
+
     // --- kanban (dashboard plugin) ------------------------------------------------
     kanban: (path, opts) => dashboard(`/api/plugins/kanban${path}`, opts),
   };

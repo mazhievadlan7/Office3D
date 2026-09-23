@@ -59,5 +59,5 @@ test("shows_chat_entrypoint_in_office_shell", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("button", { name: "ЧАТ", exact: true })).toBeVisible();
-  await expect(page.getByTitle("Настройки голосовых ответов")).toBeVisible();
+  await expect(page.getByTitle("Настройки офиса")).toBeVisible();
 });

@@ -16,6 +16,7 @@ import {
 import { AgentSkillsPanel } from "@/features/agents/components/AgentSkillsPanel";
 import { SystemSkillsPanel } from "@/features/agents/components/SystemSkillsPanel";
 import { AgentInspectHeader } from "@/features/agents/components/inspect/AgentInspectHeader";
+import { HermesAgentModelSection } from "@/features/hermes/components/HermesAgentModelSection";
 import {
   resolveExecutionRoleFromAgent,
   resolvePresetDefaultsForRole,
@@ -482,6 +483,7 @@ export const AgentSettingsPanel = ({
       ) : null}
 
       <div className="flex flex-col gap-0 px-5 pb-5">
+        {mode === "capabilities" ? <HermesAgentModelSection agentId={agent.agentId} /> : null}
         {mode === "capabilities" ? (
           <section className="sidebar-section" data-testid="agent-settings-permissions">
             <div className="mt-2 flex flex-col gap-8">

@@ -83,6 +83,8 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     store,
     close: async () => {
       adapter.close();
+      // Closing the server alone waits for every open socket to go away.
+      for (const socket of wss.clients) socket.terminate();
       await new Promise((resolve) => wss.close(() => resolve()));
       await store.flush();
     },

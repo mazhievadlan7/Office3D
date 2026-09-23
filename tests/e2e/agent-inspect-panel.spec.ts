@@ -19,7 +19,7 @@ test("office settings panel reflects current gateway state", async ({ page }) =>
   // Connecting re-renders the office and closes an open panel, so the
   // settings are opened only once the gateway has answered.
   await expect(page.getByTitle(/\(Подключено\)$/)).toBeVisible({ timeout: 60_000 });
-  await page.getByTitle("Настройки голосовых ответов").click();
+  await page.getByTitle("Настройки офиса").click();
   await expect(page.getByRole("button", { name: "Отключить шлюз" })).toBeVisible();
   await expect(page.getByText("Переключите активный бэкенд и обновите его сохранённые адрес и токен.")).toBeVisible();
 });

@@ -207,6 +207,87 @@ describe("hermes adapter", () => {
     client.close();
   });
 
+  it("lists_models_of_signed_in_providers_as_provider_slash_model", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("models.list");
+    expect(result.payload.models).toEqual([{ id: "custom/test-model", name: "test-model", provider: "custom" }]);
+    client.close();
+  });
+
+  it("sends_a_chosen_model_to_hermes_as_provider_and_model", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("models.list");
+    await client.call("sessions.patch", { key: "agent:main:main", model: "custom/test-model" });
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "?", idempotencyKey: "m1" });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "final");
+    const runRequest = fake.requests.filter((r) => r.path === "/v1/runs").at(-1);
+    expect(runRequest?.body).toMatchObject({ provider: "custom", model: "test-model" });
+    client.close();
+  });
+
+  it("starts_a_new_hire_with_a_clean_memory_of_its_own", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const created = await client.call("agents.create", { name: "Писатель" });
+    expect(fake.memoryResets).toContain(`${created.payload.agentId}:memory`);
+    client.close();
+  });
+
+  it("reports_providers_sign_ins_and_writable_keys_without_values", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const status = await client.call("hermes.providers.status");
+    expect(status.payload.providers.map((p: { slug: string }) => p.slug)).toEqual(["custom", "openrouter"]);
+    expect(status.payload.signIns[0]).toMatchObject({ id: "nous", signedIn: false });
+    const keys = status.payload.keys.map((k: { key: string }) => k.key);
+    expect(keys).toEqual(["OPENROUTER_API_KEY", "TAVILY_API_KEY"]);
+    expect(keys).not.toContain("API_SERVER_KEY");
+    client.close();
+  });
+
+  it("writes_a_provider_key_to_every_agent_profile", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const created = await client.call("agents.create", { name: "Исследователь" });
+    const result = await client.call("hermes.providers.setKey", { key: "OPENROUTER_API_KEY", value: "sk-or-good" });
+    expect(result.payload).toMatchObject({ ok: true, verified: true, failed: [] });
+    expect(fake.profiles.get("default")?.env.OPENROUTER_API_KEY).toBe("sk-or-good");
+    expect(fake.profiles.get(created.payload.agentId)?.env.OPENROUTER_API_KEY).toBe("sk-or-good");
+    client.close();
+  });
+
+  it("does_not_save_a_key_the_provider_rejects", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("hermes.providers.setKey", { key: "OPENROUTER_API_KEY", value: "bad-key" });
+    expect(result.payload).toMatchObject({ ok: false, message: "That API key was rejected." });
+    expect(fake.profiles.get("default")?.env.OPENROUTER_API_KEY).toBeUndefined();
+    client.close();
+  });
+
+  it("refuses_to_touch_keys_outside_provider_tool_and_skill_categories", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("hermes.providers.setKey", { key: "API_SERVER_KEY", value: "hijack-0123456789" });
+    expect(result).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    expect(fake.profiles.get("default")?.env.API_SERVER_KEY).toBe(DEFAULT_KEY);
+    client.close();
+  });
+
+  it("runs_a_device_code_sign_in", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const started = await client.call("hermes.signin.start", { provider: "nous" });
+    expect(started.payload).toEqual({
+      sessionId: "s1", verificationUrl: "https://portal.example/device", userCode: "ABCD-1234", expiresIn: 900, interval: 3,
+    });
+    const polled = await client.call("hermes.signin.poll", { provider: "nous", sessionId: "s1" });
+    expect(polled.payload).toMatchObject({ status: "approved", account: "boss@example.com" });
+    client.close();
+  });
+
+  it("sets_an_agents_model_on_its_profile", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("hermes.agents.setModel", { agentId: "main", provider: "openrouter", model: "anthropic/claude-sonnet-5" });
+    expect(result.ok).toBe(true);
+    expect(fake.modelChoices.get("default")).toEqual({ provider: "openrouter", model: "anthropic/claude-sonnet-5" });
+    client.close();
+  });
+
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("tasks.create", {});
