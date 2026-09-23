@@ -19,6 +19,7 @@ const crypto = require("node:crypto");
 const { HermesApiError } = require("./client");
 const { createProviderHandlers } = require("./providers");
 const { createKanbanHandlers } = require("./kanban");
+const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
 const DEFAULT_PROFILE = "default";
@@ -45,7 +46,7 @@ const METHODS = [
   "cron.list", "cron.add", "cron.remove", "cron.patch", "cron.run",
   "tasks.list", "tasks.create", "tasks.update", "tasks.delete",
 ];
-const EVENTS = ["chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved"];
+const EVENTS = ["chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved", "org.updated"];
 
 class AdapterError extends Error {
   constructor(code, message) {
@@ -283,6 +284,18 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     };
   };
 
+  const organization = createOrganization({
+    client,
+    store,
+    listProfiles,
+    describeAgent: (profile) => officeAgentFromProfile(profile),
+    hasDashboard,
+    AdapterError,
+    broadcast: (event, payload) => broadcast(event, payload),
+    log,
+    logError,
+  });
+
   const assertAgentExists = async (agentId) => {
     const profile = profileOf(agentId);
     if (profile === DEFAULT_PROFILE || !hasDashboard()) {
@@ -334,12 +347,19 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
   // --- sessions --------------------------------------------------------------------
 
+  /**
+   * The Hermes session behind an office session key. The first one has a
+   * stable id, so a reinstalled office finds its conversation again; after a
+   * reset the id is random. Hermes keeps sessions longer than the office keeps
+   * its state, and a predictable "…-1" could land on an old conversation whose
+   * system prompt Hermes froze long ago.
+   */
   const hermesSessionIdFor = (sessionKey) => {
     const record = store.getSession(sessionKey);
-    const generation = Number(record?.generation ?? 0);
+    if (str(record?.sessionId)) return str(record.sessionId);
     const agentId = agentIdFromSessionKey(sessionKey);
     const suffix = sessionKey === mainSessionKey(agentId) ? MAIN_KEY : hashJson(sessionKey).slice(0, 8);
-    return `office3d-${agentId}-${suffix}-${generation}`;
+    return `office3d-${agentId}-${suffix}-0`;
   };
 
   const ensureSession = async (sessionKey) => {
@@ -348,8 +368,15 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     const sessionId = hermesSessionIdFor(sessionKey);
     const record = store.getSession(sessionKey);
     if (record?.createdId === sessionId) return { agentId, profile, sessionId };
+    // Hermes wants session titles unique per profile; the id is, so the title
+    // carries it. A title taken anyway (by hand, in Hermes) is not worth
+    // failing a message over — the session goes without one.
+    const create = (title) => client.createSession(profile, title ? { id: sessionId, title } : { id: sessionId });
     try {
-      await client.createSession(profile, { id: sessionId, title: `Office3D · ${agentId}` });
+      await create(`Office3D · ${sessionId}`).catch((err) => {
+        if (err instanceof HermesApiError && err.code === "invalid_title") return create(null);
+        throw err;
+      });
     } catch (err) {
       if (!(err instanceof HermesApiError && err.status === 409)) throw err;
     }
@@ -548,6 +575,10 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
   const instructionsFor = async (agentId) => {
     const parts = [];
+    // A running Hermes session keeps the system prompt it started with, so a
+    // mission changed since then reaches a long office conversation only here.
+    const missionNote = organization.runInstructions();
+    if (missionNote) parts.push(missionNote);
     try {
       const extra = await buildInstructions?.(agentId);
       if (str(extra)) parts.push(str(extra));
@@ -647,7 +678,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       await client.createProfile({ name: profile, clone_from: DEFAULT_PROFILE, description: str(p.role) || undefined });
       try {
         await client.setProfileEnv(profile, "API_SERVER_KEY", client.profileKey(profile));
-        await client.setSoul(profile, defaultSoul(name));
+        await client.setSoul(profile, organization.applyOrgBlock(defaultSoul(name), await organization.blockFor(profile)));
       } catch (err) {
         // A profile nobody can reach is worse than none: roll back.
         await client.deleteProfile(profile).catch((cleanupErr) => logError(`Failed to remove half-created profile ${profile}.`, cleanupErr));
@@ -693,7 +724,9 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       const name = str(p.name);
       if (name === SOUL_FILE && hasDashboard()) {
         const soul = await client.getSoul(profileOf(agentId));
-        return { file: soul?.exists ? { content: String(soul.content ?? "") } : { missing: true } };
+        // The office shows and edits the agent's own persona; the
+        // organization block is Office3D's and is re-added on save.
+        return { file: soul?.exists ? { content: organization.stripOrgBlock(soul.content) } : { missing: true } };
       }
       const content = store.getAgentFile(agentId, name);
       return { file: content !== undefined ? { content } : { missing: true } };
@@ -705,7 +738,8 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       if (!name) throw new AdapterError("INVALID_REQUEST", "Не указано имя файла.");
       const content = typeof p.content === "string" ? p.content : "";
       if (name === SOUL_FILE && hasDashboard()) {
-        await client.setSoul(profileOf(agentId), content);
+        const profile = profileOf(agentId);
+        await client.setSoul(profile, organization.applyOrgBlock(content, await organization.blockFor(profile)));
         return {};
       }
       await store.setAgentFile(agentId, name, content);
@@ -784,7 +818,13 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
       if (record.createdId) {
         await client.patchSession(profileOf(agentId), record.createdId, { end_reason: "office3d_reset" }).catch(() => {});
       }
-      await store.upsertSession(key, { agentId, generation: Number(record.generation ?? 0) + 1, createdId: null });
+      const suffix = key === mainSessionKey(agentId) ? MAIN_KEY : hashJson(key).slice(0, 8);
+      await store.upsertSession(key, {
+        agentId,
+        generation: Number(record.generation ?? 0) + 1,
+        sessionId: `office3d-${agentId}-${suffix}-${crypto.randomBytes(6).toString("hex")}`,
+        createdId: null,
+      });
       return { ok: true };
     },
 
@@ -1041,6 +1081,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
   Object.assign(
     handlers,
+    organization.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated })
   );
@@ -1154,7 +1195,7 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, _runs: runs, _approvals: approvals };
+  return { handleSocket, handlers, close, organization, _runs: runs, _approvals: approvals };
 };
 
 module.exports = {

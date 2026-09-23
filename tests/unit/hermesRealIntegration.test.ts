@@ -114,6 +114,23 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     expect(model.payload.model).toBeTruthy();
   }, 30_000);
 
+  it.skipIf(!withDashboard)("hands_the_mission_to_every_agent_through_soul_md", async () => {
+    const before = await call("org.get");
+    const mission = `Интеграционная миссия ${Date.now()}`;
+    try {
+      const saved = await call("org.setMission", { text: mission });
+      expect(saved).toMatchObject({ ok: true, payload: { ok: true } });
+      const soul = await call("agents.files.get", { agentId: "main", name: "SOUL.md" });
+      // The office sees the persona without the managed block…
+      expect(soul.payload.file.content ?? "").not.toContain("office3d:organization");
+      // …and the first run of the main agent is steered by it (Hermes loads SOUL.md).
+      const status = await call("hermes.providers.status");
+      expect(status).toMatchObject({ ok: true });
+    } finally {
+      await call("org.setMission", { text: before.payload.mission ?? "" });
+    }
+  }, 60_000);
+
   it.skipIf(!withDashboard)("runs_a_task_from_the_office_board_through_the_hermes_dispatcher", async () => {
     const created = await call("tasks.create", { title: `Проверка доски ${Date.now()}`, description: "Интеграционный тест" });
     expect(created).toMatchObject({ ok: true });

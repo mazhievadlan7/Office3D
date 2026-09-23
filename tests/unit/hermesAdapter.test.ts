@@ -320,6 +320,71 @@ describe("hermes adapter", () => {
     expect(hermesStatusFor("done", { assigned: true })).toBe("done");
   });
 
+  it("writes_the_mission_and_role_rules_into_every_agents_soul", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Аналитик" });
+    const result = await client.call("org.setMission", { text: "Сделать лучший сервис доставки в городе" });
+    expect(result.payload).toMatchObject({ ok: true, failed: [] });
+    const mainSoul = fake.profiles.get("default")!.soul;
+    const memberSoul = fake.profiles.get(hired.payload.agentId)!.soul;
+    for (const soul of [mainSoul, memberSoul]) {
+      expect(soul).toContain("Сделать лучший сервис доставки в городе");
+      expect(soul.match(/office3d:organization —/g)).toHaveLength(1);
+    }
+    expect(mainSoul).toContain("kanban_create");
+    expect(memberSoul).toContain("Задачи ставят только главный агент и руководитель");
+    expect(memberSoul).toContain("Аналитик");
+
+    // The office edits the persona only; the block survives the save.
+    const file = await client.call("agents.files.get", { agentId: hired.payload.agentId, name: "SOUL.md" });
+    expect(file.payload.file.content).not.toContain("office3d:organization");
+    await client.call("agents.files.set", { agentId: hired.payload.agentId, name: "SOUL.md", content: "# Новый характер" });
+    const saved = fake.profiles.get(hired.payload.agentId)!.soul;
+    expect(saved.startsWith("# Новый характер")).toBe(true);
+    expect(saved).toContain("Сделать лучший сервис доставки в городе");
+    client.close();
+  });
+
+  it("hands_the_current_mission_to_every_run_of_an_ongoing_conversation", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Привет", idempotencyKey: "m1" });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.runId === "m1" && f.payload.state === "final");
+    expect([...fake.runs.values()].at(-1)?.instructions ?? "").not.toContain("Текущая миссия");
+
+    // The session already exists, so Hermes keeps its old system prompt; the
+    // new mission has to come with the run.
+    await client.call("org.setMission", { text: "Открыть вторую точку" });
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Что дальше?", idempotencyKey: "m2" });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.runId === "m2" && f.payload.state === "final");
+    expect([...fake.runs.values()].at(-1)?.instructions).toContain("Открыть вторую точку");
+    client.close();
+  });
+
+  it("starts_a_fresh_uniquely_titled_hermes_session_after_a_reset", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const talk = async (runId: string) => {
+      await client.call("chat.send", { sessionKey: "agent:main:main", message: "Привет", idempotencyKey: runId });
+      await client.waitForEvent((f) => f.event === "chat" && f.payload.runId === runId && f.payload.state === "final");
+      return [...fake.runs.values()].at(-1)!.sessionId;
+    };
+    const first = await talk("s1");
+    await client.call("sessions.reset", { key: "agent:main:main" });
+    const second = await talk("s2");
+    await client.call("sessions.reset", { key: "agent:main:main" });
+    const third = await talk("s3");
+    expect(new Set([first, second, third]).size).toBe(3);
+    // Not "…-1", "…-2": an id Hermes may still hold from an earlier install
+    // would bring back that conversation and its frozen system prompt.
+    expect(second).not.toMatch(/-1$/);
+    expect(new Set([...fake.sessions.values()].map((s) => s.title)).size).toBe(fake.sessions.size);
+    client.close();
+  });
+
+  it("gives_the_main_agent_the_kanban_tools_and_keeps_its_others", async () => {
+    await runtime!.adapter.organization.reconcile();
+    expect([...fake.toolsets.get("default")!].sort()).toEqual(["kanban", "memory", "terminal", "web"]);
+  });
+
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("usage.cost", {});

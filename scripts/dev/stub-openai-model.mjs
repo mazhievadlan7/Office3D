@@ -12,16 +12,24 @@
  *   - anything else: a text answer that echoes the message.
  * Streams when asked to (`stream: true`), as Hermes normally does.
  */
+import fs from "node:fs";
 import http from "node:http";
+
+// STUB_LOG_FILE=path appends each request's system prompt, for checking what
+// Hermes actually hands the model (SOUL.md, mission, rules).
+const logFile = process.env.STUB_LOG_FILE || "";
 
 const port = Number(process.argv[2] || process.env.STUB_MODEL_PORT || 18900);
 
+const textOf = (m) => {
+  if (typeof m?.content === "string") return m.content;
+  if (Array.isArray(m?.content)) return m.content.map((p) => p?.text ?? "").join("");
+  return "";
+};
+
 const lastUserText = (messages) => {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const m = messages[i];
-    if (m?.role !== "user") continue;
-    if (typeof m.content === "string") return m.content;
-    if (Array.isArray(m.content)) return m.content.map((p) => p?.text ?? "").join("");
+    if (messages[i]?.role === "user") return textOf(messages[i]);
   }
   return "";
 };
@@ -32,9 +40,12 @@ const hasTool = (body, name) =>
 const decide = (body) => {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const text = lastUserText(messages);
-  // A kanban worker: finish the card through the board tool, as the worker
-  // protocol requires, then say so.
-  if (hasTool(body, "kanban_complete")) {
+  // A kanban worker — the dispatcher opens it with "work kanban task <id>":
+  // finish the card through the board tool, as the worker protocol requires,
+  // then say so. The main agent has the board tools too, in every chat, so
+  // the tool alone does not make a worker.
+  const isWorker = messages.some((m) => m?.role === "user" && /\bwork kanban task \S+/.test(textOf(m)));
+  if (isWorker && hasTool(body, "kanban_complete")) {
     const completed = messages.some((m) => m?.role === "tool" && String(m.content ?? "").includes("complet"));
     if (!messages.some((m) => m?.role === "tool")) {
       return {
@@ -87,6 +98,10 @@ const server = http.createServer((req, res) => {
     try {
       body = JSON.parse(raw || "{}");
     } catch {}
+    if (logFile) {
+      const system = (Array.isArray(body.messages) ? body.messages : []).filter((m) => m?.role === "system").map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content))).join("\n");
+      fs.appendFileSync(logFile, `${JSON.stringify({ at: new Date().toISOString(), system })}\n`);
+    }
     const answer = decide(body);
     const id = `chatcmpl-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);

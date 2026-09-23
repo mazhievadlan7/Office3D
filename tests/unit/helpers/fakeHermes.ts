@@ -36,7 +36,10 @@ export const DASHBOARD_TOKEN = "dashboard-session-token-0123456789";
 export const createFakeHermes = async () => {
   const profiles = new Map<string, { name: string; description: string; env: Record<string, string>; soul: string }>();
   profiles.set("default", { name: "default", description: "", env: { API_SERVER_KEY: DEFAULT_KEY }, soul: "" });
-  const sessions = new Map<string, { id: string; profile: string; messages: Array<{ role: string; content: string; timestamp: number }> }>();
+  const sessions = new Map<
+    string,
+    { id: string; profile: string; title?: string; messages: Array<{ role: string; content: string; timestamp: number }> }
+  >();
   const runs = new Map<string, RunState>();
   const jobs = new Map<string, Record<string, unknown>>();
   const envCatalog: Record<string, { category: string; provider: string; provider_label: string; is_password: boolean }> = {
@@ -48,6 +51,8 @@ export const createFakeHermes = async () => {
   let kanbanCounter = 0;
   const modelChoices = new Map<string, { provider: string; model: string }>();
   const memoryResets: string[] = [];
+  const toolsets = new Map<string, Set<string>>([["default", new Set(["web", "terminal", "memory"])]]);
+  const configPuts: Array<{ profile: string; config: unknown }> = [];
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   let runCounter = 0;
@@ -162,6 +167,13 @@ export const createFakeHermes = async () => {
           return json(res, 200, { ok: true });
         }
       }
+      if (path === "/api/config" && req.method === "PUT") {
+        const name = url.searchParams.get("profile") ?? "default";
+        const config = (body as { config: { platform_toolsets?: { api_server?: string[] } } }).config;
+        configPuts.push({ profile: name, config });
+        if (config.platform_toolsets?.api_server) toolsets.set(name, new Set(config.platform_toolsets.api_server));
+        return json(res, 200, { ok: true });
+      }
       if (path === "/api/plugins/kanban/board") {
         const includeArchived = url.searchParams.get("include_archived") === "true";
         const columns = new Map<string, Record<string, unknown>[]>();
@@ -268,6 +280,12 @@ export const createFakeHermes = async () => {
     }
     if (path === "/health") return json(res, 200, { status: "ok" });
     if (path === "/v1/capabilities") return json(res, 200, { version: "fake" });
+    if (path === "/v1/toolsets") {
+      const enabled = toolsets.get(profileName) ?? new Set();
+      return json(res, 200, {
+        data: ["web", "terminal", "memory", "kanban"].map((name) => ({ name, enabled: enabled.has(name) })),
+      });
+    }
     if (path === "/api/model/options") {
       return json(res, 200, {
         providers: [
@@ -279,9 +297,12 @@ export const createFakeHermes = async () => {
     if (path === "/v1/skills") return json(res, 200, { data: [{ name: "search", description: "Поиск", enabled: true }] });
 
     if (path === "/api/sessions" && req.method === "POST") {
-      const b = body as { id: string };
+      const b = body as { id: string; title?: string };
       if (sessions.has(b.id)) return json(res, 409, { error: { message: "Session already exists", code: "session_exists" } });
-      sessions.set(b.id, { id: b.id, profile: profileName, messages: [] });
+      // Like Hermes: a title is unique within a profile.
+      const taken = [...sessions.values()].find((s) => s.profile === profileName && b.title && s.title === b.title);
+      if (taken) return json(res, 400, { error: { message: `Title already in use by session ${taken.id}`, code: "invalid_title" } });
+      sessions.set(b.id, { id: b.id, profile: profileName, title: b.title, messages: [] });
       return json(res, 201, { object: "hermes.session", session: { id: b.id } });
     }
     const messagesRoute = path.match(/^\/api\/sessions\/([^/]+)\/messages$/);
@@ -377,6 +398,8 @@ export const createFakeHermes = async () => {
     modelChoices,
     memoryResets,
     kanbanTasks,
+    toolsets,
+    configPuts,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

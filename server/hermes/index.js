@@ -72,6 +72,9 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     .then((health) => {
       const version = health?.version ? ` ${health.version}` : "";
       log(`[hermes] Connected to Hermes${version} at ${config.apiUrl}.`);
+      // Every agent's organization block and the main agent's board tools,
+      // brought up to date with this office's mission and rules.
+      return adapter.organization.reconcile();
     })
     .catch((err) => log(`[hermes] Hermes is not reachable yet (${err.code || err.message}); will retry on demand.`));
 

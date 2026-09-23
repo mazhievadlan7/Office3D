@@ -9,7 +9,8 @@
 //   - per-session model overrides picked in the office;
 //   - agent files that Hermes has no slot for (IDENTITY.md and friends), which
 //     are handed to the agent with every run;
-//   - the office's gateway config overlay.
+//   - the office's gateway config overlay;
+//   - the organization: mission, autonomy settings, pending proposals.
 //
 // Writes go to a temp file that is renamed over the real one, so a crash
 // mid-write never leaves a truncated store, and they are serialized so two
@@ -25,6 +26,7 @@ const emptyState = () => ({
   agents: {},
   sessions: {},
   configOverlay: {},
+  organization: {},
 });
 
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -36,6 +38,7 @@ const normalizeState = (raw) => {
     agents: isRecord(raw.agents) ? raw.agents : {},
     sessions: isRecord(raw.sessions) ? raw.sessions : {},
     configOverlay: isRecord(raw.configOverlay) ? raw.configOverlay : {},
+    organization: isRecord(raw.organization) ? raw.organization : {},
   };
 };
 
@@ -102,6 +105,11 @@ const createHermesStore = ({ filePath, logError = () => {} }) => {
     getConfigOverlay: () => state.configOverlay,
     setConfigOverlay(next) {
       state.configOverlay = isRecord(next) ? next : {};
+      return persist();
+    },
+    getOrganization: () => state.organization,
+    updateOrganization(patch) {
+      state.organization = { ...state.organization, ...patch };
       return persist();
     },
     flush: () => writeChain,
