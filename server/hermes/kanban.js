@@ -13,6 +13,13 @@
 const DEFAULT_PROFILE = "default";
 const MAIN_AGENT_ID = "main";
 
+// Who may put work on the board directly: the person (through the office or
+// Hermes' own dashboard — both record "dashboard" — or the CLI, "user") and
+// the main agent (its profile name, from a chat or its own worker). A task
+// from anyone else is a proposal. An empty creator comes from older Hermes
+// versions and cannot be attributed, so it is left alone.
+const DIRECT_CREATORS = new Set(["", "dashboard", "user", DEFAULT_PROFILE]);
+
 const str = (value) => (typeof value === "string" ? value.trim() : "");
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const iso = (seconds) =>
@@ -147,6 +154,54 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
     return released;
   };
 
+  /**
+   * Turns tasks other agents put on the board into proposals: back to triage,
+   * without an assignee, with a note naming who proposed it, so it starts only
+   * once the main agent or the person gives it someone. Hermes lets any worker
+   * create tasks for anyone; the office's rule is that only the main agent and
+   * the person hand out work.
+   *
+   * `reviewed` holds task ids already handled — a proposal the main agent then
+   * approves by assigning it must not be pulled back. Returns the ids held
+   * this time.
+   */
+  const holdProposedTasks = async ({ reviewed, markReviewed, nameOf = (id) => id, logError = () => {} }) => {
+    if (!hasDashboard()) return [];
+    const tasks = await readBoard(false);
+    const held = [];
+    for (const task of tasks) {
+      const id = str(task.id);
+      const creator = str(task.created_by);
+      if (!id || DIRECT_CREATORS.has(creator) || reviewed.has(id)) continue;
+      const status = str(task.status);
+      if (status === "done" || status === "archived") {
+        await markReviewed(id);
+        continue;
+      }
+      const path = `/tasks/${encodeURIComponent(id)}`;
+      try {
+        if (status !== "triage") await client.kanban(path, { method: "PATCH", body: { status: "triage" } });
+        const suggested = str(task.assignee);
+        if (suggested) await client.kanban(path, { method: "PATCH", body: { assignee: "" } });
+        const note = [
+          `Эту задачу предложил сотрудник «${nameOf(agentIdOfProfile(creator))}».`,
+          suggested ? `Предлагаемый исполнитель — «${nameOf(agentIdOfProfile(suggested))}».` : "",
+          "Задачи ставят главный агент и руководитель: назначьте исполнителя, чтобы она пошла в работу.",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        await client.kanban(`${path}/comments`, { method: "POST", body: { body: note, author: "Office3D" } }).catch(() => {});
+        held.push(id);
+      } catch (err) {
+        // Left unmarked, so the next sweep tries again.
+        logError(`Could not hold proposed task ${id}.`, err);
+        continue;
+      }
+      await markReviewed(id);
+    }
+    return held;
+  };
+
   const handlers = {
     async "tasks.list"(p) {
       requireDashboard();
@@ -224,7 +279,7 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
     },
   };
 
-  return { handlers, readBoard, releaseAssignee };
+  return { handlers, readBoard, releaseAssignee, holdProposedTasks };
 };
 
 module.exports = { createKanbanHandlers, taskToRecord, hermesStatusFor };

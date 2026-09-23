@@ -18,6 +18,7 @@ const DEFAULT_MCP_PORT = 3010;
 // slow sweep that picks up profiles created outside the office.
 const RECONCILE_RETRY_MS = [5_000, 15_000, 30_000, 60_000];
 const RECONCILE_SWEEP_MS = 10 * 60_000;
+const BOARD_GUARD_MS = 15_000;
 
 /** Where Office3D's MCP server listens, and the URL Hermes reaches it at. */
 const resolveMcpConfig = (env) => {
@@ -140,6 +141,27 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
   };
   void reconcile();
 
+  // Tasks other agents put on the board become proposals within seconds —
+  // well before the Hermes dispatcher (a one-minute tick) would start them.
+  let guardTimer = null;
+  let guardFailing = false;
+  const guardBoard = async () => {
+    guardTimer = null;
+    if (closed) return;
+    try {
+      const held = await adapter.guardBoard();
+      if (held.length) log(`[hermes] Moved ${held.length} task(s) proposed by agents to triage.`);
+      guardFailing = false;
+    } catch (err) {
+      if (!guardFailing) log(`[hermes] Board check failed (${err.code || err.message}); retrying.`);
+      guardFailing = true;
+    }
+    if (closed) return;
+    guardTimer = setTimeout(() => void guardBoard(), BOARD_GUARD_MS);
+    guardTimer.unref?.();
+  };
+  if (config.dashboardUrl) void guardBoard();
+
   return {
     url: `ws://127.0.0.1:${port}`,
     token,
@@ -150,6 +172,7 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     close: async () => {
       closed = true;
       if (reconcileTimer) clearTimeout(reconcileTimer);
+      if (guardTimer) clearTimeout(guardTimer);
       adapter.close();
       await mcp?.close();
       // Closing the server alone waits for every open socket to go away.

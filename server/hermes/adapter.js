@@ -1126,6 +1126,23 @@ const createHermesAdapter = ({
 
   const kanban = createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated });
 
+  // Tasks other agents created go to triage as proposals; see kanban.js.
+  const MAX_REVIEWED_TASKS = 2_000;
+  const guardBoard = async () => {
+    const reviewedList = Array.isArray(store.getOrganization().reviewedTasks) ? store.getOrganization().reviewedTasks : [];
+    const reviewed = new Set(reviewedList);
+    const names = new Map((await listProfiles()).map((profile) => [agentIdOf(profile.name), officeAgentFromProfile(profile).name]));
+    return kanban.holdProposedTasks({
+      reviewed,
+      markReviewed: async (id) => {
+        reviewed.add(id);
+        await store.updateOrganization({ reviewedTasks: [...reviewed].slice(-MAX_REVIEWED_TASKS) });
+      },
+      nameOf: (agentId) => names.get(agentId) ?? agentId,
+      logError,
+    });
+  };
+
   const team = createTeam({
     store,
     listProfiles,
@@ -1260,7 +1277,7 @@ const createHermesAdapter = ({
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, organization, team, listProfiles, _runs: runs, _approvals: approvals };
+  return { handleSocket, handlers, close, organization, team, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
 };
 
 module.exports = {

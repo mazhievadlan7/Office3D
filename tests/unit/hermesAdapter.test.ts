@@ -529,6 +529,33 @@ describe("hermes adapter", () => {
     expect(over.result.content[0].text).toContain("ждут решения");
   });
 
+  it("turns_tasks_other_agents_create_into_proposals_in_triage", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Аналитик" });
+    const member = hired.payload.agentId;
+    const put = (id: string, task: Record<string, unknown>) =>
+      fake.kanbanTasks.set(id, { id, title: id, body: null, priority: 0, created_at: 1_790_000_100, ...task });
+    put("t_member", { created_by: member, assignee: "default", status: "ready" });
+    put("t_running", { created_by: member, assignee: member, status: "running" });
+    put("t_person", { created_by: "dashboard", assignee: member, status: "ready" });
+    put("t_main", { created_by: "default", assignee: member, status: "ready" });
+
+    const held = await runtime!.adapter.guardBoard();
+    expect(held.sort()).toEqual(["t_member", "t_running"]);
+    expect(fake.kanbanTasks.get("t_member")).toMatchObject({ status: "triage", assignee: null });
+    expect(fake.kanbanTasks.get("t_running")).toMatchObject({ status: "triage", assignee: null });
+    expect(JSON.stringify(fake.kanbanTasks.get("t_member")!.comments)).toContain("предложил сотрудник «Аналитик»");
+    expect(fake.kanbanTasks.get("t_person")).toMatchObject({ status: "ready", assignee: member });
+    expect(fake.kanbanTasks.get("t_main")).toMatchObject({ status: "ready", assignee: member });
+
+    // The main agent approves one by assigning it; it stays approved.
+    await client.call("tasks.update", { id: "t_member", assignedAgentId: member });
+    expect(fake.kanbanTasks.get("t_member")).toMatchObject({ status: "ready", assignee: member });
+    expect(await runtime!.adapter.guardBoard()).toEqual([]);
+    expect(fake.kanbanTasks.get("t_member")).toMatchObject({ status: "ready", assignee: member });
+    client.close();
+  });
+
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("usage.cost", {});
