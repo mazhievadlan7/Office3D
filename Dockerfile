@@ -19,6 +19,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_GATEWAY_URL=ws://127.0.0.1:18789
 RUN npm run build
 
+# Hermes updates (the office3d-updater service): the only container that gets
+# the Docker socket. Node plus the static Docker CLI and compose plugin, and
+# nothing of the app but the updater itself. Kept before `runner`, so a plain
+# build still produces the office image.
+FROM node:22-alpine AS updater
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker:27-cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
+WORKDIR /app
+COPY server/updater ./server/updater
+ENV UPDATER_PORT=3020
+EXPOSE 3020
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3020/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "server/updater/index.js"]
+
 FROM node:22-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production

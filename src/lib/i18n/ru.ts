@@ -1067,6 +1067,27 @@ export const ru = {
   "hermesModels.waitingForApproval": "Ждём подтверждения…",
   "hermesModels.whereToGetKey": "Где взять ключ",
 
+  // --- hermesUpdate ----------------------------------------------------------
+  "hermesUpdate.done": "Hermes обновлён до {to}. Агенты снова работают.",
+  "hermesUpdate.failed": "Обновление не удалось: {error} Hermes работает на прежней версии {from}.",
+  "hermesUpdate.later": "Позже",
+  "hermesUpdate.offer": "Доступна новая версия Hermes {latest} (у вас {current}).",
+  "hermesUpdate.offerNote": "На 1–3 минуты агенты прервут работу. Перед обновлением делается резервная копия; если новая версия не заработает, вернётся прежняя вместе с данными.",
+  "hermesUpdate.ok": "Понятно",
+  "hermesUpdate.rollbackFailed": "Внимание: {error}",
+  "hermesUpdate.rolledBack": "Версия {to} не заработала — возвращена {from}, данные восстановлены из резервной копии.",
+  "hermesUpdate.running": "Обновляю Hermes до {to}…",
+  "hermesUpdate.stepBackup": "Резервная копия данных агентов",
+  "hermesUpdate.stepCheck": "Проверка, что новая версия работает",
+  "hermesUpdate.stepCheckRollback": "Проверка прежней версии",
+  "hermesUpdate.stepPull": "Загрузка новой версии",
+  "hermesUpdate.stepQueued": "Подготовка",
+  "hermesUpdate.stepRollback": "Откат на прежнюю версию",
+  "hermesUpdate.stepStart": "Запуск новой версии",
+  "hermesUpdate.stepStop": "Остановка Hermes",
+  "hermesUpdate.title": "Обновление Hermes",
+  "hermesUpdate.update": "Обновить",
+
   // --- История -------------------------------------------------------------
   "history.agent": "Агент",
   "history.allAgents": "Все агенты",

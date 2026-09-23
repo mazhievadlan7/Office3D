@@ -1,0 +1,17 @@
+# A stand-in for the Hermes services, for the updater's Docker test: same
+# service names, a data directory, health endpoints on the host.
+name: office3d-updater-itest
+services:
+  hermes:
+    image: office3d-itest/hermes:${HERMES_IMAGE_TAG:-v2026.1.1}
+    volumes:
+      - ./data:/opt/data
+    ports:
+      - "127.0.0.1:18642:8642"
+      - "127.0.0.1:19120:9120"
+  hermes-gate:
+    image: office3d-itest/hermes:${HERMES_IMAGE_TAG:-v2026.1.1}
+    network_mode: "service:hermes"
+    depends_on:
+      - hermes
+    command: ["node", "/server.js", "gate"]

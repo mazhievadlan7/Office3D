@@ -219,6 +219,14 @@ const detectHermesHealth = async () => {
         headers: dashboardToken ? { "X-Hermes-Session-Token": dashboardToken } : {},
       })
     : null;
+  const updaterUrl = trim(process.env.OFFICE3D_UPDATER_URL).replace(/\/$/, "");
+  const updaterToken = trim(process.env.OFFICE3D_UPDATER_TOKEN);
+  const updaterProbe = updaterUrl
+    ? await probeHttpJson({
+        url: `${updaterUrl}/status`,
+        headers: updaterToken ? { Authorization: `Bearer ${updaterToken}` } : {},
+      })
+    : null;
   return {
     apiUrl,
     apiKeyConfigured: apiKey.length >= 16,
@@ -226,6 +234,9 @@ const detectHermesHealth = async () => {
     keySecretConfigured: trim(process.env.OFFICE3D_HERMES_KEY_SECRET).length >= 32,
     probe,
     dashboardProbe,
+    updaterUrl,
+    updaterTokenConfigured: updaterToken.length >= 32,
+    updaterProbe,
   };
 };
 
@@ -582,6 +593,29 @@ async function main() {
       checks.push(
         checkFail("Hermes", "Hermes dashboard", hermes.dashboardProbe.text || "Dashboard probe failed.", [
           "Check HERMES_DASHBOARD_URL (hermes-gate in Docker) and HERMES_DASHBOARD_TOKEN.",
+        ]),
+      );
+    }
+    if (!hermes.updaterProbe) {
+      checks.push(
+        checkWarn("Hermes", "Hermes updates", "OFFICE3D_UPDATER_URL is not set: the office will not offer Hermes updates.", [
+          "In Docker, compose sets it (the updater service); without Docker update Hermes by hand.",
+        ]),
+      );
+    } else if (!hermes.updaterTokenConfigured) {
+      checks.push(
+        checkFail("Hermes", "Hermes updates", "OFFICE3D_UPDATER_TOKEN is missing or shorter than 32 characters.", [
+          "Generate one with openssl rand -hex 32 and set it for office3d and the updater.",
+        ]),
+      );
+    } else if (hermes.updaterProbe.ok) {
+      checks.push(checkPass("Hermes", "Hermes updates", "Updater service reachable."));
+    } else {
+      checks.push(
+        checkFail("Hermes", "Hermes updates", hermes.updaterProbe.text || "Updater probe failed.", [
+          hermes.updaterProbe.status === 401
+            ? "OFFICE3D_UPDATER_TOKEN differs between office3d and the updater."
+            : "Check that the updater container runs (docker compose ps updater).",
         ]),
       );
     }

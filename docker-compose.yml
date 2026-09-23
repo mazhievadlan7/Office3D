@@ -127,6 +127,10 @@ services:
       OFFICE3D_MCP_HOST: 0.0.0.0
       OFFICE3D_MCP_PORT: "3010"
       OFFICE3D_MCP_URL: http://office3d:3010
+      # Hermes updates from the office ("Обновить / Позже"), through the
+      # updater service below.
+      OFFICE3D_UPDATER_URL: http://updater:3020
+      OFFICE3D_UPDATER_TOKEN: ${OFFICE3D_UPDATER_TOKEN:?set OFFICE3D_UPDATER_TOKEN in .env}
       # Autonomy's active hours and daily budget follow this zone.
       OFFICE3D_TIMEZONE: ${OFFICE3D_TIMEZONE:-}
       # Backend selection. Empty means Hermes (HERMES_API_URL is set above);
@@ -172,6 +176,41 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Hermes updates: pulls a new image, backs up the Hermes data, switches
+  # HERMES_IMAGE_TAG in .env, restarts hermes and hermes-gate, checks they
+  # answer, and rolls back (image and data) when they do not. The only
+  # container with the Docker socket; it is not published and answers only
+  # office3d's token. See docs/hermes-gateway.md.
+  updater:
+    build:
+      context: .
+      target: updater
+    image: office3d-updater:local
+    container_name: office3d-updater
+    restart: unless-stopped
+    environment:
+      OFFICE3D_UPDATER_TOKEN: ${OFFICE3D_UPDATER_TOKEN:?set OFFICE3D_UPDATER_TOKEN in .env}
+      PROJECT_DIR: /project
+      HERMES_DATA_DIR: /hermes-data
+      BACKUP_DIR: /backups
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The compose project itself: the tag it switches lives in .env.
+      - ./:/project
+      - hermes-data:/hermes-data
+      - hermes-backups:/backups
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 networks:
   # A plain bridge network: Hermes needs internet access for model providers
   # and tools, so it cannot be `internal: true`. Nothing on it is published
@@ -183,3 +222,5 @@ volumes:
   # Back it up; see docs/deployment.md.
   hermes-data:
   office3d-state:
+  # Hermes data backups the updater takes before each update (the last 3).
+  hermes-backups:

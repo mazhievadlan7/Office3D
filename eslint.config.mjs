@@ -17,7 +17,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["server/**/*.js", "scripts/**/*.js"],
+    files: ["server/**/*.js", "scripts/**/*.js", "tests/fixtures/**/*.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

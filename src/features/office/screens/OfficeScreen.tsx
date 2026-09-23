@@ -17,6 +17,7 @@ import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnec
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 import { TeamProposalsTray } from "@/features/hermes/components/TeamProposalsTray";
 import { AnnouncementToast } from "@/features/hermes/components/AnnouncementToast";
+import { HermesUpdateCard } from "@/features/hermes/components/HermesUpdateCard";
 import { useHermesMeetingController } from "@/features/hermes/useHermesMeetingController";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
@@ -5046,6 +5047,7 @@ export function OfficeScreen({
 
       <TeamProposalsTray onTeamChanged={handleTeamChanged} />
       <AnnouncementToast />
+      <HermesUpdateCard />
 
       {deleteAgentStatusLine ? (
         <div className="pointer-events-none fixed left-1/2 top-5 z-40 -translate-x-1/2 px-4">

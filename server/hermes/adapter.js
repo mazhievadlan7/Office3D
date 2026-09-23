@@ -24,6 +24,7 @@ const { createMcpAccess } = require("./mcp-access");
 const { createAutonomy } = require("./autonomy");
 const { createMeetings } = require("./meetings");
 const { createApprovalChain } = require("./approvals");
+const { createUpdates } = require("./updates");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -54,10 +55,12 @@ const METHODS = [
   "org.autonomy.get", "org.autonomy.set", "org.autonomy.pause", "org.autonomy.runNow",
   "org.meeting.start", "org.meeting.arrivals", "org.meeting.stop", "org.meeting.get", "org.meeting.list",
   "org.approvals.log",
+  "hermes.update.status", "hermes.update.start", "hermes.update.later",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
   "org.updated", "org.proposal", "org.autonomy", "org.meeting", "org.announcement", "org.approval",
+  "hermes.update",
 ];
 
 class AdapterError extends Error {
@@ -246,6 +249,7 @@ const createHermesAdapter = ({
   autonomyTimeZone = "UTC",
   meetingGatherTimeoutMs,
   approvalReviewTimeoutMs,
+  updater = null,
   log = () => {},
   logError = () => {},
 }) => {
@@ -1278,12 +1282,21 @@ const createHermesAdapter = ({
     logError,
   });
 
+  const updates = createUpdates({
+    updater,
+    store,
+    AdapterError,
+    broadcast: (event, payload) => broadcast(event, payload),
+    log,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
     autonomy.handlers,
     meetings.handlers,
     approvalChain.handlers,
+    updates.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers
@@ -1399,7 +1412,20 @@ const createHermesAdapter = ({
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, organization, team, autonomy, meetings, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
+  return {
+    handleSocket,
+    handlers,
+    close,
+    organization,
+    team,
+    autonomy,
+    meetings,
+    updates,
+    listProfiles,
+    guardBoard,
+    _runs: runs,
+    _approvals: approvals,
+  };
 };
 
 module.exports = {

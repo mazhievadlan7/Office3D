@@ -33,6 +33,7 @@ Hermes Agent от Nous Research — бэкенд Office3D по умолчани�
    HERMES_API_KEY=...
    HERMES_DASHBOARD_TOKEN=...
    OFFICE3D_HERMES_KEY_SECRET=...
+   OFFICE3D_UPDATER_TOKEN=...
    ```
 
 2. Запустите:
@@ -41,9 +42,9 @@ Hermes Agent от Nous Research — бэкенд Office3D по умолчани�
    docker compose up -d
    ```
 
-   Поднимутся три контейнера: `office3d-hermes` (Hermes), `office3d-hermes-gate`
-   (единственный вход в панель Hermes) и `office3d` (офис, порт 3000 на
-   loopback).
+   Поднимутся четыре контейнера: `office3d-hermes` (Hermes),
+   `office3d-hermes-gate` (единственный вход в панель Hermes), `office3d`
+   (офис, порт 3000 на loopback) и `office3d-updater` (обновления Hermes).
 
 3. Один раз настройте модели и ключи провайдера в Hermes:
 
@@ -271,7 +272,9 @@ Hermes останавливает агента перед опасной ком�
 | `HERMES_DASHBOARD_URL` | office3d | Панель Hermes (в Docker — `http://hermes:9120`, это hermes-gate). Без неё в офисе только главный агент. |
 | `HERMES_DASHBOARD_TOKEN` | office3d, hermes, hermes-gate | Токен сессии панели. |
 | `OFFICE3D_HERMES_KEY_SECRET` | office3d | Из него выводятся ключи профилей агентов; хранить сами ключи не нужно. Смена секрета перевыпускает все ключи при следующем обращении. |
-| `HERMES_IMAGE_TAG` | compose | Версия образа Hermes. |
+| `HERMES_IMAGE_TAG` | compose | Версия образа Hermes; при обновлении из офиса её переписывает сервис `updater`. |
+| `OFFICE3D_UPDATER_TOKEN` | office3d, updater | Токен между офисом и сервисом обновлений, не короче 32 символов. |
+| `OFFICE3D_UPDATER_URL` | office3d | Сервис обновлений (в compose — `http://updater:3020`). Без него офис не предлагает обновления. |
 | `OFFICE3D_MCP_HOST`, `OFFICE3D_MCP_PORT` | office3d | Где слушает MCP-сервер Office3D (по умолчанию `127.0.0.1:3010`; в compose — `0.0.0.0:3010` во внутренней сети). |
 | `OFFICE3D_MCP_URL` | office3d | Адрес, по которому Hermes достаёт до MCP-сервера (в compose — `http://office3d:3010`). |
 | `OFFICE3D_TIMEZONE` | office3d | Часовой пояс рабочих часов и дневного бюджета автономии (например, `Europe/Moscow`); по умолчанию — пояс сервера. |
@@ -305,10 +308,44 @@ Hermes останавливает агента перед опасной ком�
   последнего в Hermes должен быть пакет `mcp` (в Docker-образе он есть; при
   установке из исходников — `pip install 'hermes-agent[mcp]'`).
 
+## Обновления Hermes
+
+В Docker-установке офис сам следит за новыми версиями Hermes. Когда выходит
+релиз новее запущенного, в офисе появляется карточка «Доступна новая версия
+Hermes … — Обновить / Позже». «Позже» скрывает эту версию на сутки.
+
+«Обновить» делает сервис `updater` (контейнер `office3d-updater`):
+
+1. Загружает новый образ; Hermes пока работает.
+2. Останавливает `hermes-gate` и `hermes`, чтобы агенты не работали во время
+   обновления. Простой — примерно 1–3 минуты.
+3. Сохраняет том `hermes-data` в архив. Архивы лежат в томе `hermes-backups`,
+   хранятся три последних.
+4. Записывает новую версию в `HERMES_IMAGE_TAG` в `.env`, так что следующий
+   `docker compose up` её сохранит, и поднимает оба сервиса.
+5. Проверяет, что API Hermes и hermes-gate отвечают три раза подряд в
+   пределах трёх минут.
+
+Если проверка не прошла, сервис восстанавливает данные из архива, возвращает
+прежнюю версию в `.env` и поднимает её. Карточка сообщает «Версия … не
+заработала — возвращена …», и эту версию офис больше не предлагает. Если не
+поднимается и прежняя версия, карточка просит вмешаться администратора.
+Архив остаётся в `hermes-backups`.
+
+Сервис обновлений — единственный контейнер с доступом к сокету Docker. Он
+не публикуется наружу и принимает только запросы с `OFFICE3D_UPDATER_TOKEN`
+(`openssl rand -hex 32`). Без него офис обновлений не предлагает, и Hermes
+обновляется вручную: сменить `HERMES_IMAGE_TAG` и выполнить
+`docker compose up -d hermes hermes-gate`.
+
+Проверка механизма на настоящем Docker с тестовыми образами:
+`OFFICE3D_DOCKER_ITEST=1 npx vitest run tests/unit/hermesUpdaterDocker.test.ts`.
+
 ## Резервные копии
 
 Всё состояние агентов — в томе `hermes-data` (`/opt/data`): профили, память,
-сессии, навыки, канбан. Состояние офиса — в томе `office3d-state`.
+сессии, навыки, канбан. Состояние офиса — в томе `office3d-state`. Перед
+каждым обновлением из офиса данные Hermes архивируются в том `hermes-backups`.
 Копируйте оба, остановив контейнеры, либо используйте `hermes backup`
 внутри контейнера Hermes.
 

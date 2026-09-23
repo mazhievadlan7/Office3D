@@ -21,6 +21,19 @@ const RECONCILE_SWEEP_MS = 10 * 60_000;
 const BOARD_GUARD_MS = 15_000;
 const AUTONOMY_TICK_MS = 60_000;
 const AUTONOMY_FIRST_TICK_MS = 10_000;
+const UPDATE_FIRST_CHECK_MS = 60_000;
+const UPDATE_CHECK_MS = 6 * 60 * 60_000;
+const UPDATE_PROGRESS_MS = 5_000;
+
+/** The update service, when configured (Docker installs; see server/updater). */
+const resolveUpdaterConfig = (env) => {
+  const url = String(env.OFFICE3D_UPDATER_URL ?? "").trim().replace(/\/+$/, "");
+  const token = String(env.OFFICE3D_UPDATER_TOKEN ?? "").trim();
+  if (!url) return null;
+  if (!/^https?:\/\//.test(url)) throw new Error("OFFICE3D_UPDATER_URL must be an http(s) URL.");
+  if (token.length < 32) throw new Error("OFFICE3D_UPDATER_TOKEN must be at least 32 characters when OFFICE3D_UPDATER_URL is set.");
+  return { url, token };
+};
 
 /** Where Office3D's MCP server listens, and the URL Hermes reaches it at. */
 const resolveMcpConfig = (env) => {
@@ -89,6 +102,7 @@ const startHermesRuntime = async ({
     onRunFinished,
     meetingGatherTimeoutMs,
     approvalReviewTimeoutMs,
+    updater: resolveUpdaterConfig(env),
     autonomyTimeZone: String(env.OFFICE3D_TIMEZONE ?? "").trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     mcpEndpoint: (profile) =>
       mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,
@@ -201,6 +215,22 @@ const startHermesRuntime = async ({
     autonomyTimer.unref?.();
   }
 
+  // Hermes updates: a check every few hours; every few seconds while an
+  // update runs, so the office sees each step.
+  let updateTimer = null;
+  const updateCheck = async () => {
+    updateTimer = null;
+    if (closed) return;
+    await adapter.updates.refresh();
+    if (closed) return;
+    updateTimer = setTimeout(() => void updateCheck(), adapter.updates.isRunning() ? UPDATE_PROGRESS_MS : UPDATE_CHECK_MS);
+    updateTimer.unref?.();
+  };
+  if (adapter.updates.available) {
+    updateTimer = setTimeout(() => void updateCheck(), UPDATE_FIRST_CHECK_MS);
+    updateTimer.unref?.();
+  }
+
   return {
     url: `ws://127.0.0.1:${port}`,
     token,
@@ -213,6 +243,8 @@ const startHermesRuntime = async ({
       if (reconcileTimer) clearTimeout(reconcileTimer);
       if (guardTimer) clearTimeout(guardTimer);
       if (autonomyTimer) clearTimeout(autonomyTimer);
+      if (updateTimer) clearTimeout(updateTimer);
+      adapter.updates.close();
       adapter.close();
       await mcp?.close();
       // Closing the server alone waits for every open socket to go away.
