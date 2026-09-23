@@ -60,7 +60,7 @@ export function JukeboxPanel({ onClose }: JukeboxPanelProps) {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, []);
+  }, [init]);
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">

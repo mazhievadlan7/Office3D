@@ -10,8 +10,6 @@ type ConnectionPanelProps = {
   token: string;
   selectedAdapterType: StudioGatewayAdapterType;
   activeAdapterType: StudioGatewayAdapterType;
-  localGatewayUrl?: string | null;
-  localGatewayToken?: string | null;
   status: GatewayStatus;
   error: string | null;
   onGatewayUrlChange: (value: string) => void;
@@ -27,8 +25,6 @@ export const ConnectionPanel = ({
   token,
   selectedAdapterType,
   activeAdapterType,
-  localGatewayUrl = null,
-  localGatewayToken = null,
   status,
   error,
   onGatewayUrlChange,

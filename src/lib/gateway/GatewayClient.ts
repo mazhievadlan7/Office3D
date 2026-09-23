@@ -749,6 +749,19 @@ export const useGatewayConnection = (
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [hasLastKnownGoodState, setHasLastKnownGoodState] = useState(false);
   const lastScheduledGatewaySnapshotRef = useRef<string | null>(null);
+  // The connect form is on screen while the saved settings are still loading.
+  // Whatever the person types there in the meantime is newer than what the
+  // load brings back, so the load must not put the saved value over it.
+  const settingsLoadedRef = useRef(false);
+  const editedBeforeLoadRef = useRef({ gatewayUrl: false, token: false });
+  const setGatewayUrlFromUser = useCallback((value: string) => {
+    if (!settingsLoadedRef.current) editedBeforeLoadRef.current.gatewayUrl = true;
+    setGatewayUrl(value);
+  }, []);
+  const setTokenFromUser = useCallback((value: string) => {
+    if (!settingsLoadedRef.current) editedBeforeLoadRef.current.token = true;
+    setToken(value);
+  }, []);
   const setSelectedAdapterType = useCallback(
     (value: StudioGatewayAdapterType) => {
       setSelectedAdapterTypeState(value);
@@ -820,8 +833,8 @@ export const useGatewayConnection = (
           profiles: resolvedGatewayProfiles.profiles,
           hasLastKnownGood: hasPersistedProfileForSelected,
         };
-        setGatewayUrl(nextGatewayUrl);
-        setToken(nextToken);
+        if (!editedBeforeLoadRef.current.gatewayUrl) setGatewayUrl(nextGatewayUrl);
+        if (!editedBeforeLoadRef.current.token) setToken(nextToken);
         setSelectedAdapterTypeState(nextAdapterType);
         setAdapterProfiles(resolvedGatewayProfiles.profiles);
         setHasLastKnownGoodState(hasPersistedProfileForSelected);
@@ -841,6 +854,7 @@ export const useGatewayConnection = (
               hasLastKnownGood: false,
             };
           }
+          settingsLoadedRef.current = true;
           setSettingsLoaded(true);
         }
       }
@@ -1069,6 +1083,10 @@ export const useGatewayConnection = (
         retryTimerRef.current = null;
       }
     };
+    // client.lastDisconnectCode is a plain field the client sets as a socket
+    // closes, not React state; it is read here when the status change that
+    // follows the close re-runs this effect, and listing it would not add a run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connect, connectErrorCode, error, gatewayUrl, selectedAdapterType, status]);
 
   // Reset retry count after the connection has been stable for a minimum
@@ -1244,8 +1262,8 @@ export const useGatewayConnection = (
     connect,
     disconnect,
     useLocalGatewayDefaults,
-    setGatewayUrl,
-    setToken,
+    setGatewayUrl: setGatewayUrlFromUser,
+    setToken: setTokenFromUser,
     setSelectedAdapterType,
     clearError,
   };

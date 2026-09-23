@@ -51,7 +51,7 @@ describe("resolveGatewayAutoRetryDelayMs", () => {
     const delay = resolveGatewayAutoRetryDelayMs({
       ...baseParams,
       errorMessage:
-        "Gateway error (studio.upstream_rejected): Upstream gateway rejected connect (1008): pairing required.",
+        "Gateway error (studio.upstream_rejected): Шлюз отклонил подключение (1008): pairing required.",
       connectErrorCode: "studio.upstream_rejected",
     });
 

@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import path from "node:path";
+import { e2eStateDir } from "./tests/e2e/helpers/e2eStateDir";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -12,7 +12,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       ...process.env,
-      OPENCLAW_STATE_DIR: path.resolve("./tests/fixtures/openclaw-empty-state"),
+      OPENCLAW_STATE_DIR: e2eStateDir(),
       NEXT_PUBLIC_GATEWAY_URL: "",
     },
   },

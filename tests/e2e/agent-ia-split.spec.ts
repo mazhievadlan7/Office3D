@@ -10,7 +10,7 @@ test("shows_office_header_controls", async ({ page }) => {
 
   await expect(page.getByTestId("brain-files-toggle")).toHaveCount(0);
   await expect(page.getByTitle("Настройки голосовых ответов")).toBeVisible();
-  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ", exact: true })).toBeVisible();
 });
 
 test("mobile_header_shows_office_controls", async ({ page }) => {
@@ -19,5 +19,5 @@ test("mobile_header_shows_office_controls", async ({ page }) => {
 
   await expect(page.getByTestId("brain-files-toggle")).toHaveCount(0);
   await expect(page.getByTitle("Настройки голосовых ответов")).toBeVisible();
-  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ", exact: true })).toBeVisible();
 });

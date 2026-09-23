@@ -19,5 +19,5 @@ test("structured avatar settings fixture does not break focused load", async ({ 
   await page.goto("/");
 
   await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ", exact: true })).toBeVisible();
 });

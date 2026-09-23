@@ -1,149 +1,71 @@
 import type { Page, Route, Request } from "@playwright/test";
-import type { AgentAvatarProfile } from "@/lib/avatars/profile";
+import {
+  mergeStudioSettings,
+  normalizeStudioSettings,
+  sanitizeStudioSettings,
+  type StudioSettings,
+  type StudioSettingsPatch,
+} from "@/lib/studio/settings";
 
-export type StudioSettingsFixture = {
-  version: 1;
-  gateway: { url: string; token: string } | null;
-  focused: Record<string, { mode: "focused"; filter: string; selectedAgentId: string | null }>;
-  avatars: Record<string, Record<string, AgentAvatarProfile>>;
-  taskBoard?: Record<
-    string,
-    {
-      cards: Array<Record<string, unknown>>;
-      selectedCardId: string | null;
-    }
-  >;
-};
+/**
+ * Whatever part of the settings a test wants to start from; the rest is
+ * filled in the way the real /api/studio fills it.
+ */
+export type StudioSettingsFixture = Record<string, unknown>;
 
-const DEFAULT_SETTINGS: StudioSettingsFixture = {
-  version: 1,
-  gateway: null,
-  focused: {},
-  avatars: {},
-  taskBoard: {},
-};
+/**
+ * An in-memory /api/studio for the browser tests.
+ *
+ * It runs the same normalize, merge and sanitize functions as the real route
+ * (src/app/api/studio/route.ts) rather than a hand-written copy of them. The
+ * copy this replaces knew only the fields that existed when it was written;
+ * once settings grew per-gateway office and voice-reply preferences, the
+ * office read them from its response, found nothing, and failed to load.
+ */
+const createStudioRoute = (initial: StudioSettingsFixture = {}) => {
+  let settings: StudioSettings = normalizeStudioSettings(initial);
 
-const createStudioRoute = (initial: StudioSettingsFixture = DEFAULT_SETTINGS) => {
-  let settings: StudioSettingsFixture = {
-    version: 1,
-    gateway: initial.gateway ?? null,
-    focused: { ...(initial.focused ?? {}) },
-    avatars: { ...(initial.avatars ?? {}) },
-    taskBoard: { ...(initial.taskBoard ?? {}) },
-  };
+  const respond = (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ settings: sanitizeStudioSettings(settings), localGatewayDefaults: null }),
+    });
 
   return async (route: Route, request: Request) => {
     if (request.method() === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ settings }),
-      });
+      await respond(route);
       return;
     }
     if (request.method() !== "PUT") {
       await route.fallback();
       return;
     }
-
-    const patch = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
-    const next = { ...settings };
-
-    if ("gateway" in patch) {
-      next.gateway = (patch.gateway as StudioSettingsFixture["gateway"]) ?? null;
-    }
-
-    if (patch.focused && typeof patch.focused === "object") {
-      const focusedPatch = patch.focused as Record<string, Record<string, unknown>>;
-      const focusedNext = { ...next.focused };
-      for (const [key, value] of Object.entries(focusedPatch)) {
-        const existing = focusedNext[key] ?? {
-          mode: "focused" as const,
-          filter: "all",
-          selectedAgentId: null,
-        };
-        focusedNext[key] = {
-          mode: (value.mode as "focused") ?? existing.mode,
-          filter: (value.filter as string) ?? existing.filter,
-          selectedAgentId:
-            "selectedAgentId" in value
-              ? ((value.selectedAgentId as string | null) ?? null)
-              : existing.selectedAgentId,
-        };
-      }
-      next.focused = focusedNext;
-    }
-
-    if (patch.avatars && typeof patch.avatars === "object") {
-      const avatarsPatch = patch.avatars as
-        | Record<string, Record<string, AgentAvatarProfile | null> | null>
-        | null;
-      const avatarsNext: StudioSettingsFixture["avatars"] = { ...next.avatars };
-      for (const [gatewayKey, gatewayPatch] of Object.entries(avatarsPatch ?? {})) {
-        if (gatewayPatch === null) {
-          delete avatarsNext[gatewayKey];
-          continue;
-        }
-        const existing = avatarsNext[gatewayKey] ? { ...avatarsNext[gatewayKey] } : {};
-        for (const [agentId, avatarPatch] of Object.entries(gatewayPatch)) {
-          if (avatarPatch === null) {
-            delete existing[agentId];
-            continue;
-          }
-          if (
-            typeof avatarPatch !== "object" ||
-            avatarPatch === null ||
-            typeof avatarPatch.seed !== "string" ||
-            avatarPatch.seed.trim().length === 0
-          ) {
-            delete existing[agentId];
-            continue;
-          }
-          existing[agentId] = avatarPatch;
-        }
-        avatarsNext[gatewayKey] = existing;
-      }
-      next.avatars = avatarsNext;
-    }
-
-    if (patch.taskBoard && typeof patch.taskBoard === "object") {
-      const taskBoardPatch = patch.taskBoard as Record<
-        string,
-        { cards?: Array<Record<string, unknown>>; selectedCardId?: string | null } | null
-      >;
-      const taskBoardNext = { ...(next.taskBoard ?? {}) };
-      for (const [gatewayKey, gatewayValue] of Object.entries(taskBoardPatch)) {
-        if (gatewayValue === null) {
-          delete taskBoardNext[gatewayKey];
-          continue;
-        }
-        const existing = taskBoardNext[gatewayKey] ?? {
-          cards: [],
-          selectedCardId: null,
-        };
-        taskBoardNext[gatewayKey] = {
-          cards: Array.isArray(gatewayValue.cards) ? gatewayValue.cards : existing.cards,
-          selectedCardId:
-            "selectedCardId" in gatewayValue
-              ? (gatewayValue.selectedCardId ?? null)
-              : existing.selectedCardId,
-        };
-      }
-      next.taskBoard = taskBoardNext;
-    }
-
-    settings = next;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ settings }),
-    });
+    const patch = JSON.parse(request.postData() ?? "{}") as StudioSettingsPatch;
+    settings = mergeStudioSettings(settings, patch);
+    await respond(route);
   };
+};
+
+// The key useOnboardingState reads (src/features/onboarding/useOnboardingState.ts).
+const ONBOARDING_COMPLETED_KEY = "office3d:onboarding:completed";
+
+/**
+ * Starts the browser as someone who has already been through the first-run
+ * wizard. A fresh browser otherwise opens the wizard over the office, and a
+ * test that clicks anything in the office clicks the wizard's backdrop.
+ */
+export const skipOnboarding = async (page: Page) => {
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(key, "true");
+  }, ONBOARDING_COMPLETED_KEY);
 };
 
 export const stubStudioRoute = async (
   page: Page,
-  initial: StudioSettingsFixture = DEFAULT_SETTINGS
+  initial: StudioSettingsFixture = {},
+  options: { onboarding?: boolean } = {}
 ) => {
+  if (!options.onboarding) await skipOnboarding(page);
   await page.route("**/api/studio", createStudioRoute(initial));
 };

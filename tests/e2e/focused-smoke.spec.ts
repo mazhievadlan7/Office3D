@@ -9,5 +9,5 @@ test("loads office shell from root", async ({ page }) => {
     .poll(() => new URL(page.url()).pathname)
     .toBe("/office");
   await expect(page.getByRole("button", { name: "Открыть боковую панель штаба" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "ЧАТ" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ЧАТ", exact: true })).toBeVisible();
 });

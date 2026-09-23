@@ -91,6 +91,8 @@ const setupAndImportHook = async (gatewayUrl: string | null) => {
       shouldPromptForConnect: boolean;
       useLocalGatewayDefaults: () => void;
       setSelectedAdapterType: (value: "openclaw" | "hermes" | "demo" | "custom") => void;
+      setGatewayUrl: (value: string) => void;
+      setToken: (value: string) => void;
       connect: () => Promise<void>;
     },
     captured,
@@ -555,6 +557,65 @@ describe("useGatewayConnection", () => {
     expect(firstPatch.gateway?.profiles?.local?.token).toBe("");
     expect(firstPatch.gateway?.profiles?.office3d?.token).toBe("");
     expect(firstPatch.gateway?.profiles?.custom?.token).toBe("");
+  });
+
+  it("keeps_what_the_user_typed_before_the_saved_settings_finished_loading", async () => {
+    const { useGatewayConnection } = await setupAndImportHook(null);
+    const patches: unknown[] = [];
+    let finishLoading: (value: unknown) => void = () => {};
+    const coordinator = {
+      loadSettingsEnvelope: () =>
+        new Promise((resolve) => {
+          finishLoading = resolve;
+        }),
+      loadSettings: async () => null,
+      schedulePatch: (patch: unknown) => {
+        patches.push(patch);
+      },
+      flushPending: async () => {},
+    };
+
+    const Probe = () => {
+      const state = useGatewayConnection(coordinator);
+      return createElement(
+        "div",
+        null,
+        createElement("div", { "data-testid": "gatewayUrl" }, state.gatewayUrl),
+        createElement("div", { "data-testid": "token" }, state.token),
+        createElement("button", {
+          type: "button",
+          "data-testid": "type",
+          onClick: () => {
+            state.setGatewayUrl("ws://gateway.example:18789");
+            state.setToken("token-123");
+          },
+        })
+      );
+    };
+
+    render(createElement(Probe));
+    fireEvent.click(screen.getByTestId("type"));
+    finishLoading({
+      settings: {
+        version: 1,
+        gateway: { url: "ws://localhost:18789", token: "", adapterType: "openclaw" },
+      },
+      localGatewayDefaults: null,
+    });
+
+    const gatewayPatches = () =>
+      (patches as Array<{ gateway?: { url?: string; token?: string } }>)
+        .map((patch) => patch.gateway)
+        .filter((gateway) => gateway?.url !== undefined);
+    await waitFor(() => {
+      expect(gatewayPatches().length).toBeGreaterThan(0);
+    });
+    expect(screen.getByTestId("gatewayUrl")).toHaveTextContent("ws://gateway.example:18789");
+    expect(screen.getByTestId("token")).toHaveTextContent("token-123");
+    expect(gatewayPatches().at(-1)).toMatchObject({
+      url: "ws://gateway.example:18789",
+      token: "token-123",
+    });
   });
 
   it("prefers_the_saved_selected_adapter_over_a_different_last_known_good_backend", async () => {

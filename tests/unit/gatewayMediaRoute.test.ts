@@ -135,23 +135,28 @@ describe("/api/gateway/media route", () => {
 
     const outsideFile = path.join(outsideDir, "secret.png");
     fs.writeFileSync(outsideFile, "not-allowed", "utf8");
-    const symlinkPath = path.join(imagesDir, "linked.png");
+    // The link has to live in the real ~/.openclaw, so give it a name no other
+    // run shares and remove it however the test ends; a link left behind by a
+    // failed run would otherwise make every later run fail on EEXIST.
+    const symlinkPath = path.join(imagesDir, `linked-${process.pid}-${Date.now()}.png`);
     fs.symlinkSync(outsideFile, symlinkPath);
 
-    process.env.OPENCLAW_STATE_DIR = tempDir;
-    writeStudioSettings(tempDir, "ws://localhost:18789");
+    try {
+      process.env.OPENCLAW_STATE_DIR = tempDir;
+      writeStudioSettings(tempDir, "ws://localhost:18789");
 
-    const response = await GET(
-      new Request(
-        `http://localhost/api/gateway/media?path=${encodeURIComponent(symlinkPath)}`
-      )
-    );
-    const body = (await response.json()) as { error?: string };
+      const response = await GET(
+        new Request(
+          `http://localhost/api/gateway/media?path=${encodeURIComponent(symlinkPath)}`
+        )
+      );
+      const body = (await response.json()) as { error?: string };
 
-    expect(response.status).toBe(400);
-    expect(body.error).toBe("Символические ссылки в путях к медиафайлам не допускаются.");
-
-    fs.rmSync(symlinkPath, { force: true });
+      expect(response.status).toBe(400);
+      expect(body.error).toBe("Символические ссылки в путях к медиафайлам не допускаются.");
+    } finally {
+      fs.rmSync(symlinkPath, { force: true });
+    }
   });
 });
 

@@ -4,7 +4,7 @@ const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
-const { assertPublicHostAllowed, resolveHosts } = require("./network-policy");
+const { assertPublicHostAllowed, isOptionalListenFailure, resolveHosts } = require("./network-policy");
 const { loadUpstreamGatewaySettings } = require("./studio-settings");
 
 const resolvePort = () => {
@@ -169,12 +169,25 @@ async function main() {
       server.close(() => resolve());
     });
 
-  try {
-    await Promise.all(servers.map((server, index) => listenOnHost(server, hostnames[index])));
-  } catch (err) {
+  const results = await Promise.allSettled(
+    servers.map((server, index) => listenOnHost(server, hostnames[index]))
+  );
+  const fatal = results.find(
+    (result, index) =>
+      result.status === "rejected" &&
+      !isOptionalListenFailure({ host: hostnames[index], error: result.reason })
+  );
+  if (fatal) {
     await Promise.all(servers.map((server) => closeServer(server)));
-    throw err;
+    throw fatal.reason;
   }
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      console.warn(
+        `Not listening on ${hostnames[index]}: ${result.reason?.code ?? result.reason} (IPv6 is unavailable here). Studio is still reachable on the other loopback address.`
+      );
+    }
+  });
 
   const hostForBrowser = hostnames.some((value) => value === "127.0.0.1" || value === "::1")
     ? "localhost"

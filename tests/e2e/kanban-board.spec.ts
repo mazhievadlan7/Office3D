@@ -15,10 +15,10 @@ test("creates and edits a kanban card from HQ", async ({ page }) => {
 
   await page.getByRole("button", { name: "Открыть боковую панель штаба" }).click();
   await page.getByRole("tab", { name: "Канбан" }).click();
-  await page.getByRole("button", { name: "Новая задача" }).click();
+  await page.getByRole("button", { name: "Новая задача", exact: true }).click();
 
   const titleInput = page.getByLabel("Заголовок");
-  await expect(titleInput).toHaveValue("New task");
+  await expect(titleInput).toHaveValue("Новая задача");
   await titleInput.fill("Create marketing website");
   await page.getByLabel("Описание").fill("Landing page for the spring campaign.");
   await page.getByLabel("Статус").selectOption("in_progress");
@@ -32,7 +32,7 @@ test("persists kanban cards to studio settings", async ({ page }) => {
 
   await page.getByRole("button", { name: "Открыть боковую панель штаба" }).click();
   await page.getByRole("tab", { name: "Канбан" }).click();
-  await page.getByRole("button", { name: "Новая задача" }).click();
+  await page.getByRole("button", { name: "Новая задача", exact: true }).click();
   await page.getByLabel("Заголовок").fill("Persistent task card");
 
   const request = await page.waitForRequest((req) => {

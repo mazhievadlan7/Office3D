@@ -29,6 +29,24 @@ const resolveHosts = (env = process.env) => {
   return ["127.0.0.1", "::1"];
 };
 
+// Errors that mean "this machine has no IPv6", not "something is wrong".
+const IPV6_UNAVAILABLE_CODES = new Set(["EAFNOSUPPORT", "EADDRNOTAVAIL"]);
+
+/**
+ * Whether a failed listen can be skipped rather than stopping the server.
+ *
+ * Only the implicit ::1 of the default loopback pair qualifies: it is there so
+ * that "localhost" works whichever address it resolves to, and a container or
+ * host with IPv6 turned off simply cannot have it. A host the operator set in
+ * HOST is never optional — if it cannot be bound, starting anyway would leave
+ * Studio listening somewhere other than where they asked.
+ */
+const isOptionalListenFailure = ({ host, env = process.env, error }) => {
+  if (String(env.HOST ?? "").trim()) return false;
+  if (host !== "::1") return false;
+  return IPV6_UNAVAILABLE_CODES.has(error?.code);
+};
+
 const resolveHost = (env = process.env) => {
   const hosts = resolveHosts(env);
   return hosts[0] ?? "127.0.0.1";
@@ -77,6 +95,7 @@ const assertPublicHostAllowed = ({ host, studioAccessToken }) => {
 };
 
 module.exports = {
+  isOptionalListenFailure,
   resolveHosts,
   resolveHost,
   isPublicHost,

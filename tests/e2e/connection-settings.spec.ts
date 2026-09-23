@@ -1,16 +1,24 @@
 import { expect, test } from "@playwright/test";
 import { stubStudioRoute } from "./helpers/studioRoute";
 
+// Without a reachable gateway the office shows the connect screen over
+// everything, settings included; run with OFFICE3D_E2E_GATEWAY=1 and a gateway
+// on ws://localhost:18789 (npm run demo-gateway is enough).
+test.skip(
+  process.env.OFFICE3D_E2E_GATEWAY !== "1",
+  "Requires a reachable gateway-backed office shell."
+);
+
 test("voice reply settings persist to the studio settings API", async ({ page }) => {
   await stubStudioRoute(page);
 
   await page.goto("/");
+  // Connecting re-renders the office and closes an open panel, so the
+  // settings are opened only once the gateway has answered.
+  await expect(page.getByTitle(/\(Подключено\)$/)).toBeVisible({ timeout: 60_000 });
   await page.getByTitle("Настройки голосовых ответов").click();
   await expect(page.getByRole("switch", { name: "Голосовые ответы" })).toBeVisible();
-  await page.waitForFunction(() => {
-    const element = document.querySelector('[aria-label="Voice replies"]');
-    return element instanceof HTMLButtonElement && !element.disabled;
-  });
+  await expect(page.getByRole("switch", { name: "Голосовые ответы" })).toBeEnabled();
 
   const requestPromise = page.waitForRequest((req) => {
     if (!req.url().includes("/api/studio") || req.method() !== "PUT") {

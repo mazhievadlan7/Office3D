@@ -58,4 +58,26 @@ describe("server network policy", () => {
       assertPublicHostAllowed({ host: "0.0.0.0", studioAccessToken: "abc" })
     ).not.toThrow();
   });
+  it("skips_the_default_ipv6_loopback_only_when_the_machine_has_no_ipv6", async () => {
+    const { isOptionalListenFailure } = await import("../../server/network-policy");
+    const noIpv6 = Object.assign(new Error("listen EAFNOSUPPORT"), { code: "EAFNOSUPPORT" });
+    const noAddress = Object.assign(new Error("listen EADDRNOTAVAIL"), { code: "EADDRNOTAVAIL" });
+    const inUse = Object.assign(new Error("listen EADDRINUSE"), { code: "EADDRINUSE" });
+    const env = {} as unknown as NodeJS.ProcessEnv;
+
+    expect(isOptionalListenFailure({ host: "::1", env, error: noIpv6 })).toBe(true);
+    expect(isOptionalListenFailure({ host: "::1", env, error: noAddress })).toBe(true);
+    // A busy port is a real problem, IPv6 or not.
+    expect(isOptionalListenFailure({ host: "::1", env, error: inUse })).toBe(false);
+    // The IPv4 loopback is never optional.
+    expect(isOptionalListenFailure({ host: "127.0.0.1", env, error: noIpv6 })).toBe(false);
+    // Neither is a host the operator asked for.
+    expect(
+      isOptionalListenFailure({
+        host: "::1",
+        env: { HOST: "::1" } as unknown as NodeJS.ProcessEnv,
+        error: noIpv6,
+      })
+    ).toBe(false);
+  });
 });

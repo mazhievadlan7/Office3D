@@ -541,7 +541,6 @@ const AgentsPageScreen = () => {
       setAgentsLoadedOnce(true);
     }
   }, [
-    client,
     provider,
     dispatch,
     hydrateAgents,
@@ -1416,8 +1415,6 @@ const AgentsPageScreen = () => {
                     token={token}
                     selectedAdapterType={selectedAdapterType}
                     activeAdapterType={activeAdapterType}
-                    localGatewayUrl={localGatewayDefaults?.url ?? null}
-                    localGatewayToken={localGatewayDefaults?.token ?? null}
                     status={status}
                     error={gatewayError}
                     onGatewayUrlChange={setGatewayUrl}
@@ -1490,8 +1487,6 @@ const AgentsPageScreen = () => {
                   token={token}
                   selectedAdapterType={selectedAdapterType}
                   activeAdapterType={activeAdapterType}
-                  localGatewayUrl={localGatewayDefaults?.url ?? null}
-                  localGatewayToken={localGatewayDefaults?.token ?? null}
                   status={status}
                   error={gatewayError}
                   onGatewayUrlChange={setGatewayUrl}

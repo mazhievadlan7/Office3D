@@ -578,6 +578,64 @@ describe("createGatewayProxy", () => {
     }
   });
 
+  const openProxy = async (loadUpstreamSettings: () => Promise<{ url: string; token: string }>) => {
+    const { createGatewayProxy } = await import("../../server/gateway-proxy");
+    const proxyHttp = await import("node:http").then((m) => m.createServer());
+    const proxy = createGatewayProxy({
+      loadUpstreamSettings,
+      allowWs: (req: { url?: string }) => req.url === "/api/gateway/ws",
+      logError: () => {},
+    });
+    proxyHttp.on("upgrade", (req, socket, head) => proxy.handleUpgrade(req, socket, head));
+    await new Promise<void>((resolve) => proxyHttp.listen(0, "127.0.0.1", resolve));
+    const proxyAddr = proxyHttp.address();
+    if (!proxyAddr || typeof proxyAddr === "string") {
+      throw new Error("expected proxy server to have a port");
+    }
+    return { proxyHttp, url: `ws://127.0.0.1:${proxyAddr.port}/api/gateway/ws` };
+  };
+
+  // The browser client waits up to 5 s for a connect.challenge before it sends
+  // connect. When the upstream is already known to be unreachable, the proxy
+  // must say so at once rather than hold the error until that frame arrives.
+  it("fails_the_browser_at_once_when_the_upstream_refuses_before_connect", async () => {
+    const closedPort = await new Promise<number>((resolve) => {
+      const probe = new WebSocketServer({ port: 0 }, () => {
+        const addr = probe.address();
+        probe.close(() => resolve(typeof addr === "object" && addr ? addr.port : 0));
+      });
+    });
+    const { proxyHttp, url } = await openProxy(async () => ({
+      url: `ws://127.0.0.1:${closedPort}`,
+      token: "t",
+    }));
+    const browser = new WebSocket(url);
+    try {
+      const startedAt = Date.now();
+      const [code, reason] = await waitForEvent<[number, Buffer]>(browser, "close");
+      expect(code).toBe(4008);
+      expect(String(reason)).toMatch(/^connect failed: studio\.upstream_error /);
+      expect(Date.now() - startedAt).toBeLessThan(3_000);
+    } finally {
+      await Promise.all([closeWebSocket(browser), closeHttpServer(proxyHttp)]);
+    }
+  });
+
+  it("fails_the_browser_at_once_when_no_upstream_is_configured", async () => {
+    const { proxyHttp, url } = await openProxy(async () => ({ url: "", token: "" }));
+    const browser = new WebSocket(url);
+    try {
+      const [code, reason] = await waitForEvent<[number, Buffer]>(browser, "close");
+      expect(code).toBe(4008);
+      const text = String(reason);
+      expect(text.startsWith("connect failed: studio.gateway_url_missing ")).toBe(true);
+      // A close reason may not exceed 123 bytes; the Russian message is cut to fit.
+      expect(Buffer.byteLength(text, "utf8")).toBeLessThanOrEqual(123);
+    } finally {
+      await Promise.all([closeWebSocket(browser), closeHttpServer(proxyHttp)]);
+    }
+  });
+
   it("returns studio.gateway_token_missing when browser auth and host token are both missing", async () => {
     const upstream = new WebSocketServer({ port: 0 });
     const address = upstream.address();
@@ -697,7 +755,7 @@ describe("createGatewayProxy", () => {
         ok: false,
         error: {
           code: "studio.upstream_rejected",
-          message: "Upstream gateway rejected connect (1008): pairing required",
+          message: "Шлюз отклонил подключение (1008): pairing required",
         },
       });
     } finally {

@@ -12,6 +12,22 @@ const MAX_FRAMES_PER_SECOND = 60;
 /** Allow short startup bursts before rate limiting. */
 const MAX_FRAME_BURST = 120;
 
+// The close code GatewayClient treats as a failed connect; the reason carries
+// "connect failed: <code> <message>" (see parseConnectFailedCloseReason).
+const CONNECT_FAILED_CLOSE_CODE = 4008;
+// RFC 6455 caps a close reason at 123 bytes of UTF-8, and ws throws beyond it.
+// Russian text is two bytes a letter, so the message is cut on a character
+// boundary rather than risking the close itself failing.
+const MAX_CLOSE_REASON_BYTES = 123;
+
+const connectFailedReason = ({ code, message }) => {
+  let reason = `connect failed: ${code} ${message}`;
+  while (Buffer.byteLength(reason, "utf8") > MAX_CLOSE_REASON_BYTES) {
+    reason = Array.from(reason).slice(0, -1).join("");
+  }
+  return reason;
+};
+
 const buildErrorResponse = (id, code, message) => {
   return {
     type: "res",
@@ -227,6 +243,22 @@ function createGatewayProxy(options) {
       closeBoth(1011, "connect failed");
     };
 
+    // The upstream cannot be reached, or is not configured, before the browser
+    // has sent its connect frame. The browser waits up to 5 s for a
+    // connect.challenge before sending one, then its own timeout; holding the
+    // error until then left the connect form replaced by a spinner for about
+    // twelve seconds while the answer was already known. Closing with the
+    // connect-failed code hands the browser the same code and message at once:
+    // GatewayClient parses "connect failed: <code> <message>" from the reason.
+    const failSetup = (error) => {
+      pendingUpstreamSetupError = error;
+      if (connectRequestId) {
+        sendConnectError(error.code, error.message);
+        return;
+      }
+      closeBoth(CONNECT_FAILED_CLOSE_CODE, connectFailedReason(error));
+    };
+
     const forwardConnectFrame = (frame) => {
       const browserHasAuth =
         hasNonEmptyToken(frame.params) ||
@@ -296,26 +328,26 @@ function createGatewayProxy(options) {
             : "openclaw";
       } catch (err) {
         logError("Failed to load upstream gateway settings.", err);
-        pendingUpstreamSetupError = {
+        failSetup({
           code: "studio.settings_load_failed",
           message: "Не удалось загрузить настройки шлюза Studio.",
-        };
+        });
         return;
       }
 
       if (!upstreamUrl) {
-        pendingUpstreamSetupError = {
+        failSetup({
           code: "studio.gateway_url_missing",
           message: "Адрес шлюза не настроен на хосте Studio.",
-        };
+        });
         return;
       }
 
       if (!isUpstreamAllowed(upstreamUrl)) {
-        pendingUpstreamSetupError = {
+        failSetup({
           code: "studio.gateway_url_blocked",
           message: "Адреса шлюза нет в списке разрешённых хостов.",
-        };
+        });
         return;
       }
 
@@ -323,10 +355,10 @@ function createGatewayProxy(options) {
       try {
         upstreamOrigin = resolveOriginForUpstream(upstreamUrl);
       } catch {
-        pendingUpstreamSetupError = {
+        failSetup({
           code: "studio.gateway_url_invalid",
           message: "Адрес шлюза на хосте Studio указан неверно.",
-        };
+        });
         return;
       }
 
@@ -340,13 +372,10 @@ function createGatewayProxy(options) {
           code: "studio.upstream_timeout",
           message: "Studio не дождалась подключения к шлюзу по WebSocket.",
         };
-        pendingUpstreamSetupError = timeoutError;
         try {
           upstreamWs?.terminate();
         } catch {}
-        if (connectRequestId) {
-          sendConnectError(timeoutError.code, timeoutError.message);
-        }
+        failSetup(timeoutError);
       }, upstreamHandshakeTimeoutMs);
 
       upstreamWs.on("open", () => {
@@ -386,10 +415,12 @@ function createGatewayProxy(options) {
           `[gateway-proxy] upstream closed code=${code} reason=${reason || "(none)"} hadConnect=${Boolean(connectRequestId)} responseSent=${connectResponseSent}`
         );
         if (!connectRequestId) {
-          pendingUpstreamSetupError ||= {
-            code: "studio.upstream_closed",
-            message: `Шлюз закрыл соединение (${code}): ${reason}`,
-          };
+          failSetup(
+            pendingUpstreamSetupError ?? {
+              code: "studio.upstream_closed",
+              message: `Шлюз закрыл соединение (${code}): ${reason}`,
+            }
+          );
           return;
         }
         if (!connectResponseSent && connectRequestId) {
@@ -399,7 +430,7 @@ function createGatewayProxy(options) {
               connectRequestId,
               code === 1008 ? "studio.upstream_rejected" : "studio.upstream_closed",
               code === 1008
-                ? `Upstream gateway rejected connect (${code}): ${reason || "no reason provided"}`
+                ? `Шлюз отклонил подключение (${code}): ${reason || "причина не указана"}`
                 : `Шлюз закрыл соединение (${code}): ${reason}`
             )
           );
@@ -415,10 +446,12 @@ function createGatewayProxy(options) {
         }
         logError("Upstream gateway WebSocket error.", err);
         if (!connectRequestId) {
-          pendingUpstreamSetupError ||= {
-            code: "studio.upstream_error",
-            message: "Не удалось подключиться к шлюзу по WebSocket.",
-          };
+          failSetup(
+            pendingUpstreamSetupError ?? {
+              code: "studio.upstream_error",
+              message: "Не удалось подключиться к шлюзу по WebSocket.",
+            }
+          );
           return;
         }
         if (
