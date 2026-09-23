@@ -25,6 +25,7 @@ const { createAutonomy } = require("./autonomy");
 const { createMeetings } = require("./meetings");
 const { createApprovalChain } = require("./approvals");
 const { createUpdates } = require("./updates");
+const { createSkillHandlers } = require("./skills");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -56,6 +57,8 @@ const METHODS = [
   "org.meeting.start", "org.meeting.arrivals", "org.meeting.stop", "org.meeting.get", "org.meeting.list",
   "org.approvals.log",
   "hermes.update.status", "hermes.update.start", "hermes.update.later",
+  "hermes.skills.list", "hermes.skills.toggle", "hermes.skills.catalog", "hermes.skills.search",
+  "hermes.skills.scan", "hermes.skills.install", "hermes.skills.uninstall", "hermes.skills.action",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
@@ -1297,6 +1300,14 @@ const createHermesAdapter = ({
     meetings.handlers,
     approvalChain.handlers,
     updates.handlers,
+    createSkillHandlers({
+      client,
+      profileFor: (agentId) => assertAgentExists(agentId),
+      listProfiles,
+      hasDashboard,
+      AdapterError,
+      log,
+    }),
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers

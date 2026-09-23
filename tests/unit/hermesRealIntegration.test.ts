@@ -231,6 +231,33 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     }
   }, 180_000);
 
+  it.skipIf(!withDashboard)("installs_a_skill_from_the_hermes_hub_for_one_agent", async () => {
+    const catalog = await call("hermes.skills.catalog", { agentId: "main" });
+    expect(catalog.ok).toBe(true);
+    const pick = catalog.payload.skills.find((skill: { installed: boolean }) => !skill.installed);
+    expect(pick).toBeTruthy();
+    const hired = await call("agents.create", { name: "Проверка навыков" });
+    const member = hired.payload.agentId;
+    try {
+      const scan = await call("hermes.skills.scan", { agentId: member, identifier: pick.identifier });
+      expect(scan.payload.policy).not.toBe("block");
+      const installed = await call("hermes.skills.install", { agentId: member, identifier: pick.identifier, confirmRisk: true });
+      expect(installed.ok).toBe(true);
+      let state: Loose = null;
+      for (let i = 0; i < 60; i += 1) {
+        state = await call("hermes.skills.action", { action: installed.payload.actions[0].action });
+        if (!state.payload.running) break;
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+      expect(state.payload.exitCode).toBe(0);
+      const skills = await call("hermes.skills.list", { agentId: member });
+      const name = String(pick.identifier).split("/").pop();
+      expect(skills.payload.skills.some((skill: { name: string }) => skill.name === name || skill.name === pick.name)).toBe(true);
+    } finally {
+      await call("agents.delete", { agentId: member });
+    }
+  }, 180_000);
+
   it.skipIf(!withDashboard)("runs_a_task_from_the_office_board_through_the_hermes_dispatcher", async () => {
     const created = await call("tasks.create", { title: `Проверка доски ${Date.now()}`, description: "Интеграционный тест" });
     expect(created).toMatchObject({ ok: true });

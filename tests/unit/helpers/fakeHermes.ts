@@ -59,6 +59,14 @@ export const createFakeHermes = async () => {
   const toolsets = new Map<string, Set<string>>([["default", new Set(["web", "terminal", "memory"])]]);
   const configPuts: Array<{ profile: string; config: unknown }> = [];
   const kanbanConfig: Record<string, unknown> = { auto_decompose: true, dispatch_profiles: null };
+  // Skills per profile, and the hub: the verdict its scan gives each identifier.
+  const skills = new Map<string, Array<{ name: string; description: string; enabled: boolean; provenance: string }>>();
+  const hubPolicy: Record<string, "allow" | "ask" | "block"> = {
+    "official/research/arxiv": "allow",
+    "community/shady-tool": "block",
+    "community/new-tool": "ask",
+  };
+  const installs: Array<{ profile: string; identifier: string }> = [];
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   // One-off scripts for the next runs, in order, before nextScript applies.
@@ -185,6 +193,37 @@ export const createFakeHermes = async () => {
           profile.description = (body as { description: string }).description;
           return json(res, 200, { ok: true });
         }
+      }
+      if (path === "/api/skills" && req.method === "GET") {
+        const profile = url.searchParams.get("profile") ?? "default";
+        return json(res, 200, skills.get(profile) ?? [{ name: "search", description: "Поиск", enabled: true, provenance: "bundled" }]);
+      }
+      if (path === "/api/skills/toggle" && req.method === "PUT") {
+        const b = body as { name: string; enabled: boolean; profile: string };
+        const list = skills.get(b.profile) ?? [{ name: "search", description: "Поиск", enabled: true, provenance: "bundled" }];
+        skills.set(b.profile, list.map((skill) => (skill.name === b.name ? { ...skill, enabled: b.enabled } : skill)));
+        return json(res, 200, { ok: true, name: b.name, enabled: b.enabled });
+      }
+      if (path === "/api/skills/hub/official") {
+        return json(res, 200, { skills: [{ identifier: "official/research/arxiv", name: "arxiv", description: "Статьи arXiv", category: "research", installed: false }] });
+      }
+      if (path === "/api/skills/hub/search") {
+        return json(res, 200, { results: [{ identifier: "community/new-tool", name: "new-tool", trust_level: "community" }], source_counts: {}, timed_out: [], installed: {} });
+      }
+      if (path === "/api/skills/hub/scan") {
+        const identifier = url.searchParams.get("identifier") ?? "";
+        const policy = hubPolicy[identifier];
+        if (!policy) return json(res, 404, { detail: `Skill not found: ${identifier}` });
+        return json(res, 200, { trust_level: "community", verdict: policy === "allow" ? "safe" : "caution", summary: "проверено", policy, policy_reason: policy === "block" ? "опасный код" : null, findings: [] });
+      }
+      if (path === "/api/skills/hub/install" && req.method === "POST") {
+        const b = body as { identifier: string; profile: string };
+        installs.push({ profile: b.profile, identifier: b.identifier });
+        return json(res, 200, { ok: true, pid: 4242, name: `skills-install-${b.identifier.replace(/[^a-z0-9]+/g, "-")}-deadbeef` });
+      }
+      const actionRoute = path.match(/^\/api\/actions\/([^/]+)\/status$/);
+      if (actionRoute) {
+        return json(res, 200, { name: actionRoute[1], running: false, exit_code: 0, pid: 4242, lines: ["Installed arxiv"] });
       }
       if (path === "/api/config" && req.method === "GET") {
         return json(res, 200, { kanban: { ...kanbanConfig } });
@@ -451,6 +490,8 @@ export const createFakeHermes = async () => {
     toolsets,
     configPuts,
     kanbanConfig,
+    skills,
+    installs,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

@@ -737,6 +737,45 @@ describe("hermes adapter", () => {
     client.close();
   });
 
+  // --- skills through Hermes -----------------------------------------------------------
+
+  it("lists_and_toggles_an_agents_hermes_skills", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const listed = await client.call("hermes.skills.list", { agentId: "main" });
+    expect(listed.payload.skills).toEqual([{ name: "search", description: "Поиск", category: null, enabled: true, provenance: "bundled" }]);
+    await client.call("hermes.skills.toggle", { agentId: "main", name: "search", enabled: false });
+    const after = await client.call("hermes.skills.list", { agentId: "main" });
+    expect(after.payload.skills[0].enabled).toBe(false);
+    const bad = await client.call("hermes.skills.toggle", { agentId: "main", name: "../etc", enabled: true });
+    expect(bad).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+
+  it("installs_hub_skills_only_past_hermes_security_scan", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Исследователь" });
+    const catalog = await client.call("hermes.skills.catalog", { agentId: hired.payload.agentId });
+    expect(catalog.payload.skills[0]).toMatchObject({ identifier: "official/research/arxiv", installed: false });
+
+    const blocked = await client.call("hermes.skills.install", { agentId: "main", identifier: "community/shady-tool" });
+    expect(blocked).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    const unconfirmed = await client.call("hermes.skills.install", { agentId: "main", identifier: "community/new-tool" });
+    expect(unconfirmed).toMatchObject({ ok: false, error: { code: "CONFIRMATION_REQUIRED" } });
+    expect(fake.installs).toEqual([]);
+
+    const confirmed = await client.call("hermes.skills.install", { agentId: "main", identifier: "community/new-tool", confirmRisk: true });
+    expect(confirmed.ok).toBe(true);
+    const everyone = await client.call("hermes.skills.install", { agentId: "all", identifier: "official/research/arxiv" });
+    expect(everyone.payload.actions.map((a: { profile: string }) => a.profile).sort()).toEqual(["default", hired.payload.agentId].sort());
+    expect(fake.installs.map((i) => `${i.profile}:${i.identifier}`)).toContain(`${hired.payload.agentId}:official/research/arxiv`);
+
+    const progress = await client.call("hermes.skills.action", { action: everyone.payload.actions[0].action });
+    expect(progress.payload).toMatchObject({ running: false, exitCode: 0 });
+    const sneaky = await client.call("hermes.skills.action", { action: "../../etc/passwd" });
+    expect(sneaky).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("usage.cost", {});

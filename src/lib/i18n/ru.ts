@@ -1067,6 +1067,28 @@ export const ru = {
   "hermesModels.waitingForApproval": "Ждём подтверждения…",
   "hermesModels.whereToGetKey": "Где взять ключ",
 
+  // --- hermesSkills ----------------------------------------------------------
+  "hermesSkills.alreadyInstalled": "установлен",
+  "hermesSkills.cancel": "Отмена",
+  "hermesSkills.catalog": "Каталог",
+  "hermesSkills.forEveryone": "Установить всей команде",
+  "hermesSkills.install": "Установить",
+  "hermesSkills.installAnyway": "Установить, я проверил",
+  "hermesSkills.installFailed": "Установка не удалась: {detail}",
+  "hermesSkills.installed": "Навык установлен.",
+  "hermesSkills.installing": "Hermes устанавливает навык…",
+  "hermesSkills.lead": "Навыки из профиля Hermes этого агента. Новые — из каталога Hermes Skills Hub; перед установкой Hermes проверяет навык на безопасность.",
+  "hermesSkills.loading": "Загружаю навыки…",
+  "hermesSkills.none": "Навыков пока нет.",
+  "hermesSkills.nothingFound": "Ничего не найдено.",
+  "hermesSkills.scanAsk": "Проверка безопасности просит внимания: {summary} Установите, только если доверяете источнику.",
+  "hermesSkills.scanBlocked": "Hermes запретил установку: {reason}",
+  "hermesSkills.scanOk": "Проверка безопасности пройдена.",
+  "hermesSkills.search": "Найти",
+  "hermesSkills.searchPlaceholder": "Поиск навыков в Hermes Skills Hub",
+  "hermesSkills.title": "Навыки Hermes",
+  "hermesSkills.toggle": "Навык {name} включён",
+
   // --- hermesUpdate ----------------------------------------------------------
   "hermesUpdate.done": "Hermes обновлён до {to}. Агенты снова работают.",
   "hermesUpdate.failed": "Обновление не удалось: {error} Hermes работает на прежней версии {from}.",

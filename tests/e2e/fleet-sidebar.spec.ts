@@ -24,17 +24,26 @@ test("persists_gateway_fields_to_studio_settings", async ({ page }) => {
   );
   await page.goto("/");
 
-  await page.getByLabel("Адрес шлюза").fill("ws://gateway.example:18789");
-  await page.getByLabel("Токен шлюза").fill("token-123");
-
-  const request = await page.waitForRequest((req) => {
+  const saved = (req: import("@playwright/test").Request) => {
     if (!req.url().includes("/api/studio") || req.method() !== "PUT") {
       return false;
     }
     const payload = JSON.parse(req.postData() ?? "{}") as Record<string, unknown>;
     const gateway = (payload.gateway ?? {}) as { url?: string; token?: string };
     return gateway.url === "ws://gateway.example:18789" && gateway.token === "token-123";
-  });
+  };
+  // On a cold dev server the form can render before React hydrates it, and
+  // typing into it then is lost; type again until the save goes out.
+  let request: import("@playwright/test").Request | null = null;
+  for (let attempt = 0; attempt < 4 && !request; attempt += 1) {
+    const pending = page.waitForRequest(saved, { timeout: 15_000 }).catch(() => null);
+    await page.getByLabel("Адрес шлюза").fill("");
+    await page.getByLabel("Адрес шлюза").fill("ws://gateway.example:18789");
+    await page.getByLabel("Токен шлюза").fill("");
+    await page.getByLabel("Токен шлюза").fill("token-123");
+    request = await pending;
+  }
+  if (!request) throw new Error("the gateway fields were never saved");
   const payload = JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
   const gateway = (payload.gateway ?? {}) as { url?: string; token?: string };
   expect(gateway.url).toBe("ws://gateway.example:18789");
