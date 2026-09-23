@@ -98,6 +98,8 @@ const createHermesStore = ({ filePath, logError = () => {} }) => {
       return persist();
     },
     getSession: (key) => state.sessions[key] ?? null,
+    /** Every office session key with its record. */
+    listSessions: () => Object.entries(state.sessions),
     upsertSession(key, patch) {
       state.sessions[key] = { ...(state.sessions[key] ?? {}), ...patch };
       return persist();

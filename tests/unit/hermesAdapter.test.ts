@@ -778,8 +778,80 @@ describe("hermes adapter", () => {
 
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
-    const result = await client.call("usage.cost", {});
+    const result = await client.call("device.pair.list", {});
     expect(result).toMatchObject({ ok: false, error: { code: "NOT_IMPLEMENTED" } });
+    client.close();
+  });
+
+  it("reports_spending_by_day_and_by_session_from_hermes_accounting", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Аналитик" });
+    const member = hired.payload.agentId as string;
+    const nowSec = Date.now() / 1000;
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const row = (id: string, startedAt: number, extra: Record<string, unknown>) => ({
+      id, started_at: startedAt, ended_at: startedAt + 30, last_active: startedAt + 30, model: "hermes-4", billing_provider: "nous",
+      message_count: 4, tool_call_count: 1, input_tokens: 100, output_tokens: 50, cache_read_tokens: 10,
+      estimated_cost_usd: 0.01, actual_cost_usd: null, title: `Сессия ${id}`, source: "api_server", ...extra,
+    });
+    // Main chatted with the person today (the office's own session) and worked a task yesterday.
+    const chat = await client.call("chat.send", { sessionKey: "agent:main:main", message: "Привет", idempotencyKey: "u1" });
+    expect(chat.ok).toBe(true);
+    await client.call("agent.wait", { runId: chat.payload.runId, timeoutMs: 5000 });
+    const officeSessionId = [...fake.sessions.values()].find((session) => session.profile === "default")!.id;
+    fake.usageRows.set("default", [
+      row(officeSessionId, nowSec - 60, { actual_cost_usd: 0.05 }),
+      row("s-yesterday", nowSec - 86_400, { source: "kanban" }),
+      row("s-old", nowSec - 90 * 86_400, {}),
+    ]);
+    fake.usageRows.set(member, [row("m-today", nowSec - 120, { input_tokens: 1000, estimated_cost_usd: 0.2 })]);
+
+    const cost = await client.call("usage.cost", { startDate: yesterday, endDate: today });
+    expect(cost.ok).toBe(true);
+    const days = Object.fromEntries(cost.payload.daily.map((day: { date: string }) => [day.date, day]));
+    const todayRow = days[today];
+    expect(todayRow).toMatchObject({ input: 1100, output: 100, cacheRead: 20, totalTokens: 1220 });
+    // The provider's actual cost wins over the estimate; the member's estimate counts.
+    expect(todayRow.totalCost).toBeCloseTo(0.25);
+    expect(days[yesterday]).toMatchObject({ input: 100, totalCost: 0.01 });
+    expect(cost.payload.daily.map((day: { date: string }) => day.date)).not.toContain(
+      new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
+    );
+
+    const usage = await client.call("sessions.usage", { startDate: yesterday, endDate: today, limit: 1000 });
+    expect(usage.ok).toBe(true);
+    const byId = Object.fromEntries(usage.payload.sessions.map((session: { sessionId: string }) => [session.sessionId, session]));
+    expect(Object.keys(byId).sort()).toEqual([officeSessionId, "m-today", "s-yesterday"].sort());
+    // A session the office started keeps the office's key; the member's rows are the member's.
+    expect(byId[officeSessionId]).toMatchObject({ key: "agent:main:main", agentId: "main", model: "hermes-4", modelProvider: "nous" });
+    expect(byId["m-today"]).toMatchObject({ key: `hermes:${member}:m-today`, agentId: member, usage: { input: 1000, durationMs: 30_000 } });
+    expect(byId["s-yesterday"]).toMatchObject({ channel: "kanban", usage: { messageCounts: { total: 4, toolCalls: 1 } } });
+    expect(usage.payload.totals.totalCost).toBeCloseTo(0.26);
+    client.close();
+  });
+
+  it("maps_the_old_skill_panel_and_wake_onto_hermes", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Писатель" });
+    const member = hired.payload.agentId as string;
+
+    const off = await client.call("skills.update", { skillKey: "search", enabled: false });
+    expect(off).toMatchObject({ ok: true, payload: { skillKey: "search", config: { enabled: false } } });
+    for (const agentId of ["main", member]) {
+      const listed = await client.call("hermes.skills.list", { agentId });
+      expect(listed.payload.skills.find((skill: { name: string }) => skill.name === "search").enabled).toBe(false);
+    }
+    expect(await client.call("skills.update", { skillKey: "search", apiKey: "k" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+    expect(await client.call("skills.update", { skillKey: "../x", enabled: true })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(await client.call("skills.install", { name: "search", installId: "brew" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+
+    const before = fake.runs.size;
+    const woke = await client.call("wake", { mode: "now", text: "Проверь доску" });
+    expect(woke).toMatchObject({ ok: true, payload: { ok: true } });
+    expect(fake.runs.size).toBe(before + 1);
+    // A second wake while the review runs is the same review.
+    expect(await client.call("wake", { mode: "now", text: "Ещё раз" })).toMatchObject({ ok: true, payload: { ok: true } });
     client.close();
   });
 

@@ -26,6 +26,7 @@ const { createMeetings } = require("./meetings");
 const { createApprovalChain } = require("./approvals");
 const { createUpdates } = require("./updates");
 const { createSkillHandlers } = require("./skills");
+const { createUsageHandlers } = require("./usage");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -49,7 +50,8 @@ const METHODS = [
   "chat.send", "chat.abort", "chat.history", "agent.wait",
   "status", "config.get", "config.set", "config.patch",
   "exec.approvals.get", "exec.approvals.set", "exec.approval.resolve",
-  "skills.status", "models.list",
+  "skills.status", "skills.update", "skills.install", "models.list",
+  "usage.cost", "sessions.usage", "wake",
   "cron.list", "cron.add", "cron.remove", "cron.patch", "cron.run",
   "tasks.list", "tasks.create", "tasks.update", "tasks.delete", "tasks.comment",
   "org.get", "org.setMission", "org.proposals.list", "org.proposals.decide",
@@ -1063,6 +1065,51 @@ const createHermesAdapter = ({
       };
     },
 
+    /**
+     * The skills panel's "enable/disable everywhere": the skill is turned on
+     * or off in every agent's profile. Hermes skills read their keys from the
+     * profile's environment, which the credentials section manages.
+     */
+    async "skills.update"(p) {
+      const skillKey = str(p.skillKey);
+      if (!/^[A-Za-z0-9._-]{1,100}$/.test(skillKey)) throw new AdapterError("INVALID_REQUEST", "Неверное имя навыка.");
+      if (typeof p.apiKey === "string") {
+        throw new AdapterError("UNSUPPORTED", "Ключи навыков Hermes задаются в разделе «Ключи и доступы» как переменные окружения.");
+      }
+      if (typeof p.enabled !== "boolean") throw new AdapterError("INVALID_REQUEST", "Не указано, включить ли навык.");
+      if (!hasDashboard()) throw new AdapterError("UNAVAILABLE", "Навыки Hermes доступны при подключённой панели Hermes.");
+      const profiles = (await listProfiles()).map((profile) => profile.name);
+      for (const profile of profiles) {
+        await client.dashboard("/api/skills/toggle", { method: "PUT", query: { profile }, body: { name: skillKey, enabled: p.enabled, profile } });
+      }
+      log(`Skill ${skillKey} ${p.enabled ? "enabled" : "disabled"} for ${profiles.join(", ")}.`);
+      return { ok: true, skillKey, config: { enabled: p.enabled } };
+    },
+
+    /** Hermes installs a skill's dependencies itself; there are no installer options to run. */
+    async "skills.install"() {
+      throw new AdapterError(
+        "UNSUPPORTED",
+        "В Hermes навыки ставятся из каталога Hermes Skills Hub (настройки агента → «Навыки Hermes»); зависимости Hermes устанавливает сам."
+      );
+    },
+
+    /**
+     * The old "wake now": the main agent looks over the board and the mission
+     * right away, as the autonomy "Обзор сейчас" does.
+     */
+    async wake() {
+      if (!hasDashboard()) return { ok: false };
+      try {
+        await autonomy.handlers["org.autonomy.runNow"]({});
+        return { ok: true };
+      } catch (err) {
+        // A review already under way is what was asked for.
+        if (err instanceof AdapterError && err.code === "CONFLICT") return { ok: true };
+        throw err;
+      }
+    },
+
     async "models.list"() {
       const result = await client.modelOptions(DEFAULT_PROFILE);
       const providers = Array.isArray(result?.providers) ? result.providers : [];
@@ -1309,6 +1356,7 @@ const createHermesAdapter = ({
       log,
     }),
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
+    createUsageHandlers({ client, store, listProfiles, agentIdOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers
   );

@@ -67,6 +67,8 @@ export const createFakeHermes = async () => {
     "community/new-tool": "ask",
   };
   const installs: Array<{ profile: string; identifier: string }> = [];
+  // Hermes' accounting: session rows per profile, as its state.db keeps them.
+  const usageRows = new Map<string, Array<Record<string, unknown>>>();
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   // One-off scripts for the next runs, in order, before nextScript applies.
@@ -224,6 +226,32 @@ export const createFakeHermes = async () => {
       const actionRoute = path.match(/^\/api\/actions\/([^/]+)\/status$/);
       if (actionRoute) {
         return json(res, 200, { name: actionRoute[1], running: false, exit_code: 0, pid: 4242, lines: ["Installed arxiv"] });
+      }
+      if (path === "/api/sessions" && req.method === "GET") {
+        const rows = [...(usageRows.get(url.searchParams.get("profile") ?? "default") ?? [])].sort(
+          (a, b) => Number(b.started_at) - Number(a.started_at)
+        );
+        const limit = Number(url.searchParams.get("limit") ?? 20);
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        return json(res, 200, { sessions: rows.slice(offset, offset + limit), total: rows.length, limit, offset });
+      }
+      if (path === "/api/analytics/usage") {
+        const profile = url.searchParams.get("profile") ?? "default";
+        const cutoff = Date.now() / 1000 - Number(url.searchParams.get("days") ?? 30) * 86400;
+        const byDay = new Map<string, Record<string, number>>();
+        for (const row of usageRows.get(profile) ?? []) {
+          if (Number(row.started_at) <= cutoff) continue;
+          const day = new Date(Number(row.started_at) * 1000).toISOString().slice(0, 10);
+          const entry = byDay.get(day) ?? { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, estimated_cost: 0, actual_cost: 0 };
+          entry.input_tokens += Number(row.input_tokens ?? 0);
+          entry.output_tokens += Number(row.output_tokens ?? 0);
+          entry.cache_read_tokens += Number(row.cache_read_tokens ?? 0);
+          entry.estimated_cost += Number(row.estimated_cost_usd ?? 0);
+          entry.actual_cost += Number(row.actual_cost_usd ?? 0);
+          byDay.set(day, entry);
+        }
+        const daily = [...byDay.entries()].sort().map(([day, entry]) => ({ day, ...entry }));
+        return json(res, 200, { daily, by_model: [], totals: {}, period_days: Number(url.searchParams.get("days")) });
       }
       if (path === "/api/config" && req.method === "GET") {
         return json(res, 200, { kanban: { ...kanbanConfig } });
@@ -492,6 +520,7 @@ export const createFakeHermes = async () => {
     kanbanConfig,
     skills,
     installs,
+    usageRows,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

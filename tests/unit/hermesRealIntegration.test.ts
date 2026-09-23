@@ -295,4 +295,21 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
       expect(removed).toMatchObject({ ok: true });
     }
   }, 180_000);
+
+  it.skipIf(!withDashboard)("reads_spending_from_hermes_accounting", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+    const cost = await call("usage.cost", { startDate, endDate: today });
+    expect(cost).toMatchObject({ ok: true });
+    expect(Array.isArray(cost.payload.daily)).toBe(true);
+    const usage = await call("sessions.usage", { startDate, endDate: today, limit: 1000 });
+    expect(usage).toMatchObject({ ok: true });
+    // Earlier tests in this file talked to main, so Hermes has counted tokens.
+    const main = usage.payload.sessions.filter((session: { agentId: string }) => session.agentId === "main");
+    expect(main.length).toBeGreaterThan(0);
+    const tokens = usage.payload.totals.totalTokens as number;
+    expect(tokens).toBeGreaterThan(0);
+    const dailyTokens = cost.payload.daily.reduce((sum: number, day: { totalTokens: number }) => sum + day.totalTokens, 0);
+    expect(dailyTokens).toBeGreaterThanOrEqual(tokens);
+  }, 60_000);
 });
