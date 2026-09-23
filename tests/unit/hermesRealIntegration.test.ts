@@ -146,7 +146,7 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     const main = await probe("default", "office3d_team");
     expect(main.ok).toBe(true);
     expect(main.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(
-      ["office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
+      ["office_call_meeting", "office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
     );
 
     const hired = await call("agents.create", { name: "Проверка MCP" });
@@ -162,6 +162,33 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
       await call("agents.delete", { agentId: member });
     }
   }, 90_000);
+
+  it.skipIf(!withDashboard)("holds_a_meeting_with_a_live_reply_from_each_participant", async () => {
+    const hired = await call("agents.create", { name: "Участник совещания" });
+    expect(hired.ok).toBe(true);
+    const member = hired.payload.agentId;
+    try {
+      const started = await call("org.meeting.start", { topic: "Проверка совещания", participants: [member] });
+      expect(started.ok).toBe(true);
+      const id = started.payload.meeting.id;
+      await call("org.meeting.arrivals", { id, arrivedAgentIds: ["main", member] });
+      const done = await waitForEvent(
+        (f) => f.event === "org.meeting" && f.payload.meeting.id === id && !["gathering", "speaking", "summarizing"].includes(f.payload.meeting.status),
+        150_000,
+      );
+      const meeting = done.payload.meeting;
+      expect(meeting.status).toBe("done");
+      expect(meeting.transcript.map((e: { agentId: string; kind: string }) => `${e.agentId}:${e.kind}`)).toEqual([
+        "main:opening",
+        `${member}:turn`,
+        "main:summary",
+      ]);
+      expect(meeting.transcript.every((e: { status: string; text: string }) => e.status === "done" && e.text.length > 0)).toBe(true);
+      expect(meeting.summary).toBeTruthy();
+    } finally {
+      await call("agents.delete", { agentId: member });
+    }
+  }, 180_000);
 
   it.skipIf(!withDashboard)("runs_a_task_from_the_office_board_through_the_hermes_dispatcher", async () => {
     const created = await call("tasks.create", { title: `Проверка доски ${Date.now()}`, description: "Интеграционный тест" });

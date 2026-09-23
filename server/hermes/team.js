@@ -51,6 +51,7 @@ const publicProposal = (p) => ({
  * @param {(params: {name: string, role?: string, instructions?: string}) => Promise<{agentId: string, name: string}>} deps.hire
  * @param {(agentId: string) => Promise<void>} deps.dismiss
  * @param {(message: string, key: string) => Promise<void>} deps.notifyMain
+ * @param {(params: {topic: string, participants?: string[]}) => Promise<{id: string, participants: Array<{name: string}>}>} [deps.callMeeting]
  * @param {() => boolean} deps.hasDashboard
  * @param {new (code: string, message: string) => Error} deps.AdapterError
  * @param {(event: string, payload: object) => void} deps.broadcast
@@ -64,6 +65,7 @@ const createTeam = ({
   hire,
   dismiss,
   notifyMain,
+  callMeeting,
   hasDashboard,
   AdapterError,
   broadcast,
@@ -302,6 +304,37 @@ const createTeam = ({
       },
     },
   ];
+
+  if (callMeeting) {
+    mainTools.push({
+      name: "office_call_meeting",
+      description:
+        "Собрать совещание команды в офисе: ты открываешь его, каждый участник по очереди высказывается, в конце ты подводишь итог и ставишь задачи на доску. Созывай, когда задаче нужны мнения нескольких сотрудников. Совещание идёт само после вызова; итог придёт тебе в отдельной сессии совещания.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          topic: { type: "string", maxLength: 500, description: "Тема: что нужно решить." },
+          participants: {
+            type: "string",
+            maxLength: 1000,
+            description: "agent_id участников через запятую (из office_team_list). Без него — вся команда.",
+          },
+        },
+        required: ["topic"],
+        additionalProperties: false,
+      },
+      handler: async (args) => {
+        const participants = str(args.participants)
+          ? str(args.participants).split(",").map((id) => id.trim()).filter(Boolean)
+          : undefined;
+        const meeting = await callMeeting({ topic: str(args.topic), participants });
+        return {
+          text: `Совещание ${meeting.id} созвано: ${meeting.participants.map((p) => p.name).join(", ")}. Сотрудники собираются; ты откроешь его в сессии совещания.`,
+          data: { meeting: { id: meeting.id, topic: meeting.topic, participants: meeting.participants } },
+        };
+      },
+    });
+  }
 
   const memberTools = [teamListTool];
 

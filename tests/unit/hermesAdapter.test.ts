@@ -75,6 +75,7 @@ describe("hermes adapter", () => {
         OFFICE3D_HERMES_KEY_SECRET: KEY_SECRET,
         OFFICE3D_MCP_PORT: "0",
       },
+      meetingGatherTimeoutMs: 50,
       stateDir,
       log: () => {},
       logError: () => {},
@@ -515,7 +516,7 @@ describe("hermes adapter", () => {
     const hired = await client.call("agents.create", { name: "Бариста" });
     const member = hired.payload.agentId;
     const mainTools = (await mcp("default", "tools/list")).result.tools.map((t: { name: string }) => t.name);
-    expect(mainTools).toEqual(["office_team_list", "office_propose_hire", "office_propose_dismiss", "office_proposals"]);
+    expect(mainTools).toEqual(["office_team_list", "office_propose_hire", "office_propose_dismiss", "office_proposals", "office_call_meeting"]);
     const memberTools = (await mcp(member, "tools/list")).result.tools.map((t: { name: string }) => t.name);
     expect(memberTools).toEqual(["office_team_list"]);
     const sneaky = await tool(member, "office_propose_hire", { name: "Друг", role: "друг", reason: "хочу" });
@@ -562,6 +563,78 @@ describe("hermes adapter", () => {
     expect(fake.kanbanTasks.get("t_member")).toMatchObject({ status: "ready", assignee: member });
     expect(await runtime!.adapter.guardBoard()).toEqual([]);
     expect(fake.kanbanTasks.get("t_member")).toMatchObject({ status: "ready", assignee: member });
+    client.close();
+  });
+
+  // --- meetings -------------------------------------------------------------------------
+
+  const waitMeeting = async (client: Awaited<ReturnType<typeof openClient>>, id: string, status: string, timeoutMs = 5000) =>
+    client.waitForEvent((f) => f.event === "org.meeting" && f.payload.meeting.id === id && f.payload.meeting.status === status, timeoutMs);
+
+  it("holds_a_meeting_with_a_live_reply_from_each_agent_and_a_summary", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const a = (await client.call("agents.create", { name: "Бариста" })).payload.agentId;
+    const b = (await client.call("agents.create", { name: "Кассир" })).payload.agentId;
+    const started = await client.call("org.meeting.start", { topic: "Меню на осень" });
+    const meeting = started.payload.meeting;
+    expect(meeting).toMatchObject({ status: "gathering", topic: "Меню на осень" });
+    expect(meeting.participants.map((p: { agentId: string }) => p.agentId)).toEqual(["main", a, b]);
+
+    await client.call("org.meeting.arrivals", { id: meeting.id, arrivedAgentIds: ["main", a, b] });
+    const done = await waitMeeting(client, meeting.id, "done");
+    const transcript = done.payload.meeting.transcript;
+    expect(transcript.map((e: { agentId: string; kind: string }) => `${e.agentId}:${e.kind}`)).toEqual([
+      "main:opening",
+      `${a}:turn`,
+      `${b}:turn`,
+      "main:summary",
+    ]);
+    expect(transcript.every((e: { status: string; text: string }) => e.status === "done" && e.text)).toBe(true);
+    expect(done.payload.meeting.summary).toBeTruthy();
+
+    // Every utterance was a real run in a meeting session of its own, and
+    // each speaker saw what the others had said.
+    const meetingRuns = [...fake.runs.values()].filter((r) => r.input.startsWith("[Office3D · совещание]"));
+    expect(meetingRuns).toHaveLength(4);
+    const cashier = meetingRuns[2];
+    expect(cashier.profile).toBe(b);
+    expect(cashier.input).toContain("Меню на осень");
+    expect(cashier.input).toContain("Бариста:");
+    expect(meetingRuns[3].input).toContain("kanban_create");
+    expect(meetingRuns[3].input).toContain(`agent_id для доски: ${a}`);
+    const last = await client.call("org.meeting.get");
+    expect(last.payload.meeting).toMatchObject({ id: meeting.id, status: "done" });
+    client.close();
+  });
+
+  it("runs_one_meeting_at_a_time_and_stops_on_request", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("agents.create", { name: "Бариста" });
+    fake.setNextRun({ kind: "wait-for-stop" });
+    const meeting = (await client.call("org.meeting.start", { topic: "Срочное" })).payload.meeting;
+    const second = await client.call("org.meeting.start", { topic: "Ещё одно" });
+    expect(second).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    await client.waitForEvent((f) => f.event === "org.meeting" && f.payload.meeting.currentRunId);
+    await client.call("org.meeting.stop", { id: meeting.id });
+    const stopped = await waitMeeting(client, meeting.id, "stopped", 3000);
+    expect(stopped.payload.meeting.transcript.filter((e: { kind: string }) => e.kind === "turn")).toHaveLength(0);
+    client.close();
+  });
+
+  it("refuses_a_meeting_without_anyone_but_the_main_agent", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("org.meeting.start", { topic: "Сам с собой" });
+    expect(result).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+
+  it("lets_the_main_agent_call_a_meeting_through_its_tool", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("agents.create", { name: "Бариста" });
+    const called = await tool("default", "office_call_meeting", { topic: "План недели" });
+    expect(called.result.isError).toBeFalsy();
+    const id = called.result.structuredContent.meeting.id;
+    await waitMeeting(client, id, "done");
     client.close();
   });
 

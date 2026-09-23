@@ -22,6 +22,7 @@ type RunState = {
   sessionId: string;
   input: string;
   instructions?: string;
+  stopRequested?: boolean;
   status: string;
   events: Record<string, unknown>[];
   listeners: Set<(event: Record<string, unknown> | null) => void>;
@@ -127,6 +128,8 @@ export const createFakeHermes = async () => {
           run.status = "cancelled";
           push(run, { event: "run.cancelled" });
         };
+        // Like Hermes: a stop that came before the run got going still stops it.
+        if (run.stopRequested) run.onStop();
       } else {
         run.status = "failed";
         push(run, { event: "run.failed", error: script.error });
@@ -375,6 +378,7 @@ export const createFakeHermes = async () => {
       if (!run || run.profile !== profileName) return json(res, 404, { error: { message: "Run not found" } });
       if (!runRoute[2]) return json(res, 200, { run_id: run.id, status: run.status, output: run.output });
       if (runRoute[2] === "/stop") {
+        run.stopRequested = true;
         run.onStop?.();
         return json(res, 200, { status: "stopping" });
       }

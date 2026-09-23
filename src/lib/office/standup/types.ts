@@ -68,6 +68,13 @@ export type StandupMeeting = {
   participantOrder: string[];
   arrivedAgentIds: string[];
   cards: StandupSummaryCard[];
+  /**
+   * "live": a meeting where agents answer for real (Hermes); the cards carry
+   * what each one said instead of commits and tickets. Absent: a standup.
+   */
+  kind?: "standup" | "live";
+  topic?: string | null;
+  summary?: string | null;
 };
 
 export type StandupMeetingStore = {

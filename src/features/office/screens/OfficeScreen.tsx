@@ -16,6 +16,7 @@ import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarL
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 import { TeamProposalsTray } from "@/features/hermes/components/TeamProposalsTray";
+import { useHermesMeetingController } from "@/features/hermes/useHermesMeetingController";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
   buildAgentMainSessionKey,
@@ -3098,6 +3099,10 @@ export function OfficeScreen({
     gatewayUrl,
     agents: standupAgentSnapshots,
   });
+  // On Hermes the meeting room hosts real meetings chaired by the server
+  // (live replies, a summary, tasks); elsewhere, the standup.
+  const hermesMeetings = useHermesMeetingController(hermesControl);
+  const meetingRoom = hermesMeetings.available ? hermesMeetings : standupController;
   const taskBoard = useTaskBoardController({
     gatewayUrl,
     settingsCoordinator,
@@ -3774,15 +3779,20 @@ export function OfficeScreen({
       const trimmed = message.trim();
       if (!trimmed) return false;
       if (
-        standupController.meeting &&
-        standupController.meeting.phase !== "complete"
+        meetingRoom.meeting &&
+        meetingRoom.meeting.phase !== "complete"
       ) {
         return false;
       }
-      await standupController.startMeeting("manual");
+      if (hermesMeetings.available) {
+        // The request itself says what to talk about.
+        await hermesMeetings.startMeeting("manual", trimmed);
+      } else {
+        await standupController.startMeeting("manual");
+      }
       return true;
     },
-    [standupController],
+    [hermesMeetings, meetingRoom.meeting, standupController],
   );
 
   const handleGithubReviewDismiss = useCallback(() => {
@@ -3959,8 +3969,8 @@ export function OfficeScreen({
     if (!pendingStandupRequest) return;
     if (lastStandupTriggerKeyRef.current === pendingStandupRequest.key) return;
     if (
-      standupController.meeting &&
-      standupController.meeting.phase !== "complete"
+      meetingRoom.meeting &&
+      meetingRoom.meeting.phase !== "complete"
     ) {
       return;
     }
@@ -3968,7 +3978,7 @@ export function OfficeScreen({
     void triggerStandupMeeting(pendingStandupRequest.message).catch((error) => {
       console.error("Failed to trigger standup meeting.", error);
     });
-  }, [pendingStandupRequest, standupController.meeting, triggerStandupMeeting]);
+  }, [pendingStandupRequest, meetingRoom.meeting, triggerStandupMeeting]);
 
   const transcribeVoicePayload = useCallback(
     async (payload: VoiceSendPayload) => {
@@ -4715,19 +4725,30 @@ export function OfficeScreen({
           runCountByAgentId={runCountByAgentId}
           lastSeenByAgentId={lastSeenByAgentId}
           streamingTextByAgentId={streamingTextByAgentId}
-          standupMeeting={standupController.meeting}
-          standupAutoOpenBoard={standupController.openBoardByDefault}
+          standupMeeting={meetingRoom.meeting}
+          standupAutoOpenBoard={meetingRoom.openBoardByDefault}
           onStandupArrivalsChange={(arrivedAgentIds) => {
-            void standupController.reportArrivals(arrivedAgentIds);
+            void meetingRoom.reportArrivals(arrivedAgentIds);
           }}
           onStandupStartRequested={() => {
             if (
-              !standupController.meeting ||
-              standupController.meeting.phase === "complete"
+              !meetingRoom.meeting ||
+              meetingRoom.meeting.phase === "complete"
             ) {
-              void standupController.startMeeting("manual");
+              void meetingRoom.startMeeting("manual").catch((error) => {
+                console.error("Failed to start the meeting.", error);
+              });
             }
           }}
+          onStandupStopRequested={
+            hermesMeetings.available
+              ? () => {
+                  void hermesMeetings.stopMeeting().catch((error) => {
+                    console.error("Failed to stop the meeting.", error);
+                  });
+                }
+              : undefined
+          }
           onMonitorSelect={(agentId) => {
             setMonitorAgentId(agentId);
             if (agentId && !isRemoteOfficeAgentId(agentId)) {

@@ -49,10 +49,19 @@ const timingSafeEqualString = (a, b) => {
  * @param {(message: string, error?: unknown) => void} [options.logError]
  * @param {(agentId: string) => Promise<string> | string} [options.buildInstructions]
  * @param {(info: object) => void} [options.onRunFinished]
+ * @param {number} [options.meetingGatherTimeoutMs]  how long a meeting waits for agents to reach the room
  * @returns {Promise<null | { url: string, token: string, client: any, adapter: any, store: any, mcpUrl: string, close: () => Promise<void> }>}
  *   null when Hermes is not configured (HERMES_API_URL unset).
  */
-const startHermesRuntime = async ({ env = process.env, stateDir, log = console.info, logError = console.error, buildInstructions, onRunFinished }) => {
+const startHermesRuntime = async ({
+  env = process.env,
+  stateDir,
+  log = console.info,
+  logError = console.error,
+  buildInstructions,
+  onRunFinished,
+  meetingGatherTimeoutMs,
+}) => {
   const config = resolveHermesConfig(env);
   if (!config) return null;
   if (config.problems.length > 0) {
@@ -76,6 +85,7 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     store,
     buildInstructions,
     onRunFinished,
+    meetingGatherTimeoutMs,
     autonomyTimeZone: String(env.OFFICE3D_TIMEZONE ?? "").trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     mcpEndpoint: (profile) =>
       mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,
@@ -97,6 +107,7 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     log(`[hermes] Office3D MCP server on ${mcpConfig.host}:${mcp.port}; agents reach it at ${mcpUrl}.`);
   }
   await adapter.team.recover();
+  await adapter.meetings.recover();
 
   const token = crypto.randomBytes(32).toString("hex");
   const wss = new WebSocketServer({ host: "127.0.0.1", port: 0, maxPayload: 4 * 1024 * 1024 });

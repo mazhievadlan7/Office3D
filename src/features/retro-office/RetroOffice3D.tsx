@@ -2252,6 +2252,7 @@ export function RetroOffice3D({
   streamingTextByAgentId = {},
   onStandupArrivalsChange,
   onStandupStartRequested,
+  onStandupStopRequested,
   onMonitorSelect,
   onAgentChatSelect,
   onAddAgent,
@@ -2371,6 +2372,7 @@ export function RetroOffice3D({
   streamingTextByAgentId?: Record<string, string | null>;
   onStandupArrivalsChange?: (arrivedAgentIds: string[]) => void;
   onStandupStartRequested?: () => void;
+  onStandupStopRequested?: () => void;
   onMonitorSelect?: (agentId: string | null) => void;
   onAgentChatSelect?: (agentId: string) => void;
   onAddAgent?: () => void;
@@ -6121,6 +6123,7 @@ export function RetroOffice3D({
         <StandupImmersiveScreen
           meeting={standupMeeting}
           onClose={closeStandupBoard}
+          onStop={onStandupStopRequested}
         />
       ) : null}
 

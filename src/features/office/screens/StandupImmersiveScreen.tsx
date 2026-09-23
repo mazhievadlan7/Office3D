@@ -12,44 +12,102 @@ const sourceTone = (ready: boolean, stale: boolean) => {
   return "text-emerald-200 border-emerald-400/25";
 };
 
+/** What one participant of a live meeting says now and has said so far. */
+function LiveMeetingCard({ agentId, speech, said }: { agentId: string; speech: string; said: string[] }) {
+  return (
+    <div className="mt-4 space-y-2">
+      {speech ? (
+        <div className="rounded border border-cyan-400/25 bg-cyan-500/[0.06] px-3 py-2">
+          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200/70">
+            {t("standup.saysNow")}
+          </div>
+          <div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/90">{speech}</div>
+        </div>
+      ) : null}
+      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+        {t("standup.said")}
+      </div>
+      {said.length === 0 ? (
+        <div className="font-mono text-[11px] text-white/35">{t("standup.silent")}</div>
+      ) : (
+        said.map((text, index) => (
+          <div
+            key={`${agentId}-said-${index}`}
+            className="whitespace-pre-wrap rounded border border-white/8 bg-black/20 px-3 py-2 text-sm leading-6 text-white/80"
+          >
+            {text}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export function StandupImmersiveScreen({
   meeting,
   onClose,
+  onStop,
 }: {
   meeting: StandupMeeting;
   onClose: () => void;
+  /** Ends a live meeting early; absent for standups. */
+  onStop?: () => void;
 }) {
+  const live = meeting.kind === "live";
+  const speakerName =
+    meeting.cards.find((card) => card.agentId === meeting.currentSpeakerAgentId)?.agentName ??
+    meeting.currentSpeakerAgentId;
   return (
     <div className="fixed inset-0 z-50 bg-[#05070b]/96 text-white">
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-cyan-500/15 px-6 py-4">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.28em] text-cyan-200/85">
-              {t("standup.title")}
+              {live ? t("standup.liveTitle") : t("standup.title")}
             </div>
+            {live && meeting.topic ? (
+              <div className="mt-1 text-sm text-white/85">
+                {t("standup.topic", { topic: meeting.topic })}
+              </div>
+            ) : null}
             <div className="mt-1 font-mono text-[12px] text-white/50">
               {meeting.phase === "gathering"
                 ? t("standup.gathering")
                 : meeting.phase === "in_progress"
-                  ? t("standup.inProgress")
-                  : t("standup.lastSnapshot")}
+                  ? live
+                    ? t("standup.liveSpeaking")
+                    : t("standup.inProgress")
+                  : live
+                    ? t("standup.liveDone")
+                    : t("standup.lastSnapshot")}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/70 transition-colors hover:border-white/20 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-            {t("common.close")}
-          </button>
+          <div className="flex items-center gap-2">
+            {live && onStop && meeting.phase !== "complete" ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className="rounded border border-rose-400/30 bg-rose-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-rose-100 transition-colors hover:border-rose-300/50"
+              >
+                {t("standup.stop")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/70 transition-colors hover:border-white/20 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+              {t("common.close")}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 border-b border-cyan-500/10 px-6 py-4 font-mono text-[11px] text-white/60 md:grid-cols-3">
           <div>{t("standup.phase", { value: standupPhaseLabel(meeting.phase) })}</div>
           <div>
             {t("standup.speaker", {
-              name: meeting.currentSpeakerAgentId ?? t("standup.waiting"),
+              name: speakerName ?? t("standup.waiting"),
             })}
           </div>
           <div>
@@ -61,6 +119,16 @@ export function StandupImmersiveScreen({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {live && meeting.summary ? (
+            <section className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/[0.07] px-4 py-4">
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-200/80">
+                {t("standup.summary")}
+              </div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/90">
+                {meeting.summary}
+              </div>
+            </section>
+          ) : null}
           <div className="grid gap-4 xl:grid-cols-3">
             {meeting.cards.map((card) => {
               const isSpeaking = card.agentId === meeting.currentSpeakerAgentId;
@@ -89,6 +157,13 @@ export function StandupImmersiveScreen({
                     ) : null}
                   </div>
 
+                  {live ? (
+                    <LiveMeetingCard
+                      agentId={card.agentId}
+                      speech={isSpeaking ? card.speech : ""}
+                      said={card.manualNotes}
+                    />
+                  ) : (
                   <div className="mt-4 space-y-4">
                     <div>
                       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
@@ -230,6 +305,7 @@ export function StandupImmersiveScreen({
                       </div>
                     </div>
                   </div>
+                  )}
                 </section>
               );
             })}

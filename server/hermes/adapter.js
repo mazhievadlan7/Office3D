@@ -22,6 +22,7 @@ const { createKanbanHandlers } = require("./kanban");
 const { createTeam } = require("./team");
 const { createMcpAccess } = require("./mcp-access");
 const { createAutonomy } = require("./autonomy");
+const { createMeetings } = require("./meetings");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -50,10 +51,11 @@ const METHODS = [
   "tasks.list", "tasks.create", "tasks.update", "tasks.delete", "tasks.comment",
   "org.get", "org.setMission", "org.proposals.list", "org.proposals.decide",
   "org.autonomy.get", "org.autonomy.set", "org.autonomy.pause", "org.autonomy.runNow",
+  "org.meeting.start", "org.meeting.arrivals", "org.meeting.stop", "org.meeting.get", "org.meeting.list",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
-  "org.updated", "org.proposal", "org.autonomy",
+  "org.updated", "org.proposal", "org.autonomy", "org.meeting",
 ];
 
 class AdapterError extends Error {
@@ -240,6 +242,7 @@ const createHermesAdapter = ({
   onTaskCreated,
   mcpEndpoint = () => null,
   autonomyTimeZone = "UTC",
+  meetingGatherTimeoutMs,
   log = () => {},
   logError = () => {},
 }) => {
@@ -441,10 +444,12 @@ const createHermesAdapter = ({
     }
     if (status === "completed") {
       const text = typeof extra.output === "string" && extra.output.trim() ? extra.output : run.text;
+      run.finalText = text;
       emitChat(run, "final", { stopReason: "end_turn", message: { role: "assistant", content: text } });
       emitAgent(run, "lifecycle", { phase: "end" });
     } else if (status === "failed") {
       const message = str(extra.error) || "Hermes не смог выполнить запрос.";
+      run.error = message;
       emitChat(run, "error", { errorMessage: message });
       emitAgent(run, "lifecycle", { phase: "error", error: message });
     } else {
@@ -1156,6 +1161,13 @@ const createHermesAdapter = ({
     describeAgent: (profile) => officeAgentFromProfile(profile),
     hire: ({ name, role, instructions }) => handlers["agents.create"]({ name, role, instructions }),
     dismiss: (agentId) => handlers["agents.delete"]({ agentId }),
+    callMeeting: async ({ topic, participants }) => {
+      const current = await autonomy.status();
+      if (current.budgetExceeded) {
+        throw new AdapterError("RATE_LIMITED", "Дневной бюджет исчерпан — совещание можно провести завтра или по просьбе руководителя.");
+      }
+      return meetings.start({ topic, participants, requestedBy: "main" });
+    },
     notifyMain: async (message, key) => {
       await startChat({ sessionKey: mainSessionKey(MAIN_AGENT_ID), message, idempotencyKey: key });
     },
@@ -1185,10 +1197,42 @@ const createHermesAdapter = ({
     logError,
   });
 
+  const meetings = createMeetings({
+    store,
+    listProfiles,
+    describeAgent: (profile) => officeAgentFromProfile(profile),
+    runTurn: async ({ sessionKey, message, timeoutMs, onStarted }) => {
+      const started = await startChat({ sessionKey, message, idempotencyKey: `meeting-${crypto.randomUUID()}` });
+      const run = runs.get(started.runId);
+      if (!run) return { status: "failed", text: "" };
+      onStarted?.(run.officeRunId);
+      let timer;
+      const status = await Promise.race([
+        run.done,
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve("timeout"), timeoutMs);
+          timer.unref?.();
+        }),
+      ]).finally(() => clearTimeout(timer));
+      if (status === "timeout") await client.stopRun(run.profile, run.hermesRunId).catch(() => {});
+      return { status, text: run.finalText ?? run.text, error: run.error };
+    },
+    abortTurn: async (runId) => {
+      const run = runs.get(runId);
+      if (run && !run.finished) await client.stopRun(run.profile, run.hermesRunId);
+    },
+    AdapterError,
+    broadcast: (event, payload) => broadcast(event, payload),
+    gatherTimeoutMs: meetingGatherTimeoutMs,
+    log,
+    logError,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
     autonomy.handlers,
+    meetings.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers
@@ -1304,7 +1348,7 @@ const createHermesAdapter = ({
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, organization, team, autonomy, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
+  return { handleSocket, handlers, close, organization, team, autonomy, meetings, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
 };
 
 module.exports = {
