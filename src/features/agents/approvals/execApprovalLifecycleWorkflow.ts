@@ -60,6 +60,7 @@ export const resolveExecApprovalEventEffects = (params: {
       expiresAtMs: requested.expiresAtMs,
       resolving: false,
       error: null,
+      escalation: requested.escalation ?? null,
     };
     if (!resolvedAgentId) {
       return {

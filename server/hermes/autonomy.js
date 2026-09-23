@@ -447,7 +447,10 @@ const createAutonomy = ({
     },
   };
 
-  return { handlers, tick, status, applyBoardGate, teamChanged, spending };
+  /** Today in the office's time zone (YYYY-MM-DD). */
+  const today = () => localClock(new Date(now()), settings().timeZone).day;
+
+  return { handlers, tick, status, applyBoardGate, teamChanged, spending, today };
 };
 
 module.exports = { createAutonomy, localClock, withinWindow, mergeSettings, describeBoard };

@@ -52,6 +52,7 @@ const publicProposal = (p) => ({
  * @param {(agentId: string) => Promise<void>} deps.dismiss
  * @param {(message: string, key: string) => Promise<void>} deps.notifyMain
  * @param {(params: {topic: string, participants?: string[]}) => Promise<{id: string, participants: Array<{name: string}>}>} [deps.callMeeting]
+ * @param {(params: {id: string, decision: string, reason: string, fail: (message: string) => Error}) => Promise<string>} [deps.decideApproval]
  * @param {() => boolean} deps.hasDashboard
  * @param {new (code: string, message: string) => Error} deps.AdapterError
  * @param {(event: string, payload: object) => void} deps.broadcast
@@ -66,6 +67,7 @@ const createTeam = ({
   dismiss,
   notifyMain,
   callMeeting,
+  decideApproval,
   hasDashboard,
   AdapterError,
   broadcast,
@@ -332,6 +334,33 @@ const createTeam = ({
           text: `Совещание ${meeting.id} созвано: ${meeting.participants.map((p) => p.name).join(", ")}. Сотрудники собираются; ты откроешь его в сессии совещания.`,
           data: { meeting: { id: meeting.id, topic: meeting.topic, participants: meeting.participants } },
         };
+      },
+    });
+  }
+
+  if (decideApproval) {
+    mainTools.push({
+      name: "office_decide_approval",
+      description:
+        "Решить запрос сотрудника на действие, требующее одобрения (он приходит тебе сообщением «[Office3D · запрос на действие]»). approve — обычный рабочий шаг; deny — не нужно или слишком рискованно; escalate — важное (необратимое, деньги, удаление данных, доступы, публикация, сообщения от имени организации): решит руководитель.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          request_id: { type: "string", maxLength: 300, description: "request_id из сообщения о запросе." },
+          decision: { type: "string", enum: ["approve", "deny", "escalate"] },
+          reason: { type: "string", maxLength: 1000, description: "Причина одной фразой; при escalate её прочитает руководитель." },
+        },
+        required: ["request_id", "decision", "reason"],
+        additionalProperties: false,
+      },
+      handler: async (args) => {
+        const text = await decideApproval({
+          id: str(args.request_id),
+          decision: args.decision,
+          reason: str(args.reason),
+          fail: (message) => new AdapterError("INVALID_REQUEST", message),
+        });
+        return { text };
       },
     });
   }

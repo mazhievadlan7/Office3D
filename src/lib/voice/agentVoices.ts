@@ -42,4 +42,4 @@ export const resolveAgentVoice = (params: {
 };
 
 /** Session keys whose replies are not spoken as ordinary chat replies. */
-export const isBackgroundSessionKey = (sessionKey: string) => /:(meeting|autonomy)-/.test(sessionKey);
+export const isBackgroundSessionKey = (sessionKey: string) => /:(meeting|autonomy|approvals)-/.test(sessionKey);

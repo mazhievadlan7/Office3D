@@ -76,6 +76,7 @@ describe("hermes adapter", () => {
         OFFICE3D_MCP_PORT: "0",
       },
       meetingGatherTimeoutMs: 50,
+      approvalReviewTimeoutMs: 1500,
       stateDir,
       log: () => {},
       logError: () => {},
@@ -522,6 +523,7 @@ describe("hermes adapter", () => {
       "office_propose_dismiss",
       "office_proposals",
       "office_call_meeting",
+      "office_decide_approval",
       "office_announce",
     ]);
     const memberTools = (await mcp(member, "tools/list")).result.tools.map((t: { name: string }) => t.name);
@@ -653,6 +655,85 @@ describe("hermes adapter", () => {
     expect(called.result.isError).toBeFalsy();
     const id = called.result.structuredContent.meeting.id;
     await waitMeeting(client, id, "done");
+    client.close();
+  });
+
+  // --- approvals chain -------------------------------------------------------------------
+
+  const memberApproval = async (client: Awaited<ReturnType<typeof openClient>>, reviewScript: Loose) => {
+    const member = (await client.call("agents.create", { name: "Инженер" })).payload.agentId;
+    fake.queueRuns({ kind: "approval", command: "rm -rf build", afterApproval: "Удалил." }, reviewScript);
+    await client.call("chat.send", { sessionKey: `agent:${member}:main`, message: "Почисти сборку", idempotencyKey: "ap1" });
+    const review = await (async () => {
+      const deadline = Date.now() + 3000;
+      for (;;) {
+        const run = [...fake.runs.values()].find((r) => r.input.startsWith("[Office3D · запрос на действие]"));
+        if (run) return run;
+        if (Date.now() > deadline) throw new Error("the main agent was not asked");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    })();
+    const requestId = /request_id «([^»]+)»/.exec(review.input)![1];
+    return { member, review, requestId };
+  };
+
+  it("lets_the_main_agent_approve_a_members_action_without_bothering_the_person", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const { review, requestId } = await memberApproval(client, { kind: "wait-for-stop" });
+    expect(review.profile).toBe("default");
+    expect(review.input).toContain("rm -rf build");
+    expect(review.input).toContain("Инженер");
+
+    const decided = await tool("default", "office_decide_approval", {
+      request_id: requestId,
+      decision: "approve",
+      reason: "Чистка сборки — обычная часть задачи.",
+    });
+    expect(decided.result.isError).toBeFalsy();
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.runId === "ap1" && f.payload.state === "final");
+    const logged = await client.waitForEvent((f) => f.event === "org.approval");
+    expect(logged.payload).toMatchObject({ decision: "approved", by: "main", agentName: "Инженер" });
+    expect(client.events.some((f) => f.event === "exec.approval.requested")).toBe(false);
+
+    const again = await tool("default", "office_decide_approval", { request_id: requestId, decision: "deny", reason: "x" });
+    expect(again.result.isError).toBe(true);
+    client.close();
+  });
+
+  it("escalates_important_actions_to_the_person_with_the_main_agents_reason", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const { requestId } = await memberApproval(client, { kind: "wait-for-stop" });
+    await tool("default", "office_decide_approval", {
+      request_id: requestId,
+      decision: "escalate",
+      reason: "Удаление данных — пусть решит руководитель.",
+    });
+    const asked = await client.waitForEvent((f) => f.event === "exec.approval.requested");
+    expect(asked.payload.escalation).toEqual({ by: "main", reason: "Удаление данных — пусть решит руководитель." });
+    await client.call("exec.approval.resolve", { id: asked.payload.id, decision: "deny" });
+    const log = await client.call("org.approvals.log");
+    expect(log.payload.entries.map((e: { decision: string; by: string }) => `${e.decision}:${e.by}`)).toEqual([
+      "denied:person",
+      "escalated:main",
+    ]);
+    client.close();
+  });
+
+  it("asks_the_person_when_the_main_agent_does_not_decide", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await memberApproval(client, { kind: "reply", deltas: ["Подумаю."] });
+    const asked = await client.waitForEvent((f) => f.event === "exec.approval.requested", 4000);
+    expect(asked.payload.escalation).toMatchObject({ by: "office3d" });
+    client.close();
+  });
+
+  it("sends_the_main_agents_own_actions_straight_to_the_person", async () => {
+    fake.queueRuns({ kind: "approval", command: "rm -rf build", afterApproval: "Удалил." });
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Почисти", idempotencyKey: "ap2" });
+    const asked = await client.waitForEvent((f) => f.event === "exec.approval.requested");
+    expect(asked.payload.escalation).toBeUndefined();
+    expect([...fake.runs.values()].some((r) => r.input.startsWith("[Office3D · запрос на действие]"))).toBe(false);
     client.close();
   });
 

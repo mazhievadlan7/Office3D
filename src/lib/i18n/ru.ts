@@ -403,6 +403,9 @@ export const ru = {
     "Запись доступна после завершения звонка; прослушать звонок в реальном времени нельзя.",
   "apiTelephony.unexpected": "Непредвиденный сбой телефонии.",
 
+  // --- approvals -------------------------------------------------------------
+  "approvals.spokenEscalation": "Нужно ваше решение: {agent} хочет выполнить действие. {reason}",
+
   // --- Банкомат (расходы) --------------------------------------------------
   "atm.accountRow": "Счёт {index} · {name}",
   "atm.accountSummary": "Сводка по счёту",
@@ -576,6 +579,8 @@ export const ru = {
   "chat.allowOnce": "Разрешить один раз",
   "chat.allowOnceLabel": "Разрешить один раз выполнение {id}",
   "chat.approvalCwd": "Рабочая папка: {cwd}",
+  "chat.approvalEscalatedAuto": "Решение за вами: {reason}",
+  "chat.approvalEscalatedByMain": "Главный агент передал решение вам: {reason}",
   "chat.approvalExpires": "Истекает: {when}",
   "chat.approvalHost": "Хост: {host}",
   "chat.approvalRequired": "Требуется согласие на выполнение",

@@ -4111,6 +4111,12 @@ export function OfficeScreen({
       let text = "";
       if (frame.event === "org.announcement") {
         text = String((frame.payload as { text?: unknown } | undefined)?.text ?? "");
+      } else if (frame.event === "exec.approval.requested") {
+        const payload = frame.payload as { escalation?: { reason?: unknown } | null; request?: { agentId?: unknown } } | undefined;
+        if (!payload?.escalation) return;
+        const agentId = String(payload.request?.agentId ?? "");
+        const agentName = state.agents.find((agent) => agent.agentId === agentId)?.name ?? agentId;
+        text = t("approvals.spokenEscalation", { agent: agentName, reason: String(payload.escalation.reason ?? "") });
       } else if (frame.event === "org.proposal") {
         const proposal = (frame.payload as { proposal?: { status?: string; kind?: string; name?: string; reason?: string } } | undefined)?.proposal;
         if (proposal?.status !== "pending") return;
@@ -4123,7 +4129,7 @@ export function OfficeScreen({
       if (!text.trim()) return;
       enqueueVoiceReply({ text, provider: voiceRepliesPreference.provider, voiceId: voiceForAgent(MAIN_AGENT_ID) });
     });
-  }, [enqueueVoiceReply, hermesControl, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference.provider]);
+  }, [enqueueVoiceReply, hermesControl, state.agents, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference.provider]);
 
   // Meetings are spoken turn by turn, each participant in their own voice,
   // as each finishes speaking (the queue keeps the order).

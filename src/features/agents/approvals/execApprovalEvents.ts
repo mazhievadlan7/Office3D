@@ -16,6 +16,7 @@ type RequestedPayload = {
   };
   createdAtMs: number;
   expiresAtMs: number;
+  escalation?: { by: string; reason: string | null } | null;
 };
 
 type ResolvedPayload = {
@@ -53,6 +54,10 @@ export const parseExecApprovalRequested = (event: EventFrame): RequestedPayload 
   if (!id || !request || !createdAtMs || !expiresAtMs) return null;
   const command = asNonEmptyString(request.command);
   if (!command) return null;
+  // Hermes: the main agent (or Office3D) passed the request to the person.
+  const escalationRecord = asRecord(payload.escalation);
+  const escalatedBy = escalationRecord ? asNonEmptyString(escalationRecord.by) : null;
+  const escalation = escalatedBy ? { by: escalatedBy, reason: asOptionalString(escalationRecord?.reason) } : null;
   return {
     id,
     request: {
@@ -67,6 +72,7 @@ export const parseExecApprovalRequested = (event: EventFrame): RequestedPayload 
     },
     createdAtMs,
     expiresAtMs,
+    ...(escalation ? { escalation } : {}),
   };
 };
 

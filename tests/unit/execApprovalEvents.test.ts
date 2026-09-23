@@ -82,6 +82,24 @@ describe("execApprovalEvents", () => {
     });
   });
 
+  it("keeps_who_passed_a_request_on_and_why", () => {
+    const event: EventFrame = {
+      type: "event",
+      event: "exec.approval.requested",
+      payload: {
+        id: "approval-2",
+        request: { command: "rm -rf data", agentId: "engineer-1", sessionKey: "agent:engineer-1:main" },
+        createdAtMs: 123,
+        expiresAtMs: 456,
+        escalation: { by: "main", reason: "Удаление данных — решает руководитель." },
+      },
+    };
+    expect(parseExecApprovalRequested(event)?.escalation).toEqual({
+      by: "main",
+      reason: "Удаление данных — решает руководитель.",
+    });
+  });
+
   it("returns null for invalid requested payload", () => {
     const event: EventFrame = {
       type: "event",

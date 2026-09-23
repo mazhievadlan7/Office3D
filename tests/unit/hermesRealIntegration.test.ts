@@ -102,6 +102,39 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     expect(tools.some((f) => f.payload.data.name === "terminal")).toBe(true);
   }, 120_000);
 
+  it.skipIf(!withDashboard)("sends_a_members_dangerous_action_to_the_main_agent_first", async () => {
+    const hired = await call("agents.create", { name: "Инженер цепочки" });
+    expect(hired.ok).toBe(true);
+    const member = hired.payload.agentId;
+    try {
+      const sent = await call("chat.send", {
+        sessionKey: `agent:${member}:main`,
+        message: "удали временный каталог",
+        idempotencyKey: `it-chain-${Date.now()}`,
+      });
+      expect(sent.ok).toBe(true);
+      // The main agent reviews it in its approvals session; this stub model
+      // does not decide, so the request reaches the person, marked as such.
+      const review = await waitForEvent(
+        (f) => f.event === "chat" && String(f.payload.sessionKey).startsWith("agent:main:approvals-") && f.payload.state === "final",
+      );
+      expect(review.payload.message.content).toContain("запрос на действие");
+      const asked = await waitForEvent((f) => f.event === "exec.approval.requested" && f.payload.request.agentId === member);
+      expect(asked.payload.escalation).toMatchObject({ by: "office3d" });
+      const resolved = await call("exec.approval.resolve", { id: asked.payload.id, decision: "deny" });
+      expect(resolved.ok).toBe(true);
+      const end = await waitForEvent((f) => f.event === "chat" && f.payload.runId === sent.payload.runId && f.payload.state !== "delta");
+      expect(["final", "error"]).toContain(end.payload.state);
+      const log = await call("org.approvals.log");
+      expect(log.payload.entries.slice(0, 2).map((e: { decision: string; by: string }) => `${e.decision}:${e.by}`)).toEqual([
+        "denied:person",
+        "escalated:office3d",
+      ]);
+    } finally {
+      await call("agents.delete", { agentId: member });
+    }
+  }, 180_000);
+
   it("lists_the_models_of_signed_in_providers", async () => {
     const models = await call("models.list");
     expect(models).toMatchObject({ ok: true });
@@ -146,7 +179,15 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     const main = await probe("default", "office3d_team");
     expect(main.ok).toBe(true);
     expect(main.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(
-      ["office_announce", "office_call_meeting", "office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
+      [
+        "office_announce",
+        "office_call_meeting",
+        "office_decide_approval",
+        "office_proposals",
+        "office_propose_dismiss",
+        "office_propose_hire",
+        "office_team_list",
+      ],
     );
 
     const hired = await call("agents.create", { name: "Проверка MCP" });

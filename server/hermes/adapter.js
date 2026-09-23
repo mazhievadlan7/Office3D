@@ -23,6 +23,7 @@ const { createTeam } = require("./team");
 const { createMcpAccess } = require("./mcp-access");
 const { createAutonomy } = require("./autonomy");
 const { createMeetings } = require("./meetings");
+const { createApprovalChain } = require("./approvals");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -52,10 +53,11 @@ const METHODS = [
   "org.get", "org.setMission", "org.proposals.list", "org.proposals.decide",
   "org.autonomy.get", "org.autonomy.set", "org.autonomy.pause", "org.autonomy.runNow",
   "org.meeting.start", "org.meeting.arrivals", "org.meeting.stop", "org.meeting.get", "org.meeting.list",
+  "org.approvals.log",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
-  "org.updated", "org.proposal", "org.autonomy", "org.meeting", "org.announcement",
+  "org.updated", "org.proposal", "org.autonomy", "org.meeting", "org.announcement", "org.approval",
 ];
 
 class AdapterError extends Error {
@@ -243,6 +245,7 @@ const createHermesAdapter = ({
   mcpEndpoint = () => null,
   autonomyTimeZone = "UTC",
   meetingGatherTimeoutMs,
+  approvalReviewTimeoutMs,
   log = () => {},
   logError = () => {},
 }) => {
@@ -440,7 +443,9 @@ const createHermesAdapter = ({
     run.finished = true;
     run.status = status;
     for (const [id, approval] of approvals) {
-      if (approval.officeRunId === run.officeRunId) approvals.delete(id);
+      if (approval.officeRunId !== run.officeRunId) continue;
+      approvals.delete(id);
+      approvalChain.closed(id);
     }
     if (status === "completed") {
       const text = typeof extra.output === "string" && extra.output.trim() ? extra.output : run.text;
@@ -540,7 +545,7 @@ const createHermesAdapter = ({
         const createdAtMs = toMs(event.timestamp) ?? Date.now();
         const id = `${run.officeRunId}:${requestId || createdAtMs}`;
         approvals.set(id, { profile: run.profile, hermesRunId: run.hermesRunId, requestId, officeRunId: run.officeRunId });
-        broadcast("exec.approval.requested", {
+        approvalChain.onRequest(id, {
           id,
           request: {
             command: str(event.command) || str(event.description) || "(действие без описания)",
@@ -556,7 +561,7 @@ const createHermesAdapter = ({
           },
           createdAtMs,
           expiresAtMs: createdAtMs + APPROVAL_TIMEOUT_MS,
-        });
+        }, run.agentId);
         return;
       }
       case "approval.responded": {
@@ -564,6 +569,7 @@ const createHermesAdapter = ({
           if (approval.officeRunId !== run.officeRunId) continue;
           if (event.request_id && approval.requestId && approval.requestId !== event.request_id) continue;
           approvals.delete(id);
+          approvalChain.closed(id);
           const choice = str(event.choice);
           broadcast("exec.approval.resolved", {
             id,
@@ -1002,6 +1008,7 @@ const createHermesAdapter = ({
         ...(approval.requestId ? { request_id: approval.requestId } : {}),
       });
       approvals.delete(id);
+      await approvalChain.personDecided(id, decision);
       broadcast("exec.approval.resolved", { id, decision: decision || "allow-once", resolvedBy: "office3d", ts: Date.now() });
       return { ok: true };
     },
@@ -1138,6 +1145,19 @@ const createHermesAdapter = ({
 
   const kanban = createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated });
 
+  const waitRun = async (runId, timeoutMs) => {
+    const run = runs.get(runId);
+    if (!run) return "unknown";
+    let timer;
+    return Promise.race([
+      run.done,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), timeoutMs);
+        timer.unref?.();
+      }),
+    ]).finally(() => clearTimeout(timer));
+  };
+
   // Tasks other agents created go to triage as proposals; see kanban.js.
   const MAX_REVIEWED_TASKS = 2_000;
   const guardBoard = async () => {
@@ -1161,6 +1181,7 @@ const createHermesAdapter = ({
     describeAgent: (profile) => officeAgentFromProfile(profile),
     hire: ({ name, role, instructions }) => handlers["agents.create"]({ name, role, instructions }),
     dismiss: (agentId) => handlers["agents.delete"]({ agentId }),
+    decideApproval: (params) => approvalChain.decide(params),
     callMeeting: async ({ topic, participants }) => {
       const current = await autonomy.status();
       if (current.budgetExceeded) {
@@ -1228,11 +1249,41 @@ const createHermesAdapter = ({
     logError,
   });
 
+  const approvalChain = createApprovalChain({
+    store,
+    chainAvailable: () => hasDashboard() && Boolean(mcpEndpoint(DEFAULT_PROFILE)),
+    nameOf: (agentId) => officeAgentFromProfile({ name: profileOf(agentId) }).name,
+    startRun: (params) => startChat(params),
+    waitRun,
+    askPerson: (payload) => broadcast("exec.approval.requested", payload),
+    resolve: async (id, choice) => {
+      const approval = approvals.get(id);
+      if (!approval) throw new AdapterError("NOT_FOUND", "Запрос уже закрыт или истёк.");
+      await client.resolveApproval(approval.profile, approval.hermesRunId, {
+        choice,
+        ...(approval.requestId ? { request_id: approval.requestId } : {}),
+      });
+      approvals.delete(id);
+      broadcast("exec.approval.resolved", {
+        id,
+        decision: choice === "deny" ? "deny" : "allow-once",
+        resolvedBy: "main-agent",
+        ts: Date.now(),
+      });
+    },
+    broadcast: (event, payload) => broadcast(event, payload),
+    today: () => autonomy.today(),
+    reviewTimeoutMs: approvalReviewTimeoutMs,
+    log,
+    logError,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
     autonomy.handlers,
     meetings.handlers,
+    approvalChain.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers

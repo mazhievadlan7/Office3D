@@ -65,7 +65,9 @@ const decide = (body) => {
     if (m?.role === "user") lastUser = i;
   });
   const hasToolResult = messages.slice(lastUser + 1).some((m) => m?.role === "tool");
-  const wantsDelete = /удали|delete/i.test(text);
+  // Office3D's own notes (a review request, a meeting turn) quote commands;
+  // they are not a request to run one.
+  const wantsDelete = !text.startsWith("[Office3D") && /удали|delete/i.test(text);
   if (wantsDelete && !hasToolResult) {
     return {
       toolCall: {

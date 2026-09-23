@@ -177,6 +177,13 @@ const ExecApprovalCard = memo(function ExecApprovalCard({
       data-testid={`exec-approval-card-${approval.id}`}
     >
       <div className="type-meta">{t("chat.approvalRequired")}</div>
+      {approval.escalation ? (
+        <div className="mt-1 text-[11px] text-foreground" data-testid={`exec-approval-escalation-${approval.id}`}>
+          {approval.escalation.by === "main"
+            ? t("chat.approvalEscalatedByMain", { reason: approval.escalation.reason ?? "" })
+            : t("chat.approvalEscalatedAuto", { reason: approval.escalation.reason ?? "" })}
+        </div>
+      ) : null}
       <div className="mt-2 rounded-md bg-surface-3 px-2 py-1.5 shadow-2xs">
         <div className="font-mono text-[10px] font-semibold text-foreground">{approval.command}</div>
       </div>

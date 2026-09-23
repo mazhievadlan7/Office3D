@@ -61,6 +61,8 @@ export const createFakeHermes = async () => {
   const kanbanConfig: Record<string, unknown> = { auto_decompose: true, dispatch_profiles: null };
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
+  // One-off scripts for the next runs, in order, before nextScript applies.
+  const queuedScripts: FakeRunScript[] = [];
   let runCounter = 0;
 
   const json = (res: http.ServerResponse, status: number, body: unknown) => {
@@ -369,7 +371,7 @@ export const createFakeHermes = async () => {
         status: "running", events: [], listeners: new Set(),
       };
       runs.set(id, run);
-      play(run, nextScript);
+      play(run, queuedScripts.shift() ?? nextScript);
       return json(res, 202, { run_id: id, status: "started" });
     }
     const runRoute = path.match(/^\/v1\/runs\/([^/]+)(\/events|\/stop|\/approval)?$/);
@@ -451,6 +453,9 @@ export const createFakeHermes = async () => {
     kanbanConfig,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
+    },
+    queueRuns(...scripts: FakeRunScript[]) {
+      queuedScripts.push(...scripts);
     },
     close: () => new Promise<void>((resolve) => {
       server.closeAllConnections();

@@ -50,6 +50,7 @@ const timingSafeEqualString = (a, b) => {
  * @param {(agentId: string) => Promise<string> | string} [options.buildInstructions]
  * @param {(info: object) => void} [options.onRunFinished]
  * @param {number} [options.meetingGatherTimeoutMs]  how long a meeting waits for agents to reach the room
+ * @param {number} [options.approvalReviewTimeoutMs] how long the main agent may take over a member's approval
  * @returns {Promise<null | { url: string, token: string, client: any, adapter: any, store: any, mcpUrl: string, close: () => Promise<void> }>}
  *   null when Hermes is not configured (HERMES_API_URL unset).
  */
@@ -61,6 +62,7 @@ const startHermesRuntime = async ({
   buildInstructions,
   onRunFinished,
   meetingGatherTimeoutMs,
+  approvalReviewTimeoutMs,
 }) => {
   const config = resolveHermesConfig(env);
   if (!config) return null;
@@ -86,6 +88,7 @@ const startHermesRuntime = async ({
     buildInstructions,
     onRunFinished,
     meetingGatherTimeoutMs,
+    approvalReviewTimeoutMs,
     autonomyTimeZone: String(env.OFFICE3D_TIMEZONE ?? "").trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     mcpEndpoint: (profile) =>
       mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,

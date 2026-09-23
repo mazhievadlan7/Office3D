@@ -14,4 +14,6 @@ export type PendingExecApproval = {
   expiresAtMs: number;
   resolving: boolean;
   error: string | null;
+  /** Set when the main agent (or Office3D, when it could not decide) passed the request on. */
+  escalation?: { by: string; reason: string | null } | null;
 };
