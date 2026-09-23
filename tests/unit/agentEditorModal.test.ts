@@ -5,6 +5,7 @@ import { AgentEditorModal } from "@/features/agents/components/AgentEditorModal"
 import { createDefaultAgentAvatarProfile } from "@/lib/avatars/profile";
 import type { AgentState } from "@/features/agents/state/store";
 import type { GatewayClient } from "@/lib/gateway/GatewayClient";
+import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 
 vi.mock("@/features/agents/components/AgentAvatarPreview3D", () => ({
   AgentAvatarPreview3D: () => createElement("div", { "data-testid": "avatar-preview-3d" }, "preview"),
@@ -23,6 +24,11 @@ vi.mock("@/features/agents/components/inspect/AgentBrainPanel", () => ({
       { "data-testid": "brain-panel" },
       `brain:${selectedAgentId}:${activeSection ?? "all"}`,
     ),
+}));
+
+vi.mock("@/features/hermes/components/HermesAgentCapabilitiesPanel", () => ({
+  HermesAgentCapabilitiesPanel: ({ agentId }: { agentId: string }) =>
+    createElement("div", { "data-testid": "hermes-capabilities" }, `hermes:${agentId}`),
 }));
 
 const buildAgent = (): AgentState =>
@@ -133,5 +139,29 @@ describe("AgentEditorModal", () => {
     );
 
     expect(screen.getByTestId("brain-panel")).toHaveTextContent("brain:agent-1:MEMORY.md");
+  });
+
+  it("offers_hermes_capabilities_only_while_connected_to_hermes", () => {
+    const agent = buildAgent();
+    const modal = createElement(AgentEditorModal, {
+      open: true,
+      client: {} as GatewayClient,
+      agents: [agent],
+      agent,
+      initialSection: "hermes",
+      onClose: () => {},
+      onAvatarSave: () => {},
+    });
+    const control = (available: boolean): HermesControl => ({ available, call: vi.fn() as HermesControl["call"], onEvent: () => () => {} });
+
+    render(createElement(HermesControlProvider, { value: control(true) }, modal));
+    expect(screen.getByTestId("hermes-capabilities")).toHaveTextContent("hermes:agent-1");
+    cleanup();
+
+    // Another backend: no Hermes section, and a stale choice falls back to the avatar.
+    render(createElement(HermesControlProvider, { value: control(false) }, modal));
+    expect(screen.queryByRole("button", { name: /Возможности Hermes/ })).toBeNull();
+    expect(screen.queryByTestId("hermes-capabilities")).toBeNull();
+    expect(screen.getByRole("button", { name: "Сохранить аватар" })).toBeTruthy();
   });
 });

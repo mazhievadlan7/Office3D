@@ -27,6 +27,7 @@ const { createApprovalChain } = require("./approvals");
 const { createUpdates } = require("./updates");
 const { createSkillHandlers } = require("./skills");
 const { createUsageHandlers } = require("./usage");
+const { createCapabilityHandlers } = require("./capabilities");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -61,6 +62,9 @@ const METHODS = [
   "hermes.update.status", "hermes.update.start", "hermes.update.later",
   "hermes.skills.list", "hermes.skills.toggle", "hermes.skills.catalog", "hermes.skills.search",
   "hermes.skills.scan", "hermes.skills.install", "hermes.skills.uninstall", "hermes.skills.action",
+  "hermes.toolsets.list", "hermes.toolsets.set", "hermes.memory.get", "hermes.memory.set",
+  "hermes.mcp.list", "hermes.mcp.add", "hermes.mcp.remove", "hermes.mcp.enable", "hermes.mcp.test",
+  "hermes.mcp.catalog", "hermes.mcp.install", "hermes.mcp.action",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
@@ -1357,6 +1361,15 @@ const createHermesAdapter = ({
     }),
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     createUsageHandlers({ client, store, listProfiles, agentIdOf, hasDashboard, AdapterError, log }),
+    createCapabilityHandlers({
+      client,
+      profileFor: (agentId) => assertAgentExists(agentId),
+      listProfiles,
+      hasDashboard,
+      HermesApiError,
+      AdapterError,
+      log,
+    }),
     kanban.handlers,
     team.handlers
   );

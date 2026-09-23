@@ -86,6 +86,9 @@ Office3D записывает его в `.env` профиля через пан�
 | `usage.cost`, `sessions.usage` (аналитика расходов) | `/api/analytics/usage` и `/api/sessions` каждого профиля |
 | `skills.status/update`, `hermes.skills.*` | `/api/skills`, `/api/skills/toggle`, `/api/skills/hub/*` |
 | `wake` | обзор главного агента, как `org.autonomy.runNow` |
+| `hermes.toolsets.*` | `/v1/toolsets` профиля, `platform_toolsets.api_server` через `/api/config` |
+| `hermes.memory.*` | `memories/MEMORY.md` и `USER.md` профиля через `/api/fs/read-text` и `write-text` |
+| `hermes.mcp.*` | `/api/mcp/servers*`, `/api/mcp/catalog*` |
 
 Ход агента — это *run*: он переживает обрыв соединения (события буферизуются пять
 минут), его можно остановить, у него есть одобрения и учёт токенов. Поле

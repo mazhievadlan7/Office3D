@@ -312,4 +312,53 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     const dailyTokens = cost.payload.daily.reduce((sum: number, day: { totalTokens: number }) => sum + day.totalTokens, 0);
     expect(dailyTokens).toBeGreaterThanOrEqual(tokens);
   }, 60_000);
+
+  it.skipIf(!withDashboard)("switches_toolsets_edits_memory_and_manages_mcp_servers_in_hermes", async () => {
+    // Toolsets: turn one off and back on for the main agent.
+    const listed = await call("hermes.toolsets.list", { agentId: "main" });
+    expect(listed).toMatchObject({ ok: true });
+    const todo = listed.payload.toolsets.find((row: { name: string }) => row.name === "todo");
+    expect(todo).toBeDefined();
+    const initial = todo.enabled as boolean;
+    try {
+      const flipped = await call("hermes.toolsets.set", { agentId: "main", name: "todo", enabled: !initial });
+      expect(flipped.error ?? null).toBeNull();
+      expect(flipped.payload.toolsets.find((row: { name: string }) => row.name === "todo").enabled).toBe(!initial);
+      expect(flipped.payload.toolsets.find((row: { name: string }) => row.name === "kanban").enabled).toBe(true);
+    } finally {
+      await call("hermes.toolsets.set", { agentId: "main", name: "todo", enabled: initial });
+    }
+
+    // Memory: write the person's note, read it back, restore.
+    const memory = await call("hermes.memory.get", { agentId: "main" });
+    expect(memory).toMatchObject({ ok: true });
+    const before = memory.payload.targets.user;
+    const stamp = `Проверка памяти ${Date.now()}`;
+    try {
+      const saved = await call("hermes.memory.set", { agentId: "main", target: "user", entries: [...before.entries, stamp], version: before.version });
+      expect(saved.error ?? null).toBeNull();
+      expect(saved.payload.targets.user.entries).toContain(stamp);
+      const stale = await call("hermes.memory.set", { agentId: "main", target: "user", entries: [], version: before.version });
+      expect(stale).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    } finally {
+      const now = await call("hermes.memory.get", { agentId: "main" });
+      await call("hermes.memory.set", { agentId: "main", target: "user", entries: before.entries, version: now.payload.targets.user.version });
+    }
+
+    // MCP: add a server nobody listens on, see the test fail, remove it.
+    const name = `itest-${Date.now().toString(36)}`;
+    const added = await call("hermes.mcp.add", { agentId: "main", name, url: "http://127.0.0.1:9/mcp", auth: "header", bearerToken: "itest-token" });
+    expect(added.error ?? null).toBeNull();
+    try {
+      const servers = await call("hermes.mcp.list", { agentId: "main" });
+      expect(servers.payload.servers.find((row: { name: string }) => row.name === name)).toMatchObject({ auth: "header", managed: false });
+      expect(servers.payload.servers.find((row: { name: string }) => row.name === "office3d_team")).toMatchObject({ managed: true });
+      const tested = await call("hermes.mcp.test", { agentId: "main", name });
+      expect(tested.payload.ok).toBe(false);
+      const catalog = await call("hermes.mcp.catalog", { agentId: "main" });
+      expect(catalog).toMatchObject({ ok: true });
+    } finally {
+      expect(await call("hermes.mcp.remove", { agentId: "main", name })).toMatchObject({ ok: true });
+    }
+  }, 120_000);
 });

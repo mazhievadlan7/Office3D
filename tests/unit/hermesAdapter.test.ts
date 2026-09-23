@@ -855,6 +855,129 @@ describe("hermes adapter", () => {
     client.close();
   });
 
+  it("switches_an_agents_toolsets_and_keeps_the_main_agents_board", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    // The startup sweep sets up the main agent's toolsets first.
+    for (let i = 0; i < 100 && !fake.configPuts.some((put) => (put.config as { kanban?: unknown }).kanban); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    fake.toolsets.set("default", new Set(["web", "terminal", "memory", "kanban", "office3d_team"]));
+    const listed = await client.call("hermes.toolsets.list", { agentId: "main" });
+    const names = listed.payload.toolsets.map((row: { name: string }) => row.name);
+    expect(names).toContain("browser");
+    expect(names).not.toContain("stt");
+    expect(listed.payload.toolsets.find((row: { name: string }) => row.name === "kanban")).toMatchObject({ enabled: true, locked: true });
+    expect(listed.payload.toolsets.find((row: { name: string }) => row.name === "browser")).toMatchObject({ enabled: false, configured: false });
+
+    const on = await client.call("hermes.toolsets.set", { agentId: "main", name: "browser", enabled: true });
+    expect(on.payload.toolsets.find((row: { name: string }) => row.name === "browser").enabled).toBe(true);
+    // Saved as Hermes' list, with the non-toolset entry (an MCP allowlist name) kept.
+    expect(fake.configPuts.at(-1)!.config).toEqual({
+      platform_toolsets: { api_server: ["web", "terminal", "memory", "kanban", "browser", "office3d_team"] },
+    });
+    const off = await client.call("hermes.toolsets.set", { agentId: "main", name: "terminal", enabled: false });
+    expect(off.payload.toolsets.find((row: { name: string }) => row.name === "terminal").enabled).toBe(false);
+
+    expect(await client.call("hermes.toolsets.set", { agentId: "main", name: "kanban", enabled: false })).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    expect(await client.call("hermes.toolsets.set", { agentId: "main", name: "nope", enabled: true })).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+    // Hermes keeps some toolsets off for API agents; the office says so instead of pretending.
+    expect(await client.call("hermes.toolsets.set", { agentId: "main", name: "discord_admin", enabled: true })).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    client.close();
+  });
+
+  it("edits_an_agents_memory_without_losing_what_it_learned_meanwhile", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const memoryPath = `${fake.homeOf("default")}/memories/MEMORY.md`;
+    fake.files.set(memoryPath, "Клиент любит краткость\n§\nСборка: npm run build");
+    const first = await client.call("hermes.memory.get", { agentId: "main" });
+    expect(first.payload.targets.memory).toMatchObject({ entries: ["Клиент любит краткость", "Сборка: npm run build"], limit: 120 });
+    expect(first.payload.targets.user).toMatchObject({ entries: [], limit: 60 });
+
+    const saved = await client.call("hermes.memory.set", {
+      agentId: "main",
+      target: "memory",
+      entries: ["Клиент любит краткость", "  Сборка: npm run build:prod  ", ""],
+      version: first.payload.targets.memory.version,
+    });
+    expect(saved.ok).toBe(true);
+    expect(fake.files.get(memoryPath)).toBe("Клиент любит краткость\n§\nСборка: npm run build:prod");
+
+    // The agent remembered something since the person opened the editor.
+    fake.files.set(memoryPath, `${fake.files.get(memoryPath)}\n§\nНовое`);
+    const stale = await client.call("hermes.memory.set", { agentId: "main", target: "memory", entries: ["x"], version: saved.payload.targets.memory.version });
+    expect(stale).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    expect(fake.files.get(memoryPath)).toContain("Новое");
+
+    const fresh = await client.call("hermes.memory.get", { agentId: "main" });
+    const tooLong = await client.call("hermes.memory.set", { agentId: "main", target: "user", entries: ["a".repeat(61)], version: fresh.payload.targets.user.version });
+    expect(tooLong).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    const delimiter = await client.call("hermes.memory.set", { agentId: "main", target: "user", entries: ["a\n§\nb"], version: fresh.payload.targets.user.version });
+    expect(delimiter).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    const user = await client.call("hermes.memory.set", { agentId: "main", target: "user", entries: ["Зовут Адлан"], version: fresh.payload.targets.user.version });
+    expect(user.payload.targets.user.entries).toEqual(["Зовут Адлан"]);
+    expect(await client.call("hermes.memory.set", { agentId: "main", target: "soul", entries: [], version: "" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+
+  it("adds_tests_and_removes_the_persons_mcp_servers_but_not_the_offices", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const hired = await client.call("agents.create", { name: "Интегратор" });
+    const member = hired.payload.agentId as string;
+
+    const added = await client.call("hermes.mcp.add", { agentId: "all", name: "docs", url: "https://docs.example.com/mcp", auth: "header", bearerToken: "secret-token-1" });
+    expect(added.payload).toMatchObject({ name: "docs", failed: [] });
+    expect(added.payload.added.sort()).toEqual(["default", member].sort());
+    expect(fake.profiles.get(member)!.env.MCP_DOCS_TOKEN).toBe("secret-token-1");
+
+    const listed = await client.call("hermes.mcp.list", { agentId: member });
+    expect(listed.payload.servers.find((row: { name: string }) => row.name === "docs")).toMatchObject({ transport: "http", auth: "header", managed: false });
+    expect(JSON.stringify(listed.payload)).not.toContain("secret-token-1");
+    expect(listed.payload.servers.find((row: { name: string }) => row.name === "office3d")).toMatchObject({ managed: true });
+
+    const tested = await client.call("hermes.mcp.test", { agentId: member, name: "docs" });
+    expect(tested.payload).toMatchObject({ ok: true, tools: [{ name: "search" }] });
+    await client.call("hermes.mcp.add", { agentId: member, name: "down", url: "https://unreachable.example/mcp" });
+    expect((await client.call("hermes.mcp.test", { agentId: member, name: "down" })).payload).toMatchObject({ ok: false, error: "Connection refused" });
+
+    const stdio = await client.call("hermes.mcp.add", { agentId: member, name: "local-db", command: "uvx", args: ["mcp-server-sqlite"], env: { DB_PATH: "/data/x.db" } });
+    expect(stdio.ok).toBe(true);
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "bad", command: "x", env: { "bad key": "1" } })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "ftp", url: "ftp://x" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "oa", url: "https://x", auth: "oauth" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "docs", url: "https://docs.example.com/mcp" })).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+
+    expect(await client.call("hermes.mcp.enable", { agentId: member, name: "docs", enabled: false })).toMatchObject({ ok: true });
+    expect(fake.profiles.get(member)!.mcp.docs.enabled).toBe(false);
+    expect(await client.call("hermes.mcp.remove", { agentId: member, name: "docs" })).toMatchObject({ ok: true });
+    expect(fake.profiles.get(member)!.mcp.docs).toBeUndefined();
+
+    for (const method of ["hermes.mcp.remove", "hermes.mcp.enable"]) {
+      const refused = await client.call(method, { agentId: member, name: "office3d", enabled: false });
+      expect(refused).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    }
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "office3d_team", url: "https://evil" })).toMatchObject({ ok: false, error: { code: "FORBIDDEN" } });
+    expect(fake.profiles.get(member)!.mcp.office3d).toBeDefined();
+    client.close();
+  });
+
+  it("installs_catalog_mcp_servers_after_the_person_confirms_what_runs", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const catalog = await client.call("hermes.mcp.catalog", { agentId: "main" });
+    expect(catalog.payload.entries.map((entry: { name: string }) => entry.name)).toEqual(["linear", "sqlite", "notion"]);
+
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "linear" })).toMatchObject({ ok: true, payload: { background: false } });
+    expect(fake.profiles.get("default")!.mcp.linear).toMatchObject({ url: "https://mcp.linear.app/mcp" });
+
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", env: { SQLITE_PATH: "/d.db" } })).toMatchObject({ ok: false, error: { code: "CONFIRMATION_REQUIRED" } });
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", confirm: true })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", confirm: true, env: { SQLITE_PATH: "/d.db", OTHER: "1" } })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", confirm: true, env: { SQLITE_PATH: "/d.db" } })).toMatchObject({ ok: true });
+    expect(fake.profiles.get("default")!.env.SQLITE_PATH).toBe("/d.db");
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "notion" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+    expect(await client.call("hermes.mcp.action", { action: "../x" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+
   it("refuses_to_delete_the_main_agent", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("agents.delete", { agentId: "main" });

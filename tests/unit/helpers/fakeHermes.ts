@@ -69,6 +69,15 @@ export const createFakeHermes = async () => {
   const installs: Array<{ profile: string; identifier: string }> = [];
   // Hermes' accounting: session rows per profile, as its state.db keeps them.
   const usageRows = new Map<string, Array<Record<string, unknown>>>();
+  // Files the dashboard's /api/fs routes read and write (memory lives there).
+  const files = new Map<string, string>();
+  const homeOf = (name: string) => (name === "default" ? "/fake/hermes" : `/fake/hermes/profiles/${name}`);
+  const memoryConfig = { memory_enabled: true, user_profile_enabled: true, memory_char_limit: 120, user_char_limit: 60, provider: "" };
+  const catalog = [
+    { name: "linear", description: "Linear", transport: "http", auth_type: "none", required_env: [], command: null, args: [], url: "https://mcp.linear.app/mcp", install_url: null, bootstrap: [], needs_install: false },
+    { name: "sqlite", description: "SQLite", transport: "stdio", auth_type: "none", required_env: [{ name: "SQLITE_PATH", prompt: "Путь к базе", required: true }], command: "uvx", args: ["mcp-server-sqlite"], url: null, install_url: null, bootstrap: [], needs_install: false },
+    { name: "notion", description: "Notion", transport: "http", auth_type: "oauth", required_env: [], command: null, args: [], url: "https://mcp.notion.com/mcp", install_url: null, bootstrap: [], needs_install: false },
+  ];
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   // One-off scripts for the next runs, in order, before nextScript applies.
@@ -160,7 +169,7 @@ export const createFakeHermes = async () => {
       if (req.headers["x-hermes-session-token"] !== DASHBOARD_TOKEN) return json(res, 401, { detail: "Unauthorized" });
       if (path === "/api/profiles" && req.method === "GET") {
         return json(res, 200, {
-          profiles: [...profiles.values()].map((p) => ({ name: p.name, is_default: p.name === "default", description: p.description, model: "test-model", provider: "custom" })),
+          profiles: [...profiles.values()].map((p) => ({ name: p.name, path: homeOf(p.name), is_default: p.name === "default", description: p.description, model: "test-model", provider: "custom" })),
         });
       }
       if (path === "/api/profiles" && req.method === "POST") {
@@ -254,7 +263,61 @@ export const createFakeHermes = async () => {
         return json(res, 200, { daily, by_model: [], totals: {}, period_days: Number(url.searchParams.get("days")) });
       }
       if (path === "/api/config" && req.method === "GET") {
-        return json(res, 200, { kanban: { ...kanbanConfig } });
+        const name = url.searchParams.get("profile") ?? "default";
+        const saved = toolsets.get(name);
+        return json(res, 200, {
+          kanban: { ...kanbanConfig },
+          memory: { ...memoryConfig },
+          ...(saved ? { platform_toolsets: { api_server: [...saved] } } : {}),
+        });
+      }
+      if (path === "/api/fs/read-text") {
+        const target = url.searchParams.get("path") ?? "";
+        if (!files.has(target)) return json(res, 404, { detail: "File not found" });
+        return json(res, 200, { text: files.get(target), truncated: false, binary: false, path: target });
+      }
+      if (path === "/api/fs/write-text" && req.method === "POST") {
+        const b = body as { path: string; content: string };
+        files.set(b.path, b.content);
+        return json(res, 200, { ok: true, path: b.path });
+      }
+      if (path === "/api/mcp/servers" && req.method === "POST") {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        const b = body as { name: string; url?: string; command?: string; args?: string[]; env?: Record<string, string>; auth?: string; bearer_token?: string };
+        if (!target) return json(res, 404, { detail: "Profile not found" });
+        if (target.mcp[b.name]) return json(res, 409, { detail: `Server '${b.name}' already exists` });
+        if (b.bearer_token) target.env[`MCP_${b.name.toUpperCase()}_TOKEN`] = b.bearer_token;
+        target.mcp[b.name] = {
+          ...(b.url ? { url: b.url } : { command: b.command, args: b.args ?? [], env: b.env ?? {} }),
+          ...(b.bearer_token ? { headers: { Authorization: `Bearer \${MCP_${b.name.toUpperCase()}_TOKEN}` } } : {}),
+        };
+        return json(res, 200, { name: b.name });
+      }
+      if (path === "/api/mcp/catalog") {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        return json(res, 200, { entries: catalog.map((entry) => ({ ...entry, installed: Boolean(target?.mcp[entry.name]), enabled: Boolean(target?.mcp[entry.name]) })) });
+      }
+      if (path === "/api/mcp/catalog/install" && req.method === "POST") {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        const b = body as { name: string; env: Record<string, string> };
+        const entry = catalog.find((candidate) => candidate.name === b.name);
+        if (!target || !entry) return json(res, 404, { detail: "No catalog entry" });
+        Object.assign(target.env, b.env);
+        target.mcp[b.name] = entry.url ? { url: entry.url } : { command: entry.command ?? "", args: entry.args };
+        return json(res, 200, { ok: true, name: b.name, background: false });
+      }
+      const mcpSubRoute = path.match(/^\/api\/mcp\/servers\/([^/]+)\/(enabled|test)$/);
+      if (mcpSubRoute) {
+        const target = profiles.get(url.searchParams.get("profile") ?? "default");
+        const name = decodeURIComponent(mcpSubRoute[1]);
+        const entry = target?.mcp[name];
+        if (!entry) return json(res, 404, { detail: `Server '${name}' not found` });
+        if (mcpSubRoute[2] === "enabled") {
+          entry.enabled = (body as { enabled: boolean }).enabled;
+          return json(res, 200, { ok: true, name, enabled: entry.enabled });
+        }
+        if (String(entry.url ?? "").includes("unreachable")) return json(res, 200, { ok: false, error: "Connection refused", tools: [] });
+        return json(res, 200, { ok: true, tools: [{ name: "search", description: "Поиск" }] });
       }
       if (path === "/api/config" && req.method === "PUT") {
         const name = url.searchParams.get("profile") ?? "default";
@@ -274,8 +337,11 @@ export const createFakeHermes = async () => {
         return json(res, 200, {
           servers: Object.entries(target?.mcp ?? {}).map(([name, entry]) => ({
             name,
-            transport: "http",
+            transport: entry.command ? "stdio" : "http",
             url: entry.url,
+            command: entry.command ?? null,
+            args: entry.args ?? [],
+            env: Object.fromEntries(Object.keys((entry.env as Record<string, string>) ?? {}).map((key) => [key, "***"])),
             auth: entry.headers?.Authorization ? "header" : null,
             enabled: entry.enabled !== false,
             source: "config",
@@ -399,7 +465,15 @@ export const createFakeHermes = async () => {
     if (path === "/v1/toolsets") {
       const enabled = toolsets.get(profileName) ?? new Set();
       return json(res, 200, {
-        data: ["web", "terminal", "memory", "kanban"].map((name) => ({ name, enabled: enabled.has(name) })),
+        data: ["web", "terminal", "memory", "kanban", "browser", "stt", "discord_admin"].map((name) => ({
+          name,
+          label: name,
+          description: `Набор ${name}`,
+          // Like Hermes, a toolset restricted to another platform never turns on here.
+          enabled: enabled.has(name) && name !== "discord_admin",
+          configured: name !== "browser",
+          tools: [`${name}_tool`],
+        })),
       });
     }
     if (path === "/api/model/options") {
@@ -521,6 +595,9 @@ export const createFakeHermes = async () => {
     skills,
     installs,
     usageRows,
+    files,
+    memoryConfig,
+    homeOf,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Brain,
+  Boxes,
   ChevronLeft,
   ChevronRight,
   Database,
@@ -24,8 +25,10 @@ import type { AgentFileName } from "@/lib/agents/agentFiles";
 import { AGENT_FILE_META } from "@/lib/agents/agentFiles";
 import { renameGatewayAgent } from "@/lib/gateway/agentConfig";
 import { t } from "@/lib/i18n";
+import { useHermesControl } from "@/features/hermes/HermesControlContext";
+import { HermesAgentCapabilitiesPanel } from "@/features/hermes/components/HermesAgentCapabilitiesPanel";
 
-export type AgentEditorSection = "avatar" | AgentFileName;
+export type AgentEditorSection = "avatar" | "hermes" | AgentFileName;
 
 type AgentEditorModalProps = {
   open: boolean;
@@ -111,7 +114,17 @@ export const AgentEditorModal = ({
   onDelete,
   onNavigateAgent,
 }: AgentEditorModalProps) => {
+  const hermes = useHermesControl();
   const [activeSection, setActiveSection] = useState<AgentEditorSection>(initialSection);
+  // Hermes' own settings for the agent exist only while connected to Hermes.
+  const sections = hermes
+    ? [
+        editorSections[0],
+        { id: "hermes" as const, label: t("hermesCapabilities.title"), hint: t("hermesCapabilities.hint"), icon: Boxes },
+        ...editorSections.slice(1),
+      ]
+    : editorSections;
+  const shownSection = activeSection === "hermes" && !hermes ? "avatar" : activeSection;
   const activeAgentIndex = agents.findIndex((entry) => entry.agentId === agent.agentId);
   const previousAgent =
     activeAgentIndex > 0 ? agents[activeAgentIndex - 1] : null;
@@ -181,7 +194,7 @@ export const AgentEditorModal = ({
             </div>
 
             <div className="flex-1 space-y-2 overflow-y-auto p-3">
-              {editorSections.map((section) => {
+              {sections.map((section) => {
                 const Icon = section.icon;
                 return (
                   <button
@@ -189,7 +202,7 @@ export const AgentEditorModal = ({
                     type="button"
                     onClick={() => setActiveSection(section.id)}
                     className={`${menuButtonClassName} ${
-                      activeSection === section.id
+                      shownSection === section.id
                         ? "border-primary/40 bg-primary/10 text-foreground"
                         : "border-border/45 bg-background/40 text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
@@ -223,7 +236,9 @@ export const AgentEditorModal = ({
           </aside>
 
           <section className="flex min-w-0 flex-1 flex-col">
-            {activeSection === "avatar" ? (
+            {shownSection === "hermes" ? (
+              <HermesAgentCapabilitiesPanel agentId={agent.agentId} />
+            ) : shownSection === "avatar" ? (
               <AgentAvatarEditorPanel
                 agentId={agent.agentId}
                 agentName={agent.name}
@@ -242,7 +257,7 @@ export const AgentEditorModal = ({
                     client={client}
                     agents={agents}
                     selectedAgentId={agent.agentId}
-                    activeSection={activeSection}
+                    activeSection={shownSection}
                     onCancel={onClose}
                     onRename={
                       onRename ??
