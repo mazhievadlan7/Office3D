@@ -163,6 +163,23 @@ const createOrganization = ({
     return true;
   };
 
+  /**
+   * The office's board rules in Hermes: tasks in triage wait for the main
+   * agent or the person, so Hermes' own decomposer (an LLM that would split
+   * and assign them on its own) stays off. Read on every dispatcher tick.
+   */
+  const ensureBoardPolicy = async () => {
+    const current = await client.dashboard("/api/config", { query: { profile: DEFAULT_PROFILE } });
+    if (current?.kanban?.auto_decompose === false) return false;
+    await client.dashboard("/api/config", {
+      method: "PUT",
+      query: { profile: DEFAULT_PROFILE },
+      body: { config: { kanban: { auto_decompose: false } } },
+    });
+    log("Turned Hermes' automatic triage decomposer off: the main agent sorts triage.");
+    return true;
+  };
+
   /** Everything a profile needs from the office: tool access, then its block. */
   const setUpProfile = async (profile) => {
     if (!hasDashboard()) return;
@@ -177,6 +194,7 @@ const createOrganization = ({
   const reconcile = async () => {
     if (!hasDashboard()) return;
     await ensureMainKanbanTools().catch((err) => logError("Could not enable kanban tools for the main agent.", err));
+    await ensureBoardPolicy().catch((err) => logError("Could not set the board policy in Hermes.", err));
     const names = (await listProfiles({ fresh: true })).map((profile) => profile.name);
     const access = await Promise.allSettled(names.map((name) => ensureAccess(name)));
     access.forEach((result, index) => {

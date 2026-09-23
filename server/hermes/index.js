@@ -19,6 +19,8 @@ const DEFAULT_MCP_PORT = 3010;
 const RECONCILE_RETRY_MS = [5_000, 15_000, 30_000, 60_000];
 const RECONCILE_SWEEP_MS = 10 * 60_000;
 const BOARD_GUARD_MS = 15_000;
+const AUTONOMY_TICK_MS = 60_000;
+const AUTONOMY_FIRST_TICK_MS = 10_000;
 
 /** Where Office3D's MCP server listens, and the URL Hermes reaches it at. */
 const resolveMcpConfig = (env) => {
@@ -74,6 +76,7 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
     store,
     buildInstructions,
     onRunFinished,
+    autonomyTimeZone: String(env.OFFICE3D_TIMEZONE ?? "").trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     mcpEndpoint: (profile) =>
       mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,
     log: (message) => log(`[hermes] ${message}`),
@@ -162,6 +165,28 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
   };
   if (config.dashboardUrl) void guardBoard();
 
+  // Autonomy: budget, board gate and due reviews, once a minute.
+  let autonomyTimer = null;
+  let autonomyFailing = false;
+  const autonomyTick = async () => {
+    autonomyTimer = null;
+    if (closed) return;
+    try {
+      await adapter.autonomy.tick();
+      autonomyFailing = false;
+    } catch (err) {
+      if (!autonomyFailing) logError("[hermes] Autonomy check failed; retrying.", err);
+      autonomyFailing = true;
+    }
+    if (closed) return;
+    autonomyTimer = setTimeout(() => void autonomyTick(), AUTONOMY_TICK_MS);
+    autonomyTimer.unref?.();
+  };
+  if (config.dashboardUrl) {
+    autonomyTimer = setTimeout(() => void autonomyTick(), AUTONOMY_FIRST_TICK_MS);
+    autonomyTimer.unref?.();
+  }
+
   return {
     url: `ws://127.0.0.1:${port}`,
     token,
@@ -173,6 +198,7 @@ const startHermesRuntime = async ({ env = process.env, stateDir, log = console.i
       closed = true;
       if (reconcileTimer) clearTimeout(reconcileTimer);
       if (guardTimer) clearTimeout(guardTimer);
+      if (autonomyTimer) clearTimeout(autonomyTimer);
       adapter.close();
       await mcp?.close();
       // Closing the server alone waits for every open socket to go away.

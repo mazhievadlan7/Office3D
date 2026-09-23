@@ -57,6 +57,7 @@ export const createFakeHermes = async () => {
   const memoryResets: string[] = [];
   const toolsets = new Map<string, Set<string>>([["default", new Set(["web", "terminal", "memory"])]]);
   const configPuts: Array<{ profile: string; config: unknown }> = [];
+  const kanbanConfig: Record<string, unknown> = { auto_decompose: true, dispatch_profiles: null };
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
   let nextScript: FakeRunScript = { kind: "reply", deltas: ["Готово."] };
   let runCounter = 0;
@@ -180,11 +181,16 @@ export const createFakeHermes = async () => {
           return json(res, 200, { ok: true });
         }
       }
+      if (path === "/api/config" && req.method === "GET") {
+        return json(res, 200, { kanban: { ...kanbanConfig } });
+      }
       if (path === "/api/config" && req.method === "PUT") {
         const name = url.searchParams.get("profile") ?? "default";
         const config = (body as { config: { platform_toolsets?: { api_server?: string[] }; mcp_servers?: Record<string, McpEntry> } }).config;
         configPuts.push({ profile: name, config });
         if (config.platform_toolsets?.api_server) toolsets.set(name, new Set(config.platform_toolsets.api_server));
+        const kanbanPatch = (config as { kanban?: Record<string, unknown> }).kanban;
+        if (kanbanPatch && name === "default") Object.assign(kanbanConfig, kanbanPatch);
         const target = profiles.get(name);
         for (const [server, entry] of Object.entries(config.mcp_servers ?? {})) {
           if (target) target.mcp[server] = { ...(target.mcp[server] ?? {}), ...entry };
@@ -438,6 +444,7 @@ export const createFakeHermes = async () => {
     kanbanTasks,
     toolsets,
     configPuts,
+    kanbanConfig,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },

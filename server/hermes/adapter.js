@@ -21,6 +21,7 @@ const { createProviderHandlers } = require("./providers");
 const { createKanbanHandlers } = require("./kanban");
 const { createTeam } = require("./team");
 const { createMcpAccess } = require("./mcp-access");
+const { createAutonomy } = require("./autonomy");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -48,9 +49,11 @@ const METHODS = [
   "cron.list", "cron.add", "cron.remove", "cron.patch", "cron.run",
   "tasks.list", "tasks.create", "tasks.update", "tasks.delete", "tasks.comment",
   "org.get", "org.setMission", "org.proposals.list", "org.proposals.decide",
+  "org.autonomy.get", "org.autonomy.set", "org.autonomy.pause", "org.autonomy.runNow",
 ];
 const EVENTS = [
-  "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved", "org.updated", "org.proposal",
+  "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
+  "org.updated", "org.proposal", "org.autonomy",
 ];
 
 class AdapterError extends Error {
@@ -236,6 +239,7 @@ const createHermesAdapter = ({
   onRunFinished,
   onTaskCreated,
   mcpEndpoint = () => null,
+  autonomyTimeZone = "UTC",
   log = () => {},
   logError = () => {},
 }) => {
@@ -288,6 +292,7 @@ const createHermesAdapter = ({
     const unseen = profiles.filter((p) => !knownProfiles.has(p.name)).map((p) => p.name);
     for (const name of unseen) knownProfiles.add(name);
     if (unseen.length) {
+      autonomy.teamChanged();
       queueMicrotask(() => {
         for (const name of unseen) {
           organization.setUpProfile(name).catch((err) => {
@@ -733,6 +738,7 @@ const createHermesAdapter = ({
         .catch((err) => logError(`Could not clear the cloned memory of ${profile}.`, err));
       await store.upsertAgent(profile, { name, createdAt: Date.now() });
       dashboardProfilesCache = { at: 0, value: null };
+      autonomy.teamChanged();
       ensureProfileServed(profile).catch((err) => log(`Profile ${profile} is not served yet: ${err.message}`));
       return { ok: true, agentId: profile, name, workspace: str(p.workspace) || `profiles/${profile}` };
     },
@@ -759,6 +765,7 @@ const createHermesAdapter = ({
       servedProfiles.delete(profile);
       knownProfiles.delete(profile);
       mcpAccess.forget(profile);
+      autonomy.teamChanged();
       await store.removeAgent(agentId);
       dashboardProfilesCache = { at: 0, value: null };
       return { ok: true, removedBindings: 0 };
@@ -1159,9 +1166,29 @@ const createHermesAdapter = ({
     logError,
   });
 
+  const autonomy = createAutonomy({
+    client,
+    store,
+    listProfiles,
+    hiredAt: (profile) => {
+      const createdAt = Number(store.getAgent(agentIdOf(profile))?.createdAt);
+      return Number.isFinite(createdAt) && createdAt > 0 ? createdAt : null;
+    },
+    readBoard: () => kanban.readBoard(false),
+    startRun: (params) => startChat(params),
+    isRunActive: (sessionKey) => [...runs.values()].some((run) => run.sessionKey === sessionKey && !run.finished),
+    hasDashboard,
+    AdapterError,
+    broadcast: (event, payload) => broadcast(event, payload),
+    defaultTimeZone: autonomyTimeZone,
+    log,
+    logError,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
+    autonomy.handlers,
     createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
     kanban.handlers,
     team.handlers
@@ -1277,7 +1304,7 @@ const createHermesAdapter = ({
     sockets.clear();
   };
 
-  return { handleSocket, handlers, close, organization, team, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
+  return { handleSocket, handlers, close, organization, team, autonomy, listProfiles, guardBoard, _runs: runs, _approvals: approvals };
 };
 
 module.exports = {

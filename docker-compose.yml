@@ -127,6 +127,8 @@ services:
       OFFICE3D_MCP_HOST: 0.0.0.0
       OFFICE3D_MCP_PORT: "3010"
       OFFICE3D_MCP_URL: http://office3d:3010
+      # Autonomy's active hours and daily budget follow this zone.
+      OFFICE3D_TIMEZONE: ${OFFICE3D_TIMEZONE:-}
       # Backend selection. Empty means Hermes (HERMES_API_URL is set above);
       # set openclaw plus OFFICE3D_GATEWAY_URL to switch back.
       OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}

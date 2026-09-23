@@ -387,6 +387,15 @@ describe("hermes adapter", () => {
     expect([...fake.toolsets.get("default")!].sort()).toEqual(["kanban", "memory", "terminal", "web"]);
   });
 
+  it("keeps_hermes_own_decomposer_off_so_triage_waits_for_the_main_agent", async () => {
+    await runtime!.adapter.organization.reconcile();
+    expect(fake.kanbanConfig.auto_decompose).toBe(false);
+    const puts = fake.configPuts.length;
+    await runtime!.adapter.organization.reconcile();
+    expect(fake.configPuts.filter((put) => JSON.stringify(put.config).includes("auto_decompose")).length).toBe(1);
+    expect(fake.configPuts.length).toBeGreaterThanOrEqual(puts);
+  });
+
   // --- the team: proposals over MCP, decisions in the office ---------------------------
 
   const mcp = async (profile: string, method: string, params: Record<string, unknown> = {}) => {

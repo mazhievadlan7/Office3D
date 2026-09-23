@@ -7,6 +7,7 @@ import type { AgentState } from "@/features/agents/state/store";
 import type { CronJobSummary } from "@/lib/cron/types";
 import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
 import { LOCALE, t } from "@/lib/i18n";
+import { AutonomyBar } from "@/features/hermes/components/AutonomyBar";
 import { MissionBanner } from "@/features/hermes/components/MissionBanner";
 
 const STATUS_LABELS: Record<TaskBoardStatus, string> = {
@@ -123,6 +124,7 @@ export function TaskBoardView({
           </div>
         </div>
         <MissionBanner />
+        <AutonomyBar />
         {cronError ? (
           <div className="mt-2 rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 font-mono text-[11px] text-rose-100">
             {cronError}
