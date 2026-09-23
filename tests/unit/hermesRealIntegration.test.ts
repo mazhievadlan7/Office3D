@@ -114,6 +114,29 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     expect(model.payload.model).toBeTruthy();
   }, 30_000);
 
+  it.skipIf(!withDashboard)("runs_a_task_from_the_office_board_through_the_hermes_dispatcher", async () => {
+    const created = await call("tasks.create", { title: `Проверка доски ${Date.now()}`, description: "Интеграционный тест" });
+    expect(created).toMatchObject({ ok: true });
+    const id = created.payload.id as string;
+    try {
+      // Assigning a task in triage hands it to the dispatcher.
+      const assigned = await call("tasks.update", { id, assignedAgentId: "main" });
+      expect(assigned).toMatchObject({ ok: true });
+      const deadline = Date.now() + 150_000;
+      let status = "";
+      while (Date.now() < deadline) {
+        const listed = await call("tasks.list", { includeArchived: true });
+        const task = listed.payload.tasks.find((entry: { id: string }) => entry.id === id);
+        status = task?.hermes?.status ?? "";
+        if (status === "done" || status === "blocked") break;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+      expect(status).toBe("done");
+    } finally {
+      await call("tasks.delete", { id });
+    }
+  }, 180_000);
+
   it.skipIf(!withDashboard)("creates_talks_to_and_removes_an_agent_profile", async () => {
     const created = await call("agents.create", { name: "Тестовый Агент" });
     expect(created).toMatchObject({ ok: true });

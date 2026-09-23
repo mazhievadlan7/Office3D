@@ -24,6 +24,11 @@ export type GatewayTaskRecord = {
 
 export type GatewayTasksListResult = {
   tasks: GatewayTaskRecord[];
+  /**
+   * True when the backend's board is the source of truth (Hermes' kanban):
+   * the office then sends every edit through tasks.* and keeps no copy.
+   */
+  authoritative?: boolean;
 };
 
 export type GatewayTaskCreateInput = {

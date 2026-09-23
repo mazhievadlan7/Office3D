@@ -288,9 +288,41 @@ describe("hermes adapter", () => {
     client.close();
   });
 
+  it("serves_the_task_board_from_hermes_kanban_as_the_source_of_truth", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const created = await client.call("tasks.create", { title: "Исследовать рынок", description: "Кратко" });
+    expect(created.payload).toMatchObject({ title: "Исследовать рынок", status: "todo", assignedAgentId: null });
+    // No assignee: the task waits in triage for the main agent or a person.
+    expect(fake.kanbanTasks.get(created.payload.id)?.status).toBe("triage");
+
+    const assigned = await client.call("tasks.update", { id: created.payload.id, assignedAgentId: "main", status: "todo" });
+    expect(fake.kanbanTasks.get(created.payload.id)).toMatchObject({ assignee: "default", status: "ready" });
+    expect(assigned.payload.assignedAgentId).toBe("main");
+
+    const listed = await client.call("tasks.list", { includeArchived: true });
+    expect(listed.payload.authoritative).toBe(true);
+    expect(listed.payload.tasks).toHaveLength(1);
+
+    await client.call("tasks.update", { id: created.payload.id, archived: true });
+    expect(fake.kanbanTasks.get(created.payload.id)?.status).toBe("archived");
+    client.close();
+  });
+
+  it("maps_hermes_statuses_onto_office_columns", async () => {
+    const { taskToRecord, hermesStatusFor } = await import("../../server/hermes/kanban.js");
+    expect(taskToRecord({ id: "t1", title: "x", status: "running", assignee: "default", created_at: 1 })).toMatchObject({
+      status: "in_progress",
+      assignedAgentId: "main",
+    });
+    expect(taskToRecord({ id: "t2", title: "x", status: "triage", created_at: 1 }).notes[0]).toMatch(/разбора/);
+    expect(hermesStatusFor("todo", { assigned: false })).toBe("triage");
+    expect(hermesStatusFor("in_progress", { assigned: true })).toBe("ready");
+    expect(hermesStatusFor("done", { assigned: true })).toBe("done");
+  });
+
   it("answers_unknown_methods_with_not_implemented", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
-    const result = await client.call("tasks.create", {});
+    const result = await client.call("usage.cost", {});
     expect(result).toMatchObject({ ok: false, error: { code: "NOT_IMPLEMENTED" } });
     client.close();
   });

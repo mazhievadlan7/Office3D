@@ -43,8 +43,10 @@ import {
 } from "@/lib/studio/settings";
 import type { StudioSettingsCoordinator } from "@/lib/studio/coordinator";
 import {
+  createGatewayTask,
   isUnsupportedTaskGatewayError,
   listGatewayTasks,
+  updateGatewayTask,
   type GatewayTaskRecord,
 } from "@/lib/tasks/gateway";
 import {
@@ -262,6 +264,7 @@ const buildCardFromExplicitEvent = (
 const buildCardFromGatewayTask = (
   task: GatewayTaskRecord,
   existing?: TaskBoardCard | null,
+  authoritative = false,
 ): TaskBoardCard =>
   makeCard({
     ...(existing ?? {}),
@@ -271,7 +274,11 @@ const buildCardFromGatewayTask = (
     status: task.status,
     source: task.source ?? existing?.source ?? "openclaw_event",
     sourceEventId: task.sourceEventId ?? existing?.sourceEventId ?? null,
-    assignedAgentId: task.assignedAgentId ?? existing?.assignedAgentId ?? null,
+    // An authoritative board's "no assignee" is a fact, not a gap to fill
+    // from the office's older copy.
+    assignedAgentId: authoritative
+      ? (task.assignedAgentId ?? null)
+      : (task.assignedAgentId ?? existing?.assignedAgentId ?? null),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     playbookJobId: task.playbookJobId ?? existing?.playbookJobId ?? null,
@@ -695,6 +702,11 @@ export const useTaskBoardController = ({
   const [gatewayTasksSupported, setGatewayTasksSupported] = useState<
     "unknown" | "supported" | "unsupported"
   >("unknown");
+  // Hermes' kanban is the source of truth when it says so; edits then go
+  // through tasks.* and the office's own task store is not used.
+  const [gatewayTasksAuthoritative, setGatewayTasksAuthoritative] = useState(false);
+  const gatewayTasksAuthoritativeRef = useRef(false);
+  const authoritativeTaskIdsRef = useRef<Set<string>>(new Set());
   const sharedRefreshInFlightRef = useRef(false);
   const lastPersistedTaskBoardSnapshotRef = useRef<string | null>(null);
 
@@ -724,7 +736,7 @@ export const useTaskBoardController = ({
     (task: GatewayTaskRecord) => {
       const existing =
         stateRef.current.cards.find((card) => card.id === task.id) ?? null;
-      const nextCard = buildCardFromGatewayTask(task, existing);
+      const nextCard = buildCardFromGatewayTask(task, existing, gatewayTasksAuthoritativeRef.current);
       dispatch({ type: "upsert", card: nextCard });
       archiveMatchingInferredCards(nextCard);
       return nextCard;
@@ -877,7 +889,7 @@ export const useTaskBoardController = ({
   }, [client, cronEnabled, status]);
 
   const refreshSharedTasks = useCallback(async () => {
-    if (!sharedTasksSupported) {
+    if (!sharedTasksSupported || gatewayTasksAuthoritativeRef.current) {
       setSharedTasksLoading(false);
       return;
     }
@@ -921,8 +933,21 @@ export const useTaskBoardController = ({
     try {
       const result = await listGatewayTasks(client, { includeArchived: true });
       setGatewayTasksSupported("supported");
+      const authoritative = result.authoritative === true;
+      gatewayTasksAuthoritativeRef.current = authoritative;
+      setGatewayTasksAuthoritative(authoritative);
       for (const task of result.tasks) {
         applyGatewayTaskRecord(task);
+      }
+      if (authoritative) {
+        // A task deleted on the board (by a person or an agent) leaves the
+        // office board too.
+        const listed = new Set(result.tasks.map((task) => task.id));
+        for (const id of authoritativeTaskIdsRef.current) {
+          if (listed.has(id)) continue;
+          dispatch({ type: "update", cardId: id, patch: { isArchived: true } });
+        }
+        authoritativeTaskIdsRef.current = listed;
       }
     } catch (error) {
       if (isUnsupportedTaskGatewayError(error)) {
@@ -960,6 +985,16 @@ export const useTaskBoardController = ({
   useEffect(() => {
     void refreshRemoteTasks();
   }, [refreshRemoteTasks]);
+
+  useEffect(() => {
+    if (!gatewayTasksAuthoritative) return;
+    const intervalId = window.setInterval(() => {
+      void refreshRemoteTasks();
+    }, 5_000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [gatewayTasksAuthoritative, refreshRemoteTasks]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -1042,6 +1077,22 @@ export const useTaskBoardController = ({
         notes: input?.notes ?? [],
         isInferred: false,
       });
+      if (gatewayTasksAuthoritativeRef.current) {
+        try {
+          const created = await createGatewayTask(client, {
+            title: card.title,
+            description: card.description,
+            assignedAgentId: card.assignedAgentId,
+          });
+          const nextCard = applyGatewayTaskRecord(created);
+          authoritativeTaskIdsRef.current.add(nextCard.id);
+          dispatch({ type: "select", cardId: nextCard.id });
+          return nextCard;
+        } catch (error) {
+          setGatewayTasksError(error instanceof Error ? error.message : t("opsTasks.createFailed"));
+          return null;
+        }
+      }
       try {
         const saved = await upsertSharedTaskRecord({
           ...card,
@@ -1061,7 +1112,7 @@ export const useTaskBoardController = ({
         return card;
       }
     },
-    [applySharedTaskRecord],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client],
   );
 
   const updateCard = useCallback(
@@ -1070,6 +1121,21 @@ export const useTaskBoardController = ({
         stateRef.current.cards.find((card) => card.id === cardId) ?? null;
       dispatch({ type: "update", cardId, patch });
       if (!existing || existing.isInferred) return;
+      if (gatewayTasksAuthoritativeRef.current) {
+        try {
+          const updated = await updateGatewayTask(client, cardId, {
+            ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.description !== undefined ? { description: patch.description } : {}),
+            ...(patch.status !== undefined ? { status: patch.status } : {}),
+            ...(patch.assignedAgentId !== undefined ? { assignedAgentId: patch.assignedAgentId } : {}),
+          });
+          applyGatewayTaskRecord(updated);
+        } catch (error) {
+          dispatch({ type: "upsert", card: existing });
+          setGatewayTasksError(error instanceof Error ? error.message : t("opsTasks.updateFailed"));
+        }
+        return;
+      }
       try {
         const updated = await upsertSharedTaskRecord({
           ...existing,
@@ -1089,7 +1155,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applySharedTaskRecord],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client],
   );
 
   const moveCard = useCallback(
@@ -1098,6 +1164,15 @@ export const useTaskBoardController = ({
         stateRef.current.cards.find((card) => card.id === cardId) ?? null;
       dispatch({ type: "move", cardId, status: nextStatus });
       if (!existing || existing.isInferred) return;
+      if (gatewayTasksAuthoritativeRef.current) {
+        try {
+          applyGatewayTaskRecord(await updateGatewayTask(client, cardId, { status: nextStatus }));
+        } catch (error) {
+          dispatch({ type: "upsert", card: existing });
+          setGatewayTasksError(error instanceof Error ? error.message : t("opsTasks.moveFailed"));
+        }
+        return;
+      }
       try {
         const updated = await upsertSharedTaskRecord({
           ...existing,
@@ -1117,7 +1192,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applySharedTaskRecord],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client],
   );
 
   const removeCard = useCallback(
@@ -1137,6 +1212,15 @@ export const useTaskBoardController = ({
         return;
       }
       dispatch({ type: "update", cardId, patch: { isArchived: true } });
+      if (gatewayTasksAuthoritativeRef.current) {
+        try {
+          applyGatewayTaskRecord(await updateGatewayTask(client, cardId, { archived: true }));
+        } catch (error) {
+          dispatch({ type: "upsert", card: existing });
+          setGatewayTasksError(error instanceof Error ? error.message : t("opsTasks.archiveFailed"));
+        }
+        return;
+      }
       try {
         const archived = await archiveSharedTaskRecord(cardId);
         applySharedTaskRecord(archived);
@@ -1149,7 +1233,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applySharedTaskRecord],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client],
   );
 
   const lastDedupeSnapshotRef = useRef<string | null>(null);

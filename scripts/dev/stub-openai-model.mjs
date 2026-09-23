@@ -26,9 +26,27 @@ const lastUserText = (messages) => {
   return "";
 };
 
+const hasTool = (body, name) =>
+  Array.isArray(body.tools) && body.tools.some((tool) => tool?.function?.name === name);
+
 const decide = (body) => {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const text = lastUserText(messages);
+  // A kanban worker: finish the card through the board tool, as the worker
+  // protocol requires, then say so.
+  if (hasTool(body, "kanban_complete")) {
+    const completed = messages.some((m) => m?.role === "tool" && String(m.content ?? "").includes("complet"));
+    if (!messages.some((m) => m?.role === "tool")) {
+      return {
+        toolCall: {
+          id: `call_${Date.now()}`,
+          type: "function",
+          function: { name: "kanban_complete", arguments: JSON.stringify({ summary: "Сделано заглушкой: задача выполнена." }) },
+        },
+      };
+    }
+    return { text: completed ? "Задача закрыта." : "Готово." };
+  }
   // Only a tool result after the latest user message answers this request;
   // earlier turns of the same session carry their own.
   let lastUser = -1;

@@ -18,6 +18,7 @@
 const crypto = require("node:crypto");
 const { HermesApiError } = require("./client");
 const { createProviderHandlers } = require("./providers");
+const { createKanbanHandlers } = require("./kanban");
 
 const MAIN_AGENT_ID = "main";
 const DEFAULT_PROFILE = "default";
@@ -42,6 +43,7 @@ const METHODS = [
   "exec.approvals.get", "exec.approvals.set", "exec.approval.resolve",
   "skills.status", "models.list",
   "cron.list", "cron.add", "cron.remove", "cron.patch", "cron.run",
+  "tasks.list", "tasks.create", "tasks.update", "tasks.delete",
 ];
 const EVENTS = ["chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved"];
 
@@ -218,7 +220,7 @@ const historyFromHermes = (messages) =>
  *   Extra per-run instructions (organization mission and rules).
  * @param {(info: object) => void} [deps.onRunFinished]  usage accounting hook
  */
-const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, log = () => {}, logError = () => {} }) => {
+const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, onTaskCreated, log = () => {}, logError = () => {} }) => {
   const sockets = new Set();
   const runs = new Map(); // office run id → run record
   const approvals = new Map(); // office approval id → { profile, hermesRunId, requestId, officeRunId }
@@ -1039,7 +1041,8 @@ const createHermesAdapter = ({ client, store, buildInstructions, onRunFinished, 
 
   Object.assign(
     handlers,
-    createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log })
+    createProviderHandlers({ client, listProfiles, profileOf, hasDashboard, AdapterError, log }),
+    createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated })
   );
 
   const helloPayload = async () => {

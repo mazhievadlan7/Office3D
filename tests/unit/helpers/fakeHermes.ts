@@ -44,6 +44,8 @@ export const createFakeHermes = async () => {
     TAVILY_API_KEY: { category: "tool", provider: "", provider_label: "", is_password: true },
     API_SERVER_KEY: { category: "messaging", provider: "", provider_label: "", is_password: true },
   };
+  const kanbanTasks = new Map<string, Record<string, unknown>>();
+  let kanbanCounter = 0;
   const modelChoices = new Map<string, { provider: string; model: string }>();
   const memoryResets: string[] = [];
   const requests: Array<{ method: string; path: string; body: unknown; headers: http.IncomingHttpHeaders }> = [];
@@ -159,6 +161,48 @@ export const createFakeHermes = async () => {
           profile.description = (body as { description: string }).description;
           return json(res, 200, { ok: true });
         }
+      }
+      if (path === "/api/plugins/kanban/board") {
+        const includeArchived = url.searchParams.get("include_archived") === "true";
+        const columns = new Map<string, Record<string, unknown>[]>();
+        for (const task of kanbanTasks.values()) {
+          if (task.status === "archived" && !includeArchived) continue;
+          const list = columns.get(String(task.status)) ?? [];
+          list.push(task);
+          columns.set(String(task.status), list);
+        }
+        return json(res, 200, { columns: [...columns].map(([name, tasks]) => ({ name, tasks })) });
+      }
+      if (path === "/api/plugins/kanban/tasks" && req.method === "POST") {
+        const b = body as { title: string; body?: string; assignee?: string; triage?: boolean };
+        const id = `t_${++kanbanCounter}`;
+        const task = {
+          id, title: b.title, body: b.body ?? null, assignee: b.assignee ?? null,
+          status: b.triage ? "triage" : b.assignee ? "ready" : "todo", priority: 0,
+          created_by: "dashboard", created_at: 1_790_000_000 + kanbanCounter,
+        };
+        kanbanTasks.set(id, task);
+        return json(res, 200, { task });
+      }
+      const kanbanTask = path.match(/^\/api\/plugins\/kanban\/tasks\/([^/]+)(\/comments)?$/);
+      if (kanbanTask) {
+        const task = kanbanTasks.get(decodeURIComponent(kanbanTask[1]));
+        if (!task) return json(res, 404, { detail: "task not found" });
+        if (kanbanTask[2]) {
+          task.comments = [...((task.comments as unknown[] | undefined) ?? []), body];
+          return json(res, 200, { ok: true });
+        }
+        if (req.method === "GET") return json(res, 200, { task });
+        if (req.method === "DELETE") {
+          kanbanTasks.delete(String(task.id));
+          return json(res, 200, { deleted: true });
+        }
+        const b = body as Record<string, unknown>;
+        if (b.assignee !== undefined) task.assignee = b.assignee || null;
+        if (b.status !== undefined) task.status = b.status;
+        if (b.title !== undefined) task.title = b.title;
+        if (b.body !== undefined) task.body = b.body;
+        return json(res, 200, { task });
       }
       if (path === "/api/env" && req.method === "GET") {
         const target = profiles.get("default")!;
@@ -332,6 +376,7 @@ export const createFakeHermes = async () => {
     requests,
     modelChoices,
     memoryResets,
+    kanbanTasks,
     setNextRun(script: FakeRunScript) {
       nextScript = script;
     },
