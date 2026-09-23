@@ -146,7 +146,7 @@ describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
     const main = await probe("default", "office3d_team");
     expect(main.ok).toBe(true);
     expect(main.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(
-      ["office_call_meeting", "office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
+      ["office_announce", "office_call_meeting", "office_proposals", "office_propose_dismiss", "office_propose_hire", "office_team_list"],
     );
 
     const hired = await call("agents.create", { name: "Проверка MCP" });

@@ -144,9 +144,11 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
     const response = await POST(request);
     expect(response.status).toBe(200);
     const body = await response.json();
+    // Without an ElevenLabs key the server falls back to OpenClaw's pipeline;
+    // `provider` names the Office3D provider that handled it.
     expect(body).toMatchObject({
       transcript: "hello world",
-      provider: "openai",
+      provider: "openclaw",
       model: "whisper-1",
     });
   });

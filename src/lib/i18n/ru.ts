@@ -245,6 +245,10 @@ export const ru = {
   "analytics.totalTokens": "Всего токенов",
   "analytics.totalTokensHint": "Ввод + вывод + кэш.",
 
+  // --- announcement ----------------------------------------------------------
+  "announcement.dismiss": "Скрыть объявление",
+  "announcement.title": "{name} объявляет",
+
   // --- API: общие ошибки -----------------------------------------------------
   "apiCommon.bodyNotJson": "Не удалось прочитать тело запроса как JSON.",
   "apiCommon.expectedJsonObject": "Ожидался объект JSON.",
@@ -344,6 +348,7 @@ export const ru = {
   "apiOffice.standupStartFailed": "Не удалось начать планёрку.",
   "apiOffice.unsupportedAction": "Неподдерживаемое действие с офисом.",
   "apiOffice.voiceAudioRequired": "Не передан аудиофайл.",
+  "apiOffice.voiceRateLimited": "Слишком много голосовых запросов подряд. Подождите минуту.",
   "apiOffice.voiceReplyFailed": "Не удалось синтезировать голосовой ответ.",
   "apiOffice.voiceReplyTextRequired": "Не указан текст голосового ответа.",
   "apiOffice.voiceReplyTooLong": "Текст голосового ответа длиннее {max} символов.",
@@ -1264,8 +1269,8 @@ export const ru = {
   "libCredentials.elevenlabsAgentIdPurpose":
     "Разговорный агент, созданный в панели ElevenLabs, который говорит в телефонных звонках. Используется вместе с ELEVENLABS_API_KEY.",
   "libCredentials.elevenlabsApiKeyLabel": "Ключ API ElevenLabs",
-  "libCredentials.elevenlabsApiKeyPurpose": "Синтез речи для голосовых ответов агентов.",
-  "libCredentials.elevenlabsApiKeyRequiredFor": "Голосовые ответы. Без него офис молчит.",
+  "libCredentials.elevenlabsApiKeyPurpose": "Распознавание речи с микрофона и голоса агентов.",
+  "libCredentials.elevenlabsApiKeyRequiredFor": "Голос через ElevenLabs. Без него — свой голосовой сервер или офис без голоса.",
   "libCredentials.elevenlabsPhoneNumberIdLabel": "ID телефонного номера ElevenLabs",
   "libCredentials.elevenlabsPhoneNumberIdPurpose":
     "Номер, зарегистрированный в ElevenLabs, с которого звонят агенты. Один номер обслуживает всех агентов офиса.",
@@ -1300,6 +1305,9 @@ export const ru = {
   "libCredentials.telephonyWebhookSecretPurpose":
     "Аутентифицирует обратный вызов голосового агента во время звонка, когда он запрашивает заметку оператора. Этот адрес открыт в интернет и не защищён проверкой доступа сессии, поэтому без секрета он остаётся закрытым.",
   "libCredentials.voiceAgentCalls": "Телефонные звонки голосового агента.",
+  "libCredentials.voiceApiKeyLabel": "Ключ своего голосового сервера",
+  "libCredentials.voiceApiKeyPurpose": "Ключ для OpenAI-совместимого сервера распознавания и озвучки речи (например, локального whisper или Kokoro), если он требует ключ.",
+  "libCredentials.voiceApiKeyRequiredFor": "Голоса через свой сервер (OFFICE3D_TTS_PROVIDER или OFFICE3D_STT_PROVIDER = openai-compatible), только если сервер проверяет ключ.",
   "libCredentials.whatsappNumberIdLabel": "ID номера WhatsApp",
   "libCredentials.whatsappNumberIdPurpose":
     "Номер WhatsApp Business, зарегистрированный в ElevenLabs, с которого агенты отправляют сообщения.",
@@ -1745,11 +1753,6 @@ export const ru = {
   "libText.toolCall": "Вызов инструмента",
   "libText.toolResult": "Результат инструмента",
 
-  // --- Голосовые ответы: библиотека ------------------------------------------
-  "libVoiceReply.missingApiKey": "Не задан ELEVENLABS_API_KEY.",
-  "libVoiceReply.synthesisFailed": "Не удалось синтезировать голос в ElevenLabs.",
-  "libVoiceReply.unsupportedProvider": "Этот провайдер голосовых ответов не поддерживается.",
-
   // --- Вывески автоматов -----------------------------------------------------
   "machines.atm": "БАНКОМАТ",
   "machines.devices": "УСТРОЙСТВА",
@@ -1819,6 +1822,9 @@ export const ru = {
 
   // --- Офис ------------------------------------------------------------------
   "office.addAgent": "Добавить агента",
+  "office.addressAll": "Вся команда",
+  "office.addressAllNoteMain": "(Руководитель обратился голосом ко всей команде сразу; каждый ответит сам. Если нужно — распредели работу.)",
+  "office.addressAllNoteMember": "(Руководитель обратился голосом ко всей команде сразу. Ответь коротко от себя; задачи раздаёт главный агент.)",
   "office.agentFallback": "Агент",
   "office.agents": "Агенты",
   "office.agentsWord": "агентов",
@@ -2510,6 +2516,8 @@ export const ru = {
   "proposals.reason": "Причина",
   "proposals.reject": "Отклонить",
   "proposals.rejectedDone": "Предложение отклонено; главный агент получит ваш ответ.",
+  "proposals.spokenDismiss": "Предлагаю уволить {name}. Причина: {reason} Решение за вами.",
+  "proposals.spokenHire": "Предлагаю нанять {name}. Причина: {reason} Решение за вами.",
   "proposals.title": "Предложение по команде",
   "proposals.working": "Выполняется…",
 
@@ -2593,6 +2601,8 @@ export const ru = {
 
   // --- Настройки студии ------------------------------------------------------
   "settings.activeBackend": "Активный бэкенд: {name}",
+  "settings.agentVoice": "Голос: {name}",
+  "settings.agentVoiceAuto": "Авто ({voice})",
   "settings.backendCustom": "Свой",
   "settings.backendDemo": "Демо",
   "settings.backendLocal": "Локальный",
@@ -2648,6 +2658,8 @@ export const ru = {
   "settings.speedLead": "Настройте, насколько быстро говорит выбранный голос.",
   "settings.studioTitle": "Название студии",
   "settings.studioTitleLead": "Настройте баннер, который показывается вверху офиса.",
+  "settings.teamVoices": "Голоса команды",
+  "settings.teamVoicesLead": "У каждого агента свой голос — так на совещании слышно, кто говорит. «Авто» подбирает голос сам и не повторяет голос главного агента.",
   "settings.titleHint": "Используется в заголовке сцены офиса.",
   "settings.titlePh": "Штаб Office3D",
   "settings.tokenOptional": "токен (необязательно)",
@@ -2656,8 +2668,15 @@ export const ru = {
   "settings.unknown": "Неизвестно",
   "settings.voice": "Голос",
   "settings.voiceLead": "Выберите голос для озвучки ответов агентов.",
+  "settings.voiceListen": "Прослушать",
+  "settings.voiceNotConfigured": "не настроено на сервере",
+  "settings.voiceProviderLocal": "свой сервер (OpenAI-совместимый)",
+  "settings.voicePttHint": "Удерживайте Alt, чтобы говорить с главным агентом; Alt+Shift — обратиться ко всей команде.",
+  "settings.voiceReady": "готово",
   "settings.voiceReplies": "Голосовые ответы",
   "settings.voiceRepliesLead": "Озвучивать готовые ответы ассистента естественным голосом.",
+  "settings.voiceStt": "Распознавание речи: {provider} — {state}",
+  "settings.voiceTts": "Озвучка: {provider} — {state}",
 
   // --- Карточка навыка -------------------------------------------------------
   "skillDetails.missingAnyTools": "Не хватает одного из инструментов (подойдёт любой): {list}",

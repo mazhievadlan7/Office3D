@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { TranscriptEntry } from "@/features/agents/state/transcript";
+import { isBackgroundSessionKey } from "@/lib/voice/agentVoices";
 
 type AgentReplyListenerItem = {
   agentId: string;
@@ -23,6 +24,8 @@ const resolveLatestAssistantEntry = (
     if (!entry) continue;
     if (entry.role !== "assistant" || entry.kind !== "assistant") continue;
     if (!entry.confirmed || !entry.text.trim()) continue;
+    // Meetings and autonomous reviews are voiced (or not) on their own terms.
+    if (entry.sessionKey && isBackgroundSessionKey(entry.sessionKey)) continue;
     return {
       entryId: entry.entryId,
       timestampMs: entry.timestampMs,

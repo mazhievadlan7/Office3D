@@ -516,13 +516,31 @@ describe("hermes adapter", () => {
     const hired = await client.call("agents.create", { name: "Бариста" });
     const member = hired.payload.agentId;
     const mainTools = (await mcp("default", "tools/list")).result.tools.map((t: { name: string }) => t.name);
-    expect(mainTools).toEqual(["office_team_list", "office_propose_hire", "office_propose_dismiss", "office_proposals", "office_call_meeting"]);
+    expect(mainTools).toEqual([
+      "office_team_list",
+      "office_propose_hire",
+      "office_propose_dismiss",
+      "office_proposals",
+      "office_call_meeting",
+      "office_announce",
+    ]);
     const memberTools = (await mcp(member, "tools/list")).result.tools.map((t: { name: string }) => t.name);
     expect(memberTools).toEqual(["office_team_list"]);
     const sneaky = await tool(member, "office_propose_hire", { name: "Друг", role: "друг", reason: "хочу" });
     expect(sneaky.error.code).toBe(-32602);
     const team = await tool(member, "office_team_list", {});
     expect(team.result.structuredContent.team.map((m: { name: string }) => m.name)).toEqual(["Hermes", "Бариста"]);
+    client.close();
+  });
+
+  it("lets_the_main_agent_announce_to_the_office_but_not_spam", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const first = await tool("default", "office_announce", { text: "Завтра запускаем рекламу." });
+    expect(first.result.isError).toBeFalsy();
+    const event = await client.waitForEvent((f) => f.event === "org.announcement");
+    expect(event.payload).toMatchObject({ agentId: "main", name: "Hermes", text: "Завтра запускаем рекламу." });
+    const second = await tool("default", "office_announce", { text: "И ещё одно." });
+    expect(second.result.isError).toBe(true);
     client.close();
   });
 

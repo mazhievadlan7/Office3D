@@ -336,6 +336,37 @@ const createTeam = ({
     });
   }
 
+  // Announcements: the main agent tells the whole office something — shown
+  // on screen and spoken in its voice. One every 20 seconds at most.
+  let lastAnnouncementAt = 0;
+  mainTools.push({
+    name: "office_announce",
+    description:
+      "Объявить что-то всей команде и руководителю: текст появится в офисе и прозвучит твоим голосом. Для коротких важных сообщений — итог, решение, новая задача для всех. 1–3 предложения.",
+    inputSchema: {
+      type: "object",
+      properties: { text: { type: "string", maxLength: 1000, description: "Текст объявления." } },
+      required: ["text"],
+      additionalProperties: false,
+    },
+    handler: async (args) => {
+      const now = Date.now();
+      if (now - lastAnnouncementAt < 20_000) {
+        throw new AdapterError("RATE_LIMITED", "Объявления не чаще раза в 20 секунд; объедини сообщения в одно.");
+      }
+      lastAnnouncementAt = now;
+      const main = (await team()).find((member) => member.main);
+      broadcast("org.announcement", {
+        agentId: MAIN_AGENT_ID,
+        name: main?.name ?? "Hermes",
+        text: str(args.text),
+        at: new Date(now).toISOString(),
+      });
+      log("Announcement from the main agent.");
+      return { text: "Объявление показано в офисе и озвучено." };
+    },
+  });
+
   const memberTools = [teamListTool];
 
   const toolsFor = (profile) => (profile === DEFAULT_PROFILE ? mainTools : memberTools);

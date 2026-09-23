@@ -16,6 +16,7 @@ import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarL
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 import { TeamProposalsTray } from "@/features/hermes/components/TeamProposalsTray";
+import { AnnouncementToast } from "@/features/hermes/components/AnnouncementToast";
 import { useHermesMeetingController } from "@/features/hermes/useHermesMeetingController";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
@@ -199,6 +200,8 @@ import {
   type VoiceSendPayload,
 } from "@/hooks/useVoiceRecorder";
 import { useVoiceReplyPlayback } from "@/hooks/useVoiceReplyPlayback";
+import { useVoiceSetup } from "@/hooks/useVoiceSetup";
+import { resolveAgentVoice } from "@/lib/voice/agentVoices";
 import {
   buildOfficeAnimationState,
   clearOfficeAnimationTriggerHold,
@@ -1342,10 +1345,23 @@ export function OfficeScreen({
     setEnabled: setVoiceRepliesEnabled,
     setVoiceId: setVoiceRepliesVoiceId,
     setSpeed: setVoiceRepliesSpeed,
+    setAgentVoiceId: setVoiceRepliesAgentVoiceId,
   } = useStudioVoiceRepliesPreference({
     gatewayUrl,
     settingsCoordinator,
   });
+  const voiceSetup = useVoiceSetup();
+  const voiceForAgent = useCallback(
+    (agentId: string) =>
+      resolveAgentVoice({
+        agentId,
+        mainAgentId: MAIN_AGENT_ID,
+        officeVoiceId: voiceRepliesPreference.voiceId,
+        agentVoices: voiceRepliesPreference.agentVoices,
+        setup: voiceSetup,
+      }),
+    [voiceRepliesPreference.agentVoices, voiceRepliesPreference.voiceId, voiceSetup],
+  );
   const {
     enqueue: enqueueVoiceReply,
     preview: previewVoiceReply,
@@ -4038,6 +4054,24 @@ export function OfficeScreen({
     [focusedChatAgent, sendVoicePayloadToAgent],
   );
 
+  // Hold Alt to talk to the main agent; Alt+Shift to address the whole team,
+  // each of whom answers in their own voice.
+  const voiceTargetRef = useRef<"main" | "all">("main");
+  const [voiceTarget, setVoiceTarget] = useState<"main" | "all">("main");
+  const sendVoicePayloadToEveryone = useCallback(
+    async (payload: VoiceSendPayload) => {
+      const transcript = await transcribeVoicePayload(payload);
+      if (!transcript) return;
+      const team = state.agents.filter((agent) => !isRemoteOfficeAgentId(agent.agentId));
+      if (team.length === 0) throw new Error(t("office.targetNotFound"));
+      for (const agent of team) {
+        const note =
+          agent.agentId === MAIN_AGENT_ID ? t("office.addressAllNoteMain") : t("office.addressAllNoteMember");
+        await handleChatSend(agent.agentId, agent.sessionKey, `${transcript}\n\n${note}`);
+      }
+    },
+    [handleChatSend, state.agents, transcribeVoicePayload],
+  );
   const {
     state: mainVoiceState,
     error: mainVoiceError,
@@ -4048,6 +4082,10 @@ export function OfficeScreen({
   } = useVoiceRecorder({
     enabled: status === "connected" && Boolean(mainAgent),
     onVoiceSend: async (payload) => {
+      if (voiceTargetRef.current === "all") {
+        await sendVoicePayloadToEveryone(payload);
+        return;
+      }
       if (!mainAgent) {
         throw new Error(t("office.mainNotFound"));
       }
@@ -4055,14 +4093,57 @@ export function OfficeScreen({
     },
   });
 
-  useFinalizedAssistantReplyListener(state.agents, ({ text }) => {
+  useFinalizedAssistantReplyListener(state.agents, ({ agentId, text }) => {
     if (!voiceRepliesLoaded || !voiceRepliesEnabled) return;
     enqueueVoiceReply({
       text,
       provider: voiceRepliesPreference.provider,
-      voiceId: voiceRepliesPreference.voiceId,
+      voiceId: voiceForAgent(agentId),
     });
   });
+
+  // What the main agent says to everyone, and what it asks the person to
+  // decide, is spoken in its voice.
+  useEffect(() => {
+    if (!hermesControl.available) return;
+    return hermesControl.onEvent((frame) => {
+      if (!voiceRepliesLoaded || !voiceRepliesEnabled) return;
+      let text = "";
+      if (frame.event === "org.announcement") {
+        text = String((frame.payload as { text?: unknown } | undefined)?.text ?? "");
+      } else if (frame.event === "org.proposal") {
+        const proposal = (frame.payload as { proposal?: { status?: string; kind?: string; name?: string; reason?: string } } | undefined)?.proposal;
+        if (proposal?.status !== "pending") return;
+        const reason = String(proposal.reason ?? "").slice(0, 300);
+        text =
+          proposal.kind === "hire"
+            ? t("proposals.spokenHire", { name: proposal.name ?? "", reason })
+            : t("proposals.spokenDismiss", { name: proposal.name ?? "", reason });
+      }
+      if (!text.trim()) return;
+      enqueueVoiceReply({ text, provider: voiceRepliesPreference.provider, voiceId: voiceForAgent(MAIN_AGENT_ID) });
+    });
+  }, [enqueueVoiceReply, hermesControl, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference.provider]);
+
+  // Meetings are spoken turn by turn, each participant in their own voice,
+  // as each finishes speaking (the queue keeps the order).
+  const spokenMeetingTurnsRef = useRef<Set<string>>(new Set());
+  const hermesMeeting = hermesMeetings.hermesMeeting;
+  useEffect(() => {
+    if (!hermesMeeting) return;
+    const spoken = spokenMeetingTurnsRef.current;
+    hermesMeeting.transcript.forEach((entry, index) => {
+      const key = `${hermesMeeting.id}:${index}`;
+      if (entry.status !== "done" || !entry.text || spoken.has(key)) return;
+      spoken.add(key);
+      if (!voiceRepliesLoaded || !voiceRepliesEnabled) return;
+      enqueueVoiceReply({
+        text: entry.text,
+        provider: voiceRepliesPreference.provider,
+        voiceId: voiceForAgent(entry.agentId),
+      });
+    });
+  }, [enqueueVoiceReply, hermesMeeting, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference.provider]);
 
   useEffect(() => {
     const optionHeldRef = { current: false };
@@ -4070,6 +4151,9 @@ export function OfficeScreen({
       if (event.key !== "Alt" || event.repeat || optionHeldRef.current) return;
       optionHeldRef.current = true;
       event.preventDefault();
+      const target = event.shiftKey ? "all" : "main";
+      voiceTargetRef.current = target;
+      setVoiceTarget(target);
       void startMainVoiceRecording();
     };
     const handleKeyUp = (event: globalThis.KeyboardEvent) => {
@@ -4695,6 +4779,16 @@ export function OfficeScreen({
           onVoiceRepliesToggle={setVoiceRepliesEnabled}
           onVoiceRepliesVoiceChange={setVoiceRepliesVoiceId}
           onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
+          voiceSetup={voiceSetup}
+          voiceAgents={state.agents
+            .filter((agent) => !isRemoteOfficeAgentId(agent.agentId))
+            .map((agent) => ({
+              agentId: agent.agentId,
+              name: agent.name || agent.agentId,
+              voiceId: voiceForAgent(agent.agentId),
+              chosen: Boolean(voiceRepliesPreference.agentVoices[agent.agentId]),
+            }))}
+          onAgentVoiceChange={setVoiceRepliesAgentVoiceId}
           onVoiceRepliesPreview={(voiceId, voiceName) => {
             void previewVoiceReply({
               text: t("office.voicePreview", { name: voiceName }),
@@ -4945,6 +5039,7 @@ export function OfficeScreen({
       ) : null}
 
       <TeamProposalsTray onTeamChanged={handleTeamChanged} />
+      <AnnouncementToast />
 
       {deleteAgentStatusLine ? (
         <div className="pointer-events-none fixed left-1/2 top-5 z-40 -translate-x-1/2 px-4">
@@ -5596,7 +5691,7 @@ export function OfficeScreen({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
-                {t("office.mainAgent")}
+                {voiceTarget === "all" ? t("office.addressAll") : t("office.mainAgent")}
               </span>
               <span className="text-[12px] font-medium text-white">
                 {mainVoiceError

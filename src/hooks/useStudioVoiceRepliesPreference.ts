@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StudioSettingsCoordinator } from "@/lib/studio/coordinator";
 import {
   defaultStudioVoiceRepliesPreference,
@@ -21,6 +21,11 @@ export const useStudioVoiceRepliesPreference = ({
     defaultStudioVoiceRepliesPreference()
   );
   const [loaded, setLoaded] = useState(false);
+  const agentVoicesRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    agentVoicesRef.current = preference.agentVoices;
+  }, [preference.agentVoices]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +119,21 @@ export const useStudioVoiceRepliesPreference = ({
     [gatewayUrl, settingsCoordinator]
   );
 
+  const setAgentVoiceId = useCallback(
+    (agentId: string, voiceId: string | null) => {
+      const gatewayKey = gatewayUrl.trim();
+      // The patch replaces the whole map, so it is built from the latest one.
+      const nextVoices = { ...agentVoicesRef.current };
+      if (voiceId) nextVoices[agentId] = voiceId;
+      else delete nextVoices[agentId];
+      agentVoicesRef.current = nextVoices;
+      setPreference((current) => ({ ...current, agentVoices: nextVoices }));
+      if (!gatewayKey) return;
+      settingsCoordinator.schedulePatch({ voiceReplies: { [gatewayKey]: { agentVoices: nextVoices } } }, 0);
+    },
+    [gatewayUrl, settingsCoordinator]
+  );
+
   return {
     loaded,
     preference,
@@ -123,5 +143,7 @@ export const useStudioVoiceRepliesPreference = ({
     setEnabled,
     setVoiceId,
     setSpeed,
+    agentVoices: preference.agentVoices,
+    setAgentVoiceId,
   };
 };

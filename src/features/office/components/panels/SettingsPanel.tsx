@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
+import type { VoiceSetup } from "@/lib/voice/agentVoices";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { t } from "@/lib/i18n";
 import { adapterLabel } from "@/lib/i18n/labels";
@@ -16,7 +17,7 @@ const GATEWAY_STATUS_LABELS: Record<string, string> = {
   disconnected: t("settings.gatewayStatusDisconnected"),
 };
 
-type SettingsPanelProps = {
+export type SettingsPanelProps = {
   gatewayStatus?: string;
   gatewayUrl?: string;
   gatewayToken?: string;
@@ -51,6 +52,11 @@ type SettingsPanelProps = {
   onVoiceRepliesVoiceChange: (voiceId: string | null) => void;
   onVoiceRepliesSpeedChange: (speed: number) => void;
   onVoiceRepliesPreview: (voiceId: string | null, voiceName: string) => void;
+  /** The server's voice providers and voices; absent while loading. */
+  voiceSetup?: VoiceSetup | null;
+  /** Everyone in the office with the voice they speak with. */
+  voiceAgents?: Array<{ agentId: string; name: string; voiceId: string | null; chosen: boolean }>;
+  onAgentVoiceChange?: (agentId: string, voiceId: string | null) => void;
 };
 
 export function SettingsPanel({
@@ -88,7 +94,19 @@ export function SettingsPanel({
   onVoiceRepliesVoiceChange,
   onVoiceRepliesSpeedChange,
   onVoiceRepliesPreview,
+  voiceSetup = null,
+  voiceAgents = [],
+  onAgentVoiceChange,
 }: SettingsPanelProps) {
+  // Voices come from the server's provider; ElevenLabs keeps its curated
+  // list with descriptions.
+  const officeVoices =
+    voiceSetup && voiceSetup.tts.provider !== "elevenlabs"
+      ? voiceSetup.tts.options.map((option) => ({ id: option.id as string | null, label: option.label, description: "" }))
+      : CURATED_ELEVENLABS_VOICES;
+  const voiceChoices = voiceSetup?.tts.options ?? CURATED_ELEVENLABS_VOICES.map((voice) => ({ id: voice.id ?? "", label: voice.label })).filter((voice) => voice.id);
+  const providerLabel = (id: string) =>
+    id === "elevenlabs" ? "ElevenLabs" : id === "openai-compatible" ? t("settings.voiceProviderLocal") : id === "openclaw" ? "OpenClaw" : id;
   const normalizedGatewayUrl = gatewayUrl?.trim() ?? "";
   const normalizedGatewayToken = gatewayToken ?? "";
   const gatewayStateLabel = gatewayStatus
@@ -424,7 +442,7 @@ export function SettingsPanel({
         <div className="text-[11px] font-medium text-white">{t("settings.voice")}</div>
         <div className="mt-1 text-[10px] text-white/75">{t("settings.voiceLead")}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          {CURATED_ELEVENLABS_VOICES.map((voice) => {
+          {officeVoices.map((voice) => {
             const selected = voice.id === voiceRepliesVoiceId;
             return (
               <button
@@ -442,12 +460,70 @@ export function SettingsPanel({
                 }`}
               >
                 <div className="text-[11px] font-medium">{voice.label}</div>
-                <div className="mt-1 text-[10px] text-white/65">{voice.description}</div>
+                {voice.description ? <div className="mt-1 text-[10px] text-white/65">{voice.description}</div> : null}
               </button>
             );
           })}
         </div>
       </div>
+      {voiceSetup ? (
+        <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3 text-[10px] text-white/75" data-testid="voice-providers">
+          <div>
+            {t("settings.voiceTts", {
+              provider: providerLabel(voiceSetup.tts.provider),
+              state: voiceSetup.tts.ready ? t("settings.voiceReady") : t("settings.voiceNotConfigured"),
+            })}
+          </div>
+          <div className="mt-1">
+            {t("settings.voiceStt", {
+              provider: providerLabel(voiceSetup.stt.provider),
+              state: voiceSetup.stt.ready ? t("settings.voiceReady") : t("settings.voiceNotConfigured"),
+            })}
+          </div>
+          <div className="mt-1 text-white/50">{t("settings.voicePttHint")}</div>
+        </div>
+      ) : null}
+      {voiceAgents.length > 0 && onAgentVoiceChange ? (
+        <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3" data-testid="team-voices">
+          <div className="text-[11px] font-medium text-white">{t("settings.teamVoices")}</div>
+          <div className="mt-1 text-[10px] text-white/75">{t("settings.teamVoicesLead")}</div>
+          <div className="mt-3 space-y-2">
+            {voiceAgents.map((agent) => (
+              <div key={agent.agentId} className="flex items-center justify-between gap-3">
+                <span className="truncate text-[11px] text-white/85">{agent.name}</span>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label={t("settings.agentVoice", { name: agent.name })}
+                    className="rounded border border-cyan-500/20 bg-black/40 px-2 py-1 text-[11px] text-white"
+                    value={agent.chosen ? (agent.voiceId ?? "") : ""}
+                    disabled={!voiceRepliesLoaded}
+                    onChange={(event) => onAgentVoiceChange(agent.agentId, event.target.value || null)}
+                  >
+                    <option value="">
+                      {t("settings.agentVoiceAuto", {
+                        voice: voiceChoices.find((voice) => voice.id === agent.voiceId)?.label ?? agent.voiceId ?? "—",
+                      })}
+                    </option>
+                    {voiceChoices.map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="rounded border border-cyan-500/20 px-2 py-1 text-[10px] text-cyan-100 hover:border-cyan-400/40"
+                    disabled={!voiceRepliesLoaded}
+                    onClick={() => onVoiceRepliesPreview(agent.voiceId, agent.name)}
+                  >
+                    {t("settings.voiceListen")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>

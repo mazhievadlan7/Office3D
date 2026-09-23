@@ -1,21 +1,27 @@
 import { NextResponse } from "next/server";
-import { synthesizeVoiceReply, type VoiceReplyProvider } from "@/lib/voiceReply/provider";
 import { t } from "@/lib/i18n";
+import { ttsProvider, VoiceProviderError } from "@/lib/voice/providers";
+import { voiceRateLimited } from "@/lib/voice/rateLimit";
 
 export const runtime = "nodejs";
 
 type VoiceReplyRequestBody = {
   text?: string;
-  provider?: VoiceReplyProvider;
+  /** Ignored: the server's configured provider speaks. Kept for older clients. */
+  provider?: string;
   voiceId?: string | null;
   speed?: number;
 };
 
 const MAX_REPLY_CHARS = 5_000;
+const REPLIES_PER_MINUTE = 60;
 
 export async function POST(request: Request) {
+  if (voiceRateLimited(request, "tts", REPLIES_PER_MINUTE)) {
+    return NextResponse.json({ error: t("apiOffice.voiceRateLimited") }, { status: 429 });
+  }
   try {
-    const body = (await request.json()) as VoiceReplyRequestBody;
+    const body = (await request.json().catch(() => ({}))) as VoiceReplyRequestBody;
     const text = typeof body.text === "string" ? body.text.replace(/\s+/g, " ").trim() : "";
     if (!text) {
       return NextResponse.json({ error: t("apiOffice.voiceReplyTextRequired") }, { status: 400 });
@@ -26,11 +32,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const response = await synthesizeVoiceReply({
+    const response = await ttsProvider().synthesize({
       text,
-      provider: body.provider,
-      voiceId: body.voiceId,
-      speed: body.speed,
+      voiceId: typeof body.voiceId === "string" ? body.voiceId : null,
+      speed: typeof body.speed === "number" ? body.speed : undefined,
     });
     return new Response(response.body, {
       status: 200,
@@ -40,9 +45,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : t("apiOffice.voiceReplyFailed");
-    const status = message.includes("Missing ELEVENLABS_API_KEY") ? 503 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (error instanceof VoiceProviderError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[voice] Speech synthesis failed:", error);
+    return NextResponse.json({ error: t("apiOffice.voiceReplyFailed") }, { status: 500 });
   }
 }

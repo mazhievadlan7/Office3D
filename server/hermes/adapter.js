@@ -55,7 +55,7 @@ const METHODS = [
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
-  "org.updated", "org.proposal", "org.autonomy", "org.meeting",
+  "org.updated", "org.proposal", "org.autonomy", "org.meeting", "org.announcement",
 ];
 
 class AdapterError extends Error {

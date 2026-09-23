@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 
-import { transcribeVoiceWithOpenClaw } from "@/lib/openclaw/voiceTranscription";
 import { t } from "@/lib/i18n";
+import { sttProvider, VoiceProviderError } from "@/lib/voice/providers";
+import { voiceRateLimited } from "@/lib/voice/rateLimit";
 
 export const runtime = "nodejs";
 
 export const MAX_VOICE_UPLOAD_BYTES = 20 * 1024 * 1024;
 
+const TRANSCRIPTIONS_PER_MINUTE = 30;
+
 export async function POST(request: Request) {
+  if (voiceRateLimited(request, "stt", TRANSCRIPTIONS_PER_MINUTE)) {
+    return NextResponse.json({ error: t("apiOffice.voiceRateLimited") }, { status: 429 });
+  }
   try {
     // ── Early size check via Content-Length ──────────────────────────────────
     // Reject obviously-oversized uploads BEFORE buffering any request body
@@ -72,21 +78,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await transcribeVoiceWithOpenClaw({
+    const result = await sttProvider().transcribe({
       buffer: Buffer.from(arrayBuffer),
       fileName: audioFile.name,
       mimeType: audioFile.type,
     });
 
     return NextResponse.json({
-      transcript: result.transcript,
+      transcript: result.ignored ? null : result.transcript,
       provider: result.provider,
       model: result.model,
-      decision: result.decision,
+      decision: null,
       ignored: result.ignored,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : t("apiOffice.voiceTranscribeFailed");
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (error instanceof VoiceProviderError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[voice] Transcription failed:", error);
+    return NextResponse.json({ error: t("apiOffice.voiceTranscribeFailed") }, { status: 500 });
   }
 }

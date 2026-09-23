@@ -77,6 +77,15 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     docsUrl: "https://elevenlabs.io/docs",
   },
   {
+    id: "voice-api-key",
+    label: t("libCredentials.voiceApiKeyLabel"),
+    envVar: "OFFICE3D_VOICE_API_KEY",
+    consumedBy: "office3d",
+    purpose: t("libCredentials.voiceApiKeyPurpose"),
+    requiredFor: t("libCredentials.voiceApiKeyRequiredFor"),
+    docsUrl: null,
+  },
+  {
     id: "github-token",
     label: t("libCredentials.githubTokenLabel"),
     envVar: "GITHUB_TOKEN",

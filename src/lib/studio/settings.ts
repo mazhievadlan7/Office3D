@@ -135,6 +135,8 @@ export type StudioVoiceRepliesPreference = {
   provider: StudioVoiceRepliesProvider;
   voiceId: string | null;
   speed: number;
+  /** A voice per agent (agent id → voice id); agents without one get a voice picked for them. */
+  agentVoices: Record<string, string>;
 };
 
 export type StudioVoiceRepliesPreferencePatch = {
@@ -142,6 +144,8 @@ export type StudioVoiceRepliesPreferencePatch = {
   provider?: StudioVoiceRepliesProvider;
   voiceId?: string | null;
   speed?: number;
+  /** Replaces the whole map. */
+  agentVoices?: Record<string, string>;
 };
 
 export type StudioOfficePreference = {
@@ -411,6 +415,7 @@ export const defaultStudioVoiceRepliesPreference =
     provider: "elevenlabs",
     voiceId: null,
     speed: 1,
+    agentVoices: {},
   });
 
 export const defaultStudioStandupScheduleConfig = (): StandupScheduleConfig => ({
@@ -1139,6 +1144,20 @@ const normalizeVoiceRepliesProvider = (
   return provider === "elevenlabs" ? provider : fallback;
 };
 
+const AGENT_VOICE_ID_RE = /^[A-Za-z0-9_.:-]{1,100}$/;
+const MAX_AGENT_VOICES = 500;
+
+const normalizeAgentVoices = (value: unknown, fallback: Record<string, string>): Record<string, string> => {
+  if (!isRecord(value)) return fallback;
+  const voices: Record<string, string> = {};
+  for (const [agentId, voiceId] of Object.entries(value).slice(0, MAX_AGENT_VOICES)) {
+    const id = agentId.trim();
+    if (!id || typeof voiceId !== "string" || !AGENT_VOICE_ID_RE.test(voiceId.trim())) continue;
+    voices[id] = voiceId.trim();
+  }
+  return voices;
+};
+
 const normalizeVoiceRepliesPreference = (
   value: unknown,
   fallback: StudioVoiceRepliesPreference = defaultStudioVoiceRepliesPreference()
@@ -1149,6 +1168,7 @@ const normalizeVoiceRepliesPreference = (
     provider: normalizeVoiceRepliesProvider(value.provider, fallback.provider),
     voiceId: normalizeSelectedAgentId(value.voiceId, fallback.voiceId),
     speed: normalizeVoiceReplySpeed(value.speed, fallback.speed),
+    agentVoices: normalizeAgentVoices(value.agentVoices, fallback.agentVoices ?? {}),
   };
 };
 

@@ -28,7 +28,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { OfficeEnvironment } from "@/components/three/sceneAssets";
 import * as THREE from "three";
-import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
+import { SettingsPanel, type SettingsPanelProps } from "@/features/office/components/panels/SettingsPanel";
 import { AtmImmersiveScreen } from "@/features/office/screens/AtmImmersiveScreen";
 import { GithubImmersiveScreen } from "@/features/office/screens/GithubImmersiveScreen";
 import { KanbanImmersiveScreen } from "@/features/office/screens/KanbanImmersiveScreen";
@@ -2234,6 +2234,9 @@ export function RetroOffice3D({
   onVoiceRepliesVoiceChange,
   onVoiceRepliesSpeedChange,
   onVoiceRepliesPreview,
+  voiceSetup,
+  voiceAgents,
+  onAgentVoiceChange,
   onGatewayDisconnect,
   onGatewayConnect,
   onGatewayUrlChange,
@@ -2354,6 +2357,9 @@ export function RetroOffice3D({
   onVoiceRepliesVoiceChange?: (voiceId: string | null) => void;
   onVoiceRepliesSpeedChange?: (speed: number) => void;
   onVoiceRepliesPreview?: (voiceId: string | null, voiceName: string) => void;
+  voiceSetup?: SettingsPanelProps["voiceSetup"];
+  voiceAgents?: SettingsPanelProps["voiceAgents"];
+  onAgentVoiceChange?: SettingsPanelProps["onAgentVoiceChange"];
   onGatewayDisconnect?: () => void;
   onGatewayConnect?: () => void;
   onGatewayUrlChange?: (value: string) => void;
@@ -6848,6 +6854,9 @@ export function RetroOffice3D({
                 onVoiceRepliesSpeedChange={(speed) =>
                   onVoiceRepliesSpeedChange?.(speed)
                 }
+                voiceSetup={voiceSetup}
+                voiceAgents={voiceAgents}
+                onAgentVoiceChange={onAgentVoiceChange}
                 onVoiceRepliesPreview={(voiceId, voiceName) =>
                   onVoiceRepliesPreview?.(voiceId, voiceName)
                 }
