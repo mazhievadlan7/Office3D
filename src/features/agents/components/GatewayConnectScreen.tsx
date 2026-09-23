@@ -345,8 +345,8 @@ export const GatewayConnectScreen = ({
             <p className="text-xs font-medium text-foreground">{t("gateway.tipHermesTitle")}</p>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
               {t("gateway.tipHermesBody", {
-                command: "npm run hermes-adapter",
-                url: "ws://localhost:18789",
+                command: "docker compose up -d",
+                local: "npm run hermes-local",
               })}
             </p>
           </div>

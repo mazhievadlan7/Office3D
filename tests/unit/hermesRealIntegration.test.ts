@@ -1,0 +1,114 @@
+// @vitest-environment node
+//
+// End-to-end check of the Hermes adapter against a REAL Hermes install.
+// Skipped unless OFFICE3D_HERMES_ITEST=1. docs/hermes-platform.md
+// («Проверка на настоящем Hermes») shows how to start one locally with the
+// scripted model in scripts/dev/stub-openai-model.mjs.
+//
+//   OFFICE3D_HERMES_ITEST=1
+//   HERMES_API_URL=http://127.0.0.1:8642
+//   HERMES_API_KEY=<default profile API_SERVER_KEY>
+//   HERMES_DASHBOARD_URL=http://127.0.0.1:9119      (optional: agent lifecycle)
+//   HERMES_DASHBOARD_TOKEN=<dashboard session token> (optional)
+//   OFFICE3D_HERMES_KEY_SECRET=<32+ chars>           (optional)
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+
+const enabled = process.env.OFFICE3D_HERMES_ITEST === "1";
+const withDashboard = enabled && Boolean(process.env.HERMES_DASHBOARD_URL);
+
+// Frames are asserted structurally (toMatchObject), so their payloads stay
+// loosely typed here rather than restating the whole protocol.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Loose = any;
+type Frame = { type: string; id?: string; ok?: boolean; payload?: Loose; error?: Loose; event?: string };
+
+describe.skipIf(!enabled)("hermes adapter against a real Hermes", () => {
+  let runtime: Loose;
+  let ws: WebSocket;
+  let stateDir: string;
+  const events: Frame[] = [];
+  const pending = new Map<string, (frame: Frame) => void>();
+  let counter = 0;
+
+  const call = (method: string, params: unknown = {}) =>
+    new Promise<Frame>((resolve) => {
+      const id = String(++counter);
+      pending.set(id, resolve);
+      ws.send(JSON.stringify({ type: "req", id, method, params }));
+    });
+
+  const waitForEvent = async (predicate: (frame: Frame) => boolean, timeoutMs = 60_000) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const found = events.find(predicate);
+      if (found) return found;
+      if (Date.now() > deadline) throw new Error("event did not arrive");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+
+  beforeAll(async () => {
+    const { startHermesRuntime } = await import("../../server/hermes/index.js");
+    stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "office3d-hermes-itest-"));
+    runtime = await startHermesRuntime({ env: process.env, stateDir, log: () => {}, logError: console.error });
+    ws = new WebSocket(runtime.url);
+    ws.on("message", (raw) => {
+      const frame = JSON.parse(raw.toString()) as Frame;
+      if (frame.type === "res" && frame.id && pending.has(frame.id)) {
+        pending.get(frame.id)!(frame);
+        pending.delete(frame.id);
+      } else if (frame.type === "event") events.push(frame);
+    });
+    await new Promise((resolve) => ws.once("open", resolve));
+    const hello = await call("connect", { auth: { token: runtime.token } });
+    expect(hello.ok).toBe(true);
+  }, 30_000);
+
+  afterAll(async () => {
+    ws?.close();
+    await runtime?.close();
+    if (stateDir) fs.rmSync(stateDir, { recursive: true, force: true });
+  });
+
+  it("streams_a_reply_from_the_main_agent", async () => {
+    const sent = await call("chat.send", { sessionKey: "agent:main:main", message: "Привет, Hermes", idempotencyKey: `it-${Date.now()}` });
+    expect(sent).toMatchObject({ ok: true });
+    const final = await waitForEvent((f) => f.event === "chat" && f.payload.runId === sent.payload.runId && f.payload.state !== "delta");
+    expect(final.payload.state).toBe("final");
+    expect(final.payload.message.content).toContain("Привет, Hermes");
+    const history = await call("chat.history", { sessionKey: "agent:main:main" });
+    expect(history.payload.messages.some((m: { content: string }) => m.content.includes("Привет, Hermes"))).toBe(true);
+  }, 90_000);
+
+  it("asks_for_approval_before_a_dangerous_command_and_obeys_a_denial", async () => {
+    const sent = await call("chat.send", { sessionKey: "agent:main:main", message: "удали временный каталог", idempotencyKey: `it-appr-${Date.now()}` });
+    expect(sent).toMatchObject({ ok: true });
+    const requested = await waitForEvent((f) => f.event === "exec.approval.requested");
+    expect(requested.payload.request.command).toContain("rm -rf");
+    const resolved = await call("exec.approval.resolve", { id: requested.payload.id, decision: "deny" });
+    expect(resolved.ok).toBe(true);
+    const end = await waitForEvent((f) => f.event === "chat" && f.payload.runId === sent.payload.runId && f.payload.state !== "delta");
+    expect(["final", "error"]).toContain(end.payload.state);
+    const tools = events.filter((f) => f.event === "agent" && f.payload.runId === sent.payload.runId && f.payload.stream === "tool");
+    expect(tools.some((f) => f.payload.data.name === "terminal")).toBe(true);
+  }, 120_000);
+
+  it.skipIf(!withDashboard)("creates_talks_to_and_removes_an_agent_profile", async () => {
+    const created = await call("agents.create", { name: "Тестовый Агент" });
+    expect(created).toMatchObject({ ok: true });
+    const agentId = created.payload.agentId as string;
+    try {
+      const sent = await call("chat.send", { sessionKey: `agent:${agentId}:main`, message: "Как дела?", idempotencyKey: `it-agent-${Date.now()}` });
+      expect(sent.error ?? null).toBeNull();
+      const final = await waitForEvent((f) => f.event === "chat" && f.payload.runId === sent.payload.runId && f.payload.state !== "delta", 90_000);
+      expect(final.payload.state).toBe("final");
+    } finally {
+      const removed = await call("agents.delete", { agentId });
+      expect(removed).toMatchObject({ ok: true });
+    }
+  }, 180_000);
+});

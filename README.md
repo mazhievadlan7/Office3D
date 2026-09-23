@@ -165,24 +165,21 @@ ws://localhost:18789
 Так запускается локальный тестовый шлюз с демо-агентами, потоковым чатом, превью сессий и присутствием в офисе. Демо-агенты отвечают по-русски.
 На экране подключения выберите «Демо-бэкенд» и нажмите «Подключиться».
 
-### Адаптер Hermes
+### Hermes Agent (по умолчанию)
 
-Если вы хотите использовать Hermes вместо OpenClaw:
+Hermes Agent от Nous Research — бэкенд по умолчанию: каждый агент офиса —
+отдельный профиль Hermes со своей памятью, навыками и ключами.
 
 ```bash
-npm run hermes-adapter
-npm run dev
+cp .env.example .env      # задайте STUDIO_ACCESS_TOKEN и секреты HERMES_*
+docker compose up -d
+docker compose exec hermes hermes setup   # один раз: модели и ключи провайдера
 ```
 
-Настройка и текущие возможности описаны в [`docs/hermes-gateway.md`](docs/hermes-gateway.md). Координатор Hermes получает указание отвечать пользователю и называть агентов по-русски.
-
-Для шлюза на той же машине обычный адрес такой:
-
-```text
-ws://localhost:18789
-```
-
-На экране подключения выберите «Бэкенд Hermes» и нажмите «Подключиться».
+Без Docker, при установленном `hermes`: `npm run hermes-local`.
+Экран подключения выбирать не нужно — сервер Office3D подключает Hermes сам.
+Подробности — в [`docs/hermes-gateway.md`](docs/hermes-gateway.md), архитектура —
+в [`docs/hermes-platform.md`](docs/hermes-platform.md).
 
 ## Как устроено подключение
 
@@ -259,7 +256,8 @@ openclaw devices approve --latest
 - `NEXT_PUBLIC_GATEWAY_URL` задаёт адрес шлюза по умолчанию, когда настройки Studio пусты. **Внимание:** это переменная времени сборки — изменения вступают в силу только после `npm run build`.
 - `OFFICE3D_GATEWAY_URL` и `OFFICE3D_GATEWAY_TOKEN` — альтернатива `NEXT_PUBLIC_GATEWAY_URL`, которая применяется при перезапуске сервера без пересборки.
 - `OFFICE3D_GATEWAY_ADAPTER_TYPE` вместе с `OFFICE3D_GATEWAY_URL` указывает тип этих значений по умолчанию: `openclaw`, `hermes`, `demo`, `local`, `office3d` или `custom`.
-- Если `OFFICE3D_GATEWAY_URL` не задана, Studio всё равно может предложить локальные адаптеры Hermes или демо по `HERMES_ADAPTER_PORT` / `DEMO_ADAPTER_PORT`.
+- `HERMES_API_URL`, `HERMES_API_KEY`, `HERMES_DASHBOARD_URL`, `HERMES_DASHBOARD_TOKEN` и `OFFICE3D_HERMES_KEY_SECRET` подключают Hermes; с `HERMES_API_URL` Hermes становится бэкендом по умолчанию (см. [`docs/hermes-gateway.md`](docs/hermes-gateway.md)).
+- Если `OFFICE3D_GATEWAY_URL` не задана, Studio всё равно может предложить локальный демо-шлюз по `DEMO_ADAPTER_PORT`.
 - Значения OpenClaw по умолчанию по-прежнему берутся из `~/.openclaw/openclaw.json`, если файл есть.
 - `OPENCLAW_STATE_DIR` и `OPENCLAW_CONFIG_PATH` переопределяют стандартные пути OpenClaw.
 - `OPENCLAW_GATEWAY_SSH_TARGET`, `OPENCLAW_GATEWAY_SSH_USER`, `OPENCLAW_GATEWAY_SSH_PORT` и `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING` нужны для расширенных операций на хосте шлюза через SSH.
@@ -270,7 +268,8 @@ openclaw devices approve --latest
 ## Скрипты
 
 - `npm run dev` — запустить сервер разработки Studio.
-- `npm run hermes-adapter` — запустить WebSocket-адаптер Hermes.
+- `npm run hermes-local` — запустить Hermes и Office3D локально без Docker.
+- `npm run hermes-gate` — запустить шлюз к панели Hermes (в Docker запускается сам).
 - `npm run demo-gateway` — запустить встроенный тестовый шлюз для демо-режима.
 - `npm run build` — собрать продакшен-версию Next.js.
 - `npm run start` — запустить продакшен-сервер.

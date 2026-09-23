@@ -19,6 +19,8 @@ const HERMES_RUNTIME_CAPABILITIES: ReadonlySet<RuntimeCapability> = new Set([
   "agent-messages",
   "agent-handoffs",
   "streaming",
+  // The adapter relays Hermes' tool, reasoning and lifecycle events.
+  "runtime-agent-events",
   "approvals",
   "config",
   "models",

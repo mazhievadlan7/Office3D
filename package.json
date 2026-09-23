@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server/index.js --dev",
     "dev:https": "node server/index.js --dev --https",
-    "hermes-adapter": "node server/hermes-gateway-adapter.js",
+    "hermes-local": "bash scripts/hermes-local.sh",
+    "hermes-gate": "node server/hermes-gate.js",
     "demo-gateway": "node server/demo-gateway-adapter.js",
     "build": "next build",
     "start": "node server/index.js",

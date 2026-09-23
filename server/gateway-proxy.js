@@ -206,6 +206,7 @@ function createGatewayProxy(options) {
     let upstreamUrl = "";
     let upstreamToken = "";
     let upstreamAdapterType = "openclaw";
+    let upstreamForceToken = false;
     let connectRequestId = null;
     let connectResponseSent = false;
     let pendingConnectFrame = null;
@@ -261,10 +262,11 @@ function createGatewayProxy(options) {
 
     const forwardConnectFrame = (frame) => {
       const browserHasAuth =
-        hasNonEmptyToken(frame.params) ||
+        !upstreamForceToken &&
+        (hasNonEmptyToken(frame.params) ||
         hasNonEmptyPassword(frame.params) ||
         hasNonEmptyDeviceToken(frame.params) ||
-        hasCompleteDeviceAuth(frame.params);
+        hasCompleteDeviceAuth(frame.params));
 
       const requiresToken = upstreamAdapterType === "openclaw";
       if (requiresToken && !upstreamToken && !browserHasAuth) {
@@ -322,6 +324,7 @@ function createGatewayProxy(options) {
         const settings = await loadUpstreamSettings();
         upstreamUrl = typeof settings?.url === "string" ? settings.url.trim() : "";
         upstreamToken = typeof settings?.token === "string" ? settings.token.trim() : "";
+        upstreamForceToken = settings?.forceToken === true;
         upstreamAdapterType =
           typeof settings?.adapterType === "string" && settings.adapterType.trim()
             ? settings.adapterType.trim().toLowerCase()

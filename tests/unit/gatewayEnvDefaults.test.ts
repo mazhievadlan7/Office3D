@@ -111,10 +111,11 @@ describe("loadLocalGatewayDefaults with OFFICE3D_GATEWAY_URL", () => {
     });
   });
 
-  it("exposes local Hermes adapter defaults when only HERMES_ADAPTER_PORT is set", async () => {
+  it("makes Hermes the default backend when this server runs the Hermes adapter", async () => {
     delete process.env.OFFICE3D_GATEWAY_URL;
     delete process.env.OFFICE3D_GATEWAY_TOKEN;
-    process.env.HERMES_ADAPTER_PORT = "19444";
+    delete process.env.OFFICE3D_GATEWAY_ADAPTER_TYPE;
+    process.env.HERMES_API_URL = "http://localhost:19444";
     process.env.OPENCLAW_STATE_DIR = "/tmp/office3d-test-nonexistent-" + Date.now();
     const { loadLocalGatewayDefaults } = await import(
       "../../src/lib/studio/settings-store"
@@ -130,11 +131,11 @@ describe("loadLocalGatewayDefaults with OFFICE3D_GATEWAY_URL", () => {
     });
   });
 
-  it("prefers Hermes adapter defaults over file-backed OpenClaw defaults while preserving the OpenClaw profile", async () => {
+  it("prefers Hermes over file-backed OpenClaw defaults while preserving the OpenClaw profile", async () => {
     delete process.env.OFFICE3D_GATEWAY_URL;
     delete process.env.OFFICE3D_GATEWAY_TOKEN;
     delete process.env.OFFICE3D_GATEWAY_ADAPTER_TYPE;
-    process.env.HERMES_ADAPTER_PORT = "19444";
+    process.env.HERMES_API_URL = "http://localhost:19444";
 
     const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "office3d-gateway-defaults-"));
     process.env.OPENCLAW_STATE_DIR = stateDir;

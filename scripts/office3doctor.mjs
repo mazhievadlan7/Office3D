@@ -204,19 +204,28 @@ const detectWorkspaceState = () => {
   }
 };
 
-const detectHermesModelHealth = async () => {
-  const apiUrl = (
-    trim(process.env.HERMES_API_URL) || "http://localhost:8642"
-  ).replace(/\/$/, "");
+const detectHermesHealth = async () => {
+  const apiUrl = (trim(process.env.HERMES_API_URL) || "http://127.0.0.1:8642").replace(/\/$/, "");
   const apiKey = trim(process.env.HERMES_API_KEY);
-  const model = trim(process.env.HERMES_MODEL) || "hermes";
-  const headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
-  const result = await probeHttpJson({ url: `${apiUrl}/v1/models`, headers });
+  const dashboardUrl = trim(process.env.HERMES_DASHBOARD_URL).replace(/\/$/, "");
+  const dashboardToken = trim(process.env.HERMES_DASHBOARD_TOKEN);
+  const probe = await probeHttpJson({
+    url: `${apiUrl}/v1/models`,
+    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+  });
+  const dashboardProbe = dashboardUrl
+    ? await probeHttpJson({
+        url: `${dashboardUrl}/api/profiles`,
+        headers: dashboardToken ? { "X-Hermes-Session-Token": dashboardToken } : {},
+      })
+    : null;
   return {
     apiUrl,
-    model,
-    apiKeyConfigured: Boolean(apiKey),
-    probe: result,
+    apiKeyConfigured: apiKey.length >= 16,
+    dashboardUrl,
+    keySecretConfigured: trim(process.env.OFFICE3D_HERMES_KEY_SECRET).length >= 32,
+    probe,
+    dashboardProbe,
   };
 };
 
@@ -522,17 +531,14 @@ async function main() {
   if (
     adapterInScope("hermes", shouldRunHermesChecks({ runtimeContext, env }))
   ) {
-    const hermes = await detectHermesModelHealth();
+    const hermes = await detectHermesHealth();
     checks.push(
-      checkPass(
-        "Hermes",
-        "Hermes adapter config",
-        `Hermes API target ${hermes.apiUrl} | model ${hermes.model} | key ${
-          hermes.apiKeyConfigured ? "configured" : "missing"
-        }`,
-      ),
+      hermes.apiKeyConfigured
+        ? checkPass("Hermes", "Hermes config", `Hermes API ${hermes.apiUrl}; dashboard ${hermes.dashboardUrl || "not configured"}.`)
+        : checkFail("Hermes", "Hermes config", "HERMES_API_KEY is missing or shorter than 16 characters.", [
+            "Set HERMES_API_KEY to the API_SERVER_KEY Hermes runs with (openssl rand -hex 32).",
+          ]),
     );
-
     if (hermes.probe.ok) {
       const models = Array.isArray(hermes.probe.json?.data)
         ? hermes.probe.json.data.map((entry) => trim(entry?.id)).filter(Boolean)
@@ -541,39 +547,42 @@ async function main() {
         checkPass(
           "Hermes",
           "Hermes API",
-          models.length > 0
-            ? `Hermes API reachable. Reported models: ${models.join(", ")}`
-            : "Hermes API reachable.",
+          models.length > 0 ? `Hermes API reachable. Models: ${models.join(", ")}` : "Hermes API reachable.",
         ),
-      );
-      if (models.length > 0 && !models.includes(hermes.model)) {
-        checks.push(
-          checkWarn(
-            "Hermes",
-            "Hermes model",
-            `Configured model "${hermes.model}" was not returned by /v1/models.`,
-            [
-              "Set HERMES_MODEL to one of the reported model ids or update the Hermes API configuration.",
-            ],
-          ),
-        );
-      }
-    } else if (hermes.probe.status === 401) {
-      checks.push(
-        checkFail("Hermes", "Hermes API", "Hermes API returned HTTP 401.", [
-          "Verify HERMES_API_KEY and confirm the adapter is loading the same .env values you expect.",
-        ]),
       );
     } else {
       checks.push(
         checkFail(
           "Hermes",
           "Hermes API",
-          hermes.probe.text || "Hermes API probe failed.",
-          [
-            "Start the Hermes API server and verify /v1/models responds before starting the adapter.",
-          ],
+          hermes.probe.status === 401
+            ? "Hermes API returned HTTP 401."
+            : hermes.probe.text || "Hermes API probe failed.",
+          hermes.probe.status === 401
+            ? ["HERMES_API_KEY must equal the API_SERVER_KEY Hermes runs with."]
+            : ["Start Hermes (docker compose up -d, or npm run hermes-local) and check HERMES_API_URL."],
         ),
+      );
+    }
+    if (!hermes.dashboardProbe) {
+      checks.push(
+        checkWarn("Hermes", "Hermes dashboard", "HERMES_DASHBOARD_URL is not set: the office will have only the main agent.", [
+          "Set HERMES_DASHBOARD_URL and HERMES_DASHBOARD_TOKEN to manage agents (Hermes profiles) and the kanban board.",
+        ]),
+      );
+    } else if (hermes.dashboardProbe.ok) {
+      checks.push(
+        hermes.keySecretConfigured
+          ? checkPass("Hermes", "Hermes dashboard", "Profiles API reachable.")
+          : checkFail("Hermes", "Hermes dashboard", "OFFICE3D_HERMES_KEY_SECRET is missing or shorter than 32 characters.", [
+              "Generate one with openssl rand -hex 32; agent profile keys derive from it.",
+            ]),
+      );
+    } else {
+      checks.push(
+        checkFail("Hermes", "Hermes dashboard", hermes.dashboardProbe.text || "Dashboard probe failed.", [
+          "Check HERMES_DASHBOARD_URL (hermes-gate in Docker) and HERMES_DASHBOARD_TOKEN.",
+        ]),
       );
     }
   }

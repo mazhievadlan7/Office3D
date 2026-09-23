@@ -88,10 +88,15 @@ const loadUpstreamGatewaySettings = (env = process.env) => {
   const gateway = parsed && typeof parsed === "object" ? parsed.gateway : null;
   const url = typeof gateway?.url === "string" ? gateway.url.trim() : "";
   const token = typeof gateway?.token === "string" ? gateway.token.trim() : "";
+  // Without a saved choice, the backend configured on this host wins: an
+  // explicit OFFICE3D_GATEWAY_ADAPTER_TYPE, else Hermes when this server runs
+  // the Hermes adapter (HERMES_API_URL), else OpenClaw.
+  const envAdapterType = String(env.OFFICE3D_GATEWAY_ADAPTER_TYPE ?? "").trim().toLowerCase();
+  const defaultAdapterType = envAdapterType || (String(env.HERMES_API_URL ?? "").trim() ? "hermes" : "openclaw");
   const adapterType =
     typeof gateway?.adapterType === "string" && gateway.adapterType.trim()
       ? gateway.adapterType.trim()
-      : "openclaw";
+      : defaultAdapterType;
   if (!token && adapterType === "openclaw") {
     const defaults = readOpenclawGatewayDefaults(env);
     if (defaults) {

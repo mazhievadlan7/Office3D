@@ -1,59 +1,165 @@
-# Office3D — single-host deployment.
+# Office3D with Hermes Agent — single-host deployment.
 #
-#   cp .env.example .env     # then set STUDIO_ACCESS_TOKEN
+#   cp .env.example .env     # set STUDIO_ACCESS_TOKEN and the HERMES_* secrets
 #   docker compose up -d
+#   docker compose exec hermes hermes setup   # once: models and provider keys
 #
-# See docs/deployment.md for the full walkthrough, including pulling the image
-# from a private GHCR and putting TLS in front of it.
+# Only Office3D is published, and only on loopback; put a TLS reverse proxy in
+# front of it. Hermes' API and dashboard stay on the internal network: the
+# dashboard's plugin routes (the kanban board) do not check credentials by
+# design, so they must never be reachable from outside.
+#
+# See docs/hermes-platform.md for the architecture and docs/deployment.md for
+# the walkthrough.
 
 services:
+  hermes:
+    image: nousresearch/hermes-agent:${HERMES_IMAGE_TAG:-v2026.9.21}
+    container_name: office3d-hermes
+    restart: unless-stopped
+    # s6-overlay supervises the gateway (and every profile it serves) and the
+    # dashboard inside the container; keep the image's own entrypoint.
+    command: ["gateway", "run"]
+    environment:
+      # OpenAI-compatible API server: runs, sessions, jobs. Hermes refuses to
+      # start it without a key of at least 16 characters.
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: ${HERMES_API_KEY:?set HERMES_API_KEY in .env}
+      # One gateway serves every profile (= office agent) under /p/<profile>/.
+      # Hermes only turns this on by itself for an install that already has
+      # several profiles; a fresh one would leave new agents unreachable.
+      GATEWAY_MULTIPLEX_PROFILES: "true"
+      # Dashboard backend: profile lifecycle, per-profile .env, kanban. Bound
+      # to loopback, where it accepts the machine session token; hermes-gate
+      # below is the only way in from the network.
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: 127.0.0.1
+      HERMES_DASHBOARD_SESSION_TOKEN: ${HERMES_DASHBOARD_TOKEN:?set HERMES_DASHBOARD_TOKEN in .env}
+    volumes:
+      - hermes-data:/opt/data
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8642/health', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          # Browser, terminal and code tools run inside this container.
+          memory: 4g
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # The door to the dashboard. It shares the hermes container's network
+  # namespace, so it reaches the loopback-bound dashboard, and forwards only
+  # requests that carry the session token — plugin routes included, which the
+  # dashboard itself leaves open. Same image as office3d, different command.
+  hermes-gate:
+    build: .
+    image: office3d:local
+    container_name: office3d-hermes-gate
+    restart: unless-stopped
+    network_mode: "service:hermes"
+    depends_on:
+      hermes:
+        condition: service_started
+    command: ["node", "server/hermes-gate.js"]
+    environment:
+      HERMES_DASHBOARD_TOKEN: ${HERMES_DASHBOARD_TOKEN:?set HERMES_DASHBOARD_TOKEN in .env}
+      HERMES_GATE_PORT: "9120"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9120/gate/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
   office3d:
     # Build locally by default. To run the image published by CI instead,
-    # comment out `build` and uncomment `image`.
+    # replace `build` with `image: ghcr.io/mazhievadlan7/office3d:main` here
+    # and in hermes-gate.
     build: .
-    # image: ghcr.io/mazhievadlan7/office3d:main
+    image: office3d:local
     container_name: office3d
     restart: unless-stopped
-
+    depends_on:
+      hermes:
+        condition: service_started
+      hermes-gate:
+        condition: service_started
     environment:
       # The server refuses to bind a public host without this token, so there
-      # is no way to start it unauthenticated by accident. No default here on
-      # purpose: compose fails fast if it is unset.
+      # is no way to start it unauthenticated by accident.
       STUDIO_ACCESS_TOKEN: ${STUDIO_ACCESS_TOKEN:?set STUDIO_ACCESS_TOKEN in .env}
       HOST: 0.0.0.0
       PORT: "3000"
       OPENCLAW_STATE_DIR: /data
-      # Runtime gateway. Takes effect on restart, no rebuild needed.
+      # Hermes, reached over the internal network.
+      HERMES_API_URL: http://hermes:8642
+      HERMES_API_KEY: ${HERMES_API_KEY:?set HERMES_API_KEY in .env}
+      # hermes-gate listens inside the hermes container's network namespace,
+      # so it answers on the hermes host name.
+      HERMES_DASHBOARD_URL: http://hermes:9120
+      HERMES_DASHBOARD_TOKEN: ${HERMES_DASHBOARD_TOKEN:?set HERMES_DASHBOARD_TOKEN in .env}
+      OFFICE3D_HERMES_KEY_SECRET: ${OFFICE3D_HERMES_KEY_SECRET:?set OFFICE3D_HERMES_KEY_SECRET in .env}
+      # Backend selection. Empty means Hermes (HERMES_API_URL is set above);
+      # set openclaw plus OFFICE3D_GATEWAY_URL to switch back.
+      OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}
       OFFICE3D_GATEWAY_URL: ${OFFICE3D_GATEWAY_URL:-}
       OFFICE3D_GATEWAY_TOKEN: ${OFFICE3D_GATEWAY_TOKEN:-}
-      OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}
-
-    # Published on loopback only. Put a reverse proxy in front for TLS rather
-    # than exposing the app port to the internet directly; change to
-    # "3000:3000" only if the host firewall already restricts access.
+      # Voice (speech recognition and replies).
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-}
+    # Published on loopback only; a reverse proxy terminates TLS in front.
     ports:
       - "127.0.0.1:3000:3000"
-
     volumes:
       - office3d-state:/data
-
+    networks:
+      - backend
     # The image declares its own HEALTHCHECK; this only shortens the grace
     # period used while the container is starting.
     healthcheck:
       start_period: 20s
-
-    # The app is a single Node process serving HTTP and proxying WebSockets;
-    # these are ceilings, not reservations.
     deploy:
       resources:
         limits:
           memory: 1g
-
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
+networks:
+  # A plain bridge network: Hermes needs internet access for model providers
+  # and tools, so it cannot be `internal: true`. Nothing on it is published
+  # except Office3D's port above.
+  backend:
+
 volumes:
+  # All Hermes state: profiles (agents), memory, sessions, skills, kanban.
+  # Back it up; see docs/deployment.md.
+  hermes-data:
   office3d-state:

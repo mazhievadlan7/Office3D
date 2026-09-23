@@ -5,7 +5,8 @@ const next = require("next");
 const { createAccessGate } = require("./access-gate");
 const { createGatewayProxy } = require("./gateway-proxy");
 const { assertPublicHostAllowed, isOptionalListenFailure, resolveHosts } = require("./network-policy");
-const { loadUpstreamGatewaySettings } = require("./studio-settings");
+const { startHermesRuntime } = require("./hermes");
+const { loadUpstreamGatewaySettings, resolveStateDir } = require("./studio-settings");
 
 const resolvePort = () => {
   const raw = process.env.PORT?.trim() || "3000";
@@ -88,9 +89,21 @@ async function main() {
     token: process.env.STUDIO_ACCESS_TOKEN,
   });
 
+  // With HERMES_API_URL set, the Hermes backend is served by the adapter in
+  // this process; the URL saved for Hermes in the office settings is then not
+  // used. A misconfigured Hermes stops the server here rather than failing on
+  // every connect later.
+  const hermes = await startHermesRuntime({ env: process.env, stateDir: resolveStateDir(process.env) });
+  if (hermes) console.info("Hermes backend: in-process adapter.");
+
   const proxy = createGatewayProxy({
     loadUpstreamSettings: async () => {
       const settings = loadUpstreamGatewaySettings(process.env);
+      if (hermes && settings.adapterType === "hermes") {
+        // The adapter admits only its own secret, so it replaces whatever the
+        // browser sent rather than being offered alongside it.
+        return { url: hermes.url, token: hermes.token, adapterType: "hermes", forceToken: true };
+      }
       return { url: settings.url, token: settings.token, adapterType: settings.adapterType };
     },
     log: (message) => console.info(message),

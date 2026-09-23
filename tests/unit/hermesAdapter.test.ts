@@ -1,0 +1,245 @@
+// @vitest-environment node
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+import { createFakeHermes, DASHBOARD_TOKEN, DEFAULT_KEY } from "./helpers/fakeHermes";
+
+const { startHermesRuntime } = await import("../../server/hermes/index.js");
+const { deriveProfileKey } = await import("../../server/hermes/client.js");
+const { slugifyProfileName, scheduleToHermes, parseIdentity, mergePatch } = await import(
+  "../../server/hermes/adapter.js"
+);
+
+const KEY_SECRET = "office3d-hermes-key-secret-0123456789abcdef";
+
+// Frames are asserted structurally (toMatchObject), so their payloads stay
+// loosely typed here rather than restating the whole protocol.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Loose = any;
+type Frame = { type: string; id?: string; ok?: boolean; payload?: Loose; error?: Loose; event?: string };
+
+const openClient = async (url: string, token: string) => {
+  const ws = new WebSocket(url);
+  const events: Frame[] = [];
+  const pending = new Map<string, (frame: Frame) => void>();
+  let counter = 0;
+  ws.on("message", (raw) => {
+    const frame = JSON.parse(raw.toString()) as Frame;
+    if (frame.type === "res" && frame.id && pending.has(frame.id)) {
+      pending.get(frame.id)!(frame);
+      pending.delete(frame.id);
+    } else if (frame.type === "event") {
+      events.push(frame);
+    }
+  });
+  await new Promise((resolve, reject) => {
+    ws.once("open", resolve);
+    ws.once("error", reject);
+  });
+  const call = (method: string, params: unknown = {}) =>
+    new Promise<Frame>((resolve) => {
+      const id = String(++counter);
+      pending.set(id, resolve);
+      ws.send(JSON.stringify({ type: "req", id, method, params }));
+    });
+  const connect = await call("connect", { auth: { token } });
+  const waitForEvent = async (predicate: (frame: Frame) => boolean, timeoutMs = 3000) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const found = events.find(predicate);
+      if (found) return found;
+      if (Date.now() > deadline) throw new Error("event did not arrive");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  };
+  return { ws, events, call, connect, waitForEvent, close: () => ws.close() };
+};
+
+describe("hermes adapter", () => {
+  let fake: Awaited<ReturnType<typeof createFakeHermes>>;
+  let runtime: Awaited<ReturnType<typeof startHermesRuntime>>;
+  let stateDir: string;
+
+  beforeEach(async () => {
+    fake = await createFakeHermes();
+    stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "office3d-hermes-test-"));
+    runtime = await startHermesRuntime({
+      env: {
+        HERMES_API_URL: fake.url,
+        HERMES_API_KEY: DEFAULT_KEY,
+        HERMES_DASHBOARD_URL: fake.url,
+        HERMES_DASHBOARD_TOKEN: DASHBOARD_TOKEN,
+        OFFICE3D_HERMES_KEY_SECRET: KEY_SECRET,
+      },
+      stateDir,
+      log: () => {},
+      logError: () => {},
+    });
+  });
+
+  afterEach(async () => {
+    await runtime?.close();
+    await fake.close();
+    fs.rmSync(stateDir, { recursive: true, force: true });
+  });
+
+  it("refuses_a_connect_without_the_boot_secret", async () => {
+    const client = await openClient(runtime!.url, "wrong-secret");
+    expect(client.connect).toMatchObject({ ok: false, error: { code: "UNAUTHORIZED" } });
+    client.close();
+  });
+
+  it("lists_the_default_profile_as_the_main_agent", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    expect(client.connect).toMatchObject({ ok: true, payload: { adapterType: "hermes", type: "hello-ok" } });
+    const result = await client.call("agents.list");
+    expect(result.payload).toMatchObject({ defaultId: "main", agents: [{ id: "main", name: "Hermes" }] });
+    client.close();
+  });
+
+  it("creates_an_agent_as_a_profile_with_its_own_derived_key", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const created = await client.call("agents.create", { name: "Аналитик" });
+    expect(created).toMatchObject({ ok: true, payload: { name: "Аналитик" } });
+    const agentId = created.payload.agentId as string;
+    expect(agentId).toMatch(/^analitik-[0-9a-f]{6}$/);
+    const profile = fake.profiles.get(agentId);
+    expect(profile?.env.API_SERVER_KEY).toBe(deriveProfileKey(KEY_SECRET, agentId));
+    expect(profile?.soul).toContain("Аналитик");
+
+    const listed = await client.call("agents.list");
+    expect(listed.payload.agents).toContainEqual(expect.objectContaining({ id: agentId, name: "Аналитик" }));
+
+    // A second hire under the same name never reuses the first one's profile:
+    // Hermes keeps a deleted profile's state database open.
+    const again = await client.call("agents.create", { name: "Аналитик" });
+    expect(again.payload.agentId).toMatch(/^analitik-[0-9a-f]{6}$/);
+    expect(again.payload.agentId).not.toBe(agentId);
+    client.close();
+  });
+
+  it("streams_a_reply_with_tool_calls_and_finishes_it", async () => {
+    fake.setNextRun({
+      kind: "reply",
+      deltas: ["При", "вет!"],
+      tools: [{ tool: "web_search", preview: "погода", result: "солнечно" }],
+    });
+    const client = await openClient(runtime!.url, runtime!.token);
+    const sent = await client.call("chat.send", { sessionKey: "agent:main:main", message: "Привет", idempotencyKey: "r1" });
+    expect(sent.payload).toEqual({ status: "started", runId: "r1" });
+
+    const final = await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "final");
+    expect(final.payload).toMatchObject({ runId: "r1", sessionKey: "agent:main:main", message: { content: "Привет!" } });
+    const deltas = client.events.filter((f) => f.event === "chat" && f.payload.state === "delta");
+    expect(deltas.at(-1)?.payload.message.content).toBe("Привет!");
+    const tools = client.events.filter((f) => f.event === "agent" && f.payload.stream === "tool");
+    expect(tools.map((f) => f.payload.data.phase)).toEqual(["start", "result"]);
+    expect(tools[1].payload.data).toMatchObject({ name: "web_search", result: { text: "солнечно" }, isError: false });
+
+    const history = await client.call("chat.history", { sessionKey: "agent:main:main" });
+    expect(history.payload.messages.map((m: { content: string }) => m.content)).toEqual(["Привет", "Привет!"]);
+    client.close();
+  });
+
+  it("passes_agent_files_to_every_run_as_instructions", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("agents.files.set", { agentId: "main", name: "IDENTITY.md", content: "- Name: Штаб\n- Emoji: 🧭" });
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Кто ты?", idempotencyKey: "r2" });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "final");
+    const run = [...fake.runs.values()].at(-1);
+    expect(run?.instructions).toContain("Штаб");
+    const listed = await client.call("agents.list");
+    expect(listed.payload.agents[0]).toMatchObject({ name: "Штаб", identity: { emoji: "🧭" } });
+    client.close();
+  });
+
+  it("relays_an_approval_request_and_the_decision", async () => {
+    fake.setNextRun({ kind: "approval", command: "rm -rf build", afterApproval: "Удалил." });
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Почисти", idempotencyKey: "r3" });
+    const requested = await client.waitForEvent((f) => f.event === "exec.approval.requested");
+    expect(requested.payload.request).toMatchObject({ command: "rm -rf build", agentId: "main", sessionKey: "agent:main:main" });
+
+    const resolved = await client.call("exec.approval.resolve", { id: requested.payload.id, decision: "allow-once" });
+    expect(resolved.ok).toBe(true);
+    const final = await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "final");
+    expect(final.payload.message.content).toBe("Удалил.");
+    client.close();
+  });
+
+  it("stops_a_running_turn", async () => {
+    fake.setNextRun({ kind: "wait-for-stop" });
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "Думай долго", idempotencyKey: "r4" });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "delta");
+    const aborted = await client.call("chat.abort", { runId: "r4" });
+    expect(aborted.payload).toEqual({ ok: true, aborted: 1 });
+    await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "aborted");
+    client.close();
+  });
+
+  it("reports_a_failed_run_as_an_error", async () => {
+    fake.setNextRun({ kind: "fail", error: "provider refused" });
+    const client = await openClient(runtime!.url, runtime!.token);
+    await client.call("chat.send", { sessionKey: "agent:main:main", message: "?", idempotencyKey: "r5" });
+    const error = await client.waitForEvent((f) => f.event === "chat" && f.payload.state === "error");
+    expect(error.payload.errorMessage).toBe("provider refused");
+    client.close();
+  });
+
+  it("maps_scheduled_jobs_both_ways", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const added = await client.call("cron.add", {
+      name: "Сводка",
+      agentId: "main",
+      schedule: { kind: "every", everyMs: 3_600_000 },
+      sessionTarget: "isolated",
+      wakeMode: "now",
+      payload: { kind: "agentTurn", message: "Собери сводку" },
+    });
+    expect(added.payload).toMatchObject({ id: "main~job1", schedule: { kind: "every", everyMs: 3_600_000 }, enabled: true });
+    const listed = await client.call("cron.list", {});
+    expect(listed.payload.jobs).toHaveLength(1);
+    const paused = await client.call("cron.patch", { id: "main~job1", patch: { enabled: false } });
+    expect(paused.payload.enabled).toBe(false);
+    client.close();
+  });
+
+  it("answers_unknown_methods_with_not_implemented", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("tasks.create", {});
+    expect(result).toMatchObject({ ok: false, error: { code: "NOT_IMPLEMENTED" } });
+    client.close();
+  });
+
+  it("refuses_to_delete_the_main_agent", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const result = await client.call("agents.delete", { agentId: "main" });
+    expect(result).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    client.close();
+  });
+});
+
+describe("hermes adapter helpers", () => {
+  it("turns_office_names_into_hermes_profile_ids", () => {
+    expect(slugifyProfileName("Главный Аналитик")).toBe("glavnyy-analitik");
+    expect(slugifyProfileName("Writer 2")).toBe("writer-2");
+    expect(slugifyProfileName("!!!")).toBe("agent");
+  });
+
+  it("converts_office_schedules_to_hermes_ones", () => {
+    expect(scheduleToHermes({ kind: "every", everyMs: 90_000 })).toBe("every 2m");
+    expect(scheduleToHermes({ kind: "cron", expr: "0 9 * * *" })).toBe("0 9 * * *");
+    expect(scheduleToHermes({ kind: "at", at: "2030-01-01T00:00:00Z" })).toBe("2030-01-01T00:00:00.000Z");
+  });
+
+  it("reads_name_and_emoji_from_identity_files", () => {
+    expect(parseIdentity("# Identity\n- **Name:** Штаб\n- **Emoji:** 🧭")).toEqual({ name: "Штаб", emoji: "🧭" });
+  });
+
+  it("applies_json_merge_patches", () => {
+    expect(mergePatch({ a: 1, b: { c: 2 } }, { b: { c: null, d: 3 }, e: 4 })).toEqual({ a: 1, b: { d: 3 }, e: 4 });
+  });
+});

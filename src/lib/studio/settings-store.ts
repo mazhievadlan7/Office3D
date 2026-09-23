@@ -85,8 +85,8 @@ const normalizeAdapterType = (value: string | undefined): StudioGatewayAdapterTy
 };
 
 const readPortBasedGatewayProfile = (
-  adapterType: Extract<StudioGatewayAdapterType, "hermes" | "demo">,
-  envKey: "HERMES_ADAPTER_PORT" | "DEMO_ADAPTER_PORT"
+  adapterType: Extract<StudioGatewayAdapterType, "demo">,
+  envKey: "DEMO_ADAPTER_PORT"
 ): StudioGatewayProfile | null => {
   const rawPort = process.env[envKey]?.trim();
   if (!rawPort) return null;
@@ -95,13 +95,31 @@ const readPortBasedGatewayProfile = (
   return buildLocalProfile(`ws://localhost:${port}`);
 };
 
+const toWebSocketUrl = (value: string | undefined): string | null => {
+  const raw = value?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+};
+
 const buildEnvGatewayDefaults = (): StudioGatewaySettings | null => {
   const envUrl = process.env.OFFICE3D_GATEWAY_URL?.trim();
   const envToken = process.env.OFFICE3D_GATEWAY_TOKEN?.trim() ?? "";
+  // HERMES_API_URL means this server runs the Hermes adapter itself, which
+  // makes Hermes the default backend. The profile URL is then only a label:
+  // the gateway proxy routes Hermes to the in-process adapter whatever it says.
+  const inProcessHermesUrl = toWebSocketUrl(process.env.HERMES_API_URL);
   const envAdapterType =
-    normalizeAdapterType(process.env.OFFICE3D_GATEWAY_ADAPTER_TYPE) ?? "openclaw";
+    normalizeAdapterType(process.env.OFFICE3D_GATEWAY_ADAPTER_TYPE) ??
+    (inProcessHermesUrl ? "hermes" : "openclaw");
 
-  const hermesProfile = readPortBasedGatewayProfile("hermes", "HERMES_ADAPTER_PORT");
+  const hermesProfile = inProcessHermesUrl ? buildLocalProfile(inProcessHermesUrl) : null;
   const demoProfile = readPortBasedGatewayProfile("demo", "DEMO_ADAPTER_PORT");
 
   const profiles: Partial<Record<StudioGatewayAdapterType, StudioGatewayProfile>> = {};

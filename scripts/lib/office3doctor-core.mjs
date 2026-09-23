@@ -438,9 +438,7 @@ export const summarizeChecks = (checks) => {
 
 export const shouldRunHermesChecks = ({ runtimeContext, env = process.env }) =>
   runtimeContext.adapterType === "hermes" ||
-  Boolean(
-    trimString(env.HERMES_API_URL) || trimString(env.HERMES_ADAPTER_PORT),
-  );
+  Boolean(trimString(env.HERMES_API_URL));
 
 export const shouldRunOpenClawChecks = ({
   runtimeContext,
