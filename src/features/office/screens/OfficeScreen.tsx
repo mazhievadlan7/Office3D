@@ -3246,23 +3246,40 @@ export function OfficeScreen({
     textMessageByAgentId,
     workingUntilByAgentId,
   } = officeAnimationState;
-  const immediateGymHoldByAgentId = useMemo(
-    () => ({
-      ...marketplaceGymHoldByAgentId,
-      ...skillGymHoldByAgentId,
-    }),
-    [marketplaceGymHoldByAgentId, skillGymHoldByAgentId],
+  // Who is held at the gym right now, stable by content: the animation state
+  // above is rebuilt on every render (it reads the clock), and a new map each
+  // time re-ran the cooldown effect below on every render — a render loop
+  // React cut off with "Maximum update depth exceeded".
+  const immediateGymHoldSignature = Object.entries({ ...marketplaceGymHoldByAgentId, ...skillGymHoldByAgentId })
+    .filter(([, held]) => held)
+    .map(([agentId]) => agentId)
+    .sort()
+    .join("\u0000");
+  const immediateGymHoldByAgentId = useMemo<Record<string, boolean>>(
+    () =>
+      Object.fromEntries(
+        immediateGymHoldSignature ? immediateGymHoldSignature.split("\u0000").map((agentId) => [agentId, true]) : [],
+      ),
+    [immediateGymHoldSignature],
   );
 
+  // Only who is in the office matters here, not every change to an agent
+  // (a streaming reply changes one many times a second).
+  const officeAgentIdsSignature = state.agents.map((agent) => agent.agentId).join("\u0000");
   useEffect(() => {
     const now = Date.now();
+    const agentIds = officeAgentIdsSignature ? officeAgentIdsSignature.split("\u0000") : [];
+    // Read and advance the "held before" snapshot here, not inside the state
+    // updater: React may run an updater twice.
+    const wasHeldByAgentId = prevImmediateGymHoldRef.current;
+    prevImmediateGymHoldRef.current = Object.fromEntries(
+      agentIds.map((agentId) => [agentId, Boolean(immediateGymHoldByAgentId[agentId])]),
+    );
     setGymCooldownUntilByAgentId((previous) => {
       const next: Record<string, number> = {};
-      for (const agent of state.agents) {
-        const agentId = agent.agentId;
+      for (const agentId of agentIds) {
         const immediateHeld = Boolean(immediateGymHoldByAgentId[agentId]);
-        const wasImmediateHeld =
-          prevImmediateGymHoldRef.current[agentId] ?? false;
+        const wasImmediateHeld = wasHeldByAgentId[agentId] ?? false;
         const previousUntil = previous[agentId] ?? 0;
         if (immediateHeld) {
           if (previousUntil > now) {
@@ -3278,12 +3295,6 @@ export function OfficeScreen({
           next[agentId] = previousUntil;
         }
       }
-      prevImmediateGymHoldRef.current = Object.fromEntries(
-        state.agents.map((agent) => [
-          agent.agentId,
-          Boolean(immediateGymHoldByAgentId[agent.agentId]),
-        ]),
-      );
       const prevKeys = Object.keys(previous);
       const nextKeys = Object.keys(next);
       if (
@@ -3294,7 +3305,7 @@ export function OfficeScreen({
       }
       return next;
     });
-  }, [immediateGymHoldByAgentId, state.agents]);
+  }, [immediateGymHoldByAgentId, officeAgentIdsSignature]);
 
   const activeGithubReviewAgentId = useMemo(
     () =>
