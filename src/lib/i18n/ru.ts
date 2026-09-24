@@ -3033,6 +3033,23 @@ export const ru = {
   // --- Хранилище состояния ---------------------------------------------------
   "store.missingProvider": "AgentStoreProvider не подключён.",
 
+  // --- systemHealth ----------------------------------------------------------
+  "systemHealth.channels": "Оповещения приходят: {channels}.",
+  "systemHealth.heartbeatOff": "Внешний сторож не настроен (ALERT_HEARTBEAT_URL): если сервер упадёт целиком, сообщить будет некому.",
+  "systemHealth.heartbeatOn": "Внешний сторож получает отметки.",
+  "systemHealth.lead": "Сервер проверяет Hermes, резервные копии, место на диске и обновления каждую минуту и присылает оповещение, когда что-то не так.",
+  "systemHealth.loading": "Проверяю…",
+  "systemHealth.noChannels": "Каналы оповещений не настроены: задайте ALERT_NTFY_URL или ALERT_SMTP_URL в .env.",
+  "systemHealth.refresh": "Проверить сейчас",
+  "systemHealth.status.checking": "перепроверяю",
+  "systemHealth.status.ok": "в порядке",
+  "systemHealth.status.problem": "проблема",
+  "systemHealth.status.unknown": "ещё не проверено",
+  "systemHealth.test": "Отправить тестовое оповещение",
+  "systemHealth.testFailed": "Не дошло: {failed}",
+  "systemHealth.testSent": "Тестовое оповещение отправлено: {channels}.",
+  "systemHealth.title": "Состояние системы",
+
   // --- Канбан-доска -------------------------------------------------------
   "taskboard.arrowHint": "{title} — {status}. Стрелки перемещают между колонками.",
   "taskboard.assignedAgent": "Назначенный агент",

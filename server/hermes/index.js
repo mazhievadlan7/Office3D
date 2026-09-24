@@ -12,6 +12,8 @@ const { createHermesAdapter } = require("./adapter");
 const { createHermesClient, resolveHermesConfig } = require("./client");
 const { createHermesStore } = require("./store");
 const { createMcpHandler, startMcpServer, deriveMcpToken } = require("./mcp");
+const { createAlerter, resolveAlertConfig } = require("./alerts");
+const { createMonitor } = require("./monitor");
 
 const DEFAULT_MCP_PORT = 3010;
 // Retry a failed reconcile soon (Hermes still starting), then settle into a
@@ -46,6 +48,115 @@ const resolveMcpConfig = (env) => {
   const publicUrl = String(env.OFFICE3D_MCP_URL ?? "").trim().replace(/\/+$/, "");
   if (publicUrl && !/^https?:\/\//.test(publicUrl)) throw new Error("OFFICE3D_MCP_URL must be an http(s) URL.");
   return { host, port, publicUrl };
+};
+
+const GIB = 1024 ** 3;
+const DISK_MIN_FREE_BYTES = 2 * GIB;
+const DISK_MIN_FREE_SHARE = 0.05;
+const BACKUP_MAX_AGE_MS = 26 * 60 * 60_000;
+
+const gib = (bytes) => `${(bytes / GIB).toFixed(1)} ГБ`;
+
+/** The monitor's checks for this deployment. */
+const buildChecks = ({ client, adapter, updater, hasDashboard }) => {
+  const checks = [
+    {
+      id: "hermes",
+      label: "Hermes",
+      run: async () => {
+        const health = await client.health("default", { retry: false, timeoutMs: 8_000 });
+        return { ok: true, detail: health?.version ? `версия ${health.version}` : "отвечает" };
+      },
+    },
+  ];
+  if (hasDashboard) {
+    checks.push({
+      id: "dashboard",
+      label: "Панель Hermes",
+      run: async () => {
+        const profiles = await adapter.listProfiles({ fresh: true });
+        return { ok: true, detail: `агентов: ${profiles.length}` };
+      },
+    });
+  }
+  if (updater) {
+    // One request feeds three checks.
+    let cached = { at: 0, value: null };
+    const backups = async () => {
+      if (Date.now() - cached.at < 30_000 && cached.value) return cached.value;
+      const response = await fetch(`${updater.url}/backups`, {
+        headers: { Authorization: `Bearer ${updater.token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error(`сервис обновлений ответил ${response.status}`);
+      cached = { at: Date.now(), value: await response.json() };
+      return cached.value;
+    };
+    checks.push(
+      {
+        id: "updater",
+        label: "Сервис обновлений и копий",
+        run: async () => {
+          await backups();
+          return { ok: true, detail: "отвечает" };
+        },
+      },
+      {
+        id: "backups",
+        label: "Резервные копии",
+        run: async () => {
+          const status = await backups();
+          if (!status.schedule) return { ok: true, detail: "ежедневные копии выключены" };
+          if (status.last?.status === "failed") return { ok: false, detail: `последняя копия не удалась: ${(status.last.errors ?? []).join("; ")}` };
+          if (!status.lastSuccess) return { ok: true, detail: "первая копия ещё не сделана" };
+          const age = Date.now() - Date.parse(status.lastSuccess.at);
+          if (age > BACKUP_MAX_AGE_MS) return { ok: false, detail: `последняя удачная копия — ${status.lastSuccess.at}` };
+          return { ok: true, detail: `последняя — ${status.lastSuccess.at}` };
+        },
+      },
+      {
+        id: "disk",
+        label: "Место на диске",
+        run: async () => {
+          const disks = Object.values((await backups()).disk ?? {}).filter(Boolean);
+          if (!disks.length) return { ok: true, detail: "неизвестно" };
+          const tightest = disks.reduce((a, b) => (a.freeBytes / a.totalBytes <= b.freeBytes / b.totalBytes ? a : b));
+          const low = tightest.freeBytes < DISK_MIN_FREE_BYTES || tightest.freeBytes / tightest.totalBytes < DISK_MIN_FREE_SHARE;
+          return { ok: !low, detail: `свободно ${gib(tightest.freeBytes)} из ${gib(tightest.totalBytes)}` };
+        },
+      },
+    );
+  }
+  return checks;
+};
+
+/** One-off happenings worth an alert, each with a stable key. */
+const monitorEvents = async ({ adapter, hasDashboard }) => {
+  const events = [];
+  if (adapter.updates.available) {
+    const view = await adapter.updates.refresh();
+    const job = view?.job;
+    if (job && ["rolled_back", "failed", "rollback_failed"].includes(job.status)) {
+      const text = {
+        rolled_back: `Обновление Hermes до ${job.to} не прошло проверку; вернулась версия ${job.from}, данные восстановлены.`,
+        failed: `Обновление Hermes до ${job.to} не удалось: ${job.error ?? ""}. Работает версия ${job.from}.`,
+        rollback_failed: `Обновление Hermes до ${job.to} не удалось, и откат тоже: ${job.error ?? ""}. Нужна ручная проверка сервера.`,
+      }[job.status];
+      events.push({ key: `update:${job.id}:${job.status}`, title: "Обновление Hermes", body: text, level: "problem" });
+    }
+  }
+  if (hasDashboard) {
+    const autonomy = await adapter.autonomy.status();
+    if (autonomy.budgetExceeded) {
+      events.push({
+        key: `budget:${adapter.autonomy.today()}`,
+        title: "Дневной бюджет исчерпан",
+        body: `Сегодня потрачено $${Number(autonomy.spentTodayUsd ?? 0).toFixed(2)} из $${autonomy.settings.dailyBudgetUsd}. Автономные обзоры остановлены до полуночи${autonomy.boardPaused ? ", доска задач на паузе" : ""}.`,
+        level: "info",
+      });
+    }
+  }
+  return events;
 };
 
 const timingSafeEqualString = (a, b) => {
@@ -231,15 +342,32 @@ const startHermesRuntime = async ({
     updateTimer.unref?.();
   }
 
+  // Health of the whole deployment, and alerts when part of it fails.
+  const alertConfig = resolveAlertConfig(env);
+  for (const problem of alertConfig.problems) logError(`[hermes] Alerts: ${problem}`);
+  const monitor = createMonitor({
+    checks: buildChecks({ client, adapter, updater: resolveUpdaterConfig(env), hasDashboard: Boolean(config.dashboardUrl) }),
+    events: () => monitorEvents({ adapter, hasDashboard: Boolean(config.dashboardUrl) }),
+    alerter: createAlerter({ config: alertConfig, log: (message) => log(`[hermes] ${message}`) }),
+    configProblems: alertConfig.problems,
+    store,
+    broadcast: (event, payload) => adapter.broadcast(event, payload),
+    log: (message) => log(`[hermes] ${message}`),
+  });
+  Object.assign(adapter.handlers, monitor.handlers);
+  monitor.start();
+
   return {
     url: `ws://127.0.0.1:${port}`,
     token,
     client,
     adapter,
     store,
+    monitor,
     mcpUrl,
     close: async () => {
       closed = true;
+      monitor.stop();
       if (reconcileTimer) clearTimeout(reconcileTimer);
       if (guardTimer) clearTimeout(guardTimer);
       if (autonomyTimer) clearTimeout(autonomyTimer);

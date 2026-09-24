@@ -137,6 +137,13 @@ services:
       OFFICE3D_UPDATER_TOKEN: ${OFFICE3D_UPDATER_TOKEN:?set OFFICE3D_UPDATER_TOKEN in .env}
       # Autonomy's active hours and daily budget follow this zone.
       OFFICE3D_TIMEZONE: ${OFFICE3D_TIMEZONE:-}
+      # Alerts when part of the deployment fails (see .env.example).
+      ALERT_NTFY_URL: ${ALERT_NTFY_URL:-}
+      ALERT_NTFY_TOKEN: ${ALERT_NTFY_TOKEN:-}
+      ALERT_SMTP_URL: ${ALERT_SMTP_URL:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
+      ALERT_HEARTBEAT_URL: ${ALERT_HEARTBEAT_URL:-}
       # Backend selection. Empty means Hermes (HERMES_API_URL is set above);
       # set openclaw plus OFFICE3D_GATEWAY_URL to switch back.
       OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}

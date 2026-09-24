@@ -220,7 +220,19 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     return running;
   };
 
+  const diskOf = (dir) => {
+    try {
+      const stats = fs.statfsSync(dir);
+      return { freeBytes: stats.bavail * stats.bsize, totalBytes: stats.blocks * stats.bsize };
+    } catch {
+      return null;
+    }
+  };
+
   const status = () => ({
+    // Free space where backups and Hermes' data live (on most servers the
+    // same disk).
+    disk: { backups: diskOf(config.backupDir), hermesData: diskOf(config.dataDir) },
     schedule: TIME_RE.test(config.time) ? { time: config.time, timeZone: config.timeZone || "UTC", keep: config.keep } : null,
     running: Boolean(running),
     last: state.last ?? null,

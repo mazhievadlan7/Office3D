@@ -65,11 +65,12 @@ const METHODS = [
   "hermes.toolsets.list", "hermes.toolsets.set", "hermes.memory.get", "hermes.memory.set",
   "hermes.mcp.list", "hermes.mcp.add", "hermes.mcp.remove", "hermes.mcp.enable", "hermes.mcp.test",
   "hermes.mcp.catalog", "hermes.mcp.install", "hermes.mcp.action",
+  "system.health", "system.testAlert",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
   "org.updated", "org.proposal", "org.autonomy", "org.meeting", "org.announcement", "org.approval",
-  "hermes.update",
+  "hermes.update", "system.health",
 ];
 
 class AdapterError extends Error {
@@ -1487,6 +1488,7 @@ const createHermesAdapter = ({
   return {
     handleSocket,
     handlers,
+    broadcast,
     close,
     organization,
     team,

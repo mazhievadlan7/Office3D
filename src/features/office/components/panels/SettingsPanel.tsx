@@ -8,6 +8,7 @@ import { t } from "@/lib/i18n";
 import { adapterLabel } from "@/lib/i18n/labels";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 import { HermesModelsPanel } from "@/features/hermes/components/HermesModelsPanel";
+import { SystemHealthSection } from "@/features/hermes/components/SystemHealthSection";
 
 // Spelled out rather than looked up by building a key: a key assembled at
 // runtime is invisible to the check that finds unused and missing phrases.
@@ -403,6 +404,7 @@ export function SettingsPanel({
         </div>
       </div>
       {hermesControl ? <HermesModelsPanel control={hermesControl} /> : null}
+      {hermesControl ? <SystemHealthSection control={hermesControl} /> : null}
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
