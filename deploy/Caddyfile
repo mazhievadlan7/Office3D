@@ -1,0 +1,24 @@
+# HTTPS in front of Office3D (the `caddy` service in docker-compose.yml).
+#
+# Caddy gets and renews the Let's Encrypt certificate for OFFICE3D_DOMAIN on
+# its own; the domain's DNS must point at this server and ports 80 and 443
+# must be open. Certificates live in the caddy-data volume.
+
+{$OFFICE3D_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# WebSocket upgrades (the gateway at /api/gateway/ws) pass through as is.
+	# Caddy replaces any X-Forwarded-For a client sends with the client's real
+	# address, which the office's login throttling relies on.
+	reverse_proxy office3d:3000
+
+	log {
+		output stdout
+		format json
+	}
+}

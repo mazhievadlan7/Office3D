@@ -4,8 +4,9 @@
 #   docker compose up -d
 #   docker compose exec hermes hermes setup   # once: models and provider keys
 #
-# Only Office3D is published, and only on loopback; put a TLS reverse proxy in
-# front of it. Hermes' API and dashboard stay on the internal network: the
+# Only Office3D is published, and only on loopback. For your own domain with
+# HTTPS, turn on the `https` profile (COMPOSE_PROFILES=https and
+# OFFICE3D_DOMAIN in .env): the caddy service then serves it on 80/443. Hermes' API and dashboard stay on the internal network: the
 # dashboard's plugin routes (the kanban board) do not check credentials by
 # design, so they must never be reachable from outside.
 #
@@ -114,6 +115,9 @@ services:
       HOST: 0.0.0.0
       PORT: "3000"
       OPENCLAW_STATE_DIR: /data
+      # Only caddy and the host itself reach this port, and caddy overwrites
+      # X-Forwarded-For with the client's address: login throttling uses it.
+      TRUSTED_PROXY: "1"
       # Hermes, reached over the internal network.
       HERMES_API_URL: http://hermes:8642
       HERMES_API_KEY: ${HERMES_API_KEY:?set HERMES_API_KEY in .env}
@@ -211,6 +215,48 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  # HTTPS for your own domain: gets and renews the Let's Encrypt certificate
+  # and forwards to office3d. Runs with the `https` profile.
+  caddy:
+    image: caddy:${CADDY_IMAGE_TAG:-2.11-alpine}
+    container_name: office3d-caddy
+    restart: unless-stopped
+    profiles: ["https"]
+    depends_on:
+      office3d:
+        condition: service_healthy
+    environment:
+      OFFICE3D_DOMAIN: ${OFFICE3D_DOMAIN:-}
+    # Refuses to start without a domain rather than serving a default site.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'test -n "$$OFFICE3D_DOMAIN" || { echo "Set OFFICE3D_DOMAIN in .env (for example office.example.com)." >&2; exit 1; }; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   # A plain bridge network: Hermes needs internet access for model providers
   # and tools, so it cannot be `internal: true`. Nothing on it is published
@@ -224,3 +270,7 @@ volumes:
   office3d-state:
   # Hermes data backups the updater takes before each update (the last 3).
   hermes-backups:
+  # Caddy's certificates and ACME account. Keep it: re-issuing on every
+  # start would soon hit Let's Encrypt's rate limits.
+  caddy-data:
+  caddy-config:
