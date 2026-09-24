@@ -20,7 +20,6 @@ env:
   # IMAGE_NAME is assembled in the "Prepare Docker tags" step rather than here:
   # GHCR requires a lowercase namespace, `github.repository_owner` preserves the
   # owner's original casing, and `env:` cannot lowercase a value.
-  IMAGE_BASENAME: office3d
   NODE_VERSION: "22"
 
 jobs:
@@ -51,8 +50,14 @@ jobs:
       - name: Test
         run: npm run test -- --run
 
+      - name: Translations
+        run: node scripts/i18n-check.mjs
+
+      - name: Documentation links
+        run: node scripts/check-doc-links.mjs
+
   publish:
-    name: Build and publish image
+    name: Build and publish ${{ matrix.image }}
     # Gated on verify so a red suite never reaches the registry. Pull requests
     # are verified but not published: the image would be unused and the
     # GITHUB_TOKEN of a fork PR cannot write packages anyway.
@@ -62,6 +67,16 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The office itself (serves the UI, the Hermes adapter and hermes-gate).
+          - image: office3d
+            target: runner
+          # The isolated service that updates Hermes and rolls it back.
+          - image: office3d-updater
+            target: updater
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,17 +94,22 @@ jobs:
       - name: Prepare Docker tags
         id: tags
         shell: bash
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
           tags=()
           owner="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          IMAGE_NAME="${REGISTRY}/${owner}/${IMAGE_BASENAME}"
+          IMAGE_NAME="${REGISTRY}/${owner}/${IMAGE}"
           ref_name="$(printf '%s' "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr '/_' '-' | tr -cd 'a-z0-9.-')"
           if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
             tags+=("${IMAGE_NAME}:main")
           elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
             tags+=("${IMAGE_NAME}:${ref_name}")
           fi
+          # Every published build also gets an immutable tag of its commit, so
+          # a deployment can pin it and roll back to it.
+          tags+=("${IMAGE_NAME}:sha-${GITHUB_SHA::12}")
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version="${GITHUB_REF#refs/tags/v}"
             tags+=("${IMAGE_NAME}:${version}")
@@ -105,11 +125,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: ${{ matrix.target }}
           push: true
           # amd64 only: arm64 needs QEMU emulation here and roughly doubles the
           # billed minutes, which a private repository pays for. Add
           # linux/arm64 back if a deployment target needs it.
           platforms: linux/amd64
           tags: ${{ steps.tags.outputs.value }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
