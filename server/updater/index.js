@@ -5,6 +5,10 @@
 //   GET  /health            liveness, no token
 //   GET  /status[?refresh]  current version, newer releases, last job
 //   POST /update {tag}      start an update (see updater.js)
+//   GET  /backups           daily backups: schedule, last run, the list
+//   POST /backups           take a backup now
+//   POST /backups/<id>/restore  restore one (streams progress); accepted only
+//                           from inside this container: scripts/office3d-backup.sh
 //
 // Configuration (environment):
 //   OFFICE3D_UPDATER_TOKEN  shared with office3d, at least 32 characters
@@ -18,6 +22,10 @@
 //   HEALTH_URLS             comma-separated; default Hermes API and the gate
 //   UPDATER_TAGS            comma-separated release tags to offer instead of
 //                           asking Docker Hub (a private registry, or tests)
+//   OFFICE_STATE_DIR        the office's state volume, mounted (/office-state)
+//   BACKUP_TIME             daily backup time HH:MM (default 03:30; empty: off)
+//   BACKUP_TIMEZONE         its time zone (default: UTC)
+//   BACKUP_KEEP             daily backups to keep (default 7)
 
 const http = require("node:http");
 const crypto = require("node:crypto");
@@ -25,6 +33,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { createUpdater, parseTag } = require("./updater");
+const { createBackups } = require("./backups");
 
 const env = process.env;
 const log = (message) => console.info(`[updater] ${message}`);
@@ -116,7 +125,29 @@ const main = async () => {
     },
   });
 
+  let updateStarting = false;
+  const backups = createBackups({
+    exec,
+    log,
+    // An update being started counts too: it checks versions before it
+    // marks itself running.
+    isBusy: () => updateStarting || updater.isRunning(),
+    currentTag: () => updater.currentTag(),
+    config: {
+      project,
+      projectDir,
+      dataDir: env.HERMES_DATA_DIR?.trim() || "/hermes-data",
+      officeStateDir: env.OFFICE_STATE_DIR?.trim() || "/office-state",
+      backupDir: env.BACKUP_DIR?.trim() || "/backups",
+      keep: Math.min(Math.max(Number(env.BACKUP_KEEP) || 7, 1), 365),
+      time: env.BACKUP_TIME === undefined ? "03:30" : env.BACKUP_TIME.trim(),
+      timeZone: env.BACKUP_TIMEZONE?.trim() || "",
+    },
+  });
+  backups.start();
+
   const expected = Buffer.from(token);
+  const fromInside = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
   const authorized = (req) => {
     const header = String(req.headers.authorization ?? "");
     const given = Buffer.from(header.startsWith("Bearer ") ? header.slice(7).trim() : "");
@@ -154,9 +185,35 @@ const main = async () => {
       if (req.method === "GET" && url.pathname === "/status") {
         return send(res, 200, await updater.status({ refresh: url.searchParams.has("refresh") }));
       }
+      if (req.method === "GET" && url.pathname === "/backups") return send(res, 200, backups.status());
+      if (req.method === "POST" && url.pathname === "/backups") {
+        const started = backups.run({ label: "manual" });
+        started.catch(() => {});
+        // Answer at once; the result shows in GET /backups.
+        return send(res, 202, { started: true });
+      }
+      const restoreRoute = url.pathname.match(/^\/backups\/([^/]+)\/restore$/);
+      if (req.method === "POST" && restoreRoute) {
+        if (!fromInside(req)) return send(res, 403, { error: "Восстановление запускается только на сервере: scripts/office3d-backup.sh restore <id>." });
+        res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+        try {
+          const result = await backups.restore(decodeURIComponent(restoreRoute[1]), { onStep: (step) => res.write(`… ${step}\n`) });
+          res.end(`OK: restored ${result.restored}; the state before it is backup ${result.safety}.\n`);
+        } catch (err) {
+          res.end(`FAILED: ${err?.message ?? err}\n`);
+        }
+        return;
+      }
       if (req.method === "POST" && url.pathname === "/update") {
+        if (backups.isRunning()) return send(res, 409, { error: "Идёт резервное копирование или восстановление; обновление — после него." });
         const body = await readJson(req);
-        const job = await updater.start(String(body?.tag ?? ""));
+        updateStarting = true;
+        let job;
+        try {
+          job = await updater.start(String(body?.tag ?? ""));
+        } finally {
+          updateStarting = false;
+        }
         return send(res, 202, { job });
       }
       return send(res, 404, { error: "not found" });
@@ -168,7 +225,10 @@ const main = async () => {
   });
   const port = Number(env.UPDATER_PORT || 3020);
   server.listen(port, env.UPDATER_HOST?.trim() || "0.0.0.0", () => log(`Listening on ${port} for project «${project}».`));
-  const shutdown = () => server.close(() => process.exit(0));
+  const shutdown = () => {
+    backups.stop();
+    server.close(() => process.exit(0));
+  };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 };

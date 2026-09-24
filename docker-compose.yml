@@ -197,12 +197,19 @@ services:
       PROJECT_DIR: /project
       HERMES_DATA_DIR: /hermes-data
       BACKUP_DIR: /backups
+      # Daily backups of Hermes and the office (scripts/office3d-backup.sh).
+      OFFICE_STATE_DIR: /office-state
+      BACKUP_TIME: ${BACKUP_TIME-03:30}
+      BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-${OFFICE3D_TIMEZONE:-}}
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # The compose project itself: the tag it switches lives in .env.
       - ./:/project
       - hermes-data:/hermes-data
       - hermes-backups:/backups
+      # Read for backups, written only by a restore.
+      - office3d-state:/office-state
     networks:
       - backend
     deploy:
@@ -268,7 +275,9 @@ volumes:
   # Back it up; see docs/deployment.md.
   hermes-data:
   office3d-state:
-  # Hermes data backups the updater takes before each update (the last 3).
+  # Backups: daily ones (daily/<id>/, the last BACKUP_KEEP) and the ones the
+  # updater takes before each Hermes update (the last 3). Copy it off the
+  # server; see docs/deployment.md.
   hermes-backups:
   # Caddy's certificates and ACME account. Keep it: re-issuing on every
   # start would soon hit Let's Encrypt's rate limits.

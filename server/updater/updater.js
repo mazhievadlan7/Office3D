@@ -310,7 +310,9 @@ const createUpdater = ({
     return { current, latest: newer[0] ?? current, newer, job: state.job, history: state.history ?? [], checkedAt: new Date(tagsCache.at).toISOString() };
   };
 
-  return { start, status, currentTag };
+  const isRunning = () => Boolean(state.job && !["done", "rolled_back", "failed", "rollback_failed"].includes(state.job.status));
+
+  return { start, status, currentTag, isRunning };
 };
 
 module.exports = { createUpdater, parseTag, compareTags, newerTags, setEnvValue, readEnvValue };
