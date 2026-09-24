@@ -73,7 +73,7 @@ describe("createAccessGate", () => {
     for (let index = 0; index < 9; index++) {
       const res = createResponse();
       gate.handleHttp(
-        { url: "/api/studio", headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+        { url: "/api/studio", headers: { cookie: "studio_access=wrong" }, socket: { remoteAddress: "127.0.0.1" } },
         res
       );
       expect(res.statusCode).toBe(401);
@@ -81,7 +81,7 @@ describe("createAccessGate", () => {
 
     const limited = createResponse();
     gate.handleHttp(
-      { url: "/api/studio", headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+      { url: "/api/studio", headers: { cookie: "studio_access=wrong" }, socket: { remoteAddress: "127.0.0.1" } },
       limited
     );
 
@@ -116,7 +116,7 @@ describe("createAccessGate", () => {
     for (let index = 0; index < 10; index++) {
       const res = createResponse();
       gate.handleHttp(
-        { url: "/api/studio", headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+        { url: "/api/studio", headers: { cookie: "studio_access=wrong" }, socket: { remoteAddress: "127.0.0.1" } },
         res
       );
     }
@@ -142,12 +142,12 @@ describe("createAccessGate", () => {
 
     const afterReset = createResponse();
     gate.handleHttp(
-      { url: "/api/studio", headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+      { url: "/api/studio", headers: { cookie: "studio_access=wrong" }, socket: { remoteAddress: "127.0.0.1" } },
       afterReset
     );
 
     expect(afterReset.statusCode).toBe(401);
-    expect(afterReset.body).toContain("Нужен токен доступа к Studio");
+    expect(afterReset.body).toContain("Нужен вход в Studio");
   });
 
   it("answers_health_checks_without_the_token_and_nothing_else", async () => {
