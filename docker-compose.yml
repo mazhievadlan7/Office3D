@@ -21,6 +21,10 @@ services:
     # s6-overlay supervises the gateway (and every profile it serves) and the
     # dashboard inside the container; keep the image's own entrypoint.
     command: ["gateway", "run"]
+    # A model served on this machine (Ollama, vLLM, LM Studio…) is reached at
+    # http://host.docker.internal:<port>/v1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # OpenAI-compatible API server: runs, sessions, jobs. Hermes refuses to
       # start it without a key of at least 16 characters.

@@ -71,6 +71,8 @@ export const createFakeHermes = async () => {
   const usageRows = new Map<string, Array<Record<string, unknown>>>();
   // Files the dashboard's /api/fs routes read and write (memory lives there).
   const files = new Map<string, string>();
+  // Own model addresses per profile, as Hermes keeps them under providers:.
+  const endpoints = new Map<string, Array<{ id: string; name: string; base_url: string; model: string; api_key?: string; current: boolean }>>();
   const homeOf = (name: string) => (name === "default" ? "/fake/hermes" : `/fake/hermes/profiles/${name}`);
   const memoryConfig = { memory_enabled: true, user_profile_enabled: true, memory_char_limit: 120, user_char_limit: 60, provider: "" };
   const catalog = [
@@ -270,6 +272,38 @@ export const createFakeHermes = async () => {
           memory: { ...memoryConfig },
           ...(saved ? { platform_toolsets: { api_server: [...saved] } } : {}),
         });
+      }
+      if (path === "/api/providers/custom-endpoints/validate" && req.method === "POST") {
+        const b = body as { base_url: string };
+        if (b.base_url.includes("unreachable")) return json(res, 200, { ok: false, reachable: false, message: `Could not reach ${b.base_url}/models.`, models: [] });
+        return json(res, 200, { ok: true, reachable: true, message: "", models: ["llama3.1:8b", "qwen2.5:14b"] });
+      }
+      const endpointRoute = path.match(/^\/api\/providers\/custom-endpoints(?:\/([^/]+))?(\/activate)?$/);
+      if (endpointRoute) {
+        const profile = url.searchParams.get("profile") ?? "default";
+        const list = endpoints.get(profile) ?? [];
+        endpoints.set(profile, list);
+        const rows = () => ({ endpoints: list.map((e) => ({ id: e.id, name: e.name, base_url: e.base_url, model: e.model, models: [e.model], has_api_key: Boolean(e.api_key), is_current: e.current })) });
+        if (!endpointRoute[1] && req.method === "GET") return json(res, 200, rows());
+        if (!endpointRoute[1] && req.method === "POST") {
+          const b = body as { id?: string; name: string; base_url: string; model: string; api_key?: string; make_default?: boolean };
+          const id = b.id || b.name;
+          const existing = list.find((e) => e.id === id);
+          if (b.make_default) list.forEach((e) => (e.current = false));
+          if (existing) Object.assign(existing, { name: b.name, base_url: b.base_url, model: b.model, api_key: b.api_key, current: Boolean(b.make_default) || existing.current });
+          else list.push({ id, name: b.name, base_url: b.base_url, model: b.model, api_key: b.api_key, current: Boolean(b.make_default) });
+          return json(res, 200, { ok: true, id, ...rows() });
+        }
+        const target = list.find((e) => e.id === decodeURIComponent(endpointRoute[1] ?? ""));
+        if (!target) return json(res, 404, { detail: "custom endpoint not found" });
+        if (endpointRoute[2] && req.method === "POST") {
+          list.forEach((e) => (e.current = e === target));
+          return json(res, 200, { ok: true, provider: target.id, model: target.model });
+        }
+        if (req.method === "DELETE") {
+          list.splice(list.indexOf(target), 1);
+          return json(res, 200, { ok: true, ...rows() });
+        }
       }
       if (path === "/api/fs/read-text") {
         const target = url.searchParams.get("path") ?? "";
@@ -596,6 +630,7 @@ export const createFakeHermes = async () => {
     installs,
     usageRows,
     files,
+    endpoints,
     memoryConfig,
     homeOf,
     setNextRun(script: FakeRunScript) {

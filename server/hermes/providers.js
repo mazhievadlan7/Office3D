@@ -61,6 +61,37 @@ const createProviderHandlers = ({ client, listProfiles, profileOf, hasDashboard,
     return { applied: names.filter((_, index) => results[index].status === "fulfilled"), failed };
   };
 
+  const endpointInput = (p, { requireModel }) => {
+    const baseUrl = str(p.baseUrl).replace(/\/+$/, "");
+    let parsed;
+    try {
+      parsed = new URL(baseUrl);
+    } catch {
+      throw new AdapterError("INVALID_REQUEST", "Неверный адрес модели: нужен вид http://сервер:порт/v1.");
+    }
+    if (!["http:", "https:"].includes(parsed.protocol) || baseUrl.length > 500) {
+      throw new AdapterError("INVALID_REQUEST", "Адрес модели должен начинаться с http:// или https://.");
+    }
+    const apiKey = str(p.apiKey);
+    if (apiKey.length > MAX_KEY_VALUE_LENGTH) throw new AdapterError("INVALID_REQUEST", "Слишком длинный ключ.");
+    const model = str(p.model);
+    if (requireModel && (!model || model.length > 200)) throw new AdapterError("INVALID_REQUEST", "Выберите модель.");
+    const name = str(p.name) || parsed.host;
+    if (name.length > 64) throw new AdapterError("INVALID_REQUEST", "Слишком длинное название.");
+    // Hermes keys the entry (and its key's env name) by a slug of the name;
+    // a name without Latin letters would slug to the same "custom" for every
+    // address. The id comes from the name's Latin part, else from the host.
+    const slug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+    const id = slug(name) || `local-${slug(`${parsed.hostname}-${parsed.port}`)}`;
+    return { id, name, baseUrl, apiKey, model };
+  };
+
+  const endpointId = (p) => {
+    const id = str(p.id);
+    if (!/^[A-Za-z0-9._:-]{1,80}$/.test(id)) throw new AdapterError("INVALID_REQUEST", "Неизвестный адрес модели.");
+    return id;
+  };
+
   return {
     async "hermes.providers.status"() {
       requireDashboard();
@@ -205,6 +236,82 @@ const createProviderHandlers = ({ client, listProfiles, profileOf, hasDashboard,
       const row = (await listProfiles()).find((entry) => entry.name === profile);
       if (!row) throw new AdapterError("NOT_FOUND", "Агент не найден.");
       return { provider: str(row.provider) || null, model: str(row.model) || null };
+    },
+
+    // --- your own models by address (Ollama, vLLM, LM Studio, any
+    // OpenAI-compatible server). Hermes probes and stores them itself: the
+    // probe runs from Hermes' side of the network, and the key goes to the
+    // profile's .env, not to its config.
+
+    /** The agent's own model addresses, and which one it thinks with. */
+    async "hermes.endpoints.list"(p) {
+      requireDashboard();
+      const profile = profileOf(str(p.agentId) || "main");
+      const result = await client.dashboard("/api/providers/custom-endpoints", { query: { profile } });
+      const rows = Array.isArray(result?.endpoints) ? result.endpoints.filter(isRecord) : [];
+      return {
+        endpoints: rows.map((row) => ({
+          id: str(row.id),
+          name: str(row.name),
+          baseUrl: str(row.base_url),
+          model: str(row.model),
+          models: Array.isArray(row.models) ? row.models.slice(0, 200).map(String) : [],
+          hasApiKey: row.has_api_key === true,
+          isCurrent: row.is_current === true,
+        })),
+      };
+    },
+
+    /** Asks the address for its models, as Hermes will reach it. */
+    async "hermes.endpoints.validate"(p) {
+      requireDashboard();
+      const { baseUrl, apiKey } = endpointInput(p, { requireModel: false });
+      const result = await client.dashboard("/api/providers/custom-endpoints/validate", {
+        method: "POST",
+        body: { name: "probe", base_url: baseUrl, model: str(p.model), ...(apiKey ? { api_key: apiKey } : {}) },
+        timeoutMs: 30_000,
+      });
+      return {
+        ok: result?.ok === true,
+        reachable: result?.reachable !== false,
+        message: str(result?.message),
+        models: Array.isArray(result?.models) ? result.models.slice(0, 500).map(String) : [],
+      };
+    },
+
+    /**
+     * Saves an address for one agent or the whole team (`agentId: "all"`), and
+     * with `useNow` makes it the model they think with.
+     */
+    async "hermes.endpoints.save"(p) {
+      requireDashboard();
+      const { id, name, baseUrl, apiKey, model } = endpointInput(p, { requireModel: true });
+      const body = { id, name, base_url: baseUrl, model, discover_models: true, make_default: p.useNow === true, ...(apiKey ? { api_key: apiKey } : {}) };
+      const save = (profile) => client.dashboard("/api/providers/custom-endpoints", { method: "POST", query: { profile }, body, timeoutMs: 60_000 });
+      if (str(p.agentId) === "all") {
+        const outcome = await forEveryProfile(save);
+        log(`Model address ${name} saved for ${outcome.applied.join(", ")}.`);
+        return { ok: outcome.failed.length === 0, ...outcome };
+      }
+      const profile = profileOf(str(p.agentId) || "main");
+      await save(profile);
+      log(`Model address ${name} saved for ${profile}.`);
+      return { ok: true, applied: [profile], failed: [] };
+    },
+
+    async "hermes.endpoints.activate"(p) {
+      requireDashboard();
+      const profile = profileOf(str(p.agentId) || "main");
+      const id = endpointId(p);
+      const result = await client.dashboard(`/api/providers/custom-endpoints/${encodeURIComponent(id)}/activate`, { method: "POST", query: { profile }, timeoutMs: 60_000 });
+      return { ok: true, provider: str(result?.provider), model: str(result?.model) };
+    },
+
+    async "hermes.endpoints.delete"(p) {
+      requireDashboard();
+      const profile = profileOf(str(p.agentId) || "main");
+      await client.dashboard(`/api/providers/custom-endpoints/${encodeURIComponent(endpointId(p))}`, { method: "DELETE", query: { profile } });
+      return { ok: true };
     },
 
     /** Sets the model of one agent, or of the main agent (the default new hires copy). */

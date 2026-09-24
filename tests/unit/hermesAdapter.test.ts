@@ -986,6 +986,40 @@ describe("hermes adapter", () => {
     client.close();
   });
 
+  it("connects_an_agent_to_its_own_model_by_address", async () => {
+    const client = await openClient(runtime!.url, runtime!.token);
+    const found = await client.call("hermes.endpoints.validate", { baseUrl: "http://host.docker.internal:11434/v1/" });
+    expect(found.payload).toMatchObject({ ok: true, models: ["llama3.1:8b", "qwen2.5:14b"] });
+    expect((await client.call("hermes.endpoints.validate", { baseUrl: "http://unreachable:1/v1" })).payload).toMatchObject({ ok: false, reachable: false });
+    expect(await client.call("hermes.endpoints.validate", { baseUrl: "file:///etc/passwd" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+
+    const saved = await client.call("hermes.endpoints.save", {
+      agentId: "main", name: "Ollama дома", baseUrl: "http://host.docker.internal:11434/v1/", apiKey: "k-1", model: "llama3.1:8b", useNow: true,
+    });
+    expect(saved.payload).toMatchObject({ ok: true, applied: ["default"] });
+    // A Cyrillic name still gets a distinct id; the trailing slash is dropped.
+    expect(fake.endpoints.get("default")![0]).toMatchObject({ id: "ollama", base_url: "http://host.docker.internal:11434/v1", api_key: "k-1", current: true });
+    await client.call("hermes.endpoints.save", { agentId: "main", name: "Дома", baseUrl: "http://10.0.0.5:8000/v1", model: "qwen2.5:14b" });
+    expect(fake.endpoints.get("default")!.map((e) => e.id)).toEqual(["ollama", "local-10-0-0-5-8000"]);
+
+    const listed = await client.call("hermes.endpoints.list", { agentId: "main" });
+    expect(listed.payload.endpoints).toEqual([
+      expect.objectContaining({ id: "ollama", isCurrent: true, hasApiKey: true }),
+      expect.objectContaining({ id: "local-10-0-0-5-8000", isCurrent: false, hasApiKey: false }),
+    ]);
+    expect(JSON.stringify(listed.payload)).not.toContain("k-1");
+    await client.call("hermes.endpoints.activate", { agentId: "main", id: "local-10-0-0-5-8000" });
+    expect(fake.endpoints.get("default")!.find((e) => e.current)!.id).toBe("local-10-0-0-5-8000");
+    expect(await client.call("hermes.endpoints.delete", { agentId: "main", id: "../x" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+    await client.call("hermes.endpoints.delete", { agentId: "main", id: "ollama" });
+    expect(fake.endpoints.get("default")!.map((e) => e.id)).toEqual(["local-10-0-0-5-8000"]);
+
+    const hired = await client.call("agents.create", { name: "Кодер" });
+    const everyone = await client.call("hermes.endpoints.save", { agentId: "all", name: "gpu box", baseUrl: "https://gpu.example/v1", model: "qwen2.5:14b", useNow: true });
+    expect(everyone.payload.applied.sort()).toEqual(["default", hired.payload.agentId].sort());
+    client.close();
+  });
+
   it("refuses_to_delete_the_main_agent", async () => {
     const client = await openClient(runtime!.url, runtime!.token);
     const result = await client.call("agents.delete", { agentId: "main" });

@@ -2,6 +2,7 @@
 
 import { t } from "@/lib/i18n";
 import { HermesAgentModelSection } from "@/features/hermes/components/HermesAgentModelSection";
+import { HermesEndpointsSection } from "@/features/hermes/components/HermesEndpointsSection";
 import { HermesToolsetsSection } from "@/features/hermes/components/HermesToolsetsSection";
 import { HermesSkillsSection } from "@/features/hermes/components/HermesSkillsSection";
 import { HermesMcpSection } from "@/features/hermes/components/HermesMcpSection";
@@ -22,6 +23,7 @@ export function HermesAgentCapabilitiesPanel({ agentId }: { agentId: string }) {
           <div className="mt-4">
             <HermesAgentModelSection agentId={agentId} />
           </div>
+          <HermesEndpointsSection agentId={agentId} />
           <HermesToolsetsSection agentId={agentId} />
           <HermesSkillsSection agentId={agentId} />
           <HermesMcpSection agentId={agentId} />

@@ -66,6 +66,7 @@ const METHODS = [
   "hermes.mcp.list", "hermes.mcp.add", "hermes.mcp.remove", "hermes.mcp.enable", "hermes.mcp.test",
   "hermes.mcp.catalog", "hermes.mcp.install", "hermes.mcp.action",
   "system.health", "system.testAlert",
+  "hermes.endpoints.list", "hermes.endpoints.validate", "hermes.endpoints.save", "hermes.endpoints.activate", "hermes.endpoints.delete",
 ];
 const EVENTS = [
   "chat", "agent", "presence", "exec.approval.requested", "exec.approval.resolved",
