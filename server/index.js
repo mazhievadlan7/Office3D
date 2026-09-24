@@ -163,11 +163,13 @@ async function main() {
       ? https.createServer(httpsCert, (req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
         })
       : http.createServer((req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
         });
 

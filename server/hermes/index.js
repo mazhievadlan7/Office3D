@@ -177,7 +177,11 @@ const timingSafeEqualString = (a, b) => {
  * @param {(info: object) => void} [options.onRunFinished]
  * @param {number} [options.meetingGatherTimeoutMs]  how long a meeting waits for agents to reach the room
  * @param {number} [options.approvalReviewTimeoutMs] how long the main agent may take over a member's approval
- * @returns {Promise<null | { url: string, token: string, client: any, adapter: any, store: any, mcpUrl: string, close: () => Promise<void> }>}
+ * @returns {Promise<null | {
+ *   url: string, token: string, client: any, adapter: any, store: any, monitor: any, mcpUrl: string,
+ *   handleHttp: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => boolean,
+ *   close: () => Promise<void>,
+ * }>}
  *   null when Hermes is not configured (HERMES_API_URL unset).
  */
 const startHermesRuntime = async ({
@@ -217,6 +221,7 @@ const startHermesRuntime = async ({
     approvalReviewTimeoutMs,
     updater: resolveUpdaterConfig(env),
     autonomyTimeZone: String(env.OFFICE3D_TIMEZONE ?? "").trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    publicUrl: String(env.OFFICE3D_PUBLIC_URL ?? "").trim(),
     mcpEndpoint: (profile) =>
       mcpUrl ? { url: `${mcpUrl}/mcp/${encodeURIComponent(profile)}`, token: deriveMcpToken(config.keySecret, profile) } : null,
     log: (message) => log(`[hermes] ${message}`),
@@ -367,6 +372,8 @@ const startHermesRuntime = async ({
     store,
     monitor,
     mcpUrl,
+    /** Pages the office serves for Hermes (MCP sign-in redirects); false for other requests. */
+    handleHttp: (req, res) => adapter.handleMcpOAuthCallback(req, res),
     close: async () => {
       closed = true;
       monitor.stop();

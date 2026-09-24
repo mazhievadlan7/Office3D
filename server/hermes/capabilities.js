@@ -15,6 +15,7 @@
 // None of this is open to agents: only the person, through the office.
 
 const crypto = require("node:crypto");
+const { createKeyedLock } = require("./keyed-lock");
 
 const DEFAULT_PROFILE = "default";
 const MAIN_AGENT_ID = "main";
@@ -46,9 +47,19 @@ const parseEntries = (raw) => raw.split(ENTRY_DELIMITER).map((entry) => entry.tr
  * @param {() => boolean} deps.hasDashboard
  * @param {typeof import("./client").HermesApiError} deps.HermesApiError
  * @param {new (code: string, message: string) => Error} deps.AdapterError
+ * @param {(key: string, task: () => Promise<any>) => Promise<any>} [deps.withLock]  shared with MCP sign-in
  * @param {(message: string) => void} [deps.log]
  */
-const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboard, HermesApiError, AdapterError, log = () => {} }) => {
+const createCapabilityHandlers = ({
+  client,
+  profileFor,
+  listProfiles,
+  hasDashboard,
+  HermesApiError,
+  AdapterError,
+  withLock = createKeyedLock(),
+  log = () => {},
+}) => {
   const invalid = (message) => new AdapterError("INVALID_REQUEST", message);
   const requireDashboard = () => {
     if (!hasDashboard()) throw new AdapterError("UNAVAILABLE", "Эти настройки доступны при подключённой панели Hermes.");
@@ -58,18 +69,8 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
     return profileFor(str(p?.agentId) || MAIN_AGENT_ID);
   };
 
-  // One change at a time per profile and kind: each is read-modify-write.
-  const locks = new Map();
-  const withLock = (key, task) => {
-    const previous = locks.get(key) ?? Promise.resolve();
-    const next = previous.catch(() => {}).then(task);
-    const tail = next.catch(() => {});
-    locks.set(key, tail);
-    void tail.then(() => {
-      if (locks.get(key) === tail) locks.delete(key);
-    });
-    return next;
-  };
+  // One change at a time per profile and kind (`withLock`): each is
+  // read-modify-write.
 
   // --- toolsets -------------------------------------------------------------
 
@@ -175,10 +176,9 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
     const command = str(p.command);
     if (Boolean(url) === Boolean(command)) throw invalid("Укажите либо адрес (HTTP), либо команду запуска (stdio).");
     const auth = str(p.auth) || "none";
-    if (auth === "oauth") {
-      throw new AdapterError("UNSUPPORTED", "Серверы со входом через OAuth подключаются в панели Hermes: вход открывается в браузере на её стороне.");
-    }
-    if (!["none", "header"].includes(auth)) throw invalid("Неизвестный способ входа.");
+    // OAuth: the server is saved first; the person signs in afterwards
+    // (hermes.mcp.login), once per agent — each keeps its own tokens.
+    if (!["none", "header", "oauth"].includes(auth)) throw invalid("Неизвестный способ входа.");
     const body = { name };
     if (url) {
       let parsed;
@@ -196,7 +196,7 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
         body.bearer_token = token;
       }
     } else {
-      if (auth !== "none") throw invalid("Серверам с командой запуска токен передаётся через переменные окружения.");
+      if (auth !== "none") throw invalid("Серверам с командой запуска ключи передаются через переменные окружения.");
       if (command.length > 500) throw invalid("Слишком длинная команда.");
       body.command = command;
       const args = Array.isArray(p.args) ? p.args : [];
@@ -314,7 +314,7 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
         });
       }
       log(`MCP server ${body.name} added for ${added.join(", ") || "nobody"}.`);
-      return { ok: true, name: body.name, added, failed };
+      return { ok: true, name: body.name, added, failed, needsLogin: body.auth === "oauth" };
     },
 
     async "hermes.mcp.remove"(p) {
@@ -353,9 +353,14 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
         query: { profile },
         timeoutMs: 90_000,
       });
+      const error = str(result?.error);
+      // Hermes' wordings when an OAuth server has no token for this agent yet:
+      // the connection refused for want of one, or it answered without one.
+      const needsLogin = result?.ok !== true && /no cached tokens|no token found|oauth authentication required/i.test(error);
       return {
         ok: result?.ok === true,
-        error: str(result?.error) || null,
+        error: needsLogin ? "Агент ещё не вошёл в этот сервер: нажмите «Войти»." : error || null,
+        needsLogin,
         tools: (Array.isArray(result?.tools) ? result.tools : [])
           .filter(isRecord)
           .slice(0, 200)
@@ -399,8 +404,8 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
       const { entries } = await handlers["hermes.mcp.catalog"](p);
       const entry = entries.find((candidate) => candidate.name === name);
       if (!entry) throw new AdapterError("NOT_FOUND", "В каталоге Hermes нет такого сервера.");
-      if (entry.authType === "oauth") {
-        throw new AdapterError("UNSUPPORTED", "Серверы со входом через OAuth подключаются в панели Hermes: вход открывается в браузере на её стороне.");
+      if (entry.authType === "oauth" && !entry.url) {
+        throw new AdapterError("UNSUPPORTED", "Вход через OAuth есть только у серверов по адресу, а этот запускается программой.");
       }
       if ((entry.command || entry.needsInstall) && p.confirm !== true) {
         throw new AdapterError("CONFIRMATION_REQUIRED", "Этот сервер запускает программу на машине Hermes: посмотрите, что именно, и подтвердите.");
@@ -416,7 +421,13 @@ const createCapabilityHandlers = ({ client, profileFor, listProfiles, hasDashboa
         client.dashboard("/api/mcp/catalog/install", { method: "POST", query: { profile }, body: { name, env, enable: true, profile } })
       );
       log(`MCP catalog server ${name} installing for ${profile}.`);
-      return { ok: true, name, background: result?.background === true, action: str(result?.action) || null };
+      return {
+        ok: true,
+        name,
+        background: result?.background === true,
+        action: str(result?.action) || null,
+        needsLogin: entry.authType === "oauth",
+      };
     },
 
     /** Progress of a background catalog install. */

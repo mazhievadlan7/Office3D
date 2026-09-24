@@ -75,6 +75,9 @@ export const createFakeHermes = async () => {
   const endpoints = new Map<string, Array<{ id: string; name: string; base_url: string; model: string; api_key?: string; current: boolean }>>();
   const homeOf = (name: string) => (name === "default" ? "/fake/hermes" : `/fake/hermes/profiles/${name}`);
   const memoryConfig = { memory_enabled: true, user_profile_enabled: true, memory_char_limit: 120, user_char_limit: 60, provider: "" };
+  type OAuthFlow = { flow_id: string; profile: string; server_name: string; status: string; authorization_url: string | null; error: string | null; state: string; redirect_uri: string; tools: Array<{ name: string; description: string }> };
+  const oauthFlows = new Map<string, OAuthFlow>();
+  const oauthTokens = new Set<string>();
   const catalog = [
     { name: "linear", description: "Linear", transport: "http", auth_type: "none", required_env: [], command: null, args: [], url: "https://mcp.linear.app/mcp", install_url: null, bootstrap: [], needs_install: false },
     { name: "sqlite", description: "SQLite", transport: "stdio", auth_type: "none", required_env: [{ name: "SQLITE_PATH", prompt: "Путь к базе", required: true }], command: "uvx", args: ["mcp-server-sqlite"], url: null, install_url: null, bootstrap: [], needs_install: false },
@@ -270,6 +273,7 @@ export const createFakeHermes = async () => {
         return json(res, 200, {
           kanban: { ...kanbanConfig },
           memory: { ...memoryConfig },
+          mcp_servers: structuredClone(profiles.get(name)?.mcp ?? {}),
           ...(saved ? { platform_toolsets: { api_server: [...saved] } } : {}),
         });
       }
@@ -323,6 +327,7 @@ export const createFakeHermes = async () => {
         if (b.bearer_token) target.env[`MCP_${b.name.toUpperCase()}_TOKEN`] = b.bearer_token;
         target.mcp[b.name] = {
           ...(b.url ? { url: b.url } : { command: b.command, args: b.args ?? [], env: b.env ?? {} }),
+          ...(b.auth === "oauth" ? { auth: "oauth" } : {}),
           ...(b.bearer_token ? { headers: { Authorization: `Bearer \${MCP_${b.name.toUpperCase()}_TOKEN}` } } : {}),
         };
         return json(res, 200, { name: b.name });
@@ -337,7 +342,7 @@ export const createFakeHermes = async () => {
         const entry = catalog.find((candidate) => candidate.name === b.name);
         if (!target || !entry) return json(res, 404, { detail: "No catalog entry" });
         Object.assign(target.env, b.env);
-        target.mcp[b.name] = entry.url ? { url: entry.url } : { command: entry.command ?? "", args: entry.args };
+        target.mcp[b.name] = entry.url ? { url: entry.url, ...(entry.auth_type === "oauth" ? { auth: "oauth" } : {}) } : { command: entry.command ?? "", args: entry.args };
         return json(res, 200, { ok: true, name: b.name, background: false });
       }
       const mcpSubRoute = path.match(/^\/api\/mcp\/servers\/([^/]+)\/(enabled|test)$/);
@@ -351,6 +356,10 @@ export const createFakeHermes = async () => {
           return json(res, 200, { ok: true, name, enabled: entry.enabled });
         }
         if (String(entry.url ?? "").includes("unreachable")) return json(res, 200, { ok: false, error: "Connection refused", tools: [] });
+        if (entry.auth === "oauth" && !oauthTokens.has(`${url.searchParams.get("profile") ?? "default"}/${name}`)) {
+          // What Hermes v2026.9.21 answers for an agent that has not signed in.
+          return json(res, 200, { ok: false, error: `MCP OAuth for '${name}': non-interactive environment and no cached tokens found. Run \`hermes mcp login ${name}\` interactively first to complete initial authorization.`, tools: [] });
+        }
         return json(res, 200, { ok: true, tools: [{ name: "search", description: "Поиск" }] });
       }
       if (path === "/api/config" && req.method === "PUT") {
@@ -376,11 +385,71 @@ export const createFakeHermes = async () => {
             command: entry.command ?? null,
             args: entry.args ?? [],
             env: Object.fromEntries(Object.keys((entry.env as Record<string, string>) ?? {}).map((key) => [key, "***"])),
-            auth: entry.headers?.Authorization ? "header" : null,
+            auth: entry.auth ?? (entry.headers?.Authorization ? "header" : null),
             enabled: entry.enabled !== false,
             source: "config",
           })),
         });
+      }
+      const authRoute = path.match(/^\/api\/mcp\/servers\/([^/]+)\/auth$/);
+      if (authRoute && req.method === "POST") {
+        const profile = url.searchParams.get("profile") ?? "default";
+        const name = decodeURIComponent(authRoute[1]);
+        const entry = profiles.get(profile)?.mcp[name];
+        if (!entry) return json(res, 404, { detail: `Server '${name}' not found` });
+        if (!entry.url) return json(res, 400, { detail: "stdio servers authenticate via env keys, not OAuth" });
+        if (entry.headers && entry.auth !== "oauth") return json(res, 400, { detail: "This server uses header/API-key auth, not OAuth" });
+        const live = [...oauthFlows.values()].filter((flow) => flow.status === "authorization_required");
+        if (live.some((flow) => flow.server_name === name && flow.profile === profile)) {
+          return json(res, 409, { detail: `MCP OAuth for '${name}' is already in progress` });
+        }
+        const redirect = String((entry.oauth as { redirect_uri?: string } | undefined)?.redirect_uri ?? `http://127.0.0.1:9119/api/mcp/oauth/callback/${name}`);
+        const state = `st-${oauthFlows.size + 1}-${name}`;
+        const flow: OAuthFlow = {
+          flow_id: `flow-${String(oauthFlows.size + 1).padStart(20, "0")}`,
+          profile,
+          server_name: name,
+          status: String(entry.url).includes("noregister") ? "error" : "authorization_required",
+          authorization_url: `https://auth.example.com/authorize?state=${state}&redirect_uri=${encodeURIComponent(redirect)}`,
+          error: String(entry.url).includes("noregister") ? "The server responded, but no OAuth token was obtained — this provider may require a manually-registered OAuth client." : null,
+          state,
+          redirect_uri: redirect,
+          tools: [],
+        };
+        if (flow.status === "error") flow.authorization_url = null;
+        oauthFlows.set(flow.flow_id, flow);
+        const { flow_id, server_name, status, authorization_url, error } = flow;
+        return json(res, 200, { flow_id, server_name, status, authorization_url, error });
+      }
+      const flowRoute = path.match(/^\/api\/mcp\/oauth\/flows\/([^/]+)$/);
+      if (flowRoute) {
+        const flow = oauthFlows.get(decodeURIComponent(flowRoute[1]));
+        if (!flow) return json(res, 404, { detail: "OAuth flow not found or expired" });
+        if (req.method === "DELETE") {
+          if (flow.status === "authorization_required") Object.assign(flow, { status: "error", error: "Cancelled by user" });
+          return json(res, 200, { ok: true, status: flow.status });
+        }
+        const { flow_id, server_name, status, authorization_url, error, tools } = flow;
+        return json(res, 200, { flow_id, server_name, status, authorization_url, error, tools });
+      }
+      const callbackRoute = path.match(/^\/api\/mcp\/oauth\/callback\/(.+)$/);
+      if (callbackRoute) {
+        const name = decodeURIComponent(callbackRoute[1]);
+        const state = url.searchParams.get("state");
+        const flow = [...oauthFlows.values()].find((candidate) => candidate.server_name === name && candidate.status === "authorization_required" && candidate.state === state);
+        const html = (status: number, text: string) => {
+          res.writeHead(status, { "Content-Type": "text/html" });
+          res.end(text);
+        };
+        if (!flow) return html(404, "<h1>OAuth flow expired</h1>");
+        const error = url.searchParams.get("error");
+        if (error) {
+          Object.assign(flow, { status: "error", error: `OAuth authorization failed: ${error}` });
+          return html(400, "<h1>Authorization failed</h1>");
+        }
+        oauthTokens.add(`${flow.profile}/${name}`);
+        Object.assign(flow, { status: "approved", tools: [{ name: "search", description: "Поиск" }] });
+        return html(200, "<h1>Authorization received</h1>");
       }
       const mcpServerRoute = path.match(/^\/api\/mcp\/servers\/([^/]+)$/);
       if (mcpServerRoute && req.method === "DELETE") {
@@ -625,6 +694,8 @@ export const createFakeHermes = async () => {
     kanbanTasks,
     toolsets,
     configPuts,
+    oauthFlows,
+    oauthTokens,
     kanbanConfig,
     skills,
     installs,

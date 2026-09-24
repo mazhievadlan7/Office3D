@@ -28,6 +28,8 @@ const { createUpdates } = require("./updates");
 const { createSkillHandlers } = require("./skills");
 const { createUsageHandlers } = require("./usage");
 const { createCapabilityHandlers } = require("./capabilities");
+const { createMcpOAuth } = require("./mcp-oauth");
+const { createKeyedLock } = require("./keyed-lock");
 const { createOrganization } = require("./organization");
 
 const MAIN_AGENT_ID = "main";
@@ -67,6 +69,7 @@ const METHODS = [
   "hermes.toolsets.list", "hermes.toolsets.set", "hermes.memory.get", "hermes.memory.set",
   "hermes.mcp.list", "hermes.mcp.add", "hermes.mcp.remove", "hermes.mcp.enable", "hermes.mcp.test",
   "hermes.mcp.catalog", "hermes.mcp.install", "hermes.mcp.action",
+  "hermes.mcp.login", "hermes.mcp.loginStatus", "hermes.mcp.loginCancel",
   "system.health", "system.testAlert",
   "hermes.endpoints.list", "hermes.endpoints.validate", "hermes.endpoints.save", "hermes.endpoints.activate", "hermes.endpoints.delete",
 ];
@@ -259,6 +262,7 @@ const createHermesAdapter = ({
   onRunFinished,
   onTaskCreated,
   mcpEndpoint = () => null,
+  publicUrl = "",
   autonomyTimeZone = "UTC",
   meetingGatherTimeoutMs,
   approvalReviewTimeoutMs,
@@ -1396,6 +1400,19 @@ const createHermesAdapter = ({
     log,
   });
 
+  // MCP settings and MCP sign-in change the same config entries.
+  const mcpLock = createKeyedLock();
+  const mcpOAuth = createMcpOAuth({
+    client,
+    profileFor: (agentId) => assertAgentExists(agentId),
+    hasDashboard,
+    HermesApiError,
+    AdapterError,
+    withLock: mcpLock,
+    publicUrl,
+    log,
+  });
+
   Object.assign(
     handlers,
     organization.handlers,
@@ -1420,8 +1437,10 @@ const createHermesAdapter = ({
       hasDashboard,
       HermesApiError,
       AdapterError,
+      withLock: mcpLock,
       log,
     }),
+    mcpOAuth.handlers,
     kanban.handlers,
     team.handlers
   );
@@ -1548,6 +1567,7 @@ const createHermesAdapter = ({
     updates,
     listProfiles,
     guardBoard,
+    handleMcpOAuthCallback: mcpOAuth.handleCallback,
     _runs: runs,
     _approvals: approvals,
   };

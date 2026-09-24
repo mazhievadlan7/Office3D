@@ -381,6 +381,33 @@ const encSegment = (value) => {
     /** Any dashboard route; the named helpers above cover the common ones. */
     dashboard,
 
+    /**
+     * Hands the browser's OAuth redirect for an MCP server to Hermes, which
+     * matches it to the waiting sign-in by `state`. Hermes answers with an
+     * HTML page; only its status matters. Never retried: a code works once.
+     */
+    mcpOAuthCallback: async (name, params, { timeoutMs = 30_000 } = {}) => {
+      if (!config.dashboardUrl) {
+        throw new HermesApiError({ code: "dashboard_unavailable", message: "Панель Hermes не настроена (HERMES_DASHBOARD_URL)." });
+      }
+      const url = buildUrl(config.dashboardUrl, `/api/mcp/oauth/callback/${encSegment(name)}`, params);
+      try {
+        const response = await fetchImpl(url, {
+          headers: { Accept: "text/html", "X-Hermes-Session-Token": config.dashboardToken },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        await response.body?.cancel().catch(() => {});
+        return { status: response.status };
+      } catch (err) {
+        throw new HermesApiError({
+          code: "hermes_unreachable",
+          message: `Hermes недоступен: ${err?.cause?.code || err?.message || err}.`,
+          retryable: true,
+          cause: err,
+        });
+      }
+    },
+
     // --- kanban (dashboard plugin) ------------------------------------------------
     kanban: (path, opts) => dashboard(`/api/plugins/kanban${path}`, opts),
   };

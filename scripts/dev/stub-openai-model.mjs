@@ -9,6 +9,10 @@
  *   - contains "удали" / "delete": first answers with a `terminal` tool call
  *     running a destructive command (so Hermes asks for approval), then, once
  *     the tool result is in the conversation, a short text answer;
+ *   - contains "tool:<name>": calls the first tool whose name ends with
+ *     <name>, or — Hermes keeps MCP tools behind its tool search — calls
+ *     `tool_call` with <name> (e.g. tool:mcp__<server>__<tool>), then answers
+ *     with the result;
  *   - anything else: a text answer that echoes the message.
  * Streams when asked to (`stream: true`), as Hermes normally does.
  */
@@ -78,6 +82,28 @@ const decide = (body) => {
     };
   }
   if (wantsDelete) return { text: "Удалил каталог." };
+  const wanted = !text.startsWith("[Office3D") && text.match(/tool:([A-Za-z0-9_-]+)/)?.[1];
+  if (wanted) {
+    if (hasToolResult) {
+      const result = messages.slice(lastUser + 1).find((m) => m?.role === "tool");
+      return { text: `Инструмент ответил: …${textOf(result).slice(-200)}` };
+    }
+    const tool = (Array.isArray(body.tools) ? body.tools : []).find((entry) => String(entry?.function?.name ?? "").endsWith(wanted));
+    if (!tool && hasTool(body, "tool_call")) {
+      return {
+        toolCall: {
+          id: `call_${Date.now()}`,
+          type: "function",
+          function: { name: "tool_call", arguments: JSON.stringify({ name: wanted, arguments: {} }) },
+        },
+      };
+    }
+    if (!tool) {
+      const names = (Array.isArray(body.tools) ? body.tools : []).map((entry) => entry?.function?.name).filter(Boolean);
+      return { text: `Нет инструмента *${wanted}; есть: ${names.join(", ") || "ничего"}` };
+    }
+    return { toolCall: { id: `call_${Date.now()}`, type: "function", function: { name: tool.function.name, arguments: "{}" } } };
+  }
   return { text: `Заглушка слышит: ${text.slice(0, 200)}` };
 };
 

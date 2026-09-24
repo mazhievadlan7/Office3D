@@ -978,7 +978,7 @@ describe("hermes adapter", () => {
     expect(stdio.ok).toBe(true);
     expect(await client.call("hermes.mcp.add", { agentId: member, name: "bad", command: "x", env: { "bad key": "1" } })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
     expect(await client.call("hermes.mcp.add", { agentId: member, name: "ftp", url: "ftp://x" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
-    expect(await client.call("hermes.mcp.add", { agentId: member, name: "oa", url: "https://x", auth: "oauth" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+    expect(await client.call("hermes.mcp.add", { agentId: member, name: "oa", command: "x", auth: "oauth" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
     expect(await client.call("hermes.mcp.add", { agentId: member, name: "docs", url: "https://docs.example.com/mcp" })).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
 
     expect(await client.call("hermes.mcp.enable", { agentId: member, name: "docs", enabled: false })).toMatchObject({ ok: true });
@@ -1008,9 +1008,118 @@ describe("hermes adapter", () => {
     expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", confirm: true, env: { SQLITE_PATH: "/d.db", OTHER: "1" } })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
     expect(await client.call("hermes.mcp.install", { agentId: "main", name: "sqlite", confirm: true, env: { SQLITE_PATH: "/d.db" } })).toMatchObject({ ok: true });
     expect(fake.profiles.get("default")!.env.SQLITE_PATH).toBe("/d.db");
-    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "notion" })).toMatchObject({ ok: false, error: { code: "UNSUPPORTED" } });
+    // OAuth servers install, then need the agent to sign in.
+    expect(await client.call("hermes.mcp.install", { agentId: "main", name: "notion" })).toMatchObject({ ok: true, payload: { needsLogin: true } });
+    expect(fake.profiles.get("default")!.mcp.notion).toMatchObject({ auth: "oauth" });
     expect(await client.call("hermes.mcp.action", { action: "../x" })).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
     client.close();
+  });
+
+  it("signs_an_agent_in_to_an_oauth_mcp_server_through_the_office", async () => {
+    const http = await import("node:http");
+    const office = http.createServer((req, res) => {
+      if (runtime!.handleHttp(req, res)) return;
+      res.statusCode = 404;
+      res.end();
+    });
+    await new Promise<void>((resolve) => office.listen(0, "127.0.0.1", () => resolve()));
+    const officeUrl = `http://127.0.0.1:${(office.address() as { port: number }).port}`;
+    const client = await openClient(runtime!.url, runtime!.token);
+    try {
+      const hired = await client.call("agents.create", { name: "Аналитик" });
+      const member = hired.payload.agentId as string;
+      const added = await client.call("hermes.mcp.add", { agentId: member, name: "notes", url: "https://notes.example.com/mcp", auth: "oauth" });
+      expect(added.payload).toMatchObject({ needsLogin: true, added: [member] });
+      const listed = await client.call("hermes.mcp.list", { agentId: member });
+      expect(listed.payload.servers.find((row: { name: string }) => row.name === "notes")).toMatchObject({ auth: "oauth" });
+      expect((await client.call("hermes.mcp.test", { agentId: member, name: "notes" })).payload).toMatchObject({ ok: false, needsLogin: true });
+
+      // The office's address and the person's own OAuth client go into Hermes' config.
+      const started = await client.call("hermes.mcp.login", {
+        agentId: member,
+        name: "notes",
+        origin: officeUrl,
+        client: { clientId: "office-app", clientSecret: "s3cret", scope: "read write" },
+      });
+      expect(started.payload).toMatchObject({ status: "authorization_required", error: null });
+      const redirect = `${officeUrl}/oauth/mcp/notes`;
+      expect(fake.profiles.get(member)!.mcp.notes.oauth).toEqual({ redirect_uri: redirect, client_id: "office-app", client_secret: "s3cret", scope: "read write" });
+      const authorizationUrl = new URL(started.payload.authorizationUrl);
+      expect(authorizationUrl.searchParams.get("redirect_uri")).toBe(redirect);
+      const state = authorizationUrl.searchParams.get("state")!;
+      expect((await client.call("hermes.mcp.loginStatus", { flowId: started.payload.flowId })).payload).toMatchObject({ status: "authorization_required" });
+
+      // Wrong or missing parts of the provider's answer never reach Hermes as a sign-in.
+      expect((await fetch(`${redirect}?code=abc`)).status).toBe(400);
+      expect((await fetch(`${redirect}?code=abc&state=forged`)).status).toBe(404);
+      expect((await fetch(`${officeUrl}/oauth/mcp/..%2Fetc?code=a&state=b`)).status).toBe(404);
+      expect((await fetch(`${officeUrl}/oauth/mcp/office3d?code=a&state=b`)).status).toBe(404);
+      expect((await fetch(`${redirect}?code=abc&state=${state}`, { method: "POST" })).status).toBe(405);
+      expect((await fetch(`${redirect}?code=abc&state=${state}`, { method: "HEAD" })).status).toBe(405);
+
+      // The provider sends the browser back to the office, which hands it to Hermes.
+      const back = await fetch(`${redirect}?code=abc&state=${encodeURIComponent(state)}`);
+      expect(back.status).toBe(200);
+      expect(back.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(back.headers.get("cache-control")).toBe("no-store");
+      expect(back.headers.get("content-security-policy")).toContain("default-src 'none'");
+      expect(await back.text()).toContain("Вход выполнен");
+      const done = await client.call("hermes.mcp.loginStatus", { flowId: started.payload.flowId });
+      expect(done.payload).toMatchObject({ status: "approved", error: null, tools: [{ name: "search" }] });
+      expect((await client.call("hermes.mcp.test", { agentId: member, name: "notes" })).payload).toMatchObject({ ok: true });
+      // A code works once.
+      expect((await fetch(`${redirect}?code=abc&state=${encodeURIComponent(state)}`)).status).toBe(404);
+
+      // Signing in again replaces a sign-in still waiting; a refusal is told plainly.
+      const first = await client.call("hermes.mcp.login", { agentId: member, name: "notes", origin: officeUrl });
+      const second = await client.call("hermes.mcp.login", { agentId: member, name: "notes", origin: officeUrl });
+      expect(second.ok).toBe(true);
+      expect(fake.oauthFlows.get(first.payload.flowId)).toMatchObject({ status: "error", error: "Cancelled by user" });
+      const refusedState = new URL(second.payload.authorizationUrl).searchParams.get("state")!;
+      const refused = await fetch(`${redirect}?error=access_denied&state=${encodeURIComponent(refusedState)}`);
+      expect(refused.status).toBe(400);
+      expect(await refused.text()).toContain("access_denied");
+      expect((await client.call("hermes.mcp.loginStatus", { flowId: second.payload.flowId })).payload).toMatchObject({
+        status: "error",
+        error: "Доступ не разрешён на странице входа.",
+      });
+
+      const third = await client.call("hermes.mcp.login", { agentId: member, name: "notes", origin: officeUrl });
+      expect(await client.call("hermes.mcp.loginCancel", { flowId: third.payload.flowId })).toMatchObject({ ok: true });
+      expect(fake.oauthFlows.get(third.payload.flowId)).toMatchObject({ status: "error" });
+      expect(await client.call("hermes.mcp.loginStatus", { flowId: third.payload.flowId })).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+
+      // A provider that needs a pre-registered client says so in the office's words.
+      await client.call("hermes.mcp.add", { agentId: member, name: "strict", url: "https://noregister.example.com/mcp", auth: "oauth" });
+      const strict = await client.call("hermes.mcp.login", { agentId: member, name: "strict", origin: officeUrl });
+      expect(strict.payload).toMatchObject({ status: "error", authorizationUrl: null });
+      expect(strict.payload.error).toContain("Client ID");
+
+      // What cannot be signed in to, or is not the office's to sign in to.
+      await client.call("hermes.mcp.add", { agentId: member, name: "keyed", url: "https://k.example.com/mcp", auth: "header", bearerToken: "tok-1" });
+      await client.call("hermes.mcp.add", { agentId: member, name: "local", command: "uvx", args: ["x"] });
+      const refusals: Array<[Record<string, unknown>, string]> = [
+        [{ name: "keyed", origin: officeUrl }, "INVALID_REQUEST"],
+        [{ name: "local", origin: officeUrl }, "INVALID_REQUEST"],
+        [{ name: "missing", origin: officeUrl }, "NOT_FOUND"],
+        [{ name: "office3d", origin: officeUrl }, "FORBIDDEN"],
+        [{ name: "notes", origin: "javascript:alert(1)" }, "INVALID_REQUEST"],
+        [{ name: "notes", origin: `${officeUrl}/path` }, "INVALID_REQUEST"],
+        [{ name: "notes", origin: officeUrl, client: { clientId: "has space" } }, "INVALID_REQUEST"],
+        [{ name: "notes", origin: officeUrl, client: { clientSecret: "only-secret" } }, "INVALID_REQUEST"],
+      ];
+      for (const [params, code] of refusals) {
+        expect(await client.call("hermes.mcp.login", { agentId: member, ...params })).toMatchObject({ ok: false, error: { code } });
+      }
+      // A config entry is never created for a server that does not exist.
+      expect(fake.profiles.get(member)!.mcp.missing).toBeUndefined();
+      expect(await client.call("hermes.mcp.loginStatus", { flowId: "flow-not-from-this-office" })).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+      // Only the office's page path is served.
+      expect((await fetch(`${officeUrl}/oauth/other`)).status).toBe(404);
+    } finally {
+      client.close();
+      await new Promise((resolve) => office.close(resolve));
+    }
   });
 
   it("connects_an_agent_to_its_own_model_by_address", async () => {

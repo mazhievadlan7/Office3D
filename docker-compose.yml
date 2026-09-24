@@ -145,6 +145,9 @@ services:
       OFFICE3D_UPDATER_TOKEN: ${OFFICE3D_UPDATER_TOKEN:?set OFFICE3D_UPDATER_TOKEN in .env}
       # Autonomy's active hours and daily budget follow this zone.
       OFFICE3D_TIMEZONE: ${OFFICE3D_TIMEZONE:-}
+      # Where OAuth sign-in pages of MCP servers send the browser back
+      # (<this>/oauth/mcp/<server>). Empty: the address the office is opened on.
+      OFFICE3D_PUBLIC_URL: ${OFFICE3D_PUBLIC_URL:-}
       # Alerts when part of the deployment fails (see .env.example).
       ALERT_NTFY_URL: ${ALERT_NTFY_URL:-}
       ALERT_NTFY_TOKEN: ${ALERT_NTFY_TOKEN:-}

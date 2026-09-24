@@ -104,7 +104,8 @@ describe("Hermes capability sections", () => {
     fireEvent.click(screen.getByText("Добавить свой"));
     fireEvent.change(screen.getByLabelText("Имя сервера"), { target: { value: "docs" } });
     fireEvent.change(screen.getByLabelText("Адрес сервера"), { target: { value: "https://docs.example.com/mcp" } });
-    fireEvent.change(screen.getByLabelText("Токен доступа (если нужен)"), { target: { value: "tok" } });
+    fireEvent.click(screen.getByLabelText("По токену"));
+    fireEvent.change(screen.getByLabelText("Токен доступа"), { target: { value: "tok" } });
     fireEvent.click(screen.getByText("Добавить"));
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("hermes.mcp.add", { agentId: "main", name: "docs", url: "https://docs.example.com/mcp", auth: "header", bearerToken: "tok" }),
@@ -139,5 +140,98 @@ describe("Hermes capability sections", () => {
       expect(call).toHaveBeenCalledWith("hermes.mcp.install", { agentId: "main", name: "sqlite", env: { SQLITE_PATH: "/d.db" }, confirm: true }),
     );
     expect(await screen.findByText("Сервер установлен.")).toBeTruthy();
+  });
+
+  describe("oauth sign-in", () => {
+    type Tab = { closed: boolean; opener: unknown; location: { href: string }; document: { title: string; body: { textContent: string } }; close: () => void };
+    const fakeTab = (): Tab => ({ closed: false, opener: {}, location: { href: "" }, document: { title: "", body: { textContent: "" } }, close: vi.fn() });
+    afterEach(() => vi.restoreAllMocks());
+
+    const oauthServer = { name: "notes", transport: "http", url: "https://notes.example.com/mcp", command: null, args: [], auth: "oauth", enabled: true, source: "config", plugin: null, managed: false };
+
+    it("adds_an_oauth_server_and_opens_its_sign_in_page_in_a_tab_opened_by_the_click", async () => {
+      const tab = fakeTab();
+      const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+      const servers: Array<typeof oauthServer> = [];
+      let polls = 0;
+      const call = mount(createElement(HermesMcpSection, { agentId: "main" }), (method, params) => {
+        if (method === "hermes.mcp.list") return { servers };
+        if (method === "hermes.mcp.add") {
+          servers.push({ ...oauthServer, name: params.name as string });
+          return { added: ["default"], failed: [], needsLogin: true };
+        }
+        if (method === "hermes.mcp.login") return { flowId: "f1", status: "authorization_required", error: null, tools: [], authorizationUrl: "https://auth.example.com/authorize?state=s" };
+        if (method === "hermes.mcp.loginStatus") {
+          polls += 1;
+          return polls < 2
+            ? { flowId: "f1", status: "authorization_required", error: null, tools: [] }
+            : { flowId: "f1", status: "approved", error: null, tools: [{ name: "a" }, { name: "b" }] };
+        }
+        throw new Error(method);
+      });
+      await screen.findByText("Серверов нет.");
+      fireEvent.click(screen.getByText("Добавить свой"));
+      fireEvent.change(screen.getByLabelText("Имя сервера"), { target: { value: "notes" } });
+      fireEvent.change(screen.getByLabelText("Адрес сервера"), { target: { value: "https://notes.example.com/mcp" } });
+      fireEvent.click(screen.getByLabelText("Вход через OAuth"));
+      fireEvent.click(screen.getByText("Добавить"));
+      // The tab is opened by the click itself and cannot reach back into the office.
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(tab.opener).toBeNull();
+      await waitFor(() => expect(call).toHaveBeenCalledWith("hermes.mcp.add", { agentId: "main", name: "notes", url: "https://notes.example.com/mcp", auth: "oauth" }));
+      await waitFor(() =>
+        expect(call).toHaveBeenCalledWith("hermes.mcp.login", { agentId: "main", name: "notes", origin: window.location.origin, client: undefined }),
+      );
+      await waitFor(() => expect(tab.location.href).toBe("https://auth.example.com/authorize?state=s"));
+      expect(await screen.findByText("Войдите на открывшейся странице и разрешите доступ.", { exact: false })).toBeTruthy();
+      expect(await screen.findByText("Вход выполнен, инструментов: 2", {}, { timeout: 6000 })).toBeTruthy();
+    }, 10_000);
+
+    it("offers_a_link_when_the_browser_blocks_the_tab_and_cancels_on_request", async () => {
+      vi.spyOn(window, "open").mockReturnValue(null);
+      const call = mount(createElement(HermesMcpSection, { agentId: "main" }), (method) => {
+        if (method === "hermes.mcp.list") return { servers: [oauthServer] };
+        if (method === "hermes.mcp.login") return { flowId: "f2", status: "authorization_required", error: null, tools: [], authorizationUrl: "https://auth.example.com/authorize?state=t" };
+        if (method === "hermes.mcp.loginStatus") return { flowId: "f2", status: "authorization_required", error: null, tools: [] };
+        if (method === "hermes.mcp.loginCancel") return { ok: true };
+        throw new Error(method);
+      });
+      expect(await screen.findByText(/вход через OAuth/)).toBeTruthy();
+      fireEvent.click(screen.getByText("Войти"));
+      const link = (await screen.findByText("Открыть страницу входа")) as HTMLAnchorElement;
+      expect(link.href).toBe("https://auth.example.com/authorize?state=t");
+      expect(link.rel).toContain("noopener");
+      expect(screen.getByText(/Браузер не дал открыть вкладку/)).toBeTruthy();
+      fireEvent.click(screen.getByText("Отменить вход"));
+      await waitFor(() => expect(call).toHaveBeenCalledWith("hermes.mcp.loginCancel", { flowId: "f2" }));
+      expect(await screen.findByText("Войти")).toBeTruthy();
+    });
+
+    it("signs_in_with_the_persons_own_oauth_client_and_shows_a_refusal", async () => {
+      const tab = fakeTab();
+      vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+      const call = mount(createElement(HermesMcpSection, { agentId: "main" }), (method) => {
+        if (method === "hermes.mcp.list") return { servers: [oauthServer] };
+        if (method === "hermes.mcp.login") return { flowId: "f3", status: "error", error: "Сервис не выдаёт доступ новым приложениям сам", tools: [], authorizationUrl: null };
+        throw new Error(method);
+      });
+      fireEvent.click(await screen.findByText("Свой OAuth-клиент"));
+      expect(screen.getByText(/oauth\/mcp\/notes/)).toBeTruthy();
+      const loginButton = screen.getByText("Войти") as HTMLButtonElement;
+      expect(loginButton.disabled).toBe(true);
+      fireEvent.change(screen.getByLabelText("ID клиента (Client ID)"), { target: { value: "my-app" } });
+      fireEvent.change(screen.getByLabelText("Секрет клиента — если выдан"), { target: { value: "sec" } });
+      fireEvent.click(loginButton);
+      await waitFor(() =>
+        expect(call).toHaveBeenCalledWith("hermes.mcp.login", {
+          agentId: "main",
+          name: "notes",
+          origin: window.location.origin,
+          client: { clientId: "my-app", clientSecret: "sec", scope: "" },
+        }),
+      );
+      expect(await screen.findByText("Сервис не выдаёт доступ новым приложениям сам")).toBeTruthy();
+      expect(tab.close).toHaveBeenCalled();
+    });
   });
 });
