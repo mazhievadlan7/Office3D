@@ -54,6 +54,8 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 60s
+      # Checked every few seconds while starting, so an update is judged fast.
+      start_interval: 5s
       retries: 3
     deploy:
       resources:
@@ -88,6 +90,7 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 10s
+      start_interval: 3s
       retries: 3
     deploy:
       resources:
@@ -122,6 +125,7 @@ services:
       # Only caddy and the host itself reach this port, and caddy overwrites
       # X-Forwarded-For with the client's address: login throttling uses it.
       TRUSTED_PROXY: "1"
+      TRUSTED_PROXY_HOSTS: caddy
       # Hermes, reached over the internal network.
       HERMES_API_URL: http://hermes:8642
       HERMES_API_KEY: ${HERMES_API_KEY:?set HERMES_API_KEY in .env}
@@ -177,6 +181,8 @@ services:
       - office3d-state:/data
     networks:
       - backend
+      - edge
+      - control
     # The image declares its own HEALTHCHECK; this only shortens the grace
     # period used while the container is starting.
     healthcheck:
@@ -213,6 +219,9 @@ services:
       BACKUP_TIME: ${BACKUP_TIME-03:30}
       BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-${OFFICE3D_TIMEZONE:-}}
       BACKUP_KEEP: ${BACKUP_KEEP:-7}
+      # Hermes is judged by its Docker health checks: this service is not on
+      # the agents' network.
+      HEALTH_CONTAINERS: hermes,hermes-gate
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # The compose project itself: the tag it switches lives in .env.
@@ -222,7 +231,7 @@ services:
       # Read for backups, written only by a restore.
       - office3d-state:/office-state
     networks:
-      - backend
+      - control
     deploy:
       resources:
         limits:
@@ -258,7 +267,7 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks:
-      - backend
+      - edge
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
       interval: 30s
@@ -276,10 +285,17 @@ services:
         max-file: "3"
 
 networks:
+  # Three networks keep each part to what it needs:
+  #   backend: office3d and Hermes (agents' tools run here);
+  #   edge:    caddy and office3d;
+  #   control: office3d and the updater, which holds the Docker socket and is
+  #            thus kept away from the agents' network.
   # A plain bridge network: Hermes needs internet access for model providers
   # and tools, so it cannot be `internal: true`. Nothing on it is published
   # except Office3D's port above.
   backend:
+  edge:
+  control:
 
 volumes:
   # All Hermes state: profiles (agents), memory, sessions, skills, kanban.

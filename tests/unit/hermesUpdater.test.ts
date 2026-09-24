@@ -147,4 +147,35 @@ describe("hermes updater", () => {
     const u = make();
     expect((await u.status()).job).toMatchObject({ id: "upd_x", status: "failed" });
   });
+
+  it("switches_the_tag_back_when_starting_the_new_version_fails", async () => {
+    failOn = /up -d hermes hermes-gate/;
+    const u = make();
+    await u.start("v2026.9.21");
+    const job = await finish(u);
+    expect(job.status).toBe("failed");
+    expect(readEnvValue(fs.readFileSync(path.join(dir, ".env"), "utf8"), "HERMES_IMAGE_TAG")).toBe("v2026.9.14");
+  });
+
+  it("keeps_the_env_files_mode_when_switching_the_tag", async () => {
+    fs.chmodSync(path.join(dir, ".env"), 0o640);
+    const u = make();
+    await u.start("v2026.9.21");
+    await finish(u);
+    expect(fs.statSync(path.join(dir, ".env")).mode & 0o777).toBe(0o640);
+    expect(readEnvValue(fs.readFileSync(path.join(dir, ".env"), "utf8"), "HERMES_IMAGE_TAG")).toBe("v2026.9.21");
+  });
+
+  it("leaves_the_data_alone_when_unpacking_the_rollback_fails", async () => {
+    fs.writeFileSync(path.join(dir, "data", "state.db"), "data of the new version");
+    healthyAfter = null; // never healthy on the new tag
+    failOn = /^tar -xzf/;
+    const u = make({ probe: async () => tag !== "v2026.9.21" && false });
+    await u.start("v2026.9.21");
+    const job = await finish(u);
+    expect(job.status).toBe("failed");
+    // Not emptied: the unpack happens aside and never replaced what was there.
+    expect(fs.readFileSync(path.join(dir, "data", "state.db"), "utf8")).toBe("data of the new version");
+    expect(fs.readdirSync(path.join(dir, "data")).filter((name) => name.startsWith(".office3d-"))).toEqual([]);
+  });
 });

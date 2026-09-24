@@ -81,11 +81,20 @@ const isPublicHost = (host) => {
   return true;
 };
 
+// Anyone who can reach the port can guess at it.
+const MIN_PUBLIC_TOKEN_LENGTH = 32;
+
 const assertPublicHostAllowed = ({ host, studioAccessToken }) => {
   if (!isPublicHost(host)) return;
 
   const token = String(studioAccessToken ?? "").trim();
-  if (token) return;
+  if (token.length >= MIN_PUBLIC_TOKEN_LENGTH) return;
+  if (token) {
+    throw new Error(
+      `STUDIO_ACCESS_TOKEN is too short for a public host (${token.length} characters; at least ${MIN_PUBLIC_TOKEN_LENGTH}). ` +
+        "Generate one with: openssl rand -hex 32"
+    );
+  }
 
   const normalized = normalizeHost(host) || String(host ?? "").trim() || "(unknown)";
   throw new Error(

@@ -18,7 +18,13 @@ const MAIN_AGENT_ID = "main";
 // the main agent (its profile name, from a chat or its own worker). A task
 // from anyone else is a proposal. An empty creator comes from older Hermes
 // versions and cannot be attributed, so it is left alone.
-const DIRECT_CREATORS = new Set(["", "dashboard", "user", DEFAULT_PROFILE]);
+// Tasks the main agent created stand as they are. A worker can put any
+// created_by on a task it creates through Hermes' CLI, so "dashboard"/"user"
+// prove nothing: tasks the office itself created are known by id instead
+// (`officeCreated`). A member passing itself off as the main agent remains
+// possible; the main agent's own name is the one label kept.
+const DIRECT_CREATORS = new Set([DEFAULT_PROFILE]);
+const UNATTRIBUTED = new Set(["", "dashboard", "user"]);
 
 const str = (value) => (typeof value === "string" ? value.trim() : "");
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -97,7 +103,18 @@ const taskToRecord = (task) => {
  * @param {new (code: string, message: string) => Error} deps.AdapterError
  * @param {(event: string, payload: object) => void} [deps.onTaskCreated]  after a person creates a task
  */
-const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreated }) => {
+const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreated, rememberOfficeTask = async () => {} }) => {
+  /** A task id as one URL segment (".." would reach another route). */
+  const taskSegment = (id) => {
+    const text = String(id ?? "");
+    if (!/^[A-Za-z0-9_:.-]{1,100}$/.test(text) || text === "." || text === "..") {
+      throw new AdapterError("INVALID_REQUEST", "Неизвестная задача.");
+    }
+    return encodeURIComponent(text);
+  };
+
+  // The board is checked for proposals before anything is dispatched.
+  let beforeDispatch = async () => {};
   const requireDashboard = () => {
     if (!hasDashboard()) throw new AdapterError("NOT_IMPLEMENTED", "Доска задач доступна при подключённой панели Hermes (not implemented).");
   };
@@ -117,11 +134,14 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
   // default); nudging it right after a person hands out work starts the agent
   // at once. Best effort: the tick still runs if the nudge fails.
   const nudgeDispatcher = () => {
-    client.kanban("/dispatch", { method: "POST", query: { max: 8 } }).catch(() => {});
+    void beforeDispatch()
+      .catch(() => {})
+      .then(() => client.kanban("/dispatch", { method: "POST", query: { max: 8 } }))
+      .catch(() => {});
   };
 
   const getTask = async (id) => {
-    const result = await client.kanban(`/tasks/${encodeURIComponent(id)}`);
+    const result = await client.kanban(`/tasks/${taskSegment(id)}`);
     if (!isRecord(result?.task)) throw new AdapterError("NOT_FOUND", "Задача не найдена.");
     return result.task;
   };
@@ -139,7 +159,7 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
     const released = [];
     for (const task of tasks) {
       if (task.assignee !== profile || ["done", "archived"].includes(str(task.status))) continue;
-      const path = `/tasks/${encodeURIComponent(task.id)}`;
+      const path = `/tasks/${taskSegment(task.id)}`;
       try {
         if (task.status !== "triage") await client.kanban(path, { method: "PATCH", body: { status: "triage" } });
         await client.kanban(path, { method: "PATCH", body: { assignee: "" } });
@@ -178,13 +198,15 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
         await markReviewed(id);
         continue;
       }
-      const path = `/tasks/${encodeURIComponent(id)}`;
+      const path = `/tasks/${taskSegment(id)}`;
       try {
         if (status !== "triage") await client.kanban(path, { method: "PATCH", body: { status: "triage" } });
         const suggested = str(task.assignee);
         if (suggested) await client.kanban(path, { method: "PATCH", body: { assignee: "" } });
         const note = [
-          `Эту задачу предложил сотрудник «${nameOf(agentIdOfProfile(creator))}».`,
+          UNATTRIBUTED.has(creator)
+            ? "Эту задачу поставили не из офиса и не главный агент."
+            : `Эту задачу предложил сотрудник «${nameOf(agentIdOfProfile(creator))}».`,
           suggested ? `Предлагаемый исполнитель — «${nameOf(agentIdOfProfile(suggested))}».` : "",
           "Задачи ставят главный агент и руководитель: назначьте исполнителя, чтобы она пошла в работу.",
         ]
@@ -200,6 +222,10 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
       await markReviewed(id);
     }
     return held;
+  };
+
+  const setBeforeDispatch = (fn) => {
+    beforeDispatch = fn;
   };
 
   const handlers = {
@@ -223,6 +249,8 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
       const task = isRecord(created?.task) ? created.task : null;
       if (!task) throw new AdapterError("UNAVAILABLE", "Hermes не вернул созданную задачу.");
       const record = taskToRecord(task);
+      // Created by the office: never mistaken for a worker's proposal.
+      await rememberOfficeTask(str(task.id)).catch(() => {});
       if (task.status === "ready") nudgeDispatcher();
       try {
         onTaskCreated?.(record);
@@ -254,7 +282,7 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
         patch.status = "ready";
       }
       if (Object.keys(patch).length === 0) return taskToRecord(current);
-      const updated = await client.kanban(`/tasks/${encodeURIComponent(id)}`, { method: "PATCH", body: patch });
+      const updated = await client.kanban(`/tasks/${taskSegment(id)}`, { method: "PATCH", body: patch });
       const task = isRecord(updated?.task) ? updated.task : current;
       if (task.status === "ready") nudgeDispatcher();
       return taskToRecord(task);
@@ -264,7 +292,7 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
       requireDashboard();
       const id = str(p.id);
       if (!id) throw new AdapterError("INVALID_REQUEST", "Нет идентификатора задачи.");
-      await client.kanban(`/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await client.kanban(`/tasks/${taskSegment(id)}`, { method: "DELETE" });
       return { ok: true, removed: true };
     },
 
@@ -274,12 +302,12 @@ const createKanbanHandlers = ({ client, hasDashboard, AdapterError, onTaskCreate
       const id = str(p.id);
       const text = str(p.text);
       if (!id || !text) throw new AdapterError("INVALID_REQUEST", "Нужны задача и текст.");
-      await client.kanban(`/tasks/${encodeURIComponent(id)}/comments`, { method: "POST", body: { body: text, author: "руководитель" } });
+      await client.kanban(`/tasks/${taskSegment(id)}/comments`, { method: "POST", body: { body: text, author: "руководитель" } });
       return { ok: true };
     },
   };
 
-  return { handlers, readBoard, releaseAssignee, holdProposedTasks };
+  return { handlers, readBoard, releaseAssignee, holdProposedTasks, setBeforeDispatch };
 };
 
 module.exports = { createKanbanHandlers, taskToRecord, hermesStatusFor };

@@ -20,7 +20,9 @@ const DEFAULT_MCP_PORT = 3010;
 // slow sweep that picks up profiles created outside the office.
 const RECONCILE_RETRY_MS = [5_000, 15_000, 30_000, 60_000];
 const RECONCILE_SWEEP_MS = 10 * 60_000;
-const BOARD_GUARD_MS = 15_000;
+// Often: until held, a task a member created could be picked up by Hermes'
+// own dispatcher tick.
+const BOARD_GUARD_MS = 5_000;
 const AUTONOMY_TICK_MS = 60_000;
 const AUTONOMY_FIRST_TICK_MS = 10_000;
 const UPDATE_FIRST_CHECK_MS = 60_000;

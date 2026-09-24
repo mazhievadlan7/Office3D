@@ -157,11 +157,26 @@ const createUpdater = ({
     return parseTag(config.defaultTag) ? config.defaultTag : "";
   };
 
+  /**
+   * Switches HERMES_IMAGE_TAG in .env. The file keeps its owner and mode (the
+   * person runs `docker compose` as themselves, not as this container's root),
+   * and a symlinked .env is written through, not replaced by a plain file.
+   */
   const writeTag = (tag) => {
-    const env = fs.existsSync(envFile) ? fs.readFileSync(envFile, "utf8") : "";
-    const tmp = `${envFile}.office3d-updater.tmp`;
+    const target = fs.existsSync(envFile) ? fs.realpathSync(envFile) : envFile;
+    const env = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
+    const before = fs.existsSync(target) ? fs.statSync(target) : null;
+    const tmp = `${target}.office3d-updater.tmp`;
     fs.writeFileSync(tmp, setEnvValue(env, "HERMES_IMAGE_TAG", tag), { mode: 0o600 });
-    fs.renameSync(tmp, envFile);
+    if (before) {
+      fs.chmodSync(tmp, before.mode & 0o777);
+      try {
+        fs.chownSync(tmp, before.uid, before.gid);
+      } catch {
+        // Not permitted outside a root container; the mode still matches.
+      }
+    }
+    fs.renameSync(tmp, target);
   };
 
   const step = (name) => {
@@ -196,10 +211,30 @@ const createUpdater = ({
     }
   };
 
+  /**
+   * Puts the archived data back. It is unpacked next to the current data
+   * first (same volume), and only a complete unpack replaces it: a failed
+   * unpack leaves the current data untouched.
+   */
   const restoreData = async (archive) => {
-    // Empty the volume (dotfiles included) and unpack the backup into it.
-    await run("очистка данных", "sh", ["-c", `find "${config.dataDir}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +`], 10 * 60_000);
-    await run("восстановление данных", "tar", ["-xzf", archive, "-C", config.dataDir], 30 * 60_000);
+    const stamp = now().toString(36);
+    const unpacked = path.join(config.dataDir, `.office3d-restore-${stamp}`);
+    const discarded = path.join(config.dataDir, `.office3d-discard-${stamp}`);
+    fs.mkdirSync(unpacked, { mode: 0o700 });
+    try {
+      await run("восстановление данных", "tar", ["-xzf", archive, "-C", unpacked], 30 * 60_000);
+    } catch (err) {
+      fs.rmSync(unpacked, { recursive: true, force: true });
+      throw err;
+    }
+    const own = new Set([path.basename(unpacked), path.basename(discarded)]);
+    fs.mkdirSync(discarded, { mode: 0o700 });
+    for (const name of fs.readdirSync(config.dataDir)) {
+      if (!own.has(name)) fs.renameSync(path.join(config.dataDir, name), path.join(discarded, name));
+    }
+    for (const name of fs.readdirSync(unpacked)) fs.renameSync(path.join(unpacked, name), path.join(config.dataDir, name));
+    fs.rmSync(unpacked, { recursive: true, force: true });
+    fs.rmSync(discarded, { recursive: true, force: true });
   };
 
   const perform = async (from, to) => {
@@ -286,8 +321,13 @@ const createUpdater = ({
       } catch (err) {
         job.error = err?.message ?? String(err);
         status = "failed";
-        // A failure before the switch leaves the old version in place, but it
-        // may be stopped: bring it back.
+        // Whatever failed, the old version comes back: the tag is switched
+        // back if the switch had happened, and the services are started.
+        try {
+          if (readEnvValue(fs.readFileSync(envFile, "utf8"), "HERMES_IMAGE_TAG") !== from) writeTag(from);
+        } catch (restoreErr) {
+          log(`Could not switch the tag back to ${from}: ${restoreErr?.message ?? restoreErr}`);
+        }
         await exec("docker", compose("up", "-d", ...services), { timeoutMs: 10 * 60_000 }).catch(() => {});
       }
       job.status = status;

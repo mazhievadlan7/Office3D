@@ -276,6 +276,17 @@ const createHermesClient = (config, options = {}) => {
   };
 
   const enc = encodeURIComponent;
+/**
+ * One path segment: "." and ".." would be collapsed by URL resolution into
+ * a different route, so they (and separators) are refused outright.
+ */
+const encSegment = (value) => {
+  const text = String(value ?? "");
+  if (!text || text === "." || text === ".." || /[\\/]/.test(text) || text.length > 200) {
+    throw new HermesApiError({ status: 400, code: "invalid_id", message: `Недопустимый идентификатор: ${JSON.stringify(text).slice(0, 60)}.` });
+  }
+  return encodeURIComponent(text);
+};
 
   return {
     config,
@@ -294,12 +305,12 @@ const createHermesClient = (config, options = {}) => {
     // --- sessions ------------------------------------------------------------
     listSessions: (profile, query, opts) => api(profile, "/api/sessions", { query, ...opts }),
     createSession: (profile, body, opts) => api(profile, "/api/sessions", { method: "POST", body, ...opts }),
-    getSession: (profile, id, opts) => api(profile, `/api/sessions/${enc(id)}`, opts),
+    getSession: (profile, id, opts) => api(profile, `/api/sessions/${encSegment(id)}`, opts),
     patchSession: (profile, id, body, opts) =>
-      api(profile, `/api/sessions/${enc(id)}`, { method: "PATCH", body, ...opts }),
-    deleteSession: (profile, id, opts) => api(profile, `/api/sessions/${enc(id)}`, { method: "DELETE", ...opts }),
+      api(profile, `/api/sessions/${encSegment(id)}`, { method: "PATCH", body, ...opts }),
+    deleteSession: (profile, id, opts) => api(profile, `/api/sessions/${encSegment(id)}`, { method: "DELETE", ...opts }),
     sessionMessages: (profile, id, query, opts) =>
-      api(profile, `/api/sessions/${enc(id)}/messages`, { query, ...opts }),
+      api(profile, `/api/sessions/${encSegment(id)}/messages`, { query, ...opts }),
 
     // --- runs ------------------------------------------------------------------
     startRun: (profile, body, { idempotencyKey, ...opts } = {}) =>
@@ -336,13 +347,13 @@ const createHermesClient = (config, options = {}) => {
     // --- scheduled jobs ------------------------------------------------------------
     listJobs: (profile, query, opts) => api(profile, "/api/jobs", { query, ...opts }),
     createJob: (profile, body, opts) => api(profile, "/api/jobs", { method: "POST", body, ...opts }),
-    getJob: (profile, id, opts) => api(profile, `/api/jobs/${enc(id)}`, opts),
-    updateJob: (profile, id, body, opts) => api(profile, `/api/jobs/${enc(id)}`, { method: "PATCH", body, ...opts }),
-    deleteJob: (profile, id, opts) => api(profile, `/api/jobs/${enc(id)}`, { method: "DELETE", ...opts }),
-    pauseJob: (profile, id, opts) => api(profile, `/api/jobs/${enc(id)}/pause`, { method: "POST", body: {}, ...opts }),
+    getJob: (profile, id, opts) => api(profile, `/api/jobs/${encSegment(id)}`, opts),
+    updateJob: (profile, id, body, opts) => api(profile, `/api/jobs/${encSegment(id)}`, { method: "PATCH", body, ...opts }),
+    deleteJob: (profile, id, opts) => api(profile, `/api/jobs/${encSegment(id)}`, { method: "DELETE", ...opts }),
+    pauseJob: (profile, id, opts) => api(profile, `/api/jobs/${encSegment(id)}/pause`, { method: "POST", body: {}, ...opts }),
     resumeJob: (profile, id, opts) =>
-      api(profile, `/api/jobs/${enc(id)}/resume`, { method: "POST", body: {}, ...opts }),
-    runJob: (profile, id, opts) => api(profile, `/api/jobs/${enc(id)}/run`, { method: "POST", body: {}, ...opts }),
+      api(profile, `/api/jobs/${encSegment(id)}/resume`, { method: "POST", body: {}, ...opts }),
+    runJob: (profile, id, opts) => api(profile, `/api/jobs/${encSegment(id)}/run`, { method: "POST", body: {}, ...opts }),
 
     // --- profiles (dashboard) ------------------------------------------------------
     listProfiles: (opts) => dashboard("/api/profiles", opts),
@@ -355,13 +366,13 @@ const createHermesClient = (config, options = {}) => {
       assertProfileName(name);
       return dashboard(`/api/profiles/${enc(name)}`, { method: "DELETE", timeoutMs: 60_000, ...opts });
     },
-    getSoul: (name, opts) => dashboard(`/api/profiles/${enc(name)}/soul`, opts),
+    getSoul: (name, opts) => (assertProfileName(name), dashboard(`/api/profiles/${enc(name)}/soul`, opts)),
     setSoul: (name, content, opts) =>
-      dashboard(`/api/profiles/${enc(name)}/soul`, { method: "PUT", body: { content }, ...opts }),
+      (assertProfileName(name), dashboard(`/api/profiles/${enc(name)}/soul`, { method: "PUT", body: { content }, ...opts })),
     setDescription: (name, description, opts) =>
-      dashboard(`/api/profiles/${enc(name)}/description`, { method: "PUT", body: { description }, ...opts }),
+      (assertProfileName(name), dashboard(`/api/profiles/${enc(name)}/description`, { method: "PUT", body: { description }, ...opts })),
     setModel: (name, provider, model, opts) =>
-      dashboard(`/api/profiles/${enc(name)}/model`, { method: "PUT", body: { provider, model }, ...opts }),
+      (assertProfileName(name), dashboard(`/api/profiles/${enc(name)}/model`, { method: "PUT", body: { provider, model }, ...opts })),
     setProfileEnv: (name, key, value, opts) =>
       dashboard("/api/env", { method: "PUT", query: { profile: name }, body: { key, value, profile: name }, ...opts }),
     dashboardStatus: (query, opts) => dashboard("/api/status", { query, ...opts }),

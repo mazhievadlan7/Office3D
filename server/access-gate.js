@@ -45,8 +45,14 @@ const safeCompare = (a, b) => {
 };
 
 /** Simple in-memory rate limiter for auth attempts. */
-const createRateLimiter = (maxAttempts = 10, windowMs = 60_000) => {
+const createRateLimiter = (maxAttempts = 10, windowMs = 60_000, globalMax = 100) => {
   const attempts = new Map();
+  // Across all addresses too: rotating addresses must not buy more guesses.
+  let global = { count: 0, start: Date.now() };
+  const globalLimited = () => {
+    if (Date.now() - global.start > windowMs) global = { count: 0, start: Date.now() };
+    return global.count >= globalMax;
+  };
   const cleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of attempts) {
@@ -57,6 +63,7 @@ const createRateLimiter = (maxAttempts = 10, windowMs = 60_000) => {
 
   return {
     isLimited(ip) {
+      if (globalLimited()) return true;
       const entry = attempts.get(ip);
       if (!entry) return false;
       if (Date.now() - entry.start > windowMs) {
@@ -66,6 +73,8 @@ const createRateLimiter = (maxAttempts = 10, windowMs = 60_000) => {
       return entry.count >= maxAttempts;
     },
     recordFailure(ip) {
+      globalLimited();
+      global.count++;
       const now = Date.now();
       const entry = attempts.get(ip);
       if (!entry || now - entry.start > windowMs) {
@@ -87,21 +96,23 @@ const createRateLimiter = (maxAttempts = 10, windowMs = 60_000) => {
  * you control (nginx, Caddy, Vercel edge). Without it, X-Forwarded-For is
  * ignored to prevent spoofing by direct clients.
  */
-const resolveClientIp = (req) => {
-  if (process.env.TRUSTED_PROXY === "1") {
+const resolveClientIp = (req, isTrustedProxy = null) => {
+  const peer = req.socket?.remoteAddress || "unknown";
+  if (process.env.TRUSTED_PROXY === "1" && (!isTrustedProxy || isTrustedProxy(peer))) {
     const forwarded = req.headers?.["x-forwarded-for"];
     if (typeof forwarded === "string") {
       const first = forwarded.split(",")[0]?.trim();
       if (first) return first;
     }
   }
-  return req.socket?.remoteAddress || "unknown";
+  return peer;
 };
 
 /** Whether the browser reached us over HTTPS (directly or through the proxy). */
-const isHttps = (req) => {
+const isHttps = (req, isTrustedProxy = null) => {
   if (req.socket?.encrypted) return true;
-  return process.env.TRUSTED_PROXY === "1" && String(req.headers?.["x-forwarded-proto"] ?? "").split(",")[0].trim() === "https";
+  const fromProxy = !isTrustedProxy || isTrustedProxy(req.socket?.remoteAddress || "");
+  return process.env.TRUSTED_PROXY === "1" && fromProxy && String(req.headers?.["x-forwarded-proto"] ?? "").split(",")[0].trim() === "https";
 };
 
 // Answered without the access token: container and uptime health checks
@@ -116,11 +127,27 @@ const isPublicRequest = (req) => {
   return PUBLIC_PATHS.has(pathOf(req));
 };
 
-/** Where to go after signing in: a path on this site, nothing else. */
+const LOCAL_ORIGIN = "http://office3d.local";
+
+/**
+ * Where to go after signing in: a path on this site, nothing else. Parsed as
+ * a URL on this site, so tricks browsers normalize away (a tab, a backslash,
+ * "//host") cannot point elsewhere, and re-serialized, so the Location header
+ * only ever carries safe ASCII.
+ */
 const safeNext = (value) => {
-  const next = typeof value === "string" ? value : "";
-  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\") || next.startsWith("/login")) return "/";
-  return next.slice(0, 2000);
+  const raw = typeof value === "string" ? value : "";
+  if (!raw.startsWith("/") || raw.length > 2000 || /[\u0000-\u001f\u007f\\]/.test(raw)) return "/";
+  let url;
+  try {
+    url = new URL(raw, LOCAL_ORIGIN);
+  } catch {
+    return "/";
+  }
+  if (url.origin !== LOCAL_ORIGIN) return "/";
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  if (next.startsWith("//") || url.pathname === "/login" || url.pathname.startsWith("/login/")) return "/";
+  return next;
 };
 
 const escapeHtml = (text) =>
@@ -179,6 +206,8 @@ function createAccessGate(options) {
   const token = String(options?.token ?? "").trim();
   const cookieName = String(options?.cookieName ?? "studio_access").trim() || "studio_access";
   const now = typeof options?.now === "function" ? options.now : () => Date.now();
+  const isTrustedProxy = typeof options?.isTrustedProxy === "function" ? options.isTrustedProxy : null;
+  const clientIp = (req) => resolveClientIp(req, isTrustedProxy);
 
   const enabled = Boolean(token);
   const rateLimiter = createRateLimiter(10, 60_000);
@@ -214,12 +243,12 @@ function createAccessGate(options) {
       "HttpOnly",
       "SameSite=Lax",
       `Max-Age=${maxAgeSeconds}`,
-      ...(isHttps(req) ? ["Secure"] : []),
+      ...(isHttps(req, isTrustedProxy) ? ["Secure"] : []),
     ].join("; ");
 
   const getAuthState = (req) => {
     if (!enabled) return { authorized: true, limited: false };
-    const ip = resolveClientIp(req);
+    const ip = clientIp(req);
     const cookies = parseCookies(req.headers?.cookie);
     const session = cookies[SESSION_COOKIE];
     const legacy = cookies[cookieName];
@@ -264,7 +293,7 @@ function createAccessGate(options) {
   };
 
   const handleLogin = async (req, res) => {
-    const ip = resolveClientIp(req);
+    const ip = clientIp(req);
     let form;
     try {
       form = await readForm(req);
@@ -289,6 +318,20 @@ function createAccessGate(options) {
   };
 
   const handleHttp = (req, res) => {
+    try {
+      return handleHttpUnsafe(req, res);
+    } catch (err) {
+      // Never let a malformed request take the server down.
+      console.error("[access-gate] Request failed.", err?.message ?? err);
+      if (!res.headersSent) {
+        res.statusCode = 400;
+        res.end();
+      }
+      return true;
+    }
+  };
+
+  const handleHttpUnsafe = (req, res) => {
     if (!enabled) return false;
     if (isPublicRequest(req)) return false;
     const method = String(req.method || "GET").toUpperCase();
@@ -296,7 +339,13 @@ function createAccessGate(options) {
 
     if (path === "/login") {
       if (method === "POST") {
-        void handleLogin(req, res);
+        handleLogin(req, res).catch((err) => {
+          console.error("[access-gate] Sign-in failed.", err?.message ?? err);
+          if (!res.headersSent) {
+            res.statusCode = 400;
+            res.end();
+          }
+        });
         return true;
       }
       if (method === "GET" || method === "HEAD") {

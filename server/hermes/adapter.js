@@ -43,6 +43,8 @@ const PROFILE_READY_POLL_MS = 1_500;
 const RUN_STATUS_POLL_MS = 2_000;
 const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled", "interrupted"]);
 const SOUL_FILE = "SOUL.md";
+// Streaming: at most one chat update per this many ms per run.
+const DELTA_EMIT_MS = 50;
 
 const METHODS = [
   "agents.list", "agents.create", "agents.update", "agents.delete",
@@ -455,6 +457,15 @@ const createHermesAdapter = ({
 
   const finishRun = (run, status, extra = {}) => {
     if (run.finished) return;
+    if (run.deltaTimer) clearTimeout(run.deltaTimer);
+    run.deltaTimer = null;
+    // What was held back by the coalescing goes out before the end.
+    if (run.pendingDelta) {
+      const chunk = run.pendingDelta;
+      run.pendingDelta = "";
+      emitChat(run, "delta", { message: { role: "assistant", content: run.text } });
+      emitAgent(run, "assistant", { delta: chunk, text: run.text });
+    }
     run.finished = true;
     run.status = status;
     for (const [id, approval] of approvals) {
@@ -507,8 +518,25 @@ const createHermesAdapter = ({
         const delta = typeof event.delta === "string" ? event.delta : "";
         if (!delta) return;
         run.text += delta;
-        emitChat(run, "delta", { message: { role: "assistant", content: run.text } });
-        emitAgent(run, "assistant", { delta, text: run.text });
+        // Each update carries the whole text so far (the gateway protocol),
+        // so updates are coalesced: at most one per DELTA_EMIT_MS.
+        run.pendingDelta = (run.pendingDelta ?? "") + delta;
+        const flush = () => {
+          run.deltaTimer = null;
+          if (run.finished || !run.pendingDelta) return;
+          const chunk = run.pendingDelta;
+          run.pendingDelta = "";
+          run.lastDeltaAt = Date.now();
+          emitChat(run, "delta", { message: { role: "assistant", content: run.text } });
+          emitAgent(run, "assistant", { delta: chunk, text: run.text });
+        };
+        if (run.deltaTimer) return;
+        const wait = DELTA_EMIT_MS - (Date.now() - (run.lastDeltaAt ?? 0));
+        if (wait <= 0) flush();
+        else {
+          run.deltaTimer = setTimeout(flush, wait);
+          run.deltaTimer.unref?.();
+        }
         return;
       }
       case "message.interim": {
@@ -937,7 +965,14 @@ const createHermesAdapter = ({
       const run = runs.get(str(p.runId));
       if (!run) return { status: "done" };
       const timeoutMs = Math.min(Math.max(Number(p.timeoutMs) || 30_000, 0), 600_000);
-      const status = await Promise.race([run.done, new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
+      let timer;
+      const status = await Promise.race([
+        run.done,
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(null), timeoutMs);
+          timer.unref?.();
+        }),
+      ]).finally(() => clearTimeout(timer));
       return { status: status ? "done" : "running", result: status ?? undefined };
     },
 
@@ -1203,7 +1238,16 @@ const createHermesAdapter = ({
     },
   };
 
-  const kanban = createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated });
+  // Tasks already judged (proposals held, or created by the office itself).
+  const MAX_REVIEWED_TASKS = 2_000;
+  const reviewedTaskIds = () => new Set(Array.isArray(store.getOrganization().reviewedTasks) ? store.getOrganization().reviewedTasks : []);
+  const markTaskReviewed = async (id) => {
+    const reviewed = reviewedTaskIds();
+    if (reviewed.has(id)) return;
+    reviewed.add(id);
+    await store.updateOrganization({ reviewedTasks: [...reviewed].slice(-MAX_REVIEWED_TASKS) });
+  };
+  const kanban = createKanbanHandlers({ client, hasDashboard, AdapterError, onTaskCreated, rememberOfficeTask: markTaskReviewed });
 
   const waitRun = async (runId, timeoutMs) => {
     const run = runs.get(runId);
@@ -1219,21 +1263,28 @@ const createHermesAdapter = ({
   };
 
   // Tasks other agents created go to triage as proposals; see kanban.js.
-  const MAX_REVIEWED_TASKS = 2_000;
-  const guardBoard = async () => {
-    const reviewedList = Array.isArray(store.getOrganization().reviewedTasks) ? store.getOrganization().reviewedTasks : [];
-    const reviewed = new Set(reviewedList);
-    const names = new Map((await listProfiles()).map((profile) => [agentIdOf(profile.name), officeAgentFromProfile(profile).name]));
-    return kanban.holdProposedTasks({
-      reviewed,
-      markReviewed: async (id) => {
-        reviewed.add(id);
-        await store.updateOrganization({ reviewedTasks: [...reviewed].slice(-MAX_REVIEWED_TASKS) });
-      },
-      nameOf: (agentId) => names.get(agentId) ?? agentId,
-      logError,
+  // One check at a time: the periodic sweep and a dispatch may ask together.
+  let guarding = null;
+  const guardBoard = () => {
+    if (guarding) return guarding;
+    guarding = (async () => {
+      const reviewed = reviewedTaskIds();
+      const names = new Map((await listProfiles()).map((profile) => [agentIdOf(profile.name), officeAgentFromProfile(profile).name]));
+      return kanban.holdProposedTasks({
+        reviewed,
+        markReviewed: async (id) => {
+          reviewed.add(id);
+          await markTaskReviewed(id);
+        },
+        nameOf: (agentId) => names.get(agentId) ?? agentId,
+        logError,
+      });
+    })().finally(() => {
+      guarding = null;
     });
+    return guarding;
   };
+  kanban.setBeforeDispatch(() => guardBoard());
 
   const team = createTeam({
     store,
@@ -1332,7 +1383,6 @@ const createHermesAdapter = ({
       });
     },
     broadcast: (event, payload) => broadcast(event, payload),
-    today: () => autonomy.today(),
     reviewTimeoutMs: approvalReviewTimeoutMs,
     log,
     logError,

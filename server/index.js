@@ -3,6 +3,7 @@ const https = require("node:https");
 const next = require("next");
 
 const { createAccessGate } = require("./access-gate");
+const { createRequestGuard, createTrustedProxies } = require("./request-guard");
 const { createGatewayProxy } = require("./gateway-proxy");
 const { assertPublicHostAllowed, isOptionalListenFailure, resolveHosts } = require("./network-policy");
 const { startHermesRuntime } = require("./hermes");
@@ -85,9 +86,19 @@ async function main() {
   });
   const handle = app.getRequestHandler();
 
+  const trustedProxies = createTrustedProxies({
+    hosts: String(process.env.TRUSTED_PROXY_HOSTS ?? "").split(","),
+    log: (message) => console.warn(message),
+  });
   const accessGate = createAccessGate({
     token: process.env.STUDIO_ACCESS_TOKEN,
+    isTrustedProxy: trustedProxies.isTrusted,
   });
+  const requestGuard = createRequestGuard({
+    allowedOrigins: String(process.env.OFFICE3D_ALLOWED_ORIGINS ?? "").split(","),
+  });
+  /** False when the request must not be served at all (see request-guard.js). */
+  const addressedCorrectly = (req) => accessGate.enabled || requestGuard.addressedToLoopback(req);
 
   // With HERMES_API_URL set, the Hermes backend is served by the adapter in
   // this process; the URL saved for Hermes in the office settings is then not
@@ -112,7 +123,8 @@ async function main() {
       if (resolvePathname(req.url) !== "/api/gateway/ws") return false;
       return true;
     },
-    verifyClient: (info) => accessGate.allowUpgrade(info.req),
+    verifyClient: (info) =>
+      addressedCorrectly(info.req) && requestGuard.allowWebSocketOrigin(info.req) && accessGate.allowUpgrade(info.req),
   });
 
   await app.prepare();
@@ -130,7 +142,18 @@ async function main() {
       proxy.handleUpgrade(req, socket, head);
       return;
     }
+    // Next's own sockets (hot reload in development) need the same access.
+    if (!addressedCorrectly(req) || !requestGuard.allowWebSocketOrigin(req) || !accessGate.allowUpgrade(req)) {
+      socket.destroy();
+      return;
+    }
     handleUpgrade(req, socket, head);
+  };
+
+  const misdirected = (res) => {
+    res.statusCode = 421;
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.end("Без STUDIO_ACCESS_TOKEN офис отвечает только по адресам localhost / 127.0.0.1.");
   };
 
   const httpsCert = useHttps ? await generateHttpsCert() : null;
@@ -138,10 +161,12 @@ async function main() {
   const createServer = () =>
     useHttps
       ? https.createServer(httpsCert, (req, res) => {
+          if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
           handle(req, res);
         })
       : http.createServer((req, res) => {
+          if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
           handle(req, res);
         });

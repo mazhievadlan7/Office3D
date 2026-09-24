@@ -54,8 +54,9 @@ describe("server network policy", () => {
     expect(() => assertPublicHostAllowed({ host: "0.0.0.0", studioAccessToken: "   " })).toThrow(
       /Refusing to bind Studio to public host/
     );
+    expect(() => assertPublicHostAllowed({ host: "0.0.0.0", studioAccessToken: "abc" })).toThrow(/too short/);
     expect(() =>
-      assertPublicHostAllowed({ host: "0.0.0.0", studioAccessToken: "abc" })
+      assertPublicHostAllowed({ host: "0.0.0.0", studioAccessToken: "a".repeat(32) })
     ).not.toThrow();
   });
   it("skips_the_default_ipv6_loopback_only_when_the_machine_has_no_ipv6", async () => {

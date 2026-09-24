@@ -20,6 +20,10 @@
 //   HERMES_DATA_DIR         the hermes-data volume, mounted (/hermes-data)
 //   BACKUP_DIR              default /backups
 //   HEALTH_URLS             comma-separated; default Hermes API and the gate
+//   HEALTH_CONTAINERS       comma-separated compose services whose Docker
+//                           health check must pass instead (the compose
+//                           setup: this service is kept off the agents'
+//                           network, so it cannot call Hermes over HTTP)
 //   UPDATER_TAGS            comma-separated release tags to offer instead of
 //                           asking Docker Hub (a private registry, or tests)
 //   OFFICE_STATE_DIR        the office's state volume, mounted (/office-state)
@@ -73,8 +77,17 @@ const dockerHubTags = (repo) => async () => {
   return tags;
 };
 
-const probe = async (url) => {
-  const response = await fetch(url, { signal: AbortSignal.timeout(4_000) });
+/** One health check: an HTTP URL, or `container:<service>` (its Docker health status). */
+const createProbe = (project, projectDir) => async (target) => {
+  if (target.startsWith("container:")) {
+    const service = target.slice("container:".length);
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(service)) return false;
+    const result = await exec("docker", ["compose", "-p", project, "--project-directory", projectDir, "ps", "--format", "{{.Health}}", service], {
+      timeoutMs: 15_000,
+    });
+    return result.code === 0 && result.stdout.trim() === "healthy";
+  }
+  const response = await fetch(target, { signal: AbortSignal.timeout(4_000) });
   return response.ok;
 };
 
@@ -98,6 +111,9 @@ const detectProject = async () => {
 };
 
 const main = async () => {
+  // Everything this service writes (backups with API keys, state) is for
+  // its owner only.
+  process.umask(0o077);
   const token = String(env.OFFICE3D_UPDATER_TOKEN ?? "").trim();
   if (token.length < 32) throw new Error("OFFICE3D_UPDATER_TOKEN must be at least 32 characters.");
   const projectDir = env.PROJECT_DIR?.trim() || "/project";
@@ -109,7 +125,7 @@ const main = async () => {
     listTags: env.UPDATER_TAGS?.trim()
       ? async () => env.UPDATER_TAGS.split(",").map((tag) => tag.trim()).filter((tag) => parseTag(tag))
       : dockerHubTags(imageRepo),
-    probe,
+    probe: createProbe(project, projectDir),
     log,
     config: {
       project,
@@ -118,10 +134,12 @@ const main = async () => {
       defaultTag: composeDefaultTag(projectDir),
       dataDir: env.HERMES_DATA_DIR?.trim() || "/hermes-data",
       backupDir: env.BACKUP_DIR?.trim() || "/backups",
-      healthUrls: (env.HEALTH_URLS?.trim() || "http://hermes:8642/health,http://hermes:9120/gate/health")
-        .split(",")
-        .map((url) => url.trim())
-        .filter(Boolean),
+      healthUrls: env.HEALTH_CONTAINERS?.trim()
+        ? env.HEALTH_CONTAINERS.split(",").map((name) => name.trim()).filter(Boolean).map((name) => `container:${name}`)
+        : (env.HEALTH_URLS?.trim() || "http://hermes:8642/health,http://hermes:9120/gate/health")
+            .split(",")
+            .map((url) => url.trim())
+            .filter(Boolean),
     },
   });
 
@@ -205,11 +223,14 @@ const main = async () => {
         return;
       }
       if (req.method === "POST" && url.pathname === "/update") {
-        if (backups.isRunning()) return send(res, 409, { error: "Идёт резервное копирование или восстановление; обновление — после него." });
-        const body = await readJson(req);
+        const busy = () => backups.isRunning() || updateStarting;
+        if (busy()) return send(res, 409, { error: "Идёт резервное копирование, восстановление или другое обновление." });
+        // Claimed before any await, so a backup or restore cannot start in
+        // between; released once the job is marked running.
         updateStarting = true;
         let job;
         try {
+          const body = await readJson(req);
           job = await updater.start(String(body?.tag ?? ""));
         } finally {
           updateStarting = false;
@@ -240,4 +261,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { exec, dockerHubTags, composeDefaultTag };
+module.exports = { exec, dockerHubTags, composeDefaultTag, createProbe };

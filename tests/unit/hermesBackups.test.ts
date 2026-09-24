@@ -184,4 +184,69 @@ describe("daily backups", () => {
     expect(calls.slice(before).some((line) => line.includes(" stop "))).toBe(false);
     await expect(backups.restore("../../etc")).rejects.toThrow(/Unknown backup/);
   });
+
+  it("restores_the_oldest_backup_without_pruning_it_away", async () => {
+    const backups = make({ keep: 2 });
+    const oldest = await backups.run();
+    clock += 60_000;
+    await backups.run();
+    fs.writeFileSync(path.join(dataDir, "state.db"), "later hermes state");
+    clock += 60_000;
+    // The safety backup makes three; the oldest is the one being restored.
+    await backups.restore(oldest.id);
+    expect(fs.readFileSync(path.join(dataDir, "state.db"), "utf8")).toBe("current hermes state");
+    expect(fs.existsSync(path.join(backupDir, "daily", oldest.id, "hermes.zip"))).toBe(true);
+  });
+
+  it("refuses_a_tampered_manifest_and_links_planted_in_the_hermes_home", async () => {
+    const backups = make();
+    const saved = await backups.run();
+    const manifestPath = path.join(backupDir, "daily", saved.id, "manifest.json");
+    const original = fs.readFileSync(manifestPath, "utf8");
+    fs.writeFileSync(manifestPath, JSON.stringify({ ...JSON.parse(original), files: {} }));
+    await expect(backups.restore(saved.id)).rejects.toThrow(/manifest/);
+    fs.writeFileSync(manifestPath, original);
+
+    // A link where the restore stages its archive: refused, nothing written through it.
+    const victim = path.join(dir, "victim.txt");
+    fs.writeFileSync(victim, "keep me");
+    fs.rmSync(path.join(dataDir, "backups", "office3d"), { recursive: true, force: true });
+    fs.symlinkSync(dir, path.join(dataDir, "backups", "office3d"));
+    clock += 60_000;
+    const before = calls.length;
+    await expect(backups.restore(saved.id)).rejects.toThrow(/link|plain file/);
+    // Refused before anything was stopped.
+    expect(calls.slice(before).some((line) => line.includes(" stop "))).toBe(false);
+    expect(fs.readFileSync(victim, "utf8")).toBe("keep me");
+    // And the data it had not yet replaced is where it was.
+    expect(fs.readFileSync(path.join(dataDir, "state.db"), "utf8")).toBe("current hermes state");
+  });
+
+  it("puts_back_the_data_of_a_restore_interrupted_by_a_restart", async () => {
+    const aside = path.join(dataDir, "backups", "office3d", "previous-2026-09-24-033010");
+    fs.mkdirSync(aside, { recursive: true });
+    fs.renameSync(path.join(dataDir, "state.db"), path.join(aside, "state.db"));
+    fs.mkdirSync(path.join(officeDir, ".previous-2026-09-24-033010"));
+    fs.renameSync(path.join(officeDir, "office3d"), path.join(officeDir, ".previous-2026-09-24-033010", "office3d"));
+    fs.writeFileSync(path.join(dataDir, "half-imported"), "x");
+
+    const backups = make();
+    expect(await backups.recoverInterruptedRestore()).toBe(true);
+    expect(fs.readFileSync(path.join(dataDir, "state.db"), "utf8")).toBe("current hermes state");
+    expect(fs.existsSync(path.join(dataDir, "half-imported"))).toBe(false);
+    expect(fs.readdirSync(officeDir)).toEqual(["office3d"]);
+    expect(calls.at(-1)).toContain("up -d hermes hermes-gate office3d");
+    expect(backups.status().last).toMatchObject({ status: "failed" });
+    expect(await make().recoverInterruptedRestore()).toBe(false);
+  });
+
+  it("falls_back_to_utc_for_an_unknown_time_zone", async () => {
+    const logs: string[] = [];
+    const backups = createBackups({
+      exec, isBusy: () => false, currentTag: async () => "v1", now: () => clock, log: (m: string) => logs.push(m),
+      config: { project: "o3d", projectDir: "/p", dataDir, officeStateDir: officeDir, backupDir, keep: 2, time: "03:30", timeZone: "Mars/Olympus" },
+    });
+    expect(logs[0]).toContain("not a time zone");
+    await expect(backups.run()).resolves.toMatchObject({ complete: true });
+  });
 });

@@ -74,7 +74,29 @@ const clockIn = (date, timeZone) => {
  * @param {(message: string) => void} [deps.log]
  * @param {() => number} [deps.now]
  */
-const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now = () => Date.now() }) => {
+const validTimeZone = (zone) => {
+  if (!zone) return true;
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Whether `target` is `root` or inside it, after resolving symlinks. */
+const isInside = (root, target) => {
+  const realRoot = fs.realpathSync(root);
+  const real = fs.realpathSync(target);
+  return real === realRoot || real.startsWith(`${realRoot}${path.sep}`);
+};
+
+const createBackups = ({ exec, config: givenConfig, isBusy, currentTag, log = /** @type {(message: string) => void} */ (() => {}), now = () => Date.now() }) => {
+  const config = { ...givenConfig };
+  if (!validTimeZone(config.timeZone)) {
+    log(`BACKUP_TIMEZONE "${config.timeZone}" is not a time zone; using UTC.`);
+    config.timeZone = "";
+  }
   const dailyDir = path.join(config.backupDir, "daily");
   const statePath = path.join(dailyDir, "state.json");
   const compose = (...args) => ["compose", "-p", config.project, "--project-directory", config.projectDir, ...args];
@@ -114,7 +136,8 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   };
 
-  const prune = () => {
+  /** Removes old backups; `protect` ids are never removed (the one being restored). */
+  const prune = ({ protect = [] } = {}) => {
     const keep = Math.max(1, config.keep);
     const complete = list().filter((entry) => entry.complete);
     const keepIds = new Set(complete.slice(0, keep).map((entry) => entry.id));
@@ -126,7 +149,7 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
       return;
     }
     for (const name of names) {
-      if (keepIds.has(name)) continue;
+      if (keepIds.has(name) || protect.includes(name)) continue;
       const manifestPath = path.join(dailyDir, name, "manifest.json");
       let createdAt = "";
       try {
@@ -160,7 +183,13 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
       { timeoutMs: 60 * 60_000 },
     );
     const produced = path.join(config.dataDir, HERMES_OUT_DIR, hermesName);
-    if (!fs.existsSync(produced)) {
+    // The Hermes home is writable by Hermes (and the agents' tools): never
+    // follow a link planted there out of it.
+    const producedStat = fs.existsSync(produced) ? fs.lstatSync(produced) : null;
+    if (producedStat && (!producedStat.isFile() || !isInside(config.dataDir, path.dirname(produced)))) {
+      throw new Error("hermes backup output is not a plain file inside the Hermes home; refusing to read it.");
+    }
+    if (!producedStat) {
       throw new Error(`hermes backup failed (${result.code}): ${(result.stderr || result.stdout).trim().slice(-400)}`);
     }
     // Exit 1 with an archive: written, but some files could not be added.
@@ -195,8 +224,9 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
   };
 
   /** Takes a backup now. Resolves to its manifest; one at a time. */
-  const run = ({ label = "" } = {}) => {
+  const run = ({ label = "", protect = [], forRestore = false } = {}) => {
     if (running) return running;
+    if (restoring && !forRestore) return Promise.reject(Object.assign(new Error("Идёт восстановление из копии."), { status: 409 }));
     if (isBusy()) return Promise.reject(Object.assign(new Error("Идёт обновление Hermes: копия будет сделана после него."), { status: 409 }));
     const id = `${clockIn(new Date(now()), config.timeZone).id}${label ? `-${label}` : ""}`;
     running = (async () => {
@@ -206,7 +236,7 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
         state.last = { id, status: manifest.complete ? "ok" : "incomplete", startedAt, finishedAt: manifest.createdAt, errors: manifest.errors };
         if (manifest.complete) state.lastSuccess = { id, at: manifest.createdAt };
         log(`Backup ${id} ${manifest.complete ? "complete" : "incomplete"}.`);
-        prune();
+        prune({ protect });
         return manifest;
       } catch (err) {
         state.last = { id, status: "failed", startedAt, finishedAt: new Date(now()).toISOString(), errors: [err?.message ?? String(err)] };
@@ -264,6 +294,7 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     await run().catch(() => {});
   };
   const start = () => {
+    void recoverInterruptedRestore().catch((err) => log(`Recovering an interrupted restore failed: ${err.message}`));
     if (!TIME_RE.test(config.time)) {
       log("Daily backups are off (BACKUP_TIME is empty).");
       return;
@@ -287,6 +318,42 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
    * @param {string} id
    * @param {{onStep?: (step: string) => void}} [opts]
    */
+  const moveAside = (root, aside, skip) => {
+    fs.rmSync(aside, { recursive: true, force: true });
+    fs.mkdirSync(aside, { recursive: true, mode: 0o700 });
+    for (const name of fs.readdirSync(root)) {
+      if (skip.has(name)) continue;
+      fs.renameSync(path.join(root, name), path.join(aside, name));
+    }
+  };
+  const moveBack = (root, aside, skip) => {
+    if (!fs.existsSync(aside)) return;
+    for (const name of fs.readdirSync(root)) {
+      if (skip.has(name)) continue;
+      fs.rmSync(path.join(root, name), { recursive: true, force: true });
+    }
+    for (const name of fs.readdirSync(aside)) fs.renameSync(path.join(aside, name), path.join(root, name));
+    fs.rmSync(aside, { recursive: true, force: true });
+  };
+
+  /**
+   * A restore the updater did not live to finish (it restarted meanwhile):
+   * the data it had moved aside goes back, and the services start again.
+   */
+  const recoverInterruptedRestore = async () => {
+    const stageDir = path.join(config.dataDir, HERMES_OUT_DIR);
+    const hermesLeft = fs.existsSync(stageDir) ? fs.readdirSync(stageDir).filter((name) => name.startsWith("previous-")) : [];
+    const officeLeft = fs.existsSync(config.officeStateDir) ? fs.readdirSync(config.officeStateDir).filter((name) => name.startsWith(".previous-")) : [];
+    if (!hermesLeft.length && !officeLeft.length) return false;
+    log("A restore was interrupted; putting the data it had moved aside back.");
+    for (const name of hermesLeft) moveBack(config.dataDir, path.join(stageDir, name), new Set(["backups"]));
+    for (const name of officeLeft) moveBack(config.officeStateDir, path.join(config.officeStateDir, name), new Set(officeLeft));
+    await exec("docker", compose("up", "-d", "hermes", "hermes-gate", "office3d"), { timeoutMs: 10 * 60_000 });
+    state.last = { id: "recovery", status: "failed", startedAt: new Date(now()).toISOString(), finishedAt: new Date(now()).toISOString(), errors: ["Восстановление из копии было прервано; прежние данные возвращены."] };
+    saveState();
+    return true;
+  };
+
   /** @type {{current: (step: string) => void}} */
   const onStepRef = { current: () => {} };
   const restore = async (id, { onStep = /** @type {(step: string) => void} */ (() => {}) } = {}) => {
@@ -297,9 +364,16 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     try {
       const dir = path.join(dailyDir, id);
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
-      for (const [file, info] of Object.entries(manifest.files ?? {})) {
+      // Exactly the two archives, each checked; a manifest cannot skip one.
+      const expected = ["hermes.zip", "office3d-state.tar.gz"];
+      const listed = Object.keys(manifest?.files ?? {}).sort();
+      if (manifest?.id !== id || JSON.stringify(listed) !== JSON.stringify([...expected].sort())) {
+        throw new Error("The backup's manifest is not one this service wrote.");
+      }
+      if (manifest.complete !== true) throw new Error("This backup is incomplete; restore a complete one.");
+      for (const file of expected) {
         const actual = await sha256File(path.join(dir, file));
-        if (actual !== info.sha256) throw new Error(`${file} does not match its checksum: the backup is damaged.`);
+        if (actual !== manifest.files[file]?.sha256) throw new Error(`${file} does not match its checksum: the backup is damaged.`);
       }
       return await restoreChecked(id, dir);
     } finally {
@@ -310,7 +384,8 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
 
   const restoreChecked = async (id, dir) => {
     onStepRef.current("safety backup of the current state");
-    const safety = await run({ label: "pre-restore" });
+    // The backup being restored must survive the safety backup's pruning.
+    const safety = await run({ label: "pre-restore", protect: [id], forRestore: true });
 
     onStepRef.current("stopping the office and Hermes");
     const services = ["office3d", "hermes-gate", "hermes"];
@@ -321,23 +396,6 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     // copy) and moved back if anything below fails.
     const hermesAside = path.join(config.dataDir, HERMES_OUT_DIR, `previous-${id}`);
     const officeAside = path.join(config.officeStateDir, `.previous-${id}`);
-    const moveAside = (root, aside, skip) => {
-      fs.rmSync(aside, { recursive: true, force: true });
-      fs.mkdirSync(aside, { recursive: true, mode: 0o700 });
-      for (const name of fs.readdirSync(root)) {
-        if (skip.has(name)) continue;
-        fs.renameSync(path.join(root, name), path.join(aside, name));
-      }
-    };
-    const moveBack = (root, aside, skip) => {
-      if (!fs.existsSync(aside)) return;
-      for (const name of fs.readdirSync(root)) {
-        if (skip.has(name)) continue;
-        fs.rmSync(path.join(root, name), { recursive: true, force: true });
-      }
-      for (const name of fs.readdirSync(aside)) fs.renameSync(path.join(aside, name), path.join(root, name));
-      fs.rmSync(aside, { recursive: true, force: true });
-    };
     const hermesSkip = new Set(["backups"]);
     const officeSkip = new Set([path.basename(officeAside)]);
 
@@ -345,8 +403,15 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     try {
       onStepRef.current("replacing the Hermes data");
       moveAside(config.dataDir, hermesAside, hermesSkip);
-      const staged = path.join(config.dataDir, HERMES_OUT_DIR, `restore-${id}.zip`);
-      fs.copyFileSync(path.join(dir, "hermes.zip"), staged);
+      const stageDir = path.join(config.dataDir, HERMES_OUT_DIR);
+      fs.mkdirSync(stageDir, { recursive: true });
+      if (fs.lstatSync(stageDir).isSymbolicLink() || !isInside(config.dataDir, stageDir)) {
+        throw new Error("The staging directory in the Hermes home is a link; refusing to write through it.");
+      }
+      const staged = path.join(stageDir, `restore-${id}.zip`);
+      fs.rmSync(staged, { force: true });
+      // COPYFILE_EXCL: fails rather than follow anything created there meanwhile.
+      fs.copyFileSync(path.join(dir, "hermes.zip"), staged, fs.constants.COPYFILE_EXCL);
       const imported = await exec(
         "docker",
         compose("run", "--rm", "--no-deps", "-T", "-u", "hermes", "--entrypoint", "hermes", "hermes", "import", "--force", `/opt/data/${HERMES_OUT_DIR}/restore-${id}.zip`),
@@ -375,7 +440,7 @@ const createBackups = ({ exec, config, isBusy, currentTag, log = () => {}, now =
     return { restored: id, safety: safety.id };
   };
 
-  return { run, status, list, start, stop, restore, prune, isRunning: () => Boolean(running) || restoring };
+  return { run, status, list, start, stop, restore, prune, recoverInterruptedRestore, isRunning: () => Boolean(running) || restoring };
 };
 
 module.exports = { createBackups, clockIn, ID_RE };
