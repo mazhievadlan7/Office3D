@@ -736,16 +736,34 @@ textarea:focus::-webkit-scrollbar {
 .sidebar-input {
   border: 1px solid var(--sidebar-input-border);
   background: var(--sidebar-input-bg);
-  color: color-mix(in oklch, white 92%, var(--foreground) 8%);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
     background-color 180ms ease;
 }
 
-.ui-input::placeholder,
-.sidebar-input::placeholder {
-  color: color-mix(in oklch, white 58%, var(--muted-foreground) 42%);
+/* Text colour per theme, in a layer so a field's own text-* class wins
+   (fields on the dark chat bar keep text-white in the light theme). */
+@layer components {
+  .ui-input,
+  .sidebar-input {
+    color: var(--foreground);
+  }
+
+  .ui-input::placeholder,
+  .sidebar-input::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .dark .ui-input,
+  .dark .sidebar-input {
+    color: color-mix(in oklch, white 92%, var(--foreground) 8%);
+  }
+
+  .dark .ui-input::placeholder,
+  .dark .sidebar-input::placeholder {
+    color: color-mix(in oklch, white 58%, var(--muted-foreground) 42%);
+  }
 }
 
 .ui-input:focus,
@@ -773,6 +791,23 @@ textarea:focus::-webkit-scrollbar {
 .sidebar-btn-primary:hover {
   background: var(--action-bg-hover);
   filter: none;
+}
+
+/* A button that cannot be pressed looks it, in every theme. In a layer so
+   a button's own disabled:* classes still win. */
+@layer components {
+  .ui-btn-primary:disabled,
+  .sidebar-btn-primary:disabled,
+  .ui-btn-secondary:disabled,
+  .sidebar-btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ui-btn-primary:disabled:hover,
+  .sidebar-btn-primary:disabled:hover {
+    background: var(--action-bg);
+  }
 }
 
 .ui-btn-send {

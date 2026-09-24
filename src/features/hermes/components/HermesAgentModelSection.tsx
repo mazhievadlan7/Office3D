@@ -58,38 +58,34 @@ export function HermesAgentModelSection({ agentId }: { agentId: string }) {
   };
 
   return (
-    <section className="sidebar-section" data-testid="agent-settings-hermes-model">
-      <div className="px-1 py-1">
-        <div className="sidebar-copy flex flex-col gap-1 text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground/88">{t("hermesModels.agentModelTitle")}</span>
-          <span>{t("hermesModels.agentModelLead")}</span>
-          <div className="mt-2 flex items-center gap-2">
-            <select
-              aria-label={t("hermesModels.agentModelTitle")}
-              className="ui-input h-9 min-w-0 flex-1 rounded-md px-2 text-[11px]"
-              value={choice}
-              onChange={(event) => setChoice(event.target.value)}
-            >
-              {current && !options.some((entry) => entry.id === current) ? <option value={current}>{current}</option> : null}
-              {!current ? <option value="">{t("hermesModels.chooseModel")}</option> : null}
-              {options.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.id}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="ui-btn-secondary h-9 px-3 text-[11px] font-semibold"
-              disabled={busy || !choice || choice === current}
-              onClick={() => void save()}
-            >
-              {t("settings.save")}
-            </button>
-          </div>
-          {message ? <span className="mt-1 text-[10px]">{message}</span> : null}
-        </div>
+    <section className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="agent-settings-hermes-model">
+      <div className="text-[11px] font-medium text-foreground">{t("hermesModels.agentModelTitle")}</div>
+      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesModels.agentModelLead")}</div>
+      <div className="mt-3 flex items-center gap-2">
+        <select
+          aria-label={t("hermesModels.agentModelTitle")}
+          className="ui-input h-10 min-w-0 flex-1 rounded px-2 text-[11px]"
+          value={choice}
+          onChange={(event) => setChoice(event.target.value)}
+        >
+          {current && !options.some((entry) => entry.id === current) ? <option value={current}>{current}</option> : null}
+          {!current ? <option value="">{t("hermesModels.chooseModel")}</option> : null}
+          {options.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.id}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="ui-btn-primary h-10 px-3 text-[11px] font-semibold"
+          disabled={busy || !choice || choice === current}
+          onClick={() => void save()}
+        >
+          {t("settings.save")}
+        </button>
       </div>
+      {message ? <div className="mt-2 text-[11px] text-muted-foreground">{message}</div> : null}
     </section>
   );
 }
