@@ -79,6 +79,17 @@ const resolveClientIp = (req) => {
   return req.socket?.remoteAddress || "unknown";
 };
 
+// Answered without the access token: container and uptime health checks
+// cannot carry the cookie, and the answer says only that the server is up.
+const PUBLIC_PATHS = new Set(["/api/health"]);
+
+const isPublicRequest = (req) => {
+  const method = String(req.method || "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return false;
+  const path = String(req.url || "/").split("?")[0];
+  return PUBLIC_PATHS.has(path);
+};
+
 function createAccessGate(options) {
   const token = String(options?.token ?? "").trim();
   const cookieName = String(options?.cookieName ?? "studio_access").trim() || "studio_access";
@@ -105,6 +116,7 @@ function createAccessGate(options) {
 
   const handleHttp = (req, res) => {
     if (!enabled) return false;
+    if (isPublicRequest(req)) return false;
     const auth = getAuthState(req);
     if (!auth.authorized) {
       const statusCode = auth.limited ? 429 : 401;

@@ -102,7 +102,7 @@ async function main() {
       if (hermes && settings.adapterType === "hermes") {
         // The adapter admits only its own secret, so it replaces whatever the
         // browser sent rather than being offered alongside it.
-        return { url: hermes.url, token: hermes.token, adapterType: "hermes", forceToken: true };
+        return { url: hermes.url, token: hermes.token, adapterType: "hermes", forceToken: true, trusted: true };
       }
       return { url: settings.url, token: settings.token, adapterType: settings.adapterType };
     },

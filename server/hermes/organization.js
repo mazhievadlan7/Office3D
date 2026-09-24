@@ -193,7 +193,29 @@ const createOrganization = ({
    * Startup, then a periodic sweep: every agent's Office3D tool access, its
    * organization block and the main agent's board tools, up to date.
    */
-  const reconcile = async () => {
+  // One pass at a time. A call made while a pass runs gets one more pass
+  // after it (shared by every caller that asked meanwhile), so it still sees
+  // what changed since the running pass read Hermes — and two passes never
+  // both read a stale setting and both write it.
+  let running = null;
+  let next = null;
+  const reconcile = () => {
+    if (!running) {
+      running = reconcileOnce().finally(() => {
+        running = null;
+      });
+      return running;
+    }
+    if (!next) {
+      next = running.catch(() => {}).then(() => {
+        next = null;
+        return reconcile();
+      });
+    }
+    return next;
+  };
+
+  const reconcileOnce = async () => {
     if (!hasDashboard()) return;
     await ensureMainKanbanTools().catch((err) => logError("Could not enable kanban tools for the main agent.", err));
     await ensureBoardPolicy().catch((err) => logError("Could not set the board policy in Hermes.", err));

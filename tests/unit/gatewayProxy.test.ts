@@ -578,7 +578,7 @@ describe("createGatewayProxy", () => {
     }
   });
 
-  const openProxy = async (loadUpstreamSettings: () => Promise<{ url: string; token: string }>) => {
+  const openProxy = async (loadUpstreamSettings: () => Promise<{ url: string; token: string; trusted?: boolean }>) => {
     const { createGatewayProxy } = await import("../../server/gateway-proxy");
     const proxyHttp = await import("node:http").then((m) => m.createServer());
     const proxy = createGatewayProxy({
@@ -618,6 +618,37 @@ describe("createGatewayProxy", () => {
       expect(Date.now() - startedAt).toBeLessThan(3_000);
     } finally {
       await Promise.all([closeWebSocket(browser), closeHttpServer(proxyHttp)]);
+    }
+  });
+
+  it("applies_the_production_allowlist_to_browser_settings_but_not_to_the_servers_own_adapter", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("UPSTREAM_ALLOWLIST", "");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const closedPort = await new Promise<number>((resolve) => {
+        const probe = new WebSocketServer({ port: 0 }, () => {
+          const addr = probe.address();
+          probe.close(() => resolve(typeof addr === "object" && addr ? addr.port : 0));
+        });
+      });
+      for (const [trusted, expected] of [
+        [false, "studio.gateway_url_blocked"],
+        // Allowed through: it then fails only because nothing listens there.
+        [true, "studio.upstream_error"],
+      ] as const) {
+        const { proxyHttp, url } = await openProxy(async () => ({ url: `ws://127.0.0.1:${closedPort}`, token: "t", trusted }));
+        const browser = new WebSocket(url);
+        try {
+          const [code, reason] = await waitForEvent<[number, Buffer]>(browser, "close");
+          expect(code).toBe(4008);
+          expect(String(reason)).toContain(expected);
+        } finally {
+          await Promise.all([closeWebSocket(browser), closeHttpServer(proxyHttp)]);
+        }
+      }
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 

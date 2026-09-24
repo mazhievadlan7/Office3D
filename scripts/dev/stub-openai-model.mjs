@@ -135,4 +135,5 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(port, "127.0.0.1", () => console.log(`stub model on http://127.0.0.1:${port}/v1`));
+const host = process.env.STUB_MODEL_HOST || "127.0.0.1";
+server.listen(port, host, () => console.log(`stub model on http://${host}:${port}/v1`));

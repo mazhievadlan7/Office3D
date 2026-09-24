@@ -396,6 +396,14 @@ describe("hermes adapter", () => {
     await runtime!.adapter.organization.reconcile();
     expect(fake.configPuts.filter((put) => JSON.stringify(put.config).includes("auto_decompose")).length).toBe(1);
     expect(fake.configPuts.length).toBeGreaterThanOrEqual(puts);
+
+    // Passes asked for at once run one after another: the setting is written once.
+    fake.kanbanConfig.auto_decompose = true;
+    const before = fake.configPuts.length;
+    await Promise.all([1, 2, 3].map(() => runtime!.adapter.organization.reconcile()));
+    const writes = fake.configPuts.slice(before).filter((put) => JSON.stringify(put.config).includes("auto_decompose"));
+    expect(writes).toHaveLength(1);
+    expect(fake.kanbanConfig.auto_decompose).toBe(false);
   });
 
   // --- the team: proposals over MCP, decisions in the office ---------------------------

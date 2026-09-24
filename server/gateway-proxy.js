@@ -207,6 +207,7 @@ function createGatewayProxy(options) {
     let upstreamToken = "";
     let upstreamAdapterType = "openclaw";
     let upstreamForceToken = false;
+    let upstreamTrusted = false;
     let connectRequestId = null;
     let connectResponseSent = false;
     let pendingConnectFrame = null;
@@ -325,6 +326,11 @@ function createGatewayProxy(options) {
         upstreamUrl = typeof settings?.url === "string" ? settings.url.trim() : "";
         upstreamToken = typeof settings?.token === "string" ? settings.token.trim() : "";
         upstreamForceToken = settings?.forceToken === true;
+        // The server's own in-process adapter: its address comes from this
+        // process, not from settings a browser can change, so the allowlist
+        // (which guards against pointing the proxy at arbitrary hosts) does
+        // not apply to it.
+        upstreamTrusted = settings?.trusted === true;
         upstreamAdapterType =
           typeof settings?.adapterType === "string" && settings.adapterType.trim()
             ? settings.adapterType.trim().toLowerCase()
@@ -346,7 +352,7 @@ function createGatewayProxy(options) {
         return;
       }
 
-      if (!isUpstreamAllowed(upstreamUrl)) {
+      if (!upstreamTrusted && !isUpstreamAllowed(upstreamUrl)) {
         failSetup({
           code: "studio.gateway_url_blocked",
           message: "Адреса шлюза нет в списке разрешённых хостов.",

@@ -149,4 +149,16 @@ describe("createAccessGate", () => {
     expect(afterReset.statusCode).toBe(401);
     expect(afterReset.body).toContain("Нужен токен доступа к Studio");
   });
+
+  it("answers_health_checks_without_the_token_and_nothing_else", async () => {
+    const { createAccessGate } = await import("../../server/access-gate");
+    const gate = createAccessGate({ token: "abc" });
+    const res = () => ({ statusCode: 0, setHeader: () => {}, end: () => {} });
+    const req = (method: string, url: string) => ({ method, url, headers: {}, socket: { remoteAddress: "10.0.0.9" } });
+    expect(gate.handleHttp(req("GET", "/api/health"), res())).toBe(false);
+    expect(gate.handleHttp(req("HEAD", "/api/health?probe=1"), res())).toBe(false);
+    expect(gate.handleHttp(req("POST", "/api/health"), res())).toBe(true);
+    expect(gate.handleHttp(req("GET", "/api/health/../studio"), res())).toBe(true);
+    expect(gate.handleHttp(req("GET", "/api/healthz"), res())).toBe(true);
+  });
 });
