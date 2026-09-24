@@ -75,4 +75,26 @@ describe("AEGIS scope matcher", () => {
     expect(() => validateAsset({ kind: "nope", value: "x" })).toThrow();
     expect(() => validateAsset({ kind: "domain", value: "example.com", ports: [70000] })).toThrow();
   });
+
+  it("matches a URL path prefix only at a segment boundary (regression)", () => {
+    const assets = [validateAsset({ kind: "url", value: "https://example.com/admin" })];
+    expect(allow(assets, "https://example.com/admin")).toBe(true);
+    expect(allow(assets, "https://example.com/admin/users")).toBe(true);
+    expect(allow(assets, "https://example.com/administrator")).toBe(false); // sibling, outside subtree
+    expect(allow(assets, "https://example.com/admin-secret")).toBe(false);
+    const ipAsset = [validateAsset({ kind: "url", value: "http://192.168.1.10/api" })];
+    expect(allow(ipAsset, "http://192.168.1.10/api/v2")).toBe(true);
+    expect(allow(ipAsset, "http://192.168.1.10/apiV2")).toBe(false);
+  });
+
+  it("infers the scheme's default port so a port-restricted asset matches its default-port target (regression)", () => {
+    const https = [validateAsset({ kind: "domain", value: "example.com", ports: [443] })];
+    expect(allow(https, "https://example.com:443")).toBe(true);
+    expect(allow(https, "https://example.com")).toBe(true); // implicit 443
+    expect(allow(https, "example.com:443")).toBe(true); // bare form, consistent
+    expect(allow(https, "http://example.com")).toBe(false); // 80 not in [443]
+    const http = [validateAsset({ kind: "domain", value: "example.com", ports: [80] })];
+    expect(allow(http, "http://example.com")).toBe(true);
+    expect(allow(http, "http://example.com:80")).toBe(true);
+  });
 });

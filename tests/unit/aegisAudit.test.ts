@@ -74,4 +74,19 @@ describe("AEGIS audit ledger", () => {
     expect(second.list({ engagementId: "e1" })).toHaveLength(2);
     expect(second.list({ engagementId: "e2" })).toHaveLength(1);
   });
+
+  it("detects tail truncation via the checkpoint (regression)", async () => {
+    const log = createAuditLog({ filePath: file });
+    log.append({ type: "e", engagementId: "e1" });
+    log.append({ type: "e", engagementId: "e1" });
+    log.append({ type: "e", engagementId: "e1" });
+    await log.flush();
+
+    // Remove the last two lines — the remaining prefix is a valid chain on its
+    // own, so only the checkpoint can reveal the loss.
+    const lines = fs.readFileSync(file, "utf8").trim().split("\n");
+    fs.writeFileSync(file, lines.slice(0, 1).join("\n") + "\n");
+
+    expect(createAuditLog({ filePath: file }).verify().ok).toBe(false);
+  });
 });

@@ -146,7 +146,10 @@ const parseTarget = (input) => {
         return null;
       }
       host = parsed.hostname.replace(/^\[|\]$/g, "");
-      port = parsed.port ? Number(parsed.port) : null;
+      // WHATWG URL strips a scheme's default port, so "https://h:443" yields
+      // port "". Infer it, or a port-restricted asset would deny its own
+      // default-port target while allowing the bare "h:443" form.
+      port = parsed.port ? Number(parsed.port) : defaultPortForScheme(parsed.protocol);
       path = parsed.pathname || "/";
     } else if (text.startsWith("[")) {
       const end = text.indexOf("]");
@@ -180,6 +183,21 @@ const parseTarget = (input) => {
 const domainMatches = (asset, targetHost) => {
   if (asset.value === targetHost) return true;
   return asset.includeSubdomains === true && targetHost.endsWith(`.${asset.value}`);
+};
+
+const defaultPortForScheme = (protocol) => (protocol === "https:" ? 443 : protocol === "http:" ? 80 : null);
+
+/**
+ * Whether a target path is within an authorized path prefix, at a segment
+ * boundary. "/admin" authorizes "/admin" and "/admin/..." but NOT
+ * "/administrator" or "/admin-secret" — those are distinct resources.
+ */
+const pathWithin = (prefix, path) => {
+  if (!prefix) return true;
+  if (typeof path !== "string") return false;
+  if (path === prefix) return true;
+  const boundary = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  return path.startsWith(boundary);
 };
 
 /**
@@ -216,7 +234,7 @@ const matchTarget = (assets, targetInput) => {
       const hostOk = asset.isIpHost
         ? target.ip && (() => { const a = canonicalIp(asset.host); return a && a.version === target.ip.version && a.value === target.ip.value; })()
         : target.host && domainMatches(asset, target.host);
-      const pathOk = !asset.pathPrefix || (typeof target.path === "string" && target.path.startsWith(asset.pathPrefix));
+      const pathOk = pathWithin(asset.pathPrefix, target.path);
       if (hostOk && pathOk && portField(asset.ports, target.port)) {
         return { allowed: true, reason: "URL в scope", asset };
       }
