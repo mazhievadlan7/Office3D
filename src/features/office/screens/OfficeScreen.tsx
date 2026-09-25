@@ -4296,9 +4296,9 @@ export function OfficeScreen({
       ) : null}
 
       <div
-        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 ${sidebarOpen ? "right-84" : "right-3"} ${
+        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 transition-opacity duration-700 ${sidebarOpen ? "right-84" : "right-3"} ${
           debugEnabled ? "hidden" : ""
-        }`}
+        } ${hqIntroPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
       >
         {chatOpen && (
           <div
