@@ -8,10 +8,13 @@ import {
   useRef,
   useState,
 } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic, Radar } from "lucide-react";
 import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
 import type { OfficeAgent } from "@/features/retro-office/core/types";
+import type { HqAgentInput } from "@/features/hq/core/types";
+import { useOfficeViewMode } from "@/features/hq/hud/viewMode";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
@@ -222,6 +225,12 @@ import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
 import { matchesPhrase, t } from "@/lib/i18n";
 import { messageRoleLabel } from "@/lib/i18n/labels";
+
+// The 3D HQ is client-only: three.js and its loaders never run on the server.
+const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mod.HqOffice), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-black" />,
+});
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -4373,6 +4382,17 @@ export function OfficeScreen({
     () => [...officeAgents, ...remoteOfficeAgents],
     [officeAgents, remoteOfficeAgents],
   );
+  const [officeViewMode, setOfficeViewMode] = useOfficeViewMode();
+  const hqAgents = useMemo<HqAgentInput[]>(
+    () =>
+      allVisibleAgents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        role: agent.subtitle ?? null,
+        status: agent.status,
+      })),
+    [allVisibleAgents],
+  );
   const remoteOfficeVisible =
     remoteOfficeEnabled &&
     (remoteOfficeSourceKind === "presence_endpoint"
@@ -4751,179 +4771,189 @@ export function OfficeScreen({
         activeAdapterType={(selectedAdapterType as FloorProvider) ?? null}
       />
       <section className="relative h-full min-h-0 min-w-0 overflow-hidden">
-        <RetroOffice3D
-          key={activeFloor.id}
-          agents={allVisibleAgents}
-          storageNamespace={activeFloor.id}
-          layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
-          officeCenterSignal={officeCameraCenterSignal}
-          animationState={officeAnimationState}
-          deskAssignmentByDeskUid={deskAssignmentByDeskUid}
-          githubReviewAgentId={githubReviewAgentId}
-          qaTestingAgentId={qaTestingAgentId}
-          phoneBoothAgentId={activePhoneBoothAgentId}
-          phoneBoothCall={activePhoneBoothCall?.view ?? null}
-          smsBoothAgentId={activeSmsBoothAgentId}
-          boothMessage={activeBoothMessage?.view ?? null}
-          onMessagingInteract={() => {
-            setMessagingOpen(true);
-          }}
-          monitorAgentId={monitorAgentId}
-          monitorByAgentId={monitorByAgentId}
-          githubSkill={githubSkill}
-          taskManagerEnabled={taskManagerReady}
-          soundclawEnabled={soundclawReady}
-          officeTitle={officeTitle}
-          officeTitleLoaded={officeTitleLoaded}
-          remoteOfficeEnabled={remoteOfficeEnabled}
-          remoteOfficeSourceKind={remoteOfficeSourceKind}
-          remoteOfficeLabel={remoteOfficeLabel}
-          remoteOfficePresenceUrl={remoteOfficePresenceUrl}
-          remoteOfficeGatewayUrl={remoteOfficeGatewayUrl}
-          remoteOfficeStatusText={remoteOfficeStatusText}
-          remoteLayoutSnapshot={remoteOfficeLayoutSnapshot}
-          remoteOfficeTokenConfigured={remoteOfficeTokenConfigured}
-          voiceRepliesEnabled={voiceRepliesEnabled}
-          voiceRepliesVoiceId={voiceRepliesVoiceId}
-          voiceRepliesSpeed={voiceRepliesSpeed}
-          voiceRepliesLoaded={voiceRepliesLoaded}
-          onOfficeTitleChange={setOfficeTitle}
-          onRemoteOfficeEnabledChange={setRemoteOfficeEnabled}
-          onRemoteOfficeSourceKindChange={setRemoteOfficeSourceKind}
-          onRemoteOfficeLabelChange={setRemoteOfficeLabel}
-          onRemoteOfficePresenceUrlChange={setRemoteOfficePresenceUrl}
-          onRemoteOfficeGatewayUrlChange={setRemoteOfficeGatewayUrl}
-          onRemoteOfficeTokenChange={setRemoteOfficeToken}
-          onVoiceRepliesToggle={setVoiceRepliesEnabled}
-          onVoiceRepliesVoiceChange={setVoiceRepliesVoiceId}
-          onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
-          voiceSetup={voiceSetup}
-          voiceAgents={state.agents
-            .filter((agent) => !isRemoteOfficeAgentId(agent.agentId))
-            .map((agent) => ({
-              agentId: agent.agentId,
-              name: agent.name || agent.agentId,
-              voiceId: voiceForAgent(agent.agentId),
-              chosen: Boolean(voiceRepliesPreference.agentVoices[agent.agentId]),
-            }))}
-          onAgentVoiceChange={setVoiceRepliesAgentVoiceId}
-          onVoiceRepliesPreview={(voiceId, voiceName) => {
-            void previewVoiceReply({
-              text: t("office.voicePreview", { name: voiceName }),
-              provider: voiceRepliesPreference.provider,
-              voiceId,
-              speed: voiceRepliesSpeed,
-            });
-          }}
-          atmAnalytics={{
-            client,
-            status,
-            agents: state.agents,
-            gatewayUrl,
-            settingsCoordinator,
-          }}
-          gatewayUrl={gatewayUrl}
-          gatewayToken={token}
-          selectedAdapterType={selectedAdapterType}
-          activeAdapterType={activeAdapterType}
-          onGatewayDisconnect={disconnect}
-          onGatewayConnect={() => void connect()}
-          onGatewayUrlChange={setGatewayUrl}
-          onGatewayTokenChange={setToken}
-          onGatewayAdapterTypeChange={setSelectedAdapterType}
-          onOpenOnboarding={handleOpenOnboarding}
-          feedEvents={feedEvents}
-          gatewayStatus={status}
-          runCountByAgentId={runCountByAgentId}
-          lastSeenByAgentId={lastSeenByAgentId}
-          streamingTextByAgentId={streamingTextByAgentId}
-          standupMeeting={meetingRoom.meeting}
-          standupAutoOpenBoard={meetingRoom.openBoardByDefault}
-          onStandupArrivalsChange={(arrivedAgentIds) => {
-            void meetingRoom.reportArrivals(arrivedAgentIds);
-          }}
-          onStandupStartRequested={() => {
-            if (
-              !meetingRoom.meeting ||
-              meetingRoom.meeting.phase === "complete"
-            ) {
-              void meetingRoom.startMeeting("manual").catch((error) => {
-                console.error("Failed to start the meeting.", error);
+        {officeViewMode === "hq" ? (
+          <HqOffice
+            agents={hqAgents}
+            namespace={activeFloor.id}
+            selectedAgentId={selectedChatAgentId ?? state.selectedAgentId ?? null}
+            onAgentSelect={handleOpenAgentChat}
+            onSwitchToClassic={() => setOfficeViewMode("classic")}
+          />
+        ) : (
+          <RetroOffice3D
+            key={activeFloor.id}
+            agents={allVisibleAgents}
+            storageNamespace={activeFloor.id}
+            layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
+            officeCenterSignal={officeCameraCenterSignal}
+            animationState={officeAnimationState}
+            deskAssignmentByDeskUid={deskAssignmentByDeskUid}
+            githubReviewAgentId={githubReviewAgentId}
+            qaTestingAgentId={qaTestingAgentId}
+            phoneBoothAgentId={activePhoneBoothAgentId}
+            phoneBoothCall={activePhoneBoothCall?.view ?? null}
+            smsBoothAgentId={activeSmsBoothAgentId}
+            boothMessage={activeBoothMessage?.view ?? null}
+            onMessagingInteract={() => {
+              setMessagingOpen(true);
+            }}
+            monitorAgentId={monitorAgentId}
+            monitorByAgentId={monitorByAgentId}
+            githubSkill={githubSkill}
+            taskManagerEnabled={taskManagerReady}
+            soundclawEnabled={soundclawReady}
+            officeTitle={officeTitle}
+            officeTitleLoaded={officeTitleLoaded}
+            remoteOfficeEnabled={remoteOfficeEnabled}
+            remoteOfficeSourceKind={remoteOfficeSourceKind}
+            remoteOfficeLabel={remoteOfficeLabel}
+            remoteOfficePresenceUrl={remoteOfficePresenceUrl}
+            remoteOfficeGatewayUrl={remoteOfficeGatewayUrl}
+            remoteOfficeStatusText={remoteOfficeStatusText}
+            remoteLayoutSnapshot={remoteOfficeLayoutSnapshot}
+            remoteOfficeTokenConfigured={remoteOfficeTokenConfigured}
+            voiceRepliesEnabled={voiceRepliesEnabled}
+            voiceRepliesVoiceId={voiceRepliesVoiceId}
+            voiceRepliesSpeed={voiceRepliesSpeed}
+            voiceRepliesLoaded={voiceRepliesLoaded}
+            onOfficeTitleChange={setOfficeTitle}
+            onRemoteOfficeEnabledChange={setRemoteOfficeEnabled}
+            onRemoteOfficeSourceKindChange={setRemoteOfficeSourceKind}
+            onRemoteOfficeLabelChange={setRemoteOfficeLabel}
+            onRemoteOfficePresenceUrlChange={setRemoteOfficePresenceUrl}
+            onRemoteOfficeGatewayUrlChange={setRemoteOfficeGatewayUrl}
+            onRemoteOfficeTokenChange={setRemoteOfficeToken}
+            onVoiceRepliesToggle={setVoiceRepliesEnabled}
+            onVoiceRepliesVoiceChange={setVoiceRepliesVoiceId}
+            onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
+            voiceSetup={voiceSetup}
+            voiceAgents={state.agents
+              .filter((agent) => !isRemoteOfficeAgentId(agent.agentId))
+              .map((agent) => ({
+                agentId: agent.agentId,
+                name: agent.name || agent.agentId,
+                voiceId: voiceForAgent(agent.agentId),
+                chosen: Boolean(voiceRepliesPreference.agentVoices[agent.agentId]),
+              }))}
+            onAgentVoiceChange={setVoiceRepliesAgentVoiceId}
+            onVoiceRepliesPreview={(voiceId, voiceName) => {
+              void previewVoiceReply({
+                text: t("office.voicePreview", { name: voiceName }),
+                provider: voiceRepliesPreference.provider,
+                voiceId,
+                speed: voiceRepliesSpeed,
               });
+            }}
+            atmAnalytics={{
+              client,
+              status,
+              agents: state.agents,
+              gatewayUrl,
+              settingsCoordinator,
+            }}
+            gatewayUrl={gatewayUrl}
+            gatewayToken={token}
+            selectedAdapterType={selectedAdapterType}
+            activeAdapterType={activeAdapterType}
+            onGatewayDisconnect={disconnect}
+            onGatewayConnect={() => void connect()}
+            onGatewayUrlChange={setGatewayUrl}
+            onGatewayTokenChange={setToken}
+            onGatewayAdapterTypeChange={setSelectedAdapterType}
+            onOpenOnboarding={handleOpenOnboarding}
+            feedEvents={feedEvents}
+            gatewayStatus={status}
+            runCountByAgentId={runCountByAgentId}
+            lastSeenByAgentId={lastSeenByAgentId}
+            streamingTextByAgentId={streamingTextByAgentId}
+            standupMeeting={meetingRoom.meeting}
+            standupAutoOpenBoard={meetingRoom.openBoardByDefault}
+            onStandupArrivalsChange={(arrivedAgentIds) => {
+              void meetingRoom.reportArrivals(arrivedAgentIds);
+            }}
+            onStandupStartRequested={() => {
+              if (
+                !meetingRoom.meeting ||
+                meetingRoom.meeting.phase === "complete"
+              ) {
+                void meetingRoom.startMeeting("manual").catch((error) => {
+                  console.error("Failed to start the meeting.", error);
+                });
+              }
+            }}
+            onStandupStopRequested={
+              hermesMeetings.available
+                ? () => {
+                    void hermesMeetings.stopMeeting().catch((error) => {
+                      console.error("Failed to stop the meeting.", error);
+                    });
+                  }
+                : undefined
             }
-          }}
-          onStandupStopRequested={
-            hermesMeetings.available
-              ? () => {
-                  void hermesMeetings.stopMeeting().catch((error) => {
-                    console.error("Failed to stop the meeting.", error);
-                  });
-                }
-              : undefined
-          }
-          onMonitorSelect={(agentId) => {
-            setMonitorAgentId(agentId);
-            if (agentId && !isRemoteOfficeAgentId(agentId)) {
-              focusLocalAgent(agentId, { openChat: false });
+            onMonitorSelect={(agentId) => {
+              setMonitorAgentId(agentId);
+              if (agentId && !isRemoteOfficeAgentId(agentId)) {
+                focusLocalAgent(agentId, { openChat: false });
+              }
+            }}
+            onAgentChatSelect={(agentId) => {
+              handleOpenAgentChat(agentId);
+            }}
+            onAddAgent={handleOpenCreateAgentWizard}
+            onAgentEdit={(agentId) => {
+              openAgentEditor(agentId, "avatar");
+            }}
+            onAgentDelete={(agentId) => {
+              void handleDeleteAgent(agentId);
+            }}
+            onDeskAssignmentChange={handleDeskAssignmentChange}
+            onDeskAssignmentsReset={handleDeskAssignmentsReset}
+            onGithubReviewDismiss={() => {
+              handleGithubReviewDismiss();
+            }}
+            onQaLabDismiss={() => {
+              handleQaDismiss();
+            }}
+            onPhoneCallComplete={handlePhoneCallComplete}
+            onTextMessageComplete={handleTextMessageComplete}
+            onOpenGithubSkillSetup={() => {
+              setMarketplaceOpen(true);
+            }}
+            onJukeboxInteract={() => {
+              setJukeboxOpen(true);
+            }}
+            onKanbanInteract={() => {
+              setKanbanInstallPromptOpen(true);
+            }}
+            onPhoneBoothInteract={() => {
+              setCallFeedOpen(true);
+            }}
+            taskBoardAgents={state.agents}
+            taskBoardCardsByStatus={taskBoard.cardsByStatus}
+            taskBoardSelectedCard={taskBoard.selectedCard}
+            taskBoardActiveRuns={taskBoard.activeRuns}
+            taskBoardCronJobs={taskBoard.cronJobs}
+            taskBoardCronLoading={taskBoard.cronLoading}
+            taskBoardCronError={
+              taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
             }
-          }}
-          onAgentChatSelect={(agentId) => {
-            handleOpenAgentChat(agentId);
-          }}
-          onAddAgent={handleOpenCreateAgentWizard}
-          onAgentEdit={(agentId) => {
-            openAgentEditor(agentId, "avatar");
-          }}
-          onAgentDelete={(agentId) => {
-            void handleDeleteAgent(agentId);
-          }}
-          onDeskAssignmentChange={handleDeskAssignmentChange}
-          onDeskAssignmentsReset={handleDeskAssignmentsReset}
-          onGithubReviewDismiss={() => {
-            handleGithubReviewDismiss();
-          }}
-          onQaLabDismiss={() => {
-            handleQaDismiss();
-          }}
-          onPhoneCallComplete={handlePhoneCallComplete}
-          onTextMessageComplete={handleTextMessageComplete}
-          onOpenGithubSkillSetup={() => {
-            setMarketplaceOpen(true);
-          }}
-          onJukeboxInteract={() => {
-            setJukeboxOpen(true);
-          }}
-          onKanbanInteract={() => {
-            setKanbanInstallPromptOpen(true);
-          }}
-          onPhoneBoothInteract={() => {
-            setCallFeedOpen(true);
-          }}
-          taskBoardAgents={state.agents}
-          taskBoardCardsByStatus={taskBoard.cardsByStatus}
-          taskBoardSelectedCard={taskBoard.selectedCard}
-          taskBoardActiveRuns={taskBoard.activeRuns}
-          taskBoardCronJobs={taskBoard.cronJobs}
-          taskBoardCronLoading={taskBoard.cronLoading}
-          taskBoardCronError={
-            taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
-          }
-          taskBoardCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
-          onTaskBoardCreateCard={() => {
-            taskBoard.createManualCard();
-          }}
-          onTaskBoardMoveCard={taskBoard.moveCard}
-          onTaskBoardSelectCard={(cardId) => {
-            taskBoard.selectCard(cardId);
-          }}
-          onTaskBoardUpdateCard={taskBoard.updateCard}
-          onTaskBoardDeleteCard={taskBoard.removeCard}
-          onTaskBoardRefreshCronJobs={() => {
-            void taskBoard.refreshSharedTasks();
-            void taskBoard.refreshRemoteTasks();
-            void taskBoard.refreshCronJobs();
-          }}
-        />
+            taskBoardCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
+            onTaskBoardCreateCard={() => {
+              taskBoard.createManualCard();
+            }}
+            onTaskBoardMoveCard={taskBoard.moveCard}
+            onTaskBoardSelectCard={(cardId) => {
+              taskBoard.selectCard(cardId);
+            }}
+            onTaskBoardUpdateCard={taskBoard.updateCard}
+            onTaskBoardDeleteCard={taskBoard.removeCard}
+            onTaskBoardRefreshCronJobs={() => {
+              void taskBoard.refreshSharedTasks();
+              void taskBoard.refreshRemoteTasks();
+              void taskBoard.refreshCronJobs();
+            }}
+          />
+        )}
         {jukeboxOpen ? (
           soundclawReady ? (
             <JukeboxPanel
@@ -5664,6 +5694,17 @@ export function OfficeScreen({
           </div>
         )}
 
+        {officeViewMode === "classic" ? (
+          <button
+            type="button"
+            aria-label={t("hqScene.returnToHqLabel")}
+            onClick={() => setOfficeViewMode("hq")}
+            className="flex items-center gap-1.5 rounded border border-red-700/50 bg-[#0e0404]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-red-300/85 shadow-lg backdrop-blur transition-colors hover:border-red-500/70 hover:text-red-200"
+          >
+            <Radar className="h-3.5 w-3.5" />
+            <span>{t("hqScene.returnToHq")}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setChatOpen((prev) => !prev)}

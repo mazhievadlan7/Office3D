@@ -1,0 +1,159 @@
+import * as THREE from "three";
+import { HQ_THEME } from "@/features/hq/core/config";
+import type { HqLayout } from "@/features/hq/core/types";
+import { GLSL_HQ_NOISE, GLSL_HQ_WORLD_VARYING, GLSL_HQ_WORLD_VERTEX, patchMaterial } from "./glsl";
+import { GLOW, themeColor } from "./palette";
+
+// Materials shared by the room shell and the partitions. Each is created once
+// per HqEnvironment mount; layout-dependent values live in uniforms, so a new
+// layout never compiles a new program.
+
+export type EnvMaterials = {
+  wall: THREE.MeshStandardMaterial;
+  metal: THREE.MeshStandardMaterial;
+  glass: THREE.MeshStandardMaterial;
+  line: THREE.MeshBasicMaterial;
+  /** The low curbs sit closest to the camera; a softer line keeps them from framing the shot. */
+  lineCurb: THREE.MeshBasicMaterial;
+  lineFaint: THREE.MeshBasicMaterial;
+  neon: THREE.MeshBasicMaterial;
+  wallUniforms: {
+    uHqWallTop: THREE.IUniform<number>;
+    uHqOrigin: THREE.IUniform<THREE.Vector2>;
+  };
+};
+
+/** Panel width of the wall cladding (metres). */
+const WALL_PANEL = 1.5;
+
+const WALL_FRAGMENT_PARS = /* glsl */ `
+${GLSL_HQ_NOISE}
+${GLSL_HQ_WORLD_VARYING}
+uniform float uHqWallTop;
+uniform vec2 uHqOrigin;
+uniform vec3 uHqAccent;
+`;
+
+// Vertical seams between cladding panels. "Along" is x + z measured from the
+// room origin, which runs continuously round the north-west corner and along
+// any axis-aligned partition.
+const WALL_SURFACE = /* glsl */ `
+float hqAlong = (vHqWorld.x - uHqOrigin.x) + (vHqWorld.z - uHqOrigin.y);
+float hqAA = max(fwidth(hqAlong), 1e-4);
+float hqU = hqAlong / ${WALL_PANEL.toFixed(2)};
+float hqSeamD = abs(fract(hqU + 0.5) - 0.5) * ${WALL_PANEL.toFixed(2)};
+float hqSeam = 1.0 - smoothstep(0.005 - hqAA * 0.5, 0.005 + hqAA * 0.5, hqSeamD);
+// Horizontal reveal a third of the way up the tall walls.
+float hqRevealD = abs(vHqWorld.y - uHqWallTop * 0.34);
+float hqReveal = (1.0 - smoothstep(0.004, 0.004 + fwidth(vHqWorld.y) + 1e-4, hqRevealD)) * step(2.0, uHqWallTop);
+float hqPanel = hqHash12(vec2(floor(hqU), 7.0));
+float hqGrain = hqNoise(vec2(hqAlong * 3.0, vHqWorld.y * 0.6));
+diffuseColor.rgb *= (0.88 + 0.22 * hqPanel) * (0.94 + 0.12 * hqGrain);
+// Slightly lighter toward the floor, as if the glossy floor bounced light up.
+diffuseColor.rgb *= mix(1.15, 0.85, clamp(vHqWorld.y / max(uHqWallTop, 1.0), 0.0, 1.0));
+diffuseColor.rgb *= 1.0 - 0.8 * max(hqSeam, hqReveal * 0.7);
+`;
+
+const WALL_ROUGHNESS = /* glsl */ `
+roughnessFactor = mix(roughnessFactor + (hqPanel - 0.5) * 0.12, 0.95, max(hqSeam, hqReveal));
+`;
+
+// The emissive lines wash a little red onto the wall around them.
+const WALL_EMISSIVE = /* glsl */ `
+{
+  float hqTopWash = exp(-abs(vHqWorld.y - uHqWallTop) * 7.0) * step(vHqWorld.y, uHqWallTop + 0.1);
+  float hqSkirtWash = exp(-abs(vHqWorld.y - 0.11) * 10.0);
+  totalEmissiveRadiance += uHqAccent * (hqTopWash * 0.09 + hqSkirtWash * 0.07) * (1.0 - hqSeam);
+}
+`;
+
+// Smoked glass shows almost no diffuse light of its own, only reflections.
+const GLASS_TINT = /* glsl */ `
+diffuseColor.rgb *= 0.3;
+`;
+
+// Glass grows more reflective (less see-through) at grazing angles.
+const GLASS_FRESNEL = /* glsl */ `
+{
+  float hqNdV = clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0);
+  diffuseColor.a = mix(diffuseColor.a, 0.42, pow(1.0 - hqNdV, 4.0));
+}
+`;
+
+export function createEnvMaterials(): EnvMaterials {
+  const wallUniforms = {
+    uHqWallTop: { value: 5 },
+    uHqOrigin: { value: new THREE.Vector2() },
+  };
+  const wall = new THREE.MeshStandardMaterial({
+    color: HQ_THEME.wallPanel,
+    roughness: 0.62,
+    metalness: 0.15,
+    envMapIntensity: 0.5,
+  });
+  wall.name = "hq-wall";
+  patchMaterial(wall, {
+    key: "hq-wall-v1",
+    uniforms: { ...wallUniforms, uHqAccent: { value: themeColor(HQ_THEME.accent) } },
+    vertexPars: GLSL_HQ_WORLD_VARYING,
+    fragmentPars: WALL_FRAGMENT_PARS,
+    vertex: [["project_vertex", GLSL_HQ_WORLD_VERTEX]],
+    fragment: [
+      ["color_fragment", WALL_SURFACE],
+      ["roughnessmap_fragment", WALL_ROUGHNESS],
+      ["emissivemap_fragment", WALL_EMISSIVE],
+    ],
+  });
+
+  const metal = new THREE.MeshStandardMaterial({
+    color: HQ_THEME.metal,
+    roughness: 0.3,
+    metalness: 0.85,
+    envMapIntensity: 1.1,
+  });
+  metal.name = "hq-metal";
+
+  const glass = new THREE.MeshStandardMaterial({
+    color: HQ_THEME.glass,
+    roughness: 0.04,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+    envMapIntensity: 1.3,
+  });
+  glass.name = "hq-glass";
+  patchMaterial(glass, {
+    key: "hq-glass-v1",
+    fragment: [
+      ["color_fragment", GLASS_TINT],
+      ["lights_fragment_end", GLASS_FRESNEL],
+    ],
+  });
+
+  const line = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accent, GLOW.line), toneMapped: false });
+  line.name = "hq-line";
+  const lineCurb = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accent, GLOW.curb), toneMapped: false });
+  lineCurb.name = "hq-line-curb";
+  const lineFaint = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accent, GLOW.faint), toneMapped: false });
+  lineFaint.name = "hq-line-faint";
+  const neon = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accentSoft, GLOW.neon), toneMapped: false });
+  neon.name = "hq-neon";
+
+  return { wall, metal, glass, line, lineCurb, lineFaint, neon, wallUniforms };
+}
+
+export function applyLayoutToEnvMaterials(materials: EnvMaterials, layout: HqLayout): void {
+  materials.wallUniforms.uHqWallTop.value = layout.wallHeight - 0.13;
+  materials.wallUniforms.uHqOrigin.value.set(layout.bounds.x0, layout.bounds.z0);
+}
+
+export function disposeEnvMaterials(materials: EnvMaterials): void {
+  materials.wall.dispose();
+  materials.metal.dispose();
+  materials.glass.dispose();
+  materials.line.dispose();
+  materials.lineCurb.dispose();
+  materials.lineFaint.dispose();
+  materials.neon.dispose();
+}
