@@ -309,6 +309,8 @@ openclaw devices approve --latest
 - `node scripts/i18n-check.mjs` — показать число фраз, неиспользуемые ключи и нарушения порядка (`--sort` сортирует словарь, `--prune` удаляет неиспользуемое).
 - `node scripts/i18n-extract.mjs <файл>` — найти в файле оставшийся английский текст интерфейса.
 
+CI (`.github/workflows/docker-publish.yml`) запускается при пуше в `main`. Если GitHub не создаёт запуск на пуш, включите в своём клоне хук `git config core.hooksPath scripts/git-hooks`: после пуша в `main` он сам запускает CI через GitHub CLI (`gh`, нужен вход), если запуска для этого коммита ещё нет. Что он сделал, пишется в `.git/ci-dispatch.log`.
+
 ## Документация
 
 - [`VISION.md`](VISION.md): направление проекта и долгосрочные ориентиры.

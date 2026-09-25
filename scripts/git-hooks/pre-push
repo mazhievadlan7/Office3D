@@ -1,0 +1,53 @@
+#!/bin/sh
+# Makes sure CI runs for every push to main.
+#
+# The CI workflow (.github/workflows/docker-publish.yml) starts on pushes to
+# main, but GitHub does not always create push-triggered runs for a
+# repository. This hook never blocks or delays the push: it waits in the
+# background until the remote's main has the pushed commit, gives a
+# push-triggered run a moment to appear, and dispatches CI for main only when
+# no run exists for that commit. It needs the GitHub CLI (gh), logged in;
+# without it the hook does nothing. What it did is logged to
+# .git/ci-dispatch.log.
+#
+# Enable once per clone:
+#   git config core.hooksPath scripts/git-hooks
+
+remote="$1"
+zero=0000000000000000000000000000000000000000
+command -v gh >/dev/null 2>&1 || exit 0
+log="$(git rev-parse --absolute-git-dir 2>/dev/null)/ci-dispatch.log"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  case "$local_sha" in "$zero" | "") continue ;; esac
+  (
+    note() { printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(printf '%.12s' "$local_sha")" "$1" >>"$log"; }
+    # The hook runs before the push lands: wait for it (3 minutes at most).
+    head=""
+    i=0
+    while [ $i -lt 60 ]; do
+      sleep 3
+      head=$(git ls-remote "$remote" refs/heads/main 2>/dev/null | cut -f1)
+      [ "$head" = "$local_sha" ] && break
+      i=$((i + 1))
+    done
+    if [ "$head" != "$local_sha" ]; then
+      note "main never reached this commit; not dispatching"
+      exit 0
+    fi
+    # A push-triggered run, if GitHub makes one, shows up within seconds.
+    sleep 20
+    runs=$(gh run list --workflow CI --commit "$local_sha" --limit 1 --json databaseId --jq length 2>/dev/null)
+    if [ "${runs:-0}" != "0" ]; then
+      note "CI already running for this commit"
+      exit 0
+    fi
+    if gh workflow run CI --ref main >/dev/null 2>&1; then
+      note "dispatched CI for main"
+    else
+      note "could not dispatch CI (is gh logged in?)"
+    fi
+  ) </dev/null >/dev/null 2>&1 &
+done
+exit 0
