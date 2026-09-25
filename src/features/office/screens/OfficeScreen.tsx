@@ -921,6 +921,8 @@ export function OfficeScreen({
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The HQ's opening fly-through: the console and sidebar tabs step aside for it.
+  const [hqIntroPlaying, setHqIntroPlaying] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [callFeedOpen, setCallFeedOpen] = useState(false);
   const [messagingOpen, setMessagingOpen] = useState(false);
@@ -3753,6 +3755,7 @@ export function OfficeScreen({
           runtimeStatus={{ adapter: activeAdapterType, status }}
           settingsOpen={settingsOpen}
           onOpenSettings={() => setSettingsOpen((open) => !open)}
+          onIntroChange={setHqIntroPlaying}
         />
         {jukeboxOpen ? (
           soundclawReady ? (
@@ -3833,6 +3836,8 @@ export function OfficeScreen({
       ) : null}
 
       {!debugEnabled ? (
+        // Hidden with the rest of the chrome while the HQ fly-through plays.
+        <div className={`transition-opacity duration-700 ${hqIntroPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}>
         <HQSidebar
           open={sidebarOpen}
           activeTab={activeSidebarTab}
@@ -3913,6 +3918,7 @@ export function OfficeScreen({
             />
           }
         />
+        </div>
       ) : null}
 
       {settingsOpen ? (
@@ -4078,7 +4084,7 @@ export function OfficeScreen({
       ) : null}
 
       {showOpenClawConsole ? (
-        <section className={`pointer-events-auto fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur ${openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"}`}>
+        <section className={`fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur transition-opacity duration-700 ${openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"} ${hqIntroPlaying ? "pointer-events-none opacity-0 [&_*]:!pointer-events-none" : "pointer-events-auto opacity-100"}`}>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-red-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-red-200/80">
             <span className="whitespace-nowrap">{t("office.eventConsole")}</span>
             <div className="flex flex-wrap items-center gap-2">

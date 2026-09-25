@@ -36,6 +36,8 @@ export type HqOfficeProps = {
   settingsOpen?: boolean;
   /** Toggles the office settings from the HUD. */
   onOpenSettings?: () => void;
+  /** True while the opening fly-through plays, so the screen can hide its own panels. */
+  onIntroChange?: (playing: boolean) => void;
 };
 
 // What the sim sees of an agent; anything else changing is not its business.
@@ -111,6 +113,7 @@ export function HqOffice({
   runtimeStatus = null,
   settingsOpen = false,
   onOpenSettings,
+  onIntroChange,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
   const [qualityMode, setQualityMode] = useState<HqQualityMode>(readHqQualityMode);
@@ -121,6 +124,13 @@ export function HqOffice({
   const [ready, setReady] = useState(false);
   // The opening fly-through: letterbox bars on, HUD off until it lands.
   const [introPlaying, setIntroPlaying] = useState(false);
+  const handleIntroChange = useCallback(
+    (playing: boolean) => {
+      setIntroPlaying(playing);
+      onIntroChange?.(playing);
+    },
+    [onIntroChange],
+  );
 
   const layout = useMemo(() => generateHqLayout(capacity), [capacity]);
 
@@ -297,7 +307,7 @@ export function HqOffice({
             qualityMode={qualityMode}
             onQualityTierChange={setTierIndex}
             onCameraModeChange={handleCameraMode}
-            onIntroChange={setIntroPlaying}
+            onIntroChange={handleIntroChange}
             onSelect={handleSelect}
             onFocus={handleFocus}
           />
