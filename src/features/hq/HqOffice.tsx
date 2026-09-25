@@ -6,7 +6,7 @@ import { PCFShadowMap, WebGLRenderer } from "three";
 
 import { t } from "@/lib/i18n";
 import { loadHqAssignments, saveHqAssignments } from "./core/assignments";
-import { HQ_THEME, type HqCapacity } from "./core/config";
+import { HQ_DEFAULT_CAPACITY, HQ_LEAD_AGENT_IDS, HQ_LEAD_AGENT_NAME, HQ_THEME, type HqCapacity } from "./core/config";
 import { generateHqLayout } from "./core/layout";
 import { HqSimulation } from "./core/sim";
 import type { HqAgentInput } from "./core/types";
@@ -14,9 +14,7 @@ import { HqHoverCard } from "./hud/HqHoverCard";
 import { HqHud, type HqHudCounts } from "./hud/HqHud";
 import {
   nextHqQualityMode,
-  readHqCapacity,
   readHqQualityMode,
-  writeHqCapacity,
   writeHqQualityMode,
 } from "./hud/hqPrefs";
 import type { HqQualityMode } from "./render/scene/HqAdaptiveQuality";
@@ -32,7 +30,6 @@ export type HqOfficeProps = {
   namespace: string;
   selectedAgentId?: string | null;
   onAgentSelect?: (agentId: string) => void;
-  onSwitchToClassic?: () => void;
 };
 
 // What the sim sees of an agent; anything else changing is not its business.
@@ -42,6 +39,15 @@ const agentsSignature = (agents: readonly HqAgentInput[]): string => {
     signature += `${agent.id}\u0001${agent.status}\u0001${agent.name}\u0001${agent.role ?? ""}\u0002`;
   }
   return signature;
+};
+
+// The lead (AM7): the same rule as the simulation, by id first, then by name.
+const findLeadId = (agents: readonly HqAgentInput[]): string | null => {
+  const ids = HQ_LEAD_AGENT_IDS as readonly string[];
+  const byId = agents.find((agent) => ids.includes(agent.id.trim().toLowerCase()));
+  if (byId) return byId.id;
+  const byName = agents.find((agent) => agent.name.trim().toLowerCase() === HQ_LEAD_AGENT_NAME.toLowerCase());
+  return byName?.id ?? null;
 };
 
 // Deterministic per-floor seed, so the same floor looks the same on reload.
@@ -89,16 +95,15 @@ class HqCanvasBoundary extends Component<{ fallback: ReactNode; children: ReactN
 /**
  * The hacker HQ («Штаб»): one Canvas for the lifetime of the view. Agents flow
  * in through refs to the simulation, so roster changes never remount WebGL;
- * a capacity switch rebuilds the layout and the sim in place.
+ * the hall size is HQ_DEFAULT_CAPACITY (core/config.ts).
  */
 export function HqOffice({
   agents,
   namespace,
   selectedAgentId = null,
   onAgentSelect,
-  onSwitchToClassic,
 }: HqOfficeProps) {
-  const [capacity, setCapacity] = useState<HqCapacity>(readHqCapacity);
+  const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
   const [qualityMode, setQualityMode] = useState<HqQualityMode>(readHqQualityMode);
   const [qualityTiers] = useState(() => buildQualityTiers(window.devicePixelRatio));
   const [tierIndex, setTierIndex] = useState(0);
@@ -228,11 +233,6 @@ export function HqOffice({
     if (target) api.follow(target);
   }, []);
 
-  const handleCapacity = useCallback((next: HqCapacity) => {
-    writeHqCapacity(next);
-    setCapacity(next);
-  }, []);
-
   const handleQualityCycle = useCallback(() => {
     setQualityMode((mode) => {
       const next = nextHqQualityMode(mode);
@@ -244,19 +244,11 @@ export function HqOffice({
   const tier = qualityTiers[Math.min(tierIndex, qualityTiers.length - 1)];
   const quality = tier.quality;
   const canFollow = Boolean(selectedAgentId && agents.some((agent) => agent.id === selectedAgentId));
+  const leadId = useMemo(() => findLeadId(agents), [agents]);
 
   const failure = (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="max-w-md font-mono text-[13px] text-white/70">{t("hqScene.webglFailed")}</p>
-      {onSwitchToClassic ? (
-        <button
-          type="button"
-          onClick={onSwitchToClassic}
-          className="rounded-md border border-red-500/40 bg-red-600/15 px-4 py-2 font-mono text-[12px] text-red-100 transition-colors hover:bg-red-600/25"
-        >
-          {t("hqScene.switchToClassic")}
-        </button>
-      ) : null}
     </div>
   );
 
@@ -298,15 +290,13 @@ export function HqOffice({
         <HqHoverCard sinkRef={hoverSinkRef} agentsRef={agentsRef} />
         <HqHud
           counts={counts}
-          capacity={capacity}
-          onCapacityChange={handleCapacity}
           cameraMode={cameraMode}
           canFollow={canFollow}
           onCameraPreset={handleCameraPreset}
           qualityMode={qualityMode}
           quality={quality}
           onQualityCycle={handleQualityCycle}
-          onSwitchToClassic={onSwitchToClassic}
+          onMessageLead={leadId && onAgentSelect ? () => onAgentSelect(leadId) : undefined}
         />
       </HqCanvasBoundary>
       {/* Fades in from black as the intro swoop starts. */}

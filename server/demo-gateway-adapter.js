@@ -15,7 +15,7 @@ const LEAD_AGENT_ID = "main";
 const LEAD_AGENT_NAME = "AM7";
 const LEAD_ROLE = "Lead";
 
-const DEFAULT_AGENT_COUNT = 100;
+const DEFAULT_AGENT_COUNT = 300;
 const MIN_AGENT_COUNT = 1;
 const MAX_AGENT_COUNT = 1000;
 
@@ -338,7 +338,7 @@ const roleLabel = (role) => ROLE_LABELS[role] || role;
 const profileFor = (role) => ROLE_PROFILES[role] || GENERIC_PROFILE;
 
 /**
- * DEMO_AGENT_COUNT as a team size: 100 when unset or unreadable, clamped to 1..1000.
+ * DEMO_AGENT_COUNT as a team size: 300 when unset or unreadable, clamped to 1..1000.
  * @param {unknown} value
  * @returns {number}
  */

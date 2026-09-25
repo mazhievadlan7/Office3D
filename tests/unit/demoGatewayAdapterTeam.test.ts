@@ -92,10 +92,10 @@ afterEach(() => {
 });
 
 describe("demo team", () => {
-  it("clamps DEMO_AGENT_COUNT to 1..1000 with 100 by default", () => {
-    expect(resolveAgentCount(undefined)).toBe(100);
-    expect(resolveAgentCount("")).toBe(100);
-    expect(resolveAgentCount("many")).toBe(100);
+  it("clamps DEMO_AGENT_COUNT to 1..1000 with 300 by default", () => {
+    expect(resolveAgentCount(undefined)).toBe(300);
+    expect(resolveAgentCount("")).toBe(300);
+    expect(resolveAgentCount("many")).toBe(300);
     expect(resolveAgentCount("0")).toBe(1);
     expect(resolveAgentCount("-5")).toBe(1);
     expect(resolveAgentCount("5000")).toBe(1000);
@@ -115,7 +115,7 @@ describe("demo team", () => {
       expect((await call("agents.list")).agents).toHaveLength(7);
       delete process.env.DEMO_AGENT_COUNT;
       resetDemoState();
-      expect((await call("agents.list")).agents).toHaveLength(100);
+      expect((await call("agents.list")).agents).toHaveLength(300);
     } finally {
       if (previous === undefined) delete process.env.DEMO_AGENT_COUNT;
       else process.env.DEMO_AGENT_COUNT = previous;

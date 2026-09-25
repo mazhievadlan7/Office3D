@@ -1,4 +1,3 @@
-import { HQ_CAPACITIES, HQ_DEFAULT_CAPACITY, type HqCapacity } from "../core/config";
 import type { HqQualityMode } from "../render/scene/HqAdaptiveQuality";
 
 /**
@@ -7,7 +6,6 @@ import type { HqQualityMode } from "../render/scene/HqAdaptiveQuality";
  * Every access is guarded: private mode and blocked storage just fall back.
  */
 
-const CAPACITY_KEY = "office3d-hq-capacity";
 const QUALITY_KEY = "office3d-hq-quality";
 const QUALITY_MODES: readonly HqQualityMode[] = ["auto", "high", "medium", "low"];
 
@@ -26,15 +24,6 @@ const writeItem = (key: string, value: string): void => {
     // Not persisted; the choice still holds for this session.
   }
 };
-
-export function readHqCapacity(): HqCapacity {
-  const stored = Number(readItem(CAPACITY_KEY));
-  return (HQ_CAPACITIES as readonly number[]).includes(stored) ? (stored as HqCapacity) : HQ_DEFAULT_CAPACITY;
-}
-
-export function writeHqCapacity(capacity: HqCapacity): void {
-  writeItem(CAPACITY_KEY, String(capacity));
-}
 
 export function readHqQualityMode(): HqQualityMode {
   const stored = readItem(QUALITY_KEY);

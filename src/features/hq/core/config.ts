@@ -3,9 +3,12 @@
 // north (z = bounds.z0) and west (x = bounds.x0) walls are the visible back
 // walls; the south and east walls are kept low so they never hide the room.
 
+// Hall sizes the layout, simulation and renderers are built and tested for.
 export const HQ_CAPACITIES = [100, 300, 1000] as const;
 export type HqCapacity = (typeof HQ_CAPACITIES)[number];
-export const HQ_DEFAULT_CAPACITY: HqCapacity = 100;
+// The HQ's desk count. The standard team is 300; every size in HQ_CAPACITIES
+// works, so growing to 1000 is this one line (plus DEMO_AGENT_COUNT for the demo).
+export const HQ_DEFAULT_CAPACITY: HqCapacity = 300;
 
 // The lead agent: matched by id first, then by display name.
 export const HQ_LEAD_AGENT_IDS = ["am7", "main"] as const;

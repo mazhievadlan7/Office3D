@@ -232,6 +232,9 @@ const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mo
   loading: () => <div className="h-full w-full bg-black" />,
 });
 
+// How long gateway events are collected before the screen applies them.
+const EVENT_FLUSH_MS = 100;
+
 const stringToColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -2880,20 +2883,13 @@ export function OfficeScreen({
         agents: stateRef.current.agents,
       }),
     );
-    const unsubscribeEvent = client.onEvent((event) => {
-      lastGatewayActivityAtRef.current = Date.now();
-      setOpenClawLogEntries((previous) => {
-        const next = [...previous, formatOpenClawEventLogEntry(event)];
-        return next.slice(-MAX_OPENCLAW_LOG_ENTRIES);
-      });
+    // A large team emits hundreds of events a second. They are applied in
+    // batches (same order) from one task, so React renders this screen once
+    // per flush instead of once per event.
+    let pendingEvents: EventFrame[] = [];
+    let flushTimer: number | null = null;
+    const handleEvent = (event: EventFrame) => {
       refreshRecentTransportSessionHistory(event);
-      setOfficeTriggerState((previous) =>
-        reduceOfficeAnimationTriggerEvent({
-          state: previous,
-          event,
-          agents: stateRef.current.agents,
-        }),
-      );
       if (debugEnabled) {
         console.info("[office-debug] Gateway event.", {
           event: event.event,
@@ -2915,6 +2911,34 @@ export function OfficeScreen({
       }
       taskBoardEventHandlerRef.current(event);
       runtimeHandler.handleEvent(event);
+    };
+    const flushEvents = () => {
+      flushTimer = null;
+      const batch = pendingEvents;
+      pendingEvents = [];
+      if (batch.length === 0) return;
+      setOpenClawLogEntries((previous) =>
+        [...previous, ...batch.slice(-MAX_OPENCLAW_LOG_ENTRIES).map(formatOpenClawEventLogEntry)].slice(
+          -MAX_OPENCLAW_LOG_ENTRIES,
+        ),
+      );
+      setOfficeTriggerState((previous) =>
+        batch.reduce(
+          (state, batched) =>
+            reduceOfficeAnimationTriggerEvent({
+              state,
+              event: batched,
+              agents: stateRef.current.agents,
+            }),
+          previous,
+        ),
+      );
+      for (const event of batch) handleEvent(event);
+    };
+    const unsubscribeEvent = client.onEvent((event) => {
+      lastGatewayActivityAtRef.current = Date.now();
+      pendingEvents.push(event);
+      if (flushTimer === null) flushTimer = window.setTimeout(flushEvents, EVENT_FLUSH_MS);
     });
     const unsubscribeGap = client.onGap(() => {
       void loadAgents({
@@ -2928,6 +2952,7 @@ export function OfficeScreen({
     return () => {
       unsubscribeEvent();
       unsubscribeGap();
+      if (flushTimer !== null) window.clearTimeout(flushTimer);
       runtimeHandler.dispose();
     };
   }, [
@@ -4780,7 +4805,6 @@ export function OfficeScreen({
             namespace={activeFloor.id}
             selectedAgentId={selectedChatAgentId ?? state.selectedAgentId ?? null}
             onAgentSelect={handleOpenAgentChat}
-            onSwitchToClassic={() => setOfficeViewMode("classic")}
           />
         ) : (
           <RetroOffice3D

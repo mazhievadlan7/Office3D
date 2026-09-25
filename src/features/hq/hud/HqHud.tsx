@@ -1,10 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Crosshair, Crown, Gauge, Globe, LayoutDashboard, Maximize2 } from "lucide-react";
+import { Crosshair, Crown, Gauge, Globe, Maximize2, MessageSquare } from "lucide-react";
 
 import { t } from "@/lib/i18n";
-import { HQ_CAPACITIES, type HqCapacity } from "../core/config";
 import type { HqQualityMode } from "../render/scene/HqAdaptiveQuality";
 import type { HqCameraMode } from "../render/scene/HqCameraRig";
 import type { HqCameraPreset } from "../render/scene/cameraMath";
@@ -77,26 +76,23 @@ const Divider = () => <div className="mx-1 hidden h-6 w-px bg-white/10 sm:block"
  */
 export function HqHud({
   counts,
-  capacity,
-  onCapacityChange,
   cameraMode,
   canFollow,
   onCameraPreset,
   qualityMode,
   quality,
   onQualityCycle,
-  onSwitchToClassic,
+  onMessageLead,
 }: {
   counts: HqHudCounts;
-  capacity: HqCapacity;
-  onCapacityChange: (capacity: HqCapacity) => void;
   cameraMode: HqCameraMode;
   canFollow: boolean;
   onCameraPreset: (preset: HqCameraPreset) => void;
   qualityMode: HqQualityMode;
   quality: HqQuality;
   onQualityCycle: () => void;
-  onSwitchToClassic?: () => void;
+  /** Opens the chat with the lead agent (AM7); hidden when there is none. */
+  onMessageLead?: () => void;
 }) {
   const qualityText =
     qualityMode === "auto"
@@ -165,20 +161,6 @@ export function HqHud({
             <span className="hidden xl:inline">{t("hqScene.cameraFollow")}</span>
           </BarButton>
 
-          <Divider />
-          <span className="hidden px-1 font-mono text-[9px] uppercase tracking-[0.16em] text-red-400/60 xl:inline">
-            {t("hqScene.capacityLabel")}
-          </span>
-          {HQ_CAPACITIES.map((option) => (
-            <BarButton
-              key={option}
-              active={capacity === option}
-              title={t("hqScene.capacityTitle", { count: option })}
-              onClick={() => onCapacityChange(option)}
-            >
-              <span className="tabular-nums">{option}</span>
-            </BarButton>
-          ))}
 
           <Divider />
           <BarButton title={t("hqScene.qualityTitle")} onClick={onQualityCycle}>
@@ -186,10 +168,10 @@ export function HqHud({
             <span className="hidden text-red-300/60 xl:inline">{t("hqScene.quality")}</span>
             <span>{qualityText}</span>
           </BarButton>
-          {onSwitchToClassic ? (
-            <BarButton label={t("hqScene.switchToClassic")} onClick={onSwitchToClassic}>
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              <span className="hidden xl:inline">{t("hqScene.switchToClassic")}</span>
+          {onMessageLead ? (
+            <BarButton label={t("hqScene.messageLead")} title={t("hqScene.messageLeadTitle")} onClick={onMessageLead}>
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">{t("hqScene.messageLead")}</span>
             </BarButton>
           ) : null}
         </div>

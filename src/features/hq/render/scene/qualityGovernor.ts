@@ -52,6 +52,7 @@ const DECLINE_FPS = 45;
 const PANIC_FPS = 24;
 const INCLINE_FPS = 57;
 const MAX_FLIPFLOPS = 4;
+const FORGIVE_WINDOWS = 60;
 
 export class HqQualityGovernor {
   tier: number;
@@ -107,7 +108,7 @@ export class HqQualityGovernor {
         if (this.lastMove === "up") {
           // The last step up did not hold: wait twice as long before the next.
           this.flipflops += 1;
-          this.inclineWindows = Math.min(96, this.inclineWindows * 2);
+          this.inclineWindows = Math.min(48, this.inclineWindows * 2);
         }
         // Far below target: skip a rung rather than crawl for many seconds.
         const step = fps < PANIC_FPS ? 2 : 1;
@@ -118,6 +119,12 @@ export class HqQualityGovernor {
     this.slowWindows = 0;
     if (fps >= INCLINE_FPS) {
       this.fastWindows += 1;
+      // A long fast stretch means earlier slow spells were passing (a busy or
+      // background tab, a load), so the upgrade lock and back-off are forgiven.
+      if (this.fastWindows >= FORGIVE_WINDOWS && (this.flipflops > 0 || this.inclineWindows > 6)) {
+        this.flipflops = 0;
+        this.inclineWindows = 6;
+      }
       if (
         this.fastWindows >= this.inclineWindows &&
         this.tier > 0 &&

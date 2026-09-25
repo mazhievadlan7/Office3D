@@ -1279,8 +1279,6 @@ export const ru = {
   "hqScene.cameraMap": "Карта мира",
   "hqScene.cameraOverview": "Обзор",
   "hqScene.cameraStopFollow": "Перестать следить (Esc)",
-  "hqScene.capacityLabel": "Мест",
-  "hqScene.capacityTitle": "Штаб на {count} рабочих мест",
   "hqScene.controlsHint":
     "Левая кнопка — сдвиг · правая — поворот · колесо — масштаб · двойной щелчок по агенту — следить",
   "hqScene.countAgents": "Агенты",
@@ -1290,6 +1288,8 @@ export const ru = {
   "hqScene.countWorking": "Работают",
   "hqScene.countersLabel": "Сводка штаба",
   "hqScene.leadBadge": "Руководитель",
+  "hqScene.messageLead": "Написать AM7",
+  "hqScene.messageLeadTitle": "Открыть чат с руководителем штаба",
   "hqScene.quality": "Качество",
   "hqScene.qualityAuto": "авто · {level}",
   "hqScene.qualityHigh": "высокое",
@@ -1301,7 +1301,6 @@ export const ru = {
   "hqScene.statusError": "ошибка",
   "hqScene.statusIdle": "ожидает",
   "hqScene.statusWorking": "работает",
-  "hqScene.switchToClassic": "Классический офис",
   "hqScene.title": "Штаб AM7",
   "hqScene.webglFailed": "Не удалось запустить трёхмерный штаб на этом устройстве.",
 
