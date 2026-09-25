@@ -141,9 +141,9 @@ function paintLayout(p: GlowPainter, layout: HqLayout): void {
   const halfW = ws.width / 2;
   for (const desk of [...layout.desks, layout.leadDesk]) {
     p.frame(desk.x, desk.z, desk.rotY);
-    p.rect(-halfW, ws.deskFront - 0.02, halfW, ws.deskFront + 0.1, red, 0.5);
-    p.rect(-halfW + 0.05, ws.deskFront, halfW - 0.05, ws.deskBack, red, 0.14);
-    p.rect(-halfW - 0.1, ws.deskBack - 0.2, halfW + 0.1, ws.deskBack + 0.05, red, 0.18);
+    p.rect(-halfW, ws.deskFront - 0.02, halfW, ws.deskFront + 0.1, red, 0.32);
+    p.rect(-halfW + 0.05, ws.deskFront, halfW - 0.05, ws.deskBack, red, 0.05);
+    p.rect(-halfW - 0.1, ws.deskBack - 0.2, halfW + 0.1, ws.deskBack + 0.05, red, 0.08);
   }
 
   p.world();
@@ -152,8 +152,8 @@ function paintLayout(p: GlowPainter, layout: HqLayout): void {
   const map = layout.mapWall;
   const mx0 = map.x - map.width / 2;
   const mx1 = map.x + map.width / 2;
-  p.band(mx0, bounds.z0, mx1, bounds.z0, 0, 1, 2.6, red, 0.95);
-  p.band(mx0 + 0.6, bounds.z0, mx1 - 0.6, bounds.z0, 0, 1, 0.9, red, 0.6);
+  p.band(mx0, bounds.z0, mx1, bounds.z0, 0, 1, 2.0, red, 0.55);
+  p.band(mx0 + 0.6, bounds.z0, mx1 - 0.6, bounds.z0, 0, 1, 0.8, red, 0.4);
 
   // Emissive lines at the foot of the tall walls and on the low curbs.
   p.band(bounds.x0, bounds.z0, bounds.x1, bounds.z0, 0, 1, 0.45, red, 0.45);

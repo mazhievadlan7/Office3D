@@ -201,7 +201,7 @@ export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; u
     uHqGlowMap: { value: null },
     uHqGlowRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     uHqGlowPpm: { value: 1 },
-    uHqGlowStrength: { value: 1.25 },
+    uHqGlowStrength: { value: 0.4 },
     uHqOrigin: { value: new THREE.Vector2() },
     uHqTile: { value: FLOOR_TILE },
     uHqGrout: { value: themeColor(HQ_THEME.floorGrout) },

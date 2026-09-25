@@ -43,9 +43,9 @@ export function HqPostFx({ quality }: { quality: HqQuality }) {
         mipmapBlur
         luminanceThreshold={1}
         luminanceSmoothing={0.25}
-        intensity={1.2}
-        radius={0.72}
-        levels={7}
+        intensity={1}
+        radius={0.5}
+        levels={5}
       />
       <ToneMapping mode={ToneMappingMode.AGX} />
       <SMAA preset={SMAAPreset.HIGH} />

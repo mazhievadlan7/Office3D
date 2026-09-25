@@ -203,7 +203,6 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
   });
 
   const office = layout.am7Office;
-  const wall = layout.mapWall;
 
   return (
     <>
@@ -227,8 +226,8 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
       <pointLight
         ref={mapLightRef}
         color={HQ_THEME.accent}
-        intensity={30}
-        distance={Math.max(14, wall.width * 0.9)}
+        intensity={16}
+        distance={12}
         decay={2}
       />
       <pointLight ref={serverLightRef} color={HQ_THEME.accent} intensity={14} distance={9} decay={2} />
@@ -250,8 +249,8 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
       <Environment frames={1} resolution={256} environmentIntensity={1.2}>
         <Lightformer form="rect" intensity={4} color="#fff4e8" scale={[14, 0.8, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
         <Lightformer form="rect" intensity={3} color={HQ_THEME.statusSelected} scale={[10, 0.6, 1]} position={[0, 6, 3]} rotation-x={Math.PI / 2} />
-        <Lightformer form="rect" intensity={2.5} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
-        <Lightformer form="rect" intensity={1.6} color={HQ_THEME.accentSoft} scale={[8, 2, 1]} position={[-9, 2, 0]} rotation-y={Math.PI / 2} />
+        <Lightformer form="rect" intensity={0.8} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
+        <Lightformer form="rect" intensity={0.6} color={HQ_THEME.accentSoft} scale={[8, 2, 1]} position={[-9, 2, 0]} rotation-y={Math.PI / 2} />
         <Lightformer form="rect" intensity={1.4} color="#c8d2e6" scale={[10, 4, 1]} position={[9, 3, 6]} rotation-y={-Math.PI / 2} />
       </Environment>
     </>

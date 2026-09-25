@@ -50,7 +50,7 @@ export type MapFit = {
 
 // The land may stretch a little away from true equirectangular proportions so
 // it fills walls of other aspect ratios; beyond that it is letterboxed.
-const MAX_STRETCH_X = 1.22;
+const MAX_STRETCH_X = 1.85;
 const MAX_STRETCH_Y = 1.15;
 
 export function fitMap(width: number, height: number, cols: number): MapFit {

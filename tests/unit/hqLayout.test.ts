@@ -275,12 +275,12 @@ describe.each(HQ_CAPACITIES)("generateHqLayout(%i)", (capacity) => {
     const map = layout.mapWall;
     const hallW = b.x1 - b.x0;
     expect(map.z).toBeCloseTo(b.z0);
-    expect(map.height).toBeCloseTo(3.4);
-    expect(map.y - map.height / 2).toBeCloseTo(1.1);
+    expect(map.height).toBeCloseTo(4.1);
+    expect(map.y - map.height / 2).toBeCloseTo(0.6);
     expect(map.y + map.height / 2).toBeLessThan(layout.wallHeight);
     expect(map.width).toBeLessThanOrEqual(40);
-    expect(map.width).toBeGreaterThanOrEqual(Math.min(0.55 * hallW, 40) - 1e-6);
-    expect(map.width).toBeLessThanOrEqual(0.65 * hallW + 1e-6);
+    expect(map.width).toBeGreaterThanOrEqual(Math.min(0.42 * hallW, 40) - 1e-6);
+    expect(map.width).toBeLessThanOrEqual(0.5 * hallW + 1e-6);
     expect(map.x - map.width / 2).toBeGreaterThan(b.x0);
     expect(map.x + map.width / 2).toBeLessThan(layout.am7Office.x0);
     expect(map.x).toBeCloseTo((b.x0 + layout.am7Office.x0) / 2);

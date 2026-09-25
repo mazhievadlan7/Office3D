@@ -28,8 +28,8 @@ REGIONS = {
     "metal": ((0.018, 0.018, 0.02), 0.2, 0.92, (0, 0, 0)),
     "eyes": ((1.0, 0.05, 0.03), 0.3, 0.0, (1.0, 0.04, 0.02)),
     "accent": ((0.6, 0.02, 0.015), 0.4, 0.0, (0.55, 0.012, 0.008)),
-    "boots": ((0.02, 0.02, 0.022), 0.55, 0.1, (0, 0, 0)),
-    "sole": ((0.05, 0.05, 0.055), 0.7, 0.0, (0, 0, 0)),
+    "boots": ((0.006, 0.006, 0.007), 0.72, 0.0, (0, 0, 0)),
+    "sole": ((0.008, 0.008, 0.009), 0.8, 0.0, (0, 0, 0)),
     "joint": ((0.05, 0.05, 0.055), 0.35, 0.85, (0, 0, 0)),
     "visor": ((0.004, 0.004, 0.005), 0.08, 0.6, (0, 0, 0)),
     "eyecore": ((1.0, 0.45, 0.35), 0.3, 0.0, (1.0, 0.32, 0.22)),
@@ -352,12 +352,12 @@ def add_boots(mb):
         ]
         rings = [(Vector((x, 0.018, z)), Z, r, r * 1.05, wt, 2.2) for z, r, wt in shaft]
         mb.loft(rings, "boots", segs=16)
-        # Red accent strip at the top of the shaft
+        # Collar at the top of the shaft, black like the rest of the boot.
         rings = [
             (Vector((x, 0.018, 0.176)), Z, 0.0625, 0.0655, {f"{pre}Leg": 1.0}, 2.2),
             (Vector((x, 0.018, 0.183)), Z, 0.0625, 0.0655, {f"{pre}Leg": 1.0}, 2.2),
         ]
-        mb.loft(rings, "accent", segs=16)
+        mb.loft(rings, "boots", segs=16)
 
 
 # The head, neck and hood live in head.py (imported after the helpers it uses).
@@ -448,7 +448,7 @@ def _atlas_image(name, fn, colorspace):
 
 
 # Specular IOR level per region (0.5 = default dielectric F0 of 4%).
-SPECULAR = {"hoodie": 0.03, "pants": 0.04, "boots": 0.25, "sole": 0.15}
+SPECULAR = {"hoodie": 0.03, "pants": 0.04, "boots": 0.06, "sole": 0.04}
 
 
 def _specular_image():

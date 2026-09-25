@@ -41,10 +41,10 @@ export const HQ_AVENUE = 4.2;
 export const HQ_WALL_HEIGHT = 5;
 export const HQ_GLASS_HEIGHT = 2.8;
 export const HQ_DOOR_WIDTH = 1.2;
-const MAP_HEIGHT = 3.4;
-const MAP_BOTTOM = 1.1;
+const MAP_HEIGHT = 4.1;
+const MAP_BOTTOM = 0.6;
 const MAP_MAX_WIDTH = 40;
-const MAP_SHARE = 0.6;
+const MAP_SHARE = 0.46;
 /** Longest edge between two aisle nodes. */
 const NAV_MAX_GAP = 3;
 const DESKS_PER_POD = 4;

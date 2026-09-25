@@ -33,7 +33,7 @@ def _grid(mb, thetas, phis, point, weights, region, keep=None):
             dmid = sum((q[1] for q in quad), Vector()) / 4
             if keep and not keep(dmid):
                 continue
-            mb.f(tuple(q[0] for q in quad), region)
+            mb.f(tuple(q[0] for q in quad), region(dmid) if callable(region) else region)
 
 
 def _g(u, w, u0, w0, su, sw):
@@ -73,15 +73,39 @@ def head_point(d):
     fwd += 0.007 * _g(au, w, 0.5, -0.05, 0.14, 0.1)  # cheekbones
     fwd -= 0.006 * _g(au, w, 0.45, -0.38, 0.14, 0.13)  # cheek hollows
     p.y -= fwd * front
+    # Seams are also cut a little into the surface so highlights break on them.
+    groove = 0.0
+    if w > 0.34:
+        groove += 0.0018 * math.exp(-((u / 0.015) ** 2)) * (-d.y > 0.2)
+    if -0.55 < w < 0.42:
+        groove += 0.0022 * math.exp(-(((au - (0.63 + 0.06 * w)) / 0.018) ** 2)) * (f > 0.05)
+    p -= Vector((d.x * HEAD_R[0], d.y * HEAD_R[1], d.z * HEAD_R[2])).normalized() * groove
     side = math.copysign(1.0, u) if au > 1e-6 else 0.0
     p.x += side * (0.004 * _g(au, w, 0.55, -0.05, 0.15, 0.1) - 0.004 * _g(au, w, 0.62, 0.22, 0.1, 0.15))
     return HEAD_C + p
 
 
+def head_region(d):
+    """Dark panel seams on the metal face, like the reference android: a centre
+    seam up the forehead, the outline of the face plate and a brow-to-temple
+    line. Faces on a seam use the near-black glossy "visor" block."""
+    u, w, f = d.x, d.z, -d.y
+    au = abs(u)
+    if f > 0.2 and w > 0.34 and au < 0.02:
+        return "visor"
+    if f > 0.05 and -0.55 < w < 0.42 and abs(au - (0.63 + 0.06 * w)) < 0.022:
+        return "visor"
+    if f > 0.3 and 0.3 < au < 0.62 and abs(w - (0.36 + 0.05 * (au - 0.3))) < 0.014:
+        return "visor"
+    if d.y > 0.2 and abs(u) < 0.025:
+        return "visor"  # the seam continues over the back of the skull
+    return "metal"
+
+
 def add_head(mb):
     thetas = [math.pi * t for t in _dense(44, 0.555, 0.7)]
     phis = [-math.pi / 2 + 2 * math.pi * (t - 0.5) for t in _dense(56, 0.5, 0.72)[:-1]]
-    _grid(mb, thetas, phis, head_point, {"Head": 1.0}, "metal")
+    _grid(mb, thetas, phis, head_point, {"Head": 1.0}, head_region)
 
     # Eyes: glowing red globes set into the sockets, with a white-hot core.
     for side in (1, -1):
