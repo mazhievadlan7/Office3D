@@ -5,7 +5,7 @@ import { HQ_CAPACITIES } from "@/features/hq/core/config";
 import { generateHqLayout } from "@/features/hq/core/layout";
 import { HQ_ROLE_FAMILY, HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_WALL_SCREEN } from "@/features/hq/core/types";
-import { globeDirection, subsolarPoint } from "@/features/hq/render/map/globeShaders";
+import { mapDirection, subsolarPoint, sunDirection } from "@/features/hq/render/map/sun";
 import { APP_LAYER, HQ_SCREEN_APPS, packDeskState, screenAppsGlsl } from "@/features/hq/render/screens/screenApps";
 import { APP_PAINTERS } from "@/features/hq/render/screens/screenPaint";
 
@@ -58,11 +58,18 @@ describe("desk monitors", () => {
   });
 });
 
-describe("the globe", () => {
-  it("places longitude/latitude like three's SphereGeometry UVs", () => {
-    expect(globeDirection(0, 0).distanceTo(new Vector3(1, 0, 0))).toBeLessThan(1e-9);
-    expect(globeDirection(0, 90).distanceTo(new Vector3(0, 1, 0))).toBeLessThan(1e-9);
-    expect(globeDirection(90, 0).distanceTo(new Vector3(0, 0, -1))).toBeLessThan(1e-9);
+describe("the map's real-time day and night", () => {
+  it("turns longitude/latitude into the shader's unit vectors", () => {
+    expect(mapDirection(0, 0, new Vector3()).distanceTo(new Vector3(1, 0, 0))).toBeLessThan(1e-9);
+    expect(mapDirection(0, 90, new Vector3()).distanceTo(new Vector3(0, 1, 0))).toBeLessThan(1e-9);
+    expect(mapDirection(90, 0, new Vector3()).distanceTo(new Vector3(0, 0, 1))).toBeLessThan(1e-9);
+  });
+
+  it("lights Moscow at noon and darkens it at midnight", () => {
+    const moscow = mapDirection(37.62, 55.76, new Vector3());
+    // 12:00 in Moscow is 09:00 UTC; midnight there is 21:00 UTC.
+    expect(moscow.dot(sunDirection(Date.UTC(2026, 8, 25, 9, 0), new Vector3()))).toBeGreaterThan(0.4);
+    expect(moscow.dot(sunDirection(Date.UTC(2026, 8, 25, 21, 0), new Vector3()))).toBeLessThan(-0.4);
   });
 
   it("puts the Sun where it really is", () => {
@@ -96,15 +103,4 @@ describe("wall screens", () => {
       for (let i = 1; i < lounge.length; i++) expect(lounge[i].screen).not.toBe(lounge[i - 1].screen);
     });
   }
-
-  it("floats the globe in front of the map wall's centre, clear of the watchers", () => {
-    const layout = generateHqLayout(300);
-    const { globe } = layout.mapWall;
-    expect(globe.x).toBeCloseTo(layout.mapWall.x);
-    expect(globe.z - globe.radius).toBeGreaterThan(layout.mapWall.z + 0.1);
-    for (const spot of layout.socialSpots.filter((s) => s.kind === "map")) {
-      const d = Math.hypot(spot.x - globe.x, spot.z - globe.z);
-      expect(d, `map spot at ${spot.x},${spot.z}`).toBeGreaterThan(globe.radius + 0.9);
-    }
-  });
 });

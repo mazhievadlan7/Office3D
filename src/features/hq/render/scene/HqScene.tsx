@@ -12,7 +12,6 @@ import { HqWorldMap } from "../map/HqWorldMap";
 import { HqScreenDriver } from "../screens/HqScreenDriver";
 import { HqScreenHub } from "../screens/screenHub";
 import { HqWorkstations } from "../workstations/HqWorkstations";
-import { HqAdaptiveQuality, type HqQualityMode } from "./HqAdaptiveQuality";
 import { HqCameraRig, type HqCameraApi, type HqCameraMode } from "./HqCameraRig";
 import { HqLighting } from "./HqLighting";
 import { HqModuleSlot } from "./HqModuleSlot";
@@ -20,7 +19,6 @@ import { HqPicking, type HqHoverSink } from "./HqPicking";
 import { HqPostFx } from "./HqPostFx";
 import { HqSimDriver } from "./HqSimDriver";
 import type { HqQuality } from "./quality";
-import type { HqQualityTier } from "./qualityGovernor";
 
 const noRaycast = () => null;
 
@@ -55,9 +53,6 @@ export type HqSceneProps = {
   cameraApiRef: MutableRefObject<HqCameraApi | null>;
   selectedId: string | null;
   quality: HqQuality;
-  qualityTiers: readonly HqQualityTier[];
-  qualityMode: HqQualityMode;
-  onQualityTierChange: (tierIndex: number) => void;
   onCameraModeChange: (mode: HqCameraMode) => void;
   onIntroChange?: (playing: boolean) => void;
   onSelect: (agentId: string) => void;
@@ -84,9 +79,6 @@ export const HqScene = memo(function HqScene({
   cameraApiRef,
   selectedId,
   quality,
-  qualityTiers,
-  qualityMode,
-  onQualityTierChange,
   onCameraModeChange,
   onIntroChange,
   onSelect,
@@ -100,7 +92,6 @@ export const HqScene = memo(function HqScene({
     <>
       <HqSimDriver simRef={simRef} activityRef={activityRef} />
       <HqScreenDriver screens={screens} agentsRef={agentsRef} quality={quality} />
-      <HqAdaptiveQuality tiers={qualityTiers} mode={qualityMode} onTierChange={onQualityTierChange} />
       <HqCameraRig
         layout={layout}
         simRef={simRef}

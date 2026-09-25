@@ -112,8 +112,6 @@ export type HqMapWall = {
   z: number;
   width: number;
   height: number;
-  /** The holographic globe floating in front of the wall's centre, on a floor projector. */
-  globe: { x: number; y: number; z: number; radius: number };
 };
 
 export type HqNavGraph = {

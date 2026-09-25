@@ -51,9 +51,6 @@ export const HQ_DOOR_WIDTH = 1.2;
 const MAP_HEIGHT = 4.1;
 const MAP_BOTTOM = 0.6;
 const MAP_MAX_WIDTH = 40;
-/** The globe fills most of the map's height and floats this far off the wall. */
-const GLOBE_RADIUS = 1.72;
-const GLOBE_WALL_GAP = 0.5;
 const MAP_SHARE = 0.46;
 /** Longest edge between two aisle nodes. */
 const NAV_MAX_GAP = 3;
@@ -394,14 +391,12 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
 
   const mapCx = (x0 + ox0) / 2;
   const mapW = Math.min(MAP_MAX_WIDTH, W * MAP_SHARE, ox0 - x0 - 2);
-  const globeZ = z0 + GLOBE_RADIUS + GLOBE_WALL_GAP;
   const mapWall: HqMapWall = {
     x: round3(mapCx),
     y: MAP_BOTTOM + MAP_HEIGHT / 2,
     z: round3(z0),
     width: round3(mapW),
     height: MAP_HEIGHT,
-    globe: { x: round3(mapCx), y: MAP_BOTTOM + MAP_HEIGHT / 2, z: round3(globeZ), radius: GLOBE_RADIUS },
   };
 
   const nav = new HqNavBuilder();
@@ -541,10 +536,7 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
   const mapSpotZ = z0 + Math.min(3.4, plazaD * 0.42);
   for (let i = 0; i < mapSpotCount; i++) {
     const x = mapCx + (i - (mapSpotCount - 1) / 2) * (mapW / mapSpotCount);
-    // In front of the globe, watchers stand clear of it.
-    const nearGlobe = Math.abs(x - mapCx) < GLOBE_RADIUS + 1;
-    const z = nearGlobe ? Math.max(mapSpotZ, globeZ + GLOBE_RADIUS + 1) : mapSpotZ;
-    const node = addSpot("map", x, z, Math.PI, 3);
+    const node = addSpot("map", x, mapSpotZ, Math.PI, 3);
     plazaLine.add(x);
     nav.link(node, nav.node(x, plazaLineZ));
   }

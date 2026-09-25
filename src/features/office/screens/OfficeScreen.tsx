@@ -4085,10 +4085,10 @@ export function OfficeScreen({
 
       {showOpenClawConsole ? (
         <section className={`fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur transition-opacity duration-700 ${openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"} ${hqIntroPlaying ? "pointer-events-none opacity-0 [&_*]:!pointer-events-none" : "pointer-events-auto opacity-100"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-red-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-red-200/80">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-red-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white">
             <span className="whitespace-nowrap">{t("office.eventConsole")}</span>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="whitespace-nowrap text-[10px] text-red-100/45">
+              <span className="whitespace-nowrap text-[10px] text-white">
                 {t("office.consoleCounts", { agents: state.agents.length })}{" "}
                 {filteredOpenClawLogEntries.length}/{openClawLogEntries.length}
               </span>
@@ -4097,7 +4097,7 @@ export function OfficeScreen({
                 onClick={() => {
                   void handleCopyOpenClawConsoleJson();
                 }}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
               >
                 {openClawConsoleCopyStatus === "copied"
                   ? t("common.copied")
@@ -4108,14 +4108,14 @@ export function OfficeScreen({
               <button
                 type="button"
                 onClick={handleDownloadOpenClawConsoleJson}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
               >
                 {t("office.downloadJson")}
               </button>
               <button
                 type="button"
                 onClick={handleClearOpenClawConsole}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
               >
                 {t("office.clear")}
               </button>
@@ -4124,7 +4124,7 @@ export function OfficeScreen({
                 onClick={() =>
                   setOpenClawConsoleCollapsed((previous) => !previous)
                 }
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
               >
                 {openClawConsoleCollapsed ? t("office.expand") : t("office.minimize")}
               </button>
@@ -4141,13 +4141,13 @@ export function OfficeScreen({
                     setOpenClawConsoleSearch(event.target.value)
                   }
                   placeholder={t("office.searchLogs")}
-                  className="min-w-0 flex-1 rounded border border-red-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-red-50 placeholder:text-red-100/30 focus:border-red-400/40 focus:outline-none"
+                  className="min-w-0 flex-1 rounded border border-red-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-white placeholder:text-white/60 focus:border-red-400/40 focus:outline-none"
                 />
                 {openClawConsoleSearch ? (
                   <button
                     type="button"
                     onClick={() => setOpenClawConsoleSearch("")}
-                    className="rounded border border-red-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                    className="rounded border border-red-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-white transition-colors hover:border-red-400/45 hover:text-white"
                   >
                     {t("office.reset")}
                   </button>
@@ -4156,10 +4156,10 @@ export function OfficeScreen({
             </div>
             {openClawLiveStateMatchesSearch ? (
               <div className="rounded border border-red-500/10 bg-red-950/10 p-2">
-                <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-red-300/70">
+                <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-white">
                   {t("office.liveState")}
                 </div>
-                <pre className="whitespace-pre-wrap break-words text-red-100/80">
+                <pre className="whitespace-pre-wrap break-words text-white">
                   {renderOpenClawHighlightedText(
                     openClawLiveStateText,
                     openClawConsoleSearch,
@@ -4167,15 +4167,15 @@ export function OfficeScreen({
                 </pre>
               </div>
             ) : (
-              <div className="rounded border border-red-500/10 bg-red-950/10 p-2 text-red-100/45">
+              <div className="rounded border border-red-500/10 bg-red-950/10 p-2 text-white">
                 {t("office.liveStateNoMatch")}
               </div>
             )}
-            <div className="text-[9px] uppercase tracking-[0.16em] text-red-300/70">
+            <div className="text-[9px] uppercase tracking-[0.16em] text-white">
               {t("office.rawEvents")}
             </div>
             {filteredOpenClawLogEntries.length === 0 ? (
-              <div className="rounded border border-red-500/10 bg-red-950/10 p-2 text-red-100/45">
+              <div className="rounded border border-red-500/10 bg-red-950/10 p-2 text-white">
                 {openClawLogEntries.length === 0
                   ? t("office.noEvents")
                   : t("office.noEventsMatch")}
@@ -4196,8 +4196,8 @@ export function OfficeScreen({
                       <div
                         className={`text-[9px] uppercase tracking-[0.16em] ${
                           isUserMessage
-                            ? "text-red-300/85"
-                            : "text-red-300/75"
+                            ? "text-white"
+                            : "text-white"
                         }`}
                       >
                         {renderOpenClawHighlightedText(
@@ -4209,23 +4209,23 @@ export function OfficeScreen({
                         <span
                           className={`rounded px-1.5 py-0.5 text-[9px] uppercase ${
                             isUserMessage
-                              ? "bg-red-400/15 text-red-200"
-                              : "bg-red-400/10 text-red-200/80"
+                              ? "bg-red-400/15 text-white"
+                              : "bg-red-400/10 text-white"
                           }`}
                         >
                           {messageRoleLabel(entry.role)}
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-1 whitespace-pre-wrap break-words text-red-100/55">
+                    <div className="mt-1 whitespace-pre-wrap break-words text-white">
                       {renderOpenClawHighlightedText(
                         entry.summary,
                         openClawConsoleSearch,
                       )}
                     </div>
                     {entry.messageText ? (
-                      <div className="mt-2 rounded border border-red-400/20 bg-red-950/25 px-2 py-1 text-red-100">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-red-300/75">
+                      <div className="mt-2 rounded border border-red-400/20 bg-red-950/25 px-2 py-1 text-white">
+                        <div className="text-[9px] uppercase tracking-[0.16em] text-white">
                           {t("office.userText")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
@@ -4237,8 +4237,8 @@ export function OfficeScreen({
                       </div>
                     ) : null}
                     {entry.thinkingText ? (
-                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/15 px-2 py-1 text-red-100/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-red-300/70">
+                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/15 px-2 py-1 text-white">
+                        <div className="text-[9px] uppercase tracking-[0.16em] text-white">
                           {t("office.thinking")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
@@ -4250,8 +4250,8 @@ export function OfficeScreen({
                       </div>
                     ) : null}
                     {entry.streamText ? (
-                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/18 px-2 py-1 text-red-50/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-red-300/70">
+                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/18 px-2 py-1 text-white">
+                        <div className="text-[9px] uppercase tracking-[0.16em] text-white">
                           {t("office.stream")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
@@ -4263,8 +4263,8 @@ export function OfficeScreen({
                       </div>
                     ) : null}
                     {entry.toolText ? (
-                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/15 px-2 py-1 text-red-100/90">
-                        <div className="text-[9px] uppercase tracking-[0.16em] text-red-300/70">
+                      <div className="mt-2 rounded border border-red-400/15 bg-red-950/15 px-2 py-1 text-white">
+                        <div className="text-[9px] uppercase tracking-[0.16em] text-white">
                           {t("office.toolOutput")}
                         </div>
                         <div className="mt-1 whitespace-pre-wrap break-words">
@@ -4276,10 +4276,10 @@ export function OfficeScreen({
                       </div>
                     ) : null}
                     <details className="mt-2">
-                      <summary className="cursor-pointer text-[9px] uppercase tracking-[0.16em] text-red-300/55">
+                      <summary className="cursor-pointer text-[9px] uppercase tracking-[0.16em] text-white">
                         {t("office.rawPayload")}
                       </summary>
-                      <pre className="mt-1 whitespace-pre-wrap break-words text-red-100/45">
+                      <pre className="mt-1 whitespace-pre-wrap break-words text-white">
                         {renderOpenClawHighlightedText(
                           entry.payloadText,
                           openClawConsoleSearch,
@@ -4532,7 +4532,7 @@ export function OfficeScreen({
         <button
           type="button"
           onClick={() => setChatOpen((prev) => !prev)}
-          className="flex items-center gap-1.5 rounded border border-red-700/50 bg-[#070404]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-red-300 shadow-lg backdrop-blur transition-colors hover:border-red-500/70 hover:text-red-100"
+          className="flex items-center gap-1.5 rounded border border-red-700/50 bg-[#070404]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-white shadow-lg backdrop-blur transition-colors hover:border-red-500/70 hover:bg-red-950/40"
         >
           {chatOpen ? (
             <>
@@ -4544,7 +4544,7 @@ export function OfficeScreen({
               <MessageSquare className="h-3.5 w-3.5" />
               <span>{t("office.chat")}</span>
               {runningCount > 0 ? (
-                <span className="rounded bg-red-500/20 px-1 text-[10px] text-red-300">
+                <span className="rounded bg-red-500/25 px-1 text-[10px] text-white">
                   {runningCount}
                 </span>
               ) : null}

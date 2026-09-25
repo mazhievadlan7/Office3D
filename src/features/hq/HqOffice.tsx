@@ -12,17 +12,14 @@ import { HqSimulation } from "./core/sim";
 import type { HqAgentInput } from "./core/types";
 import { HqHoverCard } from "./hud/HqHoverCard";
 import { HqHud, HqSettingsControls, type HqHudCounts, type HqRuntimeStatus } from "./hud/HqHud";
-import {
-  nextHqQualityMode,
-  readHqQualityMode,
-  writeHqQualityMode,
-} from "./hud/hqPrefs";
-import type { HqQualityMode } from "./render/scene/HqAdaptiveQuality";
-import { buildQualityTiers } from "./render/scene/qualityGovernor";
 import type { HqCameraApi, HqCameraMode } from "./render/scene/HqCameraRig";
 import type { HqHoverSink } from "./render/scene/HqPicking";
 import { HqScene } from "./render/scene/HqScene";
 import { HQ_CAMERA, type HqCameraPreset } from "./render/scene/cameraMath";
+import type { HqQuality } from "./render/scene/quality";
+
+/** Highest pixel ratio the HQ renders at: sharp on HiDPI screens without doubling the work. */
+const HQ_MAX_DPR = 1.5;
 
 export type HqOfficeProps = {
   agents: HqAgentInput[];
@@ -116,9 +113,10 @@ export function HqOffice({
   onIntroChange,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
-  const [qualityMode, setQualityMode] = useState<HqQualityMode>(readHqQualityMode);
-  const [qualityTiers] = useState(() => buildQualityTiers(window.devicePixelRatio));
-  const [tierIndex, setTierIndex] = useState(0);
+  // Always the highest quality: full detail, shadows and effects, rendered at
+  // the screen's own pixel ratio (up to 1.5x, sharp without doubling the work).
+  const quality: HqQuality = "high";
+  const [dpr] = useState(() => Math.min(HQ_MAX_DPR, Math.max(1, window.devicePixelRatio || 1)));
   const [cameraMode, setCameraMode] = useState<HqCameraMode>("overview");
   const [deskPoll, setDeskPoll] = useState<{ capacity: HqCapacity; free: number } | null>(null);
   const [ready, setReady] = useState(false);
@@ -254,16 +252,6 @@ export function HqOffice({
     if (target) api.follow(target);
   }, []);
 
-  const handleQualityCycle = useCallback(() => {
-    setQualityMode((mode) => {
-      const next = nextHqQualityMode(mode);
-      writeHqQualityMode(next);
-      return next;
-    });
-  }, []);
-
-  const tier = qualityTiers[Math.min(tierIndex, qualityTiers.length - 1)];
-  const quality = tier.quality;
   const canFollow = Boolean(selectedAgentId && agents.some((agent) => agent.id === selectedAgentId));
   const leadId = useMemo(() => findLeadId(agents), [agents]);
 
@@ -284,7 +272,7 @@ export function HqOffice({
           flat
           // Owned here, not set from inside: R3F re-applies this prop on
           // every Canvas render.
-          dpr={tier.dpr}
+          dpr={dpr}
           // PCFSoftShadowMap is deprecated in three r183; PCF with a shadow
           // radius gives the same soft edge.
           shadows={{ type: PCFShadowMap }}
@@ -303,9 +291,6 @@ export function HqOffice({
             cameraApiRef={cameraApiRef}
             selectedId={selectedAgentId}
             quality={quality}
-            qualityTiers={qualityTiers}
-            qualityMode={qualityMode}
-            onQualityTierChange={setTierIndex}
             onCameraModeChange={handleCameraMode}
             onIntroChange={handleIntroChange}
             onSelect={handleSelect}
@@ -322,9 +307,6 @@ export function HqOffice({
           cameraMode={cameraMode}
           canFollow={canFollow}
           onCameraPreset={handleCameraPreset}
-          qualityMode={qualityMode}
-          quality={quality}
-          onQualityCycle={handleQualityCycle}
           onMessageLead={leadId && onAgentSelect ? () => onAgentSelect(leadId) : undefined}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
