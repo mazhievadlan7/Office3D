@@ -1,6 +1,6 @@
 # Интеграция с Agent Bus
 
-> Визуализация сессий ИИ-программирования в ретро-офисе Office3D — без OpenClaw.
+> Визуализация сессий ИИ-программирования в 3D-штабе Office3D — без OpenClaw.
 
 [Agent Bus](https://github.com/emiliovos/agent-bus) — система маршрутизации событий с открытым исходным кодом, которая связывает ИИ-агентов для программирования (Claude Code, Gemini, Codex и др.) с Office3D. Агенты появляются в 3D-офисе, анимируются во время работы и простаивают между задачами. Никаких затрат на инференс — только маршрутизация данных.
 
@@ -41,7 +41,7 @@ AI coding session → hook fires → Agent Bus hub → gateway :18789 → Office
 ┌──────────────────────────────────────────┐
 │ Office3D (:3000)                           │
 │ Connects via GATEWAY_URL                 │
-│ Renders agents in 3D retro office        │
+│ Renders agents in the 3D HQ              │
 └──────────────────────────────────────────┘
 ```
 

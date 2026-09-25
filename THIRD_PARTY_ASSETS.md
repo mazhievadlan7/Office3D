@@ -8,4 +8,3 @@
 
 - `public/office-assets/models/characters/hacker.glb` — персонаж штаба: меш, скелет, материалы и анимации созданы в этом репозитории скриптами Blender из `blender/hacker/` (запуск описан в `blender/hacker/build.py`).
 - `public/office-assets/models/hq/workstation.glb`, `public/office-assets/models/hq/props.glb` — рабочее место и мебель штаба, созданы скриптами Blender из `blender/hq/`.
-- `public/office-assets/models/furniture/*.glb` — мебель классического офиса (была в репозитории до штаба).

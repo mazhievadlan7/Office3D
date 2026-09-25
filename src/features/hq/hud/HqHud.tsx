@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Crosshair, Crown, Gauge, Globe, Maximize2, MessageSquare } from "lucide-react";
+import { Crosshair, Crown, Gauge, Globe, Maximize2, MessageSquare, Settings } from "lucide-react";
 
 import { t } from "@/lib/i18n";
+import { adapterLabel, gatewayStatusLabel } from "@/lib/i18n/labels";
 import type { HqQualityMode } from "../render/scene/HqAdaptiveQuality";
 import type { HqCameraMode } from "../render/scene/HqCameraRig";
 import type { HqCameraPreset } from "../render/scene/cameraMath";
@@ -69,6 +70,67 @@ function BarButton({
 
 const Divider = () => <div className="mx-1 hidden h-6 w-px bg-white/10 sm:block" />;
 
+/** Which backend the office talks to and whether it is connected. */
+export type HqRuntimeStatus = {
+  adapter: string;
+  status: string;
+};
+
+/**
+ * The runtime chip and the office settings button. Part of the bottom bar, and
+ * shown on their own when the scene cannot start, so the connection and
+ * settings stay reachable without WebGL.
+ */
+export function HqSettingsControls({
+  runtime,
+  settingsOpen = false,
+  onOpenSettings,
+}: {
+  runtime?: HqRuntimeStatus | null;
+  settingsOpen?: boolean;
+  onOpenSettings?: () => void;
+}) {
+  if (!runtime && !onOpenSettings) return null;
+  const runtimeTitle = runtime
+    ? t("office.runtimeTitle", { adapter: adapterLabel(runtime.adapter), status: gatewayStatusLabel(runtime.status) })
+    : "";
+  return (
+    <>
+      {runtime ? (
+        <div
+          role="status"
+          title={runtimeTitle}
+          aria-label={runtimeTitle}
+          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+            runtime.status === "connected"
+              ? "border-red-500/45 bg-red-600/15 text-red-100"
+              : "border-red-900/40 bg-black/40 text-red-300/70"
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 rounded-full ${
+              runtime.status === "connected"
+                ? "bg-red-400 shadow-[0_0_8px_rgba(255,42,42,0.8)]"
+                : runtime.status === "connecting"
+                  ? "animate-pulse bg-red-300/70"
+                  : "bg-white/25"
+            }`}
+          />
+          <span className="hidden lg:inline">
+            {adapterLabel(runtime.adapter)} • {gatewayStatusLabel(runtime.status)}
+          </span>
+        </div>
+      ) : null}
+      {onOpenSettings ? (
+        <BarButton active={settingsOpen} label={t("office.voiceSettings")} onClick={onOpenSettings}>
+          <Settings className="h-3.5 w-3.5" />
+        </BarButton>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * The HQ overlay: title and live counters on top, the camera, capacity and
  * quality controls along the bottom. Dark glass with red accents, in the
@@ -83,6 +145,9 @@ export function HqHud({
   quality,
   onQualityCycle,
   onMessageLead,
+  runtime,
+  settingsOpen,
+  onOpenSettings,
 }: {
   counts: HqHudCounts;
   cameraMode: HqCameraMode;
@@ -93,6 +158,11 @@ export function HqHud({
   onQualityCycle: () => void;
   /** Opens the chat with the lead agent (AM7); hidden when there is none. */
   onMessageLead?: () => void;
+  /** The connected backend, shown as a chip next to the settings button. */
+  runtime?: HqRuntimeStatus | null;
+  settingsOpen?: boolean;
+  /** Toggles the office settings; the button is hidden without it. */
+  onOpenSettings?: () => void;
 }) {
   const qualityText =
     qualityMode === "auto"
@@ -173,6 +243,12 @@ export function HqHud({
               <MessageSquare className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">{t("hqScene.messageLead")}</span>
             </BarButton>
+          ) : null}
+          {runtime || onOpenSettings ? (
+            <>
+              <Divider />
+              <HqSettingsControls runtime={runtime} settingsOpen={settingsOpen} onOpenSettings={onOpenSettings} />
+            </>
           ) : null}
         </div>
         <p className="hidden select-none font-mono text-[10px] tracking-wide text-red-300/45 xl:block">

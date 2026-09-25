@@ -127,13 +127,13 @@ export function SettingsPanel({
 
   return (
     <div className="px-4 py-4">
-      <div className="rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium text-white">{t("settings.studioTitle")}</div>
             <div className="mt-1 text-[10px] text-white/75">{t("settings.studioTitleLead")}</div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
             {officeTitleLoaded ? t("settings.ready") : t("settings.loading")}
           </span>
         </div>
@@ -144,17 +144,17 @@ export function SettingsPanel({
           disabled={!officeTitleLoaded}
           onChange={(event) => onOfficeTitleChange(event.target.value)}
           placeholder={t("settings.titlePh")}
-          className="mt-3 w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3 w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="mt-2 text-[10px] text-white/50">{t("settings.titleHint")}</div>
       </div>
-      <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium text-white">{t("settings.gateway")}</div>
             <div className="mt-1 text-[10px] text-white/75">{t("settings.gatewayLead")}</div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
             {gatewayStateLabel}
           </span>
         </div>
@@ -177,8 +177,8 @@ export function SettingsPanel({
                 onClick={() => onGatewayAdapterTypeChange?.(adapterType)}
                 className={`rounded-md border px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors ${
                   selected
-                    ? "border-cyan-400/35 bg-cyan-500/12 text-cyan-50"
-                    : "border-cyan-500/10 bg-black/20 text-white/75 hover:border-cyan-400/25 hover:text-cyan-50"
+                    ? "border-red-400/35 bg-red-500/12 text-red-50"
+                    : "border-red-500/10 bg-black/20 text-white/75 hover:border-red-400/25 hover:text-red-50"
                 }`}
               >
                 {label}
@@ -188,7 +188,7 @@ export function SettingsPanel({
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("gateway.upstreamUrl")}</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("gateway.upstreamUrl")}</div>
             <input
               type="text"
               value={gatewayUrl ?? ""}
@@ -201,11 +201,11 @@ export function SettingsPanel({
                     ? "http://localhost:3000/api/runtime/custom"
                   : "ws://localhost:18789"
               }
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 font-mono text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 font-mono text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
             />
           </div>
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">
               {tokenOptional ? t("gateway.upstreamTokenOptional") : t("gateway.upstreamToken")}
             </div>
             <input
@@ -213,7 +213,7 @@ export function SettingsPanel({
               value={normalizedGatewayToken}
               onChange={(event) => onGatewayTokenChange?.(event.target.value)}
               placeholder={tokenOptional ? t("settings.tokenOptional") : t("settings.gatewayToken")}
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
             />
           </div>
         </div>
@@ -233,7 +233,7 @@ export function SettingsPanel({
               type="button"
               onClick={() => onGatewayConnect?.()}
               disabled={gatewayConnectDisabled}
-              className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-50 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/40 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {gatewayStatus === "connecting" ? t("gateway.connecting") : t("gateway.connect")}
             </button>
@@ -241,22 +241,22 @@ export function SettingsPanel({
               type="button"
               onClick={() => onGatewayDisconnect?.()}
               disabled={gatewayDisconnectDisabled}
-              className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-40"
             >{t("settings.disconnect")}</button>
           </div>
         </div>
       </div>
-      <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium text-white">{t("settings.remoteOffice")}</div>
             <div className="mt-1 text-[10px] text-white/75">{t("settings.remoteOfficeLead")}</div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
             {remoteOfficeEnabled ? t("settings.enabled") : t("settings.disabled")}
           </span>
         </div>
-        <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-cyan-500/10 bg-black/15 px-4 py-3">
+        <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-red-500/10 bg-black/15 px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -273,13 +273,13 @@ export function SettingsPanel({
               <span className="text-[10px] text-white/80">{t("settings.remoteReadOnly")}</span>
             </div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
             {remoteOfficeTokenConfigured ? t("settings.tokenSet") : t("settings.noToken")}
           </span>
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.sourceType")}</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.sourceType")}</div>
             <select
               value={remoteOfficeSourceKind}
               onChange={(event) =>
@@ -287,7 +287,7 @@ export function SettingsPanel({
                   event.target.value as "presence_endpoint" | "openclaw_gateway"
                 )
               }
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors focus:border-cyan-400/30"
+              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors focus:border-red-400/30"
             >
               <option value="presence_endpoint">{t("settings.sourcePresence")}</option>
               <option value="openclaw_gateway">{t("settings.sourceGateway")}</option>
@@ -297,40 +297,40 @@ export function SettingsPanel({
             </div>
           </div>
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.label")}</div>
+            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.label")}</div>
             <input
               type="text"
               value={remoteOfficeLabel}
               maxLength={48}
               onChange={(event) => onRemoteOfficeLabelChange(event.target.value)}
               placeholder={t("settings.remotePh")}
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
             />
           </div>
           {remoteOfficeSourceKind === "presence_endpoint" ? (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.presenceUrl")}</div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.presenceUrl")}</div>
                 <input
                   type="url"
                   value={remoteOfficePresenceUrl}
                   onChange={(event) => onRemoteOfficePresenceUrlChange(event.target.value)}
                   placeholder="https://other-office.example.com/api/office/presence"
-                  className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+                  className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
                   {t("settings.presencePollHint")}
                 </div>
               </div>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.optionalToken")}</div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.optionalToken")}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="password"
                     value={remoteOfficeTokenDraft}
                     onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
                     placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
-                    className="min-w-0 flex-1 rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+                    className="min-w-0 flex-1 rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
                   />
                   <button
                     type="button"
@@ -338,7 +338,7 @@ export function SettingsPanel({
                       onRemoteOfficeTokenChange(remoteOfficeTokenDraft);
                       setRemoteOfficeTokenDraft("");
                     }}
-                    className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                    className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
                   >{t("settings.save")}</button>
                   {remoteOfficeTokenConfigured ? (
                     <button
@@ -347,7 +347,7 @@ export function SettingsPanel({
                         onRemoteOfficeTokenChange("");
                         setRemoteOfficeTokenDraft("");
                       }}
-                      className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15"
+                      className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30"
                     >{t("settings.clear")}</button>
                   ) : null}
                 </div>
@@ -356,27 +356,27 @@ export function SettingsPanel({
           ) : (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.gatewayUrl")}</div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.gatewayUrl")}</div>
                 <input
                   type="text"
                   value={remoteOfficeGatewayUrl}
                   onChange={(event) => onRemoteOfficeGatewayUrlChange(event.target.value)}
                   placeholder="wss://remote-gateway.example.com"
-                  className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+                  className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
                   {t("settings.remoteGatewayHint")}
                 </div>
               </div>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">{t("settings.sharedToken")}</div>
+                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.sharedToken")}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="password"
                     value={remoteOfficeTokenDraft}
                     onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
                     placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
-                    className="min-w-0 flex-1 rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
+                    className="min-w-0 flex-1 rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
                   />
                   <button
                     type="button"
@@ -384,7 +384,7 @@ export function SettingsPanel({
                       onRemoteOfficeTokenChange(remoteOfficeTokenDraft);
                       setRemoteOfficeTokenDraft("");
                     }}
-                    className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                    className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
                   >{t("settings.save")}</button>
                   {remoteOfficeTokenConfigured ? (
                     <button
@@ -393,7 +393,7 @@ export function SettingsPanel({
                         onRemoteOfficeTokenChange("");
                         setRemoteOfficeTokenDraft("");
                       }}
-                      className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15"
+                      className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30"
                     >{t("settings.clear")}</button>
                   ) : null}
                 </div>
@@ -405,7 +405,7 @@ export function SettingsPanel({
       </div>
       {hermesControl ? <HermesModelsPanel control={hermesControl} /> : null}
       {hermesControl ? <SystemHealthSection control={hermesControl} /> : null}
-      <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium text-white">{t("settings.onboarding")}</div>
@@ -414,11 +414,11 @@ export function SettingsPanel({
           <button
             type="button"
             onClick={() => onOpenOnboarding?.()}
-            className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-100 transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/15"
+            className="rounded-md border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
           >{t("settings.launchWizard")}</button>
         </div>
       </div>
-      <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -436,11 +436,11 @@ export function SettingsPanel({
             <span className="text-[10px] text-white/80">{t("settings.voiceRepliesLead")}</span>
           </div>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
           {voiceRepliesLoaded ? (voiceRepliesEnabled ? t("settings.on") : t("settings.off")) : t("settings.loading")}
         </span>
       </div>
-      <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="text-[11px] font-medium text-white">{t("settings.voice")}</div>
         <div className="mt-1 text-[10px] text-white/75">{t("settings.voiceLead")}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -457,8 +457,8 @@ export function SettingsPanel({
                 disabled={!voiceRepliesLoaded}
                 className={`rounded-lg border px-3 py-2 text-left transition-colors ${
                   selected
-                    ? "border-cyan-400/40 bg-cyan-500/12 text-white"
-                    : "border-cyan-500/10 bg-black/15 text-white/80 hover:border-cyan-400/20 hover:bg-cyan-500/6"
+                    ? "border-red-400/40 bg-red-500/12 text-white"
+                    : "border-red-500/10 bg-black/15 text-white/80 hover:border-red-400/20 hover:bg-red-500/6"
                 }`}
               >
                 <div className="text-[11px] font-medium">{voice.label}</div>
@@ -469,7 +469,7 @@ export function SettingsPanel({
         </div>
       </div>
       {voiceSetup ? (
-        <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3 text-[10px] text-white/75" data-testid="voice-providers">
+        <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3 text-[10px] text-white/75" data-testid="voice-providers">
           <div>
             {t("settings.voiceTts", {
               provider: providerLabel(voiceSetup.tts.provider),
@@ -486,7 +486,7 @@ export function SettingsPanel({
         </div>
       ) : null}
       {voiceAgents.length > 0 && onAgentVoiceChange ? (
-        <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3" data-testid="team-voices">
+        <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3" data-testid="team-voices">
           <div className="text-[11px] font-medium text-white">{t("settings.teamVoices")}</div>
           <div className="mt-1 text-[10px] text-white/75">{t("settings.teamVoicesLead")}</div>
           <div className="mt-3 space-y-2">
@@ -496,7 +496,7 @@ export function SettingsPanel({
                 <div className="flex items-center gap-2">
                   <select
                     aria-label={t("settings.agentVoice", { name: agent.name })}
-                    className="rounded border border-cyan-500/20 bg-black/40 px-2 py-1 text-[11px] text-white"
+                    className="rounded border border-red-500/20 bg-black/40 px-2 py-1 text-[11px] text-white"
                     value={agent.chosen ? (agent.voiceId ?? "") : ""}
                     disabled={!voiceRepliesLoaded}
                     onChange={(event) => onAgentVoiceChange(agent.agentId, event.target.value || null)}
@@ -514,7 +514,7 @@ export function SettingsPanel({
                   </select>
                   <button
                     type="button"
-                    className="rounded border border-cyan-500/20 px-2 py-1 text-[10px] text-cyan-100 hover:border-cyan-400/40"
+                    className="rounded border border-red-500/20 px-2 py-1 text-[10px] text-red-100 hover:border-red-400/40"
                     disabled={!voiceRepliesLoaded}
                     onClick={() => onVoiceRepliesPreview(agent.voiceId, agent.name)}
                   >
@@ -526,13 +526,13 @@ export function SettingsPanel({
           </div>
         </div>
       ) : null}
-      <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] font-medium text-white">{t("settings.speed")}</div>
             <div className="mt-1 text-[10px] text-white/75">{t("settings.speedLead")}</div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
             {voiceRepliesSpeed.toFixed(2)}x
           </span>
         </div>
@@ -546,7 +546,7 @@ export function SettingsPanel({
           onChange={(event) =>
             onVoiceRepliesSpeedChange(Number.parseFloat(event.target.value))
           }
-          className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-cyan-500/15 accent-cyan-400"
+          className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-red-500/15 accent-red-400"
         />
         <div className="mt-1 flex items-center justify-between text-[10px] text-white/45">
           <span>{t("settings.slower")}</span>

@@ -22,9 +22,9 @@ type Health = {
 };
 
 const dot: Record<CheckRow["status"], string> = {
-  ok: "bg-emerald-400",
-  checking: "bg-amber-300",
-  problem: "bg-red-400",
+  ok: "bg-white/85",
+  checking: "animate-pulse bg-red-300/70",
+  problem: "bg-red-500",
   unknown: "bg-white/30",
 };
 
@@ -85,7 +85,7 @@ export function SystemHealthSection({ control }: { control: HermesControl }) {
     });
 
   return (
-    <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3" data-testid="system-health">
+    <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3" data-testid="system-health">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-medium text-white">{t("systemHealth.title")}</div>

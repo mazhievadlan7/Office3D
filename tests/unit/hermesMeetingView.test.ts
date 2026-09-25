@@ -1,8 +1,5 @@
-import { createElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { toStandupMeeting, type HermesMeeting } from "@/features/hermes/useHermesMeetingController";
-import { StandupImmersiveScreen } from "@/features/office/screens/StandupImmersiveScreen";
 
 const meeting = (patch: Partial<HermesMeeting> = {}): HermesMeeting => ({
   id: "mtg_1",
@@ -31,8 +28,6 @@ const meeting = (patch: Partial<HermesMeeting> = {}): HermesMeeting => ({
 });
 
 describe("live meeting view", () => {
-  afterEach(() => cleanup());
-
   it("maps_a_hermes_meeting_onto_the_meeting_room", () => {
     const view = toStandupMeeting(meeting(), "Предлагаю тыквенный латте", ["main"]);
     expect(view).toMatchObject({
@@ -51,23 +46,5 @@ describe("live meeting view", () => {
     const done = toStandupMeeting(meeting({ status: "done", summary: "Решили: латте.", currentSpeaker: null }), "", []);
     expect(done.phase).toBe("complete");
     expect(done.cards[0].speech).toBe("Решили: латте.");
-  });
-
-  it("shows_the_topic_live_speech_summary_and_a_stop_button", () => {
-    const onStop = vi.fn();
-    const view = toStandupMeeting(meeting({ summary: null }), "Предлагаю тыквенный латте", ["main", "barista-1"]);
-    render(createElement(StandupImmersiveScreen, { meeting: view, onClose: () => {}, onStop }));
-    expect(screen.getByText("Тема: Меню на осень")).toBeTruthy();
-    expect(screen.getByText("Говорит: Бариста")).toBeTruthy();
-    expect(screen.getByText("Предлагаю тыквенный латте")).toBeTruthy();
-    expect(screen.queryByText("Последние коммиты")).toBeNull();
-    fireEvent.click(screen.getByText("Остановить"));
-    expect(onStop).toHaveBeenCalled();
-    cleanup();
-
-    const done = toStandupMeeting(meeting({ status: "done", summary: "Решили: латте.", currentSpeaker: null }), "", []);
-    render(createElement(StandupImmersiveScreen, { meeting: done, onClose: () => {}, onStop }));
-    expect(screen.getByText("Итог ведущего")).toBeTruthy();
-    expect(screen.queryByText("Остановить")).toBeNull();
   });
 });

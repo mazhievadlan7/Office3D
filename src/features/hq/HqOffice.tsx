@@ -11,7 +11,7 @@ import { generateHqLayout } from "./core/layout";
 import { HqSimulation } from "./core/sim";
 import type { HqAgentInput } from "./core/types";
 import { HqHoverCard } from "./hud/HqHoverCard";
-import { HqHud, type HqHudCounts } from "./hud/HqHud";
+import { HqHud, HqSettingsControls, type HqHudCounts, type HqRuntimeStatus } from "./hud/HqHud";
 import {
   nextHqQualityMode,
   readHqQualityMode,
@@ -30,6 +30,12 @@ export type HqOfficeProps = {
   namespace: string;
   selectedAgentId?: string | null;
   onAgentSelect?: (agentId: string) => void;
+  /** The connected backend, shown in the HUD next to the settings button. */
+  runtimeStatus?: HqRuntimeStatus | null;
+  /** Whether the office settings are open, for the button's pressed state. */
+  settingsOpen?: boolean;
+  /** Toggles the office settings from the HUD. */
+  onOpenSettings?: () => void;
 };
 
 // What the sim sees of an agent; anything else changing is not its business.
@@ -102,6 +108,9 @@ export function HqOffice({
   namespace,
   selectedAgentId = null,
   onAgentSelect,
+  runtimeStatus = null,
+  settingsOpen = false,
+  onOpenSettings,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
   const [qualityMode, setQualityMode] = useState<HqQualityMode>(readHqQualityMode);
@@ -249,6 +258,9 @@ export function HqOffice({
   const failure = (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="max-w-md font-mono text-[13px] text-white/70">{t("hqScene.webglFailed")}</p>
+      <div className="flex items-center gap-1.5">
+        <HqSettingsControls runtime={runtimeStatus} settingsOpen={settingsOpen} onOpenSettings={onOpenSettings} />
+      </div>
     </div>
   );
 
@@ -297,6 +309,9 @@ export function HqOffice({
           quality={quality}
           onQualityCycle={handleQualityCycle}
           onMessageLead={leadId && onAgentSelect ? () => onAgentSelect(leadId) : undefined}
+          runtime={runtimeStatus}
+          settingsOpen={settingsOpen}
+          onOpenSettings={onOpenSettings}
         />
       </HqCanvasBoundary>
       {/* Fades in from black as the intro swoop starts. */}

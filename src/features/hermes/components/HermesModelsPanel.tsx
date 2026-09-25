@@ -69,14 +69,14 @@ const POPULAR_KEYS = new Set([
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-const CARD = "mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3";
-const LABEL = "mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65";
+const CARD = "mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3";
+const LABEL = "mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65";
 const INPUT =
-  "w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30";
+  "w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30";
 const BUTTON =
-  "rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15 disabled:opacity-50";
+  "rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15 disabled:opacity-50";
 const DANGER =
-  "rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15 disabled:opacity-50";
+  "rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30 disabled:opacity-50";
 
 function MainModelSection({
   status,
@@ -116,12 +116,12 @@ function MainModelSection({
       <div className="text-[11px] font-medium text-white">{t("hermesModels.mainModelTitle")}</div>
       <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.mainModelLead")}</div>
       {status.current?.model ? (
-        <div className="mt-2 font-mono text-[10px] text-cyan-200/80">
+        <div className="mt-2 font-mono text-[10px] text-red-200/80">
           {t("hermesModels.currentModel", { provider: status.current.provider ?? "?", model: status.current.model })}
         </div>
       ) : null}
       {usable.length === 0 ? (
-        <div className="mt-2 text-[10px] text-amber-200/80">{t("hermesModels.noUsableProviders")}</div>
+        <div className="mt-2 text-[10px] text-red-200/80">{t("hermesModels.noUsableProviders")}</div>
       ) : (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
@@ -249,7 +249,7 @@ function SignInSection({ status, control, onChanged }: { status: ProvidersStatus
       <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.signInLead")}</div>
       <div className="mt-3 space-y-2">
         {rows.map((row) => (
-          <div key={row.id} className="flex items-center justify-between gap-3 rounded-md border border-cyan-500/10 bg-black/15 px-3 py-2">
+          <div key={row.id} className="flex items-center justify-between gap-3 rounded-md border border-red-500/10 bg-black/15 px-3 py-2">
             <div className="min-w-0">
               <div className="text-[11px] text-white">{row.name}</div>
               <div className="text-[10px] text-white/55">
@@ -271,10 +271,10 @@ function SignInSection({ status, control, onChanged }: { status: ProvidersStatus
         ))}
       </div>
       {session ? (
-        <div className="mt-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-3">
+        <div className="mt-3 rounded-md border border-red-500/25 bg-red-950/20 px-3 py-3">
           <div className="text-[10px] text-white/80">{t("hermesModels.deviceCodeLead")}</div>
           {session.verificationUrl ? (
-            <a href={session.verificationUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-[11px] text-cyan-200 underline">
+            <a href={session.verificationUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-[11px] text-red-200 underline">
               {session.verificationUrl}
             </a>
           ) : null}
@@ -330,10 +330,10 @@ function KeyEditor({ row, control, onChanged }: { row: KeyRow; control: HermesCo
   };
 
   return (
-    <div className="rounded-md border border-cyan-500/10 bg-black/15 px-3 py-2">
+    <div className="rounded-md border border-red-500/10 bg-black/15 px-3 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] text-cyan-100">{row.key}</span>
-        <span className={`text-[10px] ${row.isSet ? "text-emerald-200/80" : "text-white/40"}`}>
+        <span className="font-mono text-[10px] text-red-100">{row.key}</span>
+        <span className={`text-[10px] ${row.isSet ? "text-red-200/80" : "text-white/40"}`}>
           {row.isSet ? t("hermesModels.keySet", { preview: row.preview ?? "" }) : t("hermesModels.keyNotSet")}
         </span>
       </div>
@@ -360,7 +360,7 @@ function KeyEditor({ row, control, onChanged }: { row: KeyRow; control: HermesCo
       <div className="mt-1 flex items-center justify-between gap-2">
         {message ? <span className="text-[10px] text-white/70">{message}</span> : <span />}
         {row.url ? (
-          <a href={row.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyan-200/70 underline">
+          <a href={row.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-red-200/70 underline">
             {t("hermesModels.whereToGetKey")}
           </a>
         ) : null}
@@ -403,7 +403,7 @@ function KeysSection({
           <div className="text-[11px] font-medium text-white">{title}</div>
           <div className="mt-1 text-[10px] text-white/75">{lead}</div>
         </div>
-        <span className="font-mono text-[10px] text-cyan-200/70">{t("hermesModels.configuredCount", { count: configured, total: rows.length })}</span>
+        <span className="font-mono text-[10px] text-red-200/70">{t("hermesModels.configuredCount", { count: configured, total: rows.length })}</span>
       </button>
       {open ? (
         <div className="mt-3 space-y-2">
@@ -423,7 +423,7 @@ function KeysSection({
           </div>
           {visible.map((row) => (
             <div key={row.key}>
-              {row.providerLabel ? <div className="mb-1 text-[10px] text-cyan-100/60">{row.providerLabel}</div> : null}
+              {row.providerLabel ? <div className="mb-1 text-[10px] text-red-100/60">{row.providerLabel}</div> : null}
               <KeyEditor row={row} control={control} onChanged={onChanged} />
             </div>
           ))}
@@ -466,7 +466,7 @@ export function HermesModelsPanel({ control }: { control: HermesControl }) {
 
   return (
     <div>
-      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
+      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
         <div>
           <div className="text-[11px] font-medium text-white">{t("hermesModels.title")}</div>
           <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.lead")}</div>
@@ -475,7 +475,7 @@ export function HermesModelsPanel({ control }: { control: HermesControl }) {
           {loading ? t("settings.loading") : t("hermesModels.refresh")}
         </button>
       </div>
-      {error ? <div className="mt-2 text-[10px] text-rose-200/90">{error}</div> : null}
+      {error ? <div className="mt-2 text-[10px] text-red-200/90">{error}</div> : null}
       {status ? (
         <>
           <MainModelSection key={`${status.current?.provider}/${status.current?.model}`} status={status} control={control} onChanged={() => void load()} />

@@ -163,7 +163,7 @@ type BulletinBoardCard = {
 
 У объекта в мире офиса должны быть:
 
-- видимый предмет в ретро-офисе
+- видимый предмет в штабе
 - область для клика
 - полноэкранная панель с подробностями при открытии
 
@@ -357,8 +357,8 @@ type OfficePreference = {
 - состояние доски задач и логику контроллера в `src/features/office/tasks`
 - процессы планёрки в `src/features/office/hooks/useOfficeStandupController.ts`
 - сохранение настроек офиса
-- взаимодействие с объектами ретро-офиса в `src/features/retro-office/RetroOffice3D.tsx`
-- определения мебели и объектов в `src/features/retro-office/objects`
+- план зала и расстановку предметов штаба в `src/features/hq/core/layout.ts`
+- отрисовку предметов штаба в `src/features/hq/render/environment/props` и их модели в `blender/hq/`
 
 Это сделано намеренно.
 

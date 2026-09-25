@@ -10,11 +10,8 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic, Radar } from "lucide-react";
-import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
-import type { OfficeAgent } from "@/features/retro-office/core/types";
+import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic, X } from "lucide-react";
 import type { HqAgentInput } from "@/features/hq/core/types";
-import { useOfficeViewMode } from "@/features/hq/hud/viewMode";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
@@ -35,12 +32,9 @@ import {
   type StudioSettingsLoadOptions,
 } from "@/lib/studio/coordinator";
 import {
-  resolveDeskAssignments,
   resolveOfficePreferencePublic,
   resolveStudioActiveFloorId,
-  resolveStudioGatewayProfiles,
   type StudioGatewayAdapterType,
-  type StudioGatewaySettings,
 } from "@/lib/studio/settings";
 import {
   createGatewayAgent,
@@ -68,7 +62,6 @@ import {
   stripUiMetadata,
 } from "@/lib/text/message-extract";
 import { resolveOfficeIntentSnapshot } from "@/lib/office/deskDirectives";
-import { OfficeFloorNav } from "@/features/office/components/OfficeFloorNav";
 import { AgentChatPanel } from "@/features/agents/components/AgentChatPanel";
 import {
   RemoteAgentChatPanel,
@@ -79,15 +72,10 @@ import {
   type RuntimeAgentMessageMode,
 } from "@/lib/runtime/agentMessaging";
 import {
-  buildFloorRosterState,
-  createFloorRosterCache,
-} from "@/lib/office/floorRoster";
-import {
   getOfficeFloor,
   listOfficeFloorsForProvider,
   resolveActiveOfficeFloorId,
   type FloorId,
-  type FloorProvider,
 } from "@/lib/office/floors";
 import {
   AgentEditorModal,
@@ -166,8 +154,8 @@ import { AnalyticsPanel } from "@/features/office/components/panels/AnalyticsPan
 import { HistoryPanel } from "@/features/office/components/panels/HistoryPanel";
 import { CallFeedModal } from "@/features/office/components/panels/CallFeedModal";
 import { InboxPanel } from "@/features/office/components/panels/InboxPanel";
-import { KanbanDisabledPanel } from "@/features/office/components/panels/KanbanDisabledPanel";
 import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPanel";
+import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
 import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
@@ -176,17 +164,12 @@ import {
   MessagingModal,
   type MessageRequestDraft,
 } from "@/features/office/components/panels/MessagingPanel";
-import { isTerminalCallStatus } from "@/lib/telephony/types";
 import { JukeboxPanel } from "@/features/spotify-jukebox/components/JukeboxPanel";
 import { JukeboxDisabledPanel } from "@/features/spotify-jukebox/components/JukeboxDisabledPanel";
 import { executeBrowserJukeboxCommand } from "@/features/spotify-jukebox/agentBridge";
-import {
-  SOUNDCLAW_PLAYBACK_STARTED_EVENT_NAME,
-  useJukeboxStore,
-} from "@/features/spotify-jukebox/store";
+import { useJukeboxStore } from "@/features/spotify-jukebox/store";
 import { useOfficeSkillTriggers } from "@/features/office/hooks/useOfficeSkillTriggers";
 import { useRemoteOfficePresence } from "@/features/office/hooks/useRemoteOfficePresence";
-import { useRemoteOfficeLayout } from "@/features/office/hooks/useRemoteOfficeLayout";
 import { useOfficeSkillsMarketplace } from "@/features/office/hooks/useOfficeSkillsMarketplace";
 import { useOfficeStandupController } from "@/features/office/hooks/useOfficeStandupController";
 import { useRunLog } from "@/features/office/hooks/useRunLog";
@@ -197,7 +180,11 @@ import {
 } from "@/features/onboarding";
 import { useFinalizedAssistantReplyListener } from "@/hooks/useFinalizedAssistantReplyListener";
 import { useStudioOfficePreference } from "@/hooks/useStudioOfficePreference";
-import { isRemoteOfficeAgentId } from "@/features/retro-office/core/district";
+import {
+  isRemoteOfficeAgentId,
+  REMOTE_OFFICE_AGENT_ID_PREFIX,
+  type OfficeAgent,
+} from "@/lib/office/officeAgent";
 import { useStudioVoiceRepliesPreference } from "@/hooks/useStudioVoiceRepliesPreference";
 import {
   useVoiceRecorder,
@@ -208,18 +195,12 @@ import { useVoiceSetup } from "@/hooks/useVoiceSetup";
 import { resolveAgentVoice } from "@/lib/voice/agentVoices";
 import {
   buildOfficeAnimationState,
-  clearOfficeAnimationTriggerHold,
   createOfficeAnimationTriggerState,
   reconcileOfficeAnimationTriggerState,
   reduceOfficeAnimationTriggerEvent,
   type OfficePhoneCallRequest,
   type OfficeTextMessageRequest,
 } from "@/lib/office/eventTriggers";
-import { buildOfficeSkillTriggerHoldMaps } from "@/lib/office/places";
-import {
-  buildOfficeDeskMonitor,
-  type OfficeDeskMonitor,
-} from "@/lib/office/deskMonitor";
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
@@ -235,28 +216,6 @@ const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mo
 // How long gateway events are collected before the screen applies them.
 const EVENT_FLUSH_MS = 100;
 
-const stringToColor = (str: string) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const c = (hash & 0x00ffffff).toString(16).toUpperCase();
-  return "#" + "00000".substring(0, 6 - c.length) + c;
-};
-
-const ITEMS = [
-  "globe",
-  "books",
-  "coffee",
-  "palette",
-  "camera",
-  "waveform",
-  "shield",
-  "fire",
-  "plant",
-  "laptop",
-];
-const GYM_WORKOUT_LATCH_MS = 60_000;
 const MAIN_AGENT_ID = "main";
 const DEMO_MAIN_SESSION_KEY = buildAgentMainSessionKey(MAIN_AGENT_ID, "main");
 const createDemoMainAgentSeed = (): {
@@ -290,7 +249,6 @@ const createDemoMainAgentSeed = (): {
 });
 const MAX_OPENCLAW_LOG_ENTRIES = 200;
 const MAX_OPENCLAW_AGENT_OUTPUT_LINES = 12;
-const OFFICE_DANCE_MS = 60_000;
 const GATEWAY_LOADING_OVERLAY_DELAY_MS = 1_200;
 const GATEWAY_CONNECT_OVERLAY_DELAY_MS = 1_500;
 
@@ -339,13 +297,6 @@ type OfficeDeleteMutationBlockState = {
   phase: "queued" | "mutating" | "awaiting-restart";
   startedAt: number;
   sawDisconnect: boolean;
-};
-
-type PendingFloorRuntimeSwitch = {
-  floorId: FloorId;
-  adapterType: StudioGatewayAdapterType;
-  gatewayUrl: string;
-  token: string;
 };
 
 const createOpenClawLogEntry = (params: {
@@ -567,35 +518,13 @@ const resolveLatestUserTextFromPreview = (
   return null;
 };
 
-const getDeterministicItem = (id: string) => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return ITEMS[Math.abs(hash) % ITEMS.length];
-};
-
 const mapAgentToOffice = (agent: AgentState): OfficeAgent => {
-  if (agent.status === "error") {
-    return {
-      id: agent.agentId,
-      name: agent.name || t("office.unknownAgent"),
-      subtitle: agent.role ?? null,
-      status: "error",
-      color: stringToColor(agent.agentId),
-      item: getDeterministicItem(agent.agentId),
-      avatarProfile: agent.avatarProfile ?? null,
-    };
-  }
   const isWorking = agent.status === "running" || Boolean(agent.runId);
   return {
     id: agent.agentId,
     name: agent.name || t("office.unknownAgent"),
     subtitle: agent.role ?? null,
-    status: isWorking ? "working" : "idle",
-    color: stringToColor(agent.agentId),
-    item: getDeterministicItem(agent.agentId),
-    avatarProfile: agent.avatarProfile ?? null,
+    status: agent.status === "error" ? "error" : isWorking ? "working" : "idle",
   };
 };
 
@@ -604,15 +533,11 @@ const mapRemotePresenceAgentToOffice = (agent: {
   name: string;
   state: "idle" | "working" | "meeting" | "error";
 }): OfficeAgent => {
-  const stableId = `remote:${agent.agentId}`;
   const isWorking = agent.state === "working" || agent.state === "meeting";
   return {
-    id: stableId,
+    id: `${REMOTE_OFFICE_AGENT_ID_PREFIX}${agent.agentId}`,
     name: agent.name || t("office.unknownAgent"),
     status: agent.state === "error" ? "error" : isWorking ? "working" : "idle",
-    color: stringToColor(stableId),
-    item: getDeterministicItem(stableId),
-    avatarProfile: null,
   };
 };
 
@@ -667,14 +592,6 @@ type OfficeDebugRow = {
   at: string;
 };
 
-type OfficeFeedEvent = {
-  id: string;
-  name: string;
-  text: string;
-  ts: number;
-  kind?: "status" | "reply";
-};
-
 type RemoteChatSessionState = {
   draft: string;
   mode: RuntimeAgentMessageMode;
@@ -685,6 +602,12 @@ type RemoteChatSessionState = {
   handoffAcceptance: string;
   error: string | null;
   messages: RemoteAgentChatMessage[];
+};
+
+type OfficeAgentCacheEntry = {
+  agent: AgentState;
+  latchedWorking: boolean;
+  officeAgent: OfficeAgent;
 };
 
 type ChatRosterEntry = {
@@ -706,49 +629,6 @@ const EMPTY_REMOTE_CHAT_SESSION: RemoteChatSessionState = {
   messages: [],
 };
 const MAX_REMOTE_MESSAGE_CHARS = 2_000;
-
-const normalizeOfficeFeedText = (
-  value: string | null | undefined,
-  maxChars?: number,
-): string => {
-  const normalized = (value ?? "")
-    .replace(/([.!?])([A-Z])/g, "$1 $2")
-    .replace(/\s+/g, " ")
-    .trim();
-  const deduped = (normalized.match(/[^.!?]+[.!?]?/g) ?? [])
-    .map((fragment) => fragment.trim())
-    .filter((fragment, index, fragments) => {
-      if (!fragment) return false;
-      const normalizedFragment = fragment
-        .toLowerCase()
-        .replace(/[—–-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      return (
-        fragments.findIndex((entry) => {
-          const normalizedEntry = entry
-            .toLowerCase()
-            .replace(/[—–-]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-          return normalizedEntry === normalizedFragment;
-        }) === index
-      );
-    })
-    .join(" ")
-    .trim();
-  const finalText = deduped || normalized;
-  if (!finalText) return "";
-  if (
-    typeof maxChars !== "number" ||
-    !Number.isFinite(maxChars) ||
-    maxChars <= 0
-  ) {
-    return finalText;
-  }
-  if (finalText.length <= maxChars) return finalText;
-  return `${normalized.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
-};
 
 const resolveHistoryInference = (
   messages: Array<Record<string, unknown>>,
@@ -801,7 +681,6 @@ const inferRunningFromAgentSessions = async (params: {
   lastRole: string;
   lastText: string;
   messageCount: number;
-  latestSessionUpdatedAtMs: number;
   inspectedSessions: string[];
   inferenceSource: string;
 }> => {
@@ -822,11 +701,6 @@ const inferRunningFromAgentSessions = async (params: {
     )
     .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
     .slice(0, 4);
-  const latestSessionUpdatedAtMs =
-    typeof sessions[0]?.updatedAt === "number" &&
-    Number.isFinite(sessions[0].updatedAt)
-      ? sessions[0].updatedAt
-      : 0;
   const inspectedSessions = sessions.map((entry) => {
     const key = entry.key?.trim() ?? "";
     const label = entry.origin?.label?.trim() ?? "";
@@ -873,7 +747,6 @@ const inferRunningFromAgentSessions = async (params: {
             lastRole: "user",
             lastText: text.slice(0, 120),
             messageCount: items.length,
-            latestSessionUpdatedAtMs,
             inspectedSessions,
             inferenceSource: "sessions.preview.user-tail",
           };
@@ -901,7 +774,6 @@ const inferRunningFromAgentSessions = async (params: {
         lastRole: inference.lastRole,
         lastText: inference.lastText,
         messageCount: inference.messageCount,
-        latestSessionUpdatedAtMs,
         inspectedSessions,
         inferenceSource: "chat.history.user-tail",
       };
@@ -914,7 +786,6 @@ const inferRunningFromAgentSessions = async (params: {
     lastRole: "assistant",
     lastText: "",
     messageCount: 0,
-    latestSessionUpdatedAtMs,
     inspectedSessions,
     inferenceSource: "none",
   };
@@ -950,7 +821,6 @@ export function OfficeScreen({
     selectedAdapterType,
     detectedAdapterType,
     activeAdapterType,
-    adapterProfiles,
     localGatewayDefaults,
     error: gatewayError,
     connect,
@@ -985,25 +855,7 @@ export function OfficeScreen({
     useState(false);
   const [clockTick, setClockTick] = useState(0);
   const [debugRows, setDebugRows] = useState<OfficeDebugRow[]>([]);
-  const [feedEvents, setFeedEvents] = useState<OfficeFeedEvent[]>([]);
-  const officeAgentCacheRef = useRef<
-    Map<
-      string,
-      {
-        agent: AgentState;
-        deskHeld: boolean;
-        gymHeld: boolean;
-        latchedWorking: boolean;
-        officeAgent: OfficeAgent;
-        phoneBoothHeld: boolean;
-        qaHeld: boolean;
-        smsBoothHeld: boolean;
-      }
-    >
-  >(new Map());
-  const deskMonitorCacheRef = useRef<
-    Map<string, { agent: AgentState; monitor: OfficeDeskMonitor }>
-  >(new Map());
+  const officeAgentCacheRef = useRef<Map<string, OfficeAgentCacheEntry>>(new Map());
   const [openClawLogEntries, setOpenClawLogEntries] = useState<
     OpenClawLogEntry[]
   >([]);
@@ -1018,27 +870,6 @@ export function OfficeScreen({
   const [officeTriggerState, setOfficeTriggerState] = useState(() =>
     createOfficeAnimationTriggerState(),
   );
-  const prevWorkingRef = useRef<Record<string, boolean>>({});
-  const prevAssistantPreviewRef = useRef<
-    Record<string, { ts: number; text: string }>
-  >({});
-  const [runCountByAgentId, setRunCountByAgentId] = useState<
-    Record<string, number>
-  >({});
-  const [lastSeenByAgentId, setLastSeenByAgentId] = useState<
-    Record<string, number>
-  >({});
-  const [marketplaceGymHoldByAgentId, setMarketplaceGymHoldByAgentId] =
-    useState<Record<string, boolean>>({});
-  const [gymCooldownUntilByAgentId, setGymCooldownUntilByAgentId] = useState<
-    Record<string, number>
-  >({});
-  const prevImmediateGymHoldRef = useRef<Record<string, boolean>>({});
-  const [monitorAgentId, setMonitorAgentId] = useState<string | null>(null);
-  const [githubReviewAgentId, setGithubReviewAgentId] = useState<string | null>(
-    null,
-  );
-  const [qaTestingAgentId, setQaTestingAgentId] = useState<string | null>(null);
   const gatewayConfigSnapshot = useRef<GatewayModelPolicySnapshot | null>(null);
   const loadAgentsInFlightRef = useRef<Promise<void> | null>(null);
   const connectionEpochRef = useRef(0);
@@ -1077,7 +908,6 @@ export function OfficeScreen({
   const [lastCompanyPlan, setLastCompanyPlan] = useState<CompanyBuilderPlan | null>(null);
   const [companyCreatedSignal, setCompanyCreatedSignal] = useState(0);
   const [createdCompanyName, setCreatedCompanyName] = useState<string | null>(null);
-  const [officeCameraCenterSignal, setOfficeCameraCenterSignal] = useState(0);
   const [createAgentBlock, setCreateAgentBlock] =
     useState<CreateAgentBlockState | null>(null);
   const [deleteAgentBlock, setDeleteAgentBlock] =
@@ -1086,20 +916,11 @@ export function OfficeScreen({
   const preparedPhoneCallKeysRef = useRef<Set<string>>(new Set());
   const promptedTextMessageKeysRef = useRef<Set<string>>(new Set());
   const preparedTextMessageKeysRef = useRef<Set<string>>(new Set());
-  const [deskAssignmentByDeskUid, setDeskAssignmentByDeskUid] = useState<
-    Record<string, string>
-  >({});
   const [activeFloorId, setActiveFloorId] = useState<FloorId>("lobby");
-  const [pendingFloorRuntimeSwitch, setPendingFloorRuntimeSwitch] =
-    useState<PendingFloorRuntimeSwitch | null>(null);
   const didAutoNavigateFromLobbyRef = useRef(false);
-  const [floorRosterCache, setFloorRosterCache] = useState(() =>
-    createFloorRosterCache(),
-  );
-  const activeFloorIdRef = useRef<FloorId>("lobby");
-  const floorRosterCacheRef = useRef(floorRosterCache);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [callFeedOpen, setCallFeedOpen] = useState(false);
   const [messagingOpen, setMessagingOpen] = useState(false);
@@ -1110,19 +931,6 @@ export function OfficeScreen({
     callee: string;
     message: string | null;
   } | null>(null);
-  const [kanbanInstallPromptOpen, setKanbanInstallPromptOpen] = useState(false);
-  const [kanbanInstallProgress, setKanbanInstallProgress] = useState<{
-    active: boolean;
-    percent: number;
-    message: string;
-    error: string | null;
-  }>({
-    active: false,
-    percent: 0,
-    message: "",
-    error: null,
-  });
-  const [danceUntilByAgentId, setDanceUntilByAgentId] = useState<Record<string, number>>({});
   const initJukeboxStore = useJukeboxStore((state) => state.init);
   const jukeboxToken = useJukeboxStore((state) => state.token);
   // Auto-open jukebox panel for legacy direct-auth callbacks.
@@ -1145,14 +953,6 @@ export function OfficeScreen({
     () => getOfficeFloor(resolveActiveOfficeFloorId(activeFloorId)),
     [activeFloorId],
   );
-
-  useEffect(() => {
-    activeFloorIdRef.current = activeFloorId;
-  }, [activeFloorId]);
-
-  useEffect(() => {
-    floorRosterCacheRef.current = floorRosterCache;
-  }, [floorRosterCache]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1218,85 +1018,8 @@ export function OfficeScreen({
   ]);
 
   useEffect(() => {
-    if (!pendingFloorRuntimeSwitch) return;
-    const targetSelectedAdapter = selectedAdapterType === pendingFloorRuntimeSwitch.adapterType;
-    const targetGatewayUrl = gatewayUrl.trim() === pendingFloorRuntimeSwitch.gatewayUrl;
-    const targetToken = token === pendingFloorRuntimeSwitch.token;
-    if (!targetSelectedAdapter || !targetGatewayUrl || !targetToken) {
-      return;
-    }
-    if (status === "connected" || status === "connecting") {
-      const runtimeMatchesTarget =
-        activeAdapterType === pendingFloorRuntimeSwitch.adapterType &&
-        gatewayUrl.trim() === pendingFloorRuntimeSwitch.gatewayUrl &&
-        token === pendingFloorRuntimeSwitch.token;
-      if (runtimeMatchesTarget) {
-        setPendingFloorRuntimeSwitch(null);
-        return;
-      }
-      disconnect();
-      return;
-    }
-    void connect()
-      .catch((error) => {
-        console.error("Failed to connect floor runtime.", error);
-      })
-      .finally(() => {
-        setPendingFloorRuntimeSwitch((current) =>
-          current &&
-          current.floorId === pendingFloorRuntimeSwitch.floorId &&
-          current.adapterType === pendingFloorRuntimeSwitch.adapterType &&
-          current.gatewayUrl === pendingFloorRuntimeSwitch.gatewayUrl &&
-          current.token === pendingFloorRuntimeSwitch.token
-            ? null
-            : current,
-        );
-      });
-  }, [
-    activeAdapterType,
-    connect,
-    disconnect,
-    gatewayUrl,
-    pendingFloorRuntimeSwitch,
-    selectedAdapterType,
-    status,
-    token,
-  ]);
-
-  useEffect(() => {
     initJukeboxStore();
   }, [initJukeboxStore]);
-  useEffect(() => {
-    const handlePlaybackStarted = () => {
-      const now = Date.now();
-      const until = now + OFFICE_DANCE_MS;
-      setDanceUntilByAgentId((previous) => {
-        const next: Record<string, number> = {};
-        for (const agent of state.agents) {
-          next[agent.agentId] = until;
-        }
-        return { ...previous, ...next };
-      });
-    };
-    window.addEventListener(
-      SOUNDCLAW_PLAYBACK_STARTED_EVENT_NAME,
-      handlePlaybackStarted,
-    );
-    return () => {
-      window.removeEventListener(
-        SOUNDCLAW_PLAYBACK_STARTED_EVENT_NAME,
-        handlePlaybackStarted,
-      );
-    };
-  }, [state.agents]);
-  useEffect(() => {
-    const now = Date.now();
-    setDanceUntilByAgentId((previous) =>
-      Object.fromEntries(
-        Object.entries(previous).filter(([, until]) => until > now),
-      ),
-    );
-  }, [state.agents]);
   useEffect(() => {
     // The ref holds one Map for the component's whole life; take it now so the
     // cleanup clears that Map rather than reading the ref after unmount.
@@ -1335,19 +1058,11 @@ export function OfficeScreen({
     gatewayError,
     settingsCoordinator,
   });
-  const {
-    error: remoteOfficeError,
-    loaded: remoteOfficeLoaded,
-    snapshot: remoteOfficeSnapshot,
-  } = useRemoteOfficePresence({
+  const { snapshot: remoteOfficeSnapshot } = useRemoteOfficePresence({
     enabled: remoteOfficeEnabled,
     sourceKind: remoteOfficeSourceKind,
     presenceUrl: remoteOfficePresenceUrl,
     gatewayUrl: remoteOfficeGatewayUrl,
-  });
-  const { snapshot: remoteOfficeLayoutSnapshot } = useRemoteOfficeLayout({
-    enabled: remoteOfficeEnabled,
-    presenceUrl: remoteOfficePresenceUrl,
   });
   const {
     loaded: voiceRepliesLoaded,
@@ -1397,7 +1112,6 @@ export function OfficeScreen({
     setCompanyCreatedSignal(0);
     setCreatedCompanyName(null);
     setForceShowOnboarding(false);
-    setOfficeCameraCenterSignal((current) => current + 1);
   }, [completeOnboarding]);
 
   const handleAvatarProfileSave = useCallback(
@@ -1417,113 +1131,14 @@ export function OfficeScreen({
     [dispatch, gatewayUrl, settingsCoordinator],
   );
   const focusLocalAgent = useCallback(
-    (
-      agentId: string,
-      options?: { openChat?: boolean; persistFloorId?: FloorId; selectStore?: boolean },
-    ) => {
+    (agentId: string, options?: { openChat?: boolean }) => {
       setSelectedChatAgentId(agentId);
       if (options?.openChat !== false) {
         setChatOpen(true);
       }
-      if (options?.selectStore !== false) {
-        dispatch({ type: "selectAgent", agentId });
-      }
-      setFloorRosterCache((prev) => {
-        const targetFloorId = options?.persistFloorId ?? activeFloorIdRef.current;
-        const current = prev[targetFloorId];
-        if (!current || current.selectedAgentId === agentId) return prev;
-        return {
-          ...prev,
-          [targetFloorId]: { ...current, selectedAgentId: agentId },
-        };
-      });
+      dispatch({ type: "selectAgent", agentId });
     },
     [dispatch],
-  );
-  const handleSelectFloor = useCallback(
-    async (floorId: FloorId) => {
-      const resolved = resolveActiveOfficeFloorId(floorId);
-      const floor = getOfficeFloor(resolved);
-      const targetRosterState = floorRosterCacheRef.current[resolved];
-      setAgentsLoaded(false);
-      setActiveFloorId(resolved);
-      settingsCoordinator.schedulePatch({ activeFloorId: resolved }, 0);
-      setOfficeCameraCenterSignal((current) => current + 1);
-
-      const adapterType = floor.provider as StudioGatewayAdapterType;
-      let nextGatewayUrl = gatewayUrl.trim();
-      let nextToken = token;
-
-      try {
-        const envelope =
-          typeof settingsCoordinator.loadSettingsEnvelope === "function"
-            ? await settingsCoordinator.loadSettingsEnvelope({ maxAgeMs: 30_000 })
-            : {
-                settings: await settingsCoordinator.loadSettings({ maxAgeMs: 30_000 }),
-                localGatewayDefaults: null,
-              };
-        const settings = envelope.settings ?? null;
-        // gatewayPrivate is not in the API response — use sanitized public settings + in-memory
-        // adapterProfiles (which may carry a URL from a previous successful connection).
-        const gatewaySettings: StudioGatewaySettings | null =
-          adapterProfiles && Object.keys(adapterProfiles).length > 0
-            ? ({ profiles: adapterProfiles } as StudioGatewaySettings)
-            : null;
-        const { profiles } = resolveStudioGatewayProfiles({
-          gateway: gatewaySettings,
-          localDefaults: localGatewayDefaults,
-        });
-        const floorRuntime = settings?.officeFloors?.[resolved];
-        nextGatewayUrl =
-          floorRuntime?.gatewayUrl?.trim() || profiles[adapterType]?.url?.trim() || nextGatewayUrl;
-        // Token is intentionally empty — the Studio proxy injects the server-side token.
-        nextToken = "";
-      } catch (error) {
-        console.error("Failed to resolve floor runtime profile.", error);
-      }
-
-      // Guard: if this is a runtime floor and there's no gateway URL to connect to,
-      // bail back to lobby rather than entering a connect-hang limbo state.
-      if (floor.kind === "runtime" && !nextGatewayUrl.trim()) {
-        setActiveFloorId("lobby");
-        settingsCoordinator.schedulePatch({ activeFloorId: "lobby" }, 0);
-        setAgentsLoaded(true);
-        return;
-      }
-
-      setSelectedAdapterType(adapterType);
-      setGatewayUrl(nextGatewayUrl);
-      setToken(nextToken);
-      setPendingFloorRuntimeSwitch({
-        floorId: resolved,
-        adapterType,
-        gatewayUrl: nextGatewayUrl,
-        token: nextToken,
-      });
-
-      const preferredAgentId =
-        targetRosterState?.selectedAgentId ??
-        targetRosterState?.entries[0]?.agentId ??
-        null;
-      if (preferredAgentId) {
-        focusLocalAgent(preferredAgentId, {
-          openChat: false,
-          persistFloorId: resolved,
-          selectStore: false,
-        });
-      }
-    },
-    [
-      adapterProfiles,
-      focusLocalAgent,
-      gatewayUrl,
-      localGatewayDefaults,
-      setGatewayUrl,
-      setToken,
-      setSelectedAdapterType,
-      settingsCoordinator,
-      token,
-    ],
   );
   const focusChatTarget = useCallback(
     (agentId: string) => {
@@ -1542,86 +1157,6 @@ export function OfficeScreen({
       focusLocalAgent(agentId, { openChat: false });
     },
     [focusLocalAgent],
-  );
-  useEffect(() => {
-    if (!agentsLoaded) {
-      return;
-    }
-    if (pendingFloorRuntimeSwitch?.floorId === activeFloor.id) {
-      return;
-    }
-    setFloorRosterCache((previous) => ({
-      ...previous,
-      [activeFloor.id]: buildFloorRosterState({
-        floorId: activeFloor.id,
-        hydratedAt: Date.now(),
-        result: {
-          seeds: state.agents,
-          suggestedSelectedAgentId: state.selectedAgentId ?? previous[activeFloor.id]?.selectedAgentId ?? null,
-        },
-      }),
-    }));
-  }, [activeFloor.id, agentsLoaded, pendingFloorRuntimeSwitch, state.agents, state.selectedAgentId]);
-
-  const handleDeskAssignmentChange = useCallback(
-    (deskUid: string, agentId: string | null) => {
-      const key = gatewayUrl.trim();
-      const normalizedDeskUid = deskUid.trim();
-      if (!key || !normalizedDeskUid) return;
-      setDeskAssignmentByDeskUid((previous) => {
-        const next = { ...previous };
-        if (agentId) {
-          for (const [existingDeskUid, existingAgentId] of Object.entries(
-            next,
-          )) {
-            if (
-              existingDeskUid !== normalizedDeskUid &&
-              existingAgentId === agentId
-            ) {
-              delete next[existingDeskUid];
-            }
-          }
-          next[normalizedDeskUid] = agentId;
-        } else {
-          delete next[normalizedDeskUid];
-        }
-        return next;
-      });
-      settingsCoordinator.schedulePatch(
-        {
-          deskAssignments: {
-            [key]: {
-              [normalizedDeskUid]: agentId,
-            },
-          },
-        },
-        0,
-      );
-    },
-    [gatewayUrl, settingsCoordinator],
-  );
-
-  const handleDeskAssignmentsReset = useCallback(
-    (deskUids: string[]) => {
-      const key = gatewayUrl.trim();
-      if (!key || deskUids.length === 0) return;
-      setDeskAssignmentByDeskUid((previous) => {
-        const next = { ...previous };
-        for (const deskUid of deskUids) delete next[deskUid];
-        return next;
-      });
-      settingsCoordinator.schedulePatch(
-        {
-          deskAssignments: {
-            [key]: Object.fromEntries(
-              deskUids.map((deskUid) => [deskUid, null]),
-            ),
-          },
-        },
-        0,
-      );
-    },
-    [gatewayUrl, settingsCoordinator],
   );
 
   useEffect(() => {
@@ -1673,30 +1208,6 @@ export function OfficeScreen({
     (options?: StudioSettingsLoadOptions) => settingsCoordinator.loadSettings(options),
     [settingsCoordinator],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    const key = gatewayUrl.trim();
-    if (!key) {
-      setDeskAssignmentByDeskUid({});
-      return;
-    }
-    void (async () => {
-      try {
-        const settings = await loadStudioSettings();
-        if (cancelled) return;
-        setDeskAssignmentByDeskUid(
-          settings ? resolveDeskAssignments(settings, key) : {},
-        );
-      } catch {
-        if (cancelled) return;
-        setDeskAssignmentByDeskUid({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [gatewayUrl, loadStudioSettings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1821,12 +1332,6 @@ export function OfficeScreen({
             }
             const inferredRunning = inference.inferredRunning;
             inferredByAgentId.set(agent.agentId, inferredRunning);
-            if (inference.latestSessionUpdatedAtMs > 0) {
-              setLastSeenByAgentId((prev) => ({
-                ...prev,
-                [agent.agentId]: inference.latestSessionUpdatedAtMs,
-              }));
-            }
             const nextStatus: AgentState["status"] = inferredRunning
               ? "running"
               : "idle";
@@ -2078,9 +1583,6 @@ export function OfficeScreen({
   const clearDeletedAgentUiState = useCallback((agentId: string) => {
     setSelectedChatAgentId((current) => (current === agentId ? null : current));
     setAgentEditorAgentId((current) => (current === agentId ? null : current));
-    setMonitorAgentId((current) => (current === agentId ? null : current));
-    setGithubReviewAgentId((current) => (current === agentId ? null : current));
-    setQaTestingAgentId((current) => (current === agentId ? null : current));
     setCallFeedDraft((current) => (current?.agentId === agentId ? null : current));
     setMessagingDraft((current) => (current?.agentId === agentId ? null : current));
   }, []);
@@ -2757,11 +2259,7 @@ export function OfficeScreen({
           hydrateAgents([]);
         }
       }
-      setFeedEvents([]);
       setDebugRows([]);
-      setRunCountByAgentId({});
-      setLastSeenByAgentId({});
-      prevAssistantPreviewRef.current = {};
       lastGatewayActivityAtRef.current = 0;
     }
   }, [hydrateAgents, selectedAdapterType, setLoading, status]);
@@ -2775,45 +2273,6 @@ export function OfficeScreen({
   }, [hydrateAgents, selectedAdapterType, state.agents.length, status]);
 
   useEffect(() => {
-    if (!agentsLoaded) return;
-    const previousByAgentId = prevAssistantPreviewRef.current;
-    const nextByAgentId: Record<string, { ts: number; text: string }> = {};
-    let initialized = Object.keys(previousByAgentId).length > 0;
-
-    for (const agent of state.agents) {
-      const previewText = normalizeOfficeFeedText(
-        agent.latestPreview ?? agent.lastResult,
-      );
-      const previewTs = agent.lastAssistantMessageAt ?? 0;
-      if (!previewText || previewTs <= 0) continue;
-      nextByAgentId[agent.agentId] = { ts: previewTs, text: previewText };
-      const previous = previousByAgentId[agent.agentId];
-      if (!previous) continue;
-      initialized = true;
-      if (previous.ts === previewTs && previous.text === previewText) continue;
-      if (previewTs < previous.ts) continue;
-      setFeedEvents((prev) =>
-        [
-          {
-            id: agent.agentId,
-            name: agent.name || t("office.agentFallback"),
-            text: previewText,
-            ts: previewTs,
-            kind: "reply" as const,
-          },
-          ...prev,
-        ].slice(0, 6),
-      );
-    }
-
-    if (!initialized) {
-      prevAssistantPreviewRef.current = nextByAgentId;
-      return;
-    }
-    prevAssistantPreviewRef.current = nextByAgentId;
-  }, [agentsLoaded, state.agents]);
-
-  useEffect(() => {
     if (status !== "connected" || !agentsLoaded) return;
     const runtimeHandler = createGatewayRuntimeEventHandler({
       getStatus: () => status,
@@ -2823,38 +2282,6 @@ export function OfficeScreen({
       },
       queueLivePatch: (agentId, patch) => {
         dispatch({ type: "updateAgent", agentId, patch });
-        if ("status" in patch || "runId" in patch) {
-          const agent = stateRef.current.agents.find(
-            (entry) => entry.agentId === agentId,
-          );
-          if (agent) {
-            const wasWorking = prevWorkingRef.current[agentId] ?? false;
-            const isNowWorking =
-              patch.status === "running" || Boolean(patch.runId);
-            if (isNowWorking !== wasWorking) {
-              prevWorkingRef.current[agentId] = isNowWorking;
-              const text = isNowWorking ? t("office.startedWorking") : t("office.wentIdle");
-              setFeedEvents((prev) =>
-                [
-                  {
-                    id: agentId,
-                    name: agent.name || t("office.agentFallback"),
-                    text,
-                    ts: Date.now(),
-                    kind: "status" as const,
-                  },
-                  ...prev,
-                ].slice(0, 6),
-              );
-              if (isNowWorking) {
-                setRunCountByAgentId((prev) => ({
-                  ...prev,
-                  [agentId]: (prev[agentId] ?? 0) + 1,
-                }));
-              }
-            }
-          }
-        }
       },
       clearPendingLivePatch: () => {},
       loadSummarySnapshot: async () => {
@@ -2876,7 +2303,7 @@ export function OfficeScreen({
 
     // Run reconciliation before subscribing to events so dedup keys are
     // populated in the trigger state. This prevents stale gateway event
-    // replays from setting timed room holds on page load.
+    // replays from re-raising old call, text or standup requests on page load.
     setOfficeTriggerState((previous) =>
       reconcileOfficeAnimationTriggerState({
         state: previous,
@@ -3010,50 +2437,6 @@ export function OfficeScreen({
   }, [state.agents]);
 
   useEffect(() => {
-    setMarketplaceGymHoldByAgentId((previous) => {
-      const activeAgentIds = new Set(
-        state.agents.map((agent) => agent.agentId),
-      );
-      const next = Object.fromEntries(
-        Object.entries(previous).filter(
-          ([agentId, held]) => held && activeAgentIds.has(agentId),
-        ),
-      );
-      if (
-        Object.keys(previous).length === Object.keys(next).length &&
-        Object.keys(previous).every(
-          (agentId) => previous[agentId] === next[agentId],
-        )
-      ) {
-        return previous;
-      }
-      return next;
-    });
-  }, [state.agents]);
-
-  useEffect(() => {
-    if (!monitorAgentId) return;
-    if (state.agents.some((agent) => agent.agentId === monitorAgentId)) return;
-    setMonitorAgentId(null);
-  }, [monitorAgentId, state.agents]);
-
-  useEffect(() => {
-    if (!githubReviewAgentId) return;
-    if (state.agents.some((agent) => agent.agentId === githubReviewAgentId)) {
-      return;
-    }
-    setGithubReviewAgentId(null);
-  }, [githubReviewAgentId, state.agents]);
-
-  useEffect(() => {
-    if (!qaTestingAgentId) return;
-    if (state.agents.some((agent) => agent.agentId === qaTestingAgentId)) {
-      return;
-    }
-    setQaTestingAgentId(null);
-  }, [qaTestingAgentId, state.agents]);
-
-  useEffect(() => {
     if (status !== "connected") return;
     if (!runtimeSupportsModels) return;
     let cancelled = false;
@@ -3087,7 +2470,10 @@ export function OfficeScreen({
   }, [chatOpen, selectedChatAgentId, state.agents]);
 
   const remoteChatAgentIds = useMemo(
-    () => (remoteOfficeSnapshot?.agents ?? []).map((agent) => `remote:${agent.agentId}`),
+    () =>
+      (remoteOfficeSnapshot?.agents ?? []).map(
+        (agent) => `${REMOTE_OFFICE_AGENT_ID_PREFIX}${agent.agentId}`,
+      ),
     [remoteOfficeSnapshot],
   );
 
@@ -3170,33 +2556,16 @@ export function OfficeScreen({
     await taskBoard.refreshSharedTasks();
     await taskBoard.refreshRemoteTasks();
   };
-  const handleMarketplaceGymStart = useCallback((agentId: string) => {
-    setMarketplaceGymHoldByAgentId((previous) => ({
-      ...previous,
-      [agentId]: true,
-    }));
-  }, []);
-  const handleMarketplaceGymEnd = useCallback((agentId: string) => {
-    setMarketplaceGymHoldByAgentId((previous) => {
-      if (!previous[agentId]) return previous;
-      const next = { ...previous };
-      delete next[agentId];
-      return next;
-    });
-  }, []);
   const marketplace = useOfficeSkillsMarketplace({
     client,
     status,
     enabled: runtimeSupportsSkills,
     agents: state.agents,
     preferredAgentId: selectedLocalChatAgentId,
-    onSkillActivityStart: handleMarketplaceGymStart,
-    onSkillActivityEnd: handleMarketplaceGymEnd,
   });
-  // Always on, because the phone booth on the floor animates from the same
-  // feed as the panel. It is a local request that backs off to every thirty
-  // seconds when nothing is live, and reaches the provider only for calls
-  // that actually are.
+  // Always on. It is a local request that backs off to every thirty seconds
+  // when nothing is live, and reaches the provider only for calls that
+  // actually are.
   const callFeed = useOfficeCallFeed();
   // Read when the panel is open, and after each send. A sent message does not
   // change on its own, and there is no inbound channel for a reply.
@@ -3218,158 +2587,19 @@ export function OfficeScreen({
     enabled: runtimeSupportsSkills,
     agents: state.agents,
   });
-  const animationNowMs = Date.now();
-  const officeAnimationState = useMemo(() => {
-    const base = buildOfficeAnimationState({
-      state: officeTriggerState,
-      agents: state.agents,
-      marketplaceGymHoldByAgentId,
-      nowMs: animationNowMs,
-    });
-    const skillTriggerHoldMaps = buildOfficeSkillTriggerHoldMaps(
-      skillTriggers.movementTargetByAgentId,
-    );
-
-    return {
-      ...base,
-      danceUntilByAgentId: danceUntilByAgentId,
-      deskHoldByAgentId: {
-        ...base.deskHoldByAgentId,
-        ...skillTriggerHoldMaps.deskHoldByAgentId,
-      },
-      githubHoldByAgentId: {
-        ...base.githubHoldByAgentId,
-        ...skillTriggerHoldMaps.githubHoldByAgentId,
-      },
-      gymHoldByAgentId: {
-        ...base.gymHoldByAgentId,
-        ...skillTriggerHoldMaps.gymHoldByAgentId,
-      },
-      jukeboxHoldByAgentId: {
-        ...base.jukeboxHoldByAgentId,
-        ...skillTriggerHoldMaps.jukeboxHoldByAgentId,
-      },
-      qaHoldByAgentId: {
-        ...base.qaHoldByAgentId,
-        ...skillTriggerHoldMaps.qaHoldByAgentId,
-      },
-      skillGymHoldByAgentId: {
-        ...base.skillGymHoldByAgentId,
-        ...skillTriggerHoldMaps.skillGymHoldByAgentId,
-      },
-    };
-  }, [
-    animationNowMs,
-    danceUntilByAgentId,
-    marketplaceGymHoldByAgentId,
-    officeTriggerState,
-    skillTriggers.movementTargetByAgentId,
-    state.agents,
-  ]);
+  // What the office still acts on from chat and gateway traffic: a call or a
+  // text an agent was asked to make (the call feed and messaging panels open
+  // for a person to finish it), a standup request, and the short "working"
+  // latch that keeps an agent from flickering to idle between runs.
   const {
-    deskHoldByAgentId,
-    githubHoldByAgentId,
-    jukeboxHoldByAgentId,
-    manualGymUntilByAgentId,
     pendingStandupRequest,
-    phoneBoothHoldByAgentId,
     phoneCallByAgentId,
-    qaHoldByAgentId,
-    smsBoothHoldByAgentId,
-    skillGymHoldByAgentId,
     textMessageByAgentId,
     workingUntilByAgentId,
-  } = officeAnimationState;
-  // Who is held at the gym right now, stable by content: the animation state
-  // above is rebuilt on every render (it reads the clock), and a new map each
-  // time re-ran the cooldown effect below on every render — a render loop
-  // React cut off with "Maximum update depth exceeded".
-  const immediateGymHoldSignature = Object.entries({ ...marketplaceGymHoldByAgentId, ...skillGymHoldByAgentId })
-    .filter(([, held]) => held)
-    .map(([agentId]) => agentId)
-    .sort()
-    .join("\u0000");
-  const immediateGymHoldByAgentId = useMemo<Record<string, boolean>>(
-    () =>
-      Object.fromEntries(
-        immediateGymHoldSignature ? immediateGymHoldSignature.split("\u0000").map((agentId) => [agentId, true]) : [],
-      ),
-    [immediateGymHoldSignature],
+  } = useMemo(
+    () => buildOfficeAnimationState({ state: officeTriggerState, agents: state.agents }),
+    [officeTriggerState, state.agents],
   );
-
-  // Only who is in the office matters here, not every change to an agent
-  // (a streaming reply changes one many times a second).
-  const officeAgentIdsSignature = state.agents.map((agent) => agent.agentId).join("\u0000");
-  useEffect(() => {
-    const now = Date.now();
-    const agentIds = officeAgentIdsSignature ? officeAgentIdsSignature.split("\u0000") : [];
-    // Read and advance the "held before" snapshot here, not inside the state
-    // updater: React may run an updater twice.
-    const wasHeldByAgentId = prevImmediateGymHoldRef.current;
-    prevImmediateGymHoldRef.current = Object.fromEntries(
-      agentIds.map((agentId) => [agentId, Boolean(immediateGymHoldByAgentId[agentId])]),
-    );
-    setGymCooldownUntilByAgentId((previous) => {
-      const next: Record<string, number> = {};
-      for (const agentId of agentIds) {
-        const immediateHeld = Boolean(immediateGymHoldByAgentId[agentId]);
-        const wasImmediateHeld = wasHeldByAgentId[agentId] ?? false;
-        const previousUntil = previous[agentId] ?? 0;
-        if (immediateHeld) {
-          if (previousUntil > now) {
-            next[agentId] = previousUntil;
-          }
-          continue;
-        }
-        if (wasImmediateHeld) {
-          next[agentId] = now + GYM_WORKOUT_LATCH_MS;
-          continue;
-        }
-        if (previousUntil > now) {
-          next[agentId] = previousUntil;
-        }
-      }
-      const prevKeys = Object.keys(previous);
-      const nextKeys = Object.keys(next);
-      if (
-        prevKeys.length === nextKeys.length &&
-        nextKeys.every((key) => previous[key] === next[key])
-      ) {
-        return previous;
-      }
-      return next;
-    });
-  }, [immediateGymHoldByAgentId, officeAgentIdsSignature]);
-
-  const activeGithubReviewAgentId = useMemo(
-    () =>
-      state.agents.find((agent) => githubHoldByAgentId[agent.agentId])
-        ?.agentId ?? null,
-    [githubHoldByAgentId, state.agents],
-  );
-  const activeQaTestingAgentId = useMemo(
-    () =>
-      state.agents.find((agent) => qaHoldByAgentId[agent.agentId])?.agentId ??
-      null,
-    [qaHoldByAgentId, state.agents],
-  );
-  useEffect(() => {
-    setGithubReviewAgentId(activeGithubReviewAgentId);
-  }, [activeGithubReviewAgentId]);
-
-  useEffect(() => {
-    if (!activeGithubReviewAgentId) return;
-    focusLocalAgent(activeGithubReviewAgentId);
-  }, [activeGithubReviewAgentId, focusLocalAgent]);
-
-  useEffect(() => {
-    setQaTestingAgentId(activeQaTestingAgentId);
-  }, [activeQaTestingAgentId]);
-
-  useEffect(() => {
-    if (!activeQaTestingAgentId) return;
-    focusLocalAgent(activeQaTestingAgentId);
-  }, [activeQaTestingAgentId, focusLocalAgent]);
 
   useEffect(() => {
     const activeKeys = new Set(
@@ -3427,57 +2657,6 @@ export function OfficeScreen({
       }
     }
   }, [dispatch, focusLocalAgent, phoneCallByAgentId, state.agents]);
-
-  const activePhoneBoothCall = useMemo(() => {
-    // The booth shows a call that is actually on the line, for the agent
-    // standing in it. With no such call there is nothing to show — which is
-    // why the booth now stays dark rather than playing a scripted one.
-    for (const agent of state.agents) {
-      if (!phoneBoothHoldByAgentId[agent.agentId]) continue;
-      const live = callFeed.calls.find(
-        (entry) => entry.agentId === agent.agentId && !isTerminalCallStatus(entry.status),
-      );
-      if (live) {
-        return {
-          agentId: agent.agentId,
-          view: {
-            dialNumber: live.to,
-            agentName: agent.name,
-            status: live.status,
-            turns: live.transcript.map((turn) => ({
-              id: turn.id,
-              speaker: turn.speaker,
-              text: turn.text,
-            })),
-          },
-        };
-      }
-    }
-    return null;
-  }, [callFeed.calls, phoneBoothHoldByAgentId, state.agents]);
-
-  const activePhoneBoothAgentId = activePhoneBoothCall?.agentId ?? null;
-
-  const handlePhoneCallComplete = useCallback(
-    (agentId: string) => {
-      const request = phoneCallByAgentId[agentId];
-      if (request) {
-        dispatch({
-          type: "appendOutput",
-          agentId,
-          line: buildPhoneCallOutputLine(t("office.callFinished", { callee: request.callee })),
-        });
-      }
-      setOfficeTriggerState((previous) =>
-        clearOfficeAnimationTriggerHold({
-          state: previous,
-          hold: "call",
-          agentId,
-        }),
-      );
-    },
-    [dispatch, phoneCallByAgentId],
-  );
 
   useEffect(() => {
     const activeKeys = new Set(
@@ -3540,71 +2719,6 @@ export function OfficeScreen({
     }
   }, [dispatch, focusLocalAgent, state.agents, textMessageByAgentId]);
 
-  const activeBoothMessage = useMemo(() => {
-    // The booth shows a message this office actually sent, for the agent
-    // standing in it. With none, there is nothing to show.
-    for (const agent of state.agents) {
-      if (!smsBoothHoldByAgentId[agent.agentId]) continue;
-      const sent = messaging.messages.find((entry) => entry.agentId === agent.agentId);
-      if (sent) {
-        return {
-          agentId: agent.agentId,
-          view: {
-            recipient: `+${sent.to}`,
-            text: sent.text,
-            status: sent.status,
-            errorMessage: sent.errorMessage,
-          },
-        };
-      }
-    }
-    return null;
-  }, [messaging.messages, smsBoothHoldByAgentId, state.agents]);
-
-  const activeSmsBoothAgentId = activeBoothMessage?.agentId ?? null;
-
-  const handleTextMessageComplete = useCallback(
-    (agentId: string) => {
-      const request = textMessageByAgentId[agentId];
-      if (request) {
-        dispatch({
-          type: "appendOutput",
-          agentId,
-          line: buildTextMessageOutputLine(t("office.messageSent", { recipient: request.recipient })),
-        });
-      }
-      setOfficeTriggerState((previous) =>
-        clearOfficeAnimationTriggerHold({
-          state: previous,
-          hold: "text",
-          agentId,
-        }),
-      );
-    },
-    [dispatch, textMessageByAgentId],
-  );
-
-  const gymHoldByAgentId = useMemo(() => {
-    const next: Record<string, boolean> = {};
-    for (const agent of state.agents) {
-      const agentId = agent.agentId;
-      if (
-        immediateGymHoldByAgentId[agentId] ||
-        (manualGymUntilByAgentId[agentId] ?? 0) > animationNowMs ||
-        (gymCooldownUntilByAgentId[agentId] ?? 0) > animationNowMs
-      ) {
-        next[agentId] = true;
-      }
-    }
-    return next;
-  }, [
-    animationNowMs,
-    gymCooldownUntilByAgentId,
-    immediateGymHoldByAgentId,
-    manualGymUntilByAgentId,
-    state.agents,
-  ]);
-
   const handleOpenAgentChat = useCallback(
     (agentId: string) => {
       focusChatTarget(agentId);
@@ -3639,7 +2753,7 @@ export function OfficeScreen({
         return;
       }
       const remoteAgentId = isRemoteOfficeAgentId(agentId)
-        ? agentId.slice("remote:".length)
+        ? agentId.slice(REMOTE_OFFICE_AGENT_ID_PREFIX.length)
         : agentId;
       const sentAt = Date.now();
       updateRemoteChatSession(agentId, (session) => ({
@@ -3744,7 +2858,7 @@ export function OfficeScreen({
         return;
       }
       const remoteAgentId = isRemoteOfficeAgentId(agentId)
-        ? agentId.slice("remote:".length)
+        ? agentId.slice(REMOTE_OFFICE_AGENT_ID_PREFIX.length)
         : agentId;
       const sessionSnapshot = remoteChatByAgentId[agentId] ?? EMPTY_REMOTE_CHAT_SESSION;
       const sentAt = Date.now();
@@ -3857,28 +2971,6 @@ export function OfficeScreen({
     [hermesMeetings, meetingRoom.meeting, standupController],
   );
 
-  const handleGithubReviewDismiss = useCallback(() => {
-    if (!githubReviewAgentId) return;
-    setOfficeTriggerState((previous) =>
-      clearOfficeAnimationTriggerHold({
-        state: previous,
-        hold: "github",
-        agentId: githubReviewAgentId,
-      }),
-    );
-  }, [githubReviewAgentId]);
-
-  const handleQaDismiss = useCallback(() => {
-    if (!qaTestingAgentId) return;
-    setOfficeTriggerState((previous) =>
-      clearOfficeAnimationTriggerHold({
-        state: previous,
-        hold: "qa",
-        agentId: qaTestingAgentId,
-      }),
-    );
-  }, [qaTestingAgentId]);
-
   const handleChatSend = useCallback(
     async (agentId: string, sessionKey: string, message: string) => {
       stopVoiceReplyPlayback();
@@ -3909,13 +3001,10 @@ export function OfficeScreen({
       });
       const pendingPhoneCall = phoneCallByAgentId[agentId] ?? null;
       const pendingTextMessage = textMessageByAgentId[agentId] ?? null;
+      // A standup or a text request acts at once rather than waiting for the
+      // gateway to echo the message back.
       const hasImmediateOfficeTrigger = Boolean(
-        intentSnapshot.desk ||
-          intentSnapshot.github ||
-          intentSnapshot.gym ||
-          intentSnapshot.qa ||
-          intentSnapshot.standup ||
-          intentSnapshot.text,
+        intentSnapshot.standup || intentSnapshot.text,
       );
       const isPhoneCallFollowUp =
         pendingPhoneCall?.phase === "needs_message" &&
@@ -4229,6 +3318,17 @@ export function OfficeScreen({
   }, [startMainVoiceRecording, stopMainVoiceRecording]);
 
   useEffect(() => {
+    if (!settingsOpen) return;
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [settingsOpen]);
+
+  useEffect(() => {
     if (!mainVoiceError) return;
     const timer = window.setTimeout(() => {
       clearMainVoiceError();
@@ -4238,40 +3338,17 @@ export function OfficeScreen({
     };
   }, [clearMainVoiceError, mainVoiceError]);
 
+  // An agent active a moment ago still shows as working, so the hall does not
+  // flicker to idle between runs. Cached per agent, so a large team is not
+  // re-mapped on every render.
   const officeAgents = useMemo(() => {
     void clockTick;
     const now = Date.now();
-    const nextCache = new Map<
-      string,
-      {
-        agent: AgentState;
-        deskHeld: boolean;
-        gymHeld: boolean;
-        latchedWorking: boolean;
-        officeAgent: OfficeAgent;
-        phoneBoothHeld: boolean;
-        qaHeld: boolean;
-        smsBoothHeld: boolean;
-      }
-    >();
+    const nextCache = new Map<string, OfficeAgentCacheEntry>();
     const nextOfficeAgents = state.agents.map((agent) => {
       const latchedWorking = (workingUntilByAgentId[agent.agentId] ?? 0) > now;
-      const deskHeld = Boolean(deskHoldByAgentId[agent.agentId]);
-      const gymHeld = Boolean(gymHoldByAgentId[agent.agentId]);
-      const phoneBoothHeld = Boolean(phoneBoothHoldByAgentId[agent.agentId]);
-      const qaHeld = Boolean(qaHoldByAgentId[agent.agentId]);
-      const smsBoothHeld = Boolean(smsBoothHoldByAgentId[agent.agentId]);
       const cached = officeAgentCacheRef.current.get(agent.agentId);
-      if (
-        cached &&
-        cached.agent === agent &&
-        cached.latchedWorking === latchedWorking &&
-        cached.deskHeld === deskHeld &&
-        cached.gymHeld === gymHeld &&
-        cached.phoneBoothHeld === phoneBoothHeld &&
-        cached.qaHeld === qaHeld &&
-        cached.smsBoothHeld === smsBoothHeld
-      ) {
+      if (cached && cached.agent === agent && cached.latchedWorking === latchedWorking) {
         nextCache.set(agent.agentId, cached);
         return cached.officeAgent;
       }
@@ -4282,58 +3359,14 @@ export function OfficeScreen({
               status: "running",
               runId: agent.runId ?? `latched-${agent.agentId}`,
             }
-          : (deskHeld || gymHeld || qaHeld || phoneBoothHeld || smsBoothHeld) &&
-              agent.status !== "error"
-            ? {
-                ...agent,
-                status: "running",
-                runId:
-                  agent.runId ??
-                  (qaHeld
-                    ? `qa-hold-${agent.agentId}`
-                    : smsBoothHeld
-                      ? `text-hold-${agent.agentId}`
-                    : phoneBoothHeld
-                      ? `call-hold-${agent.agentId}`
-                    : gymHeld
-                      ? `gym-hold-${agent.agentId}`
-                      : `desk-hold-${agent.agentId}`),
-              }
-            : agent;
+          : agent;
       const officeAgent = mapAgentToOffice(effectiveAgent);
-      nextCache.set(agent.agentId, {
-        agent,
-        deskHeld,
-        gymHeld,
-        latchedWorking,
-        officeAgent,
-        phoneBoothHeld,
-        qaHeld,
-        smsBoothHeld,
-      });
+      nextCache.set(agent.agentId, { agent, latchedWorking, officeAgent });
       return officeAgent;
     });
     officeAgentCacheRef.current = nextCache;
     return nextOfficeAgents;
-  }, [
-    clockTick,
-    deskHoldByAgentId,
-    gymHoldByAgentId,
-    phoneBoothHoldByAgentId,
-    qaHoldByAgentId,
-    smsBoothHoldByAgentId,
-    state.agents,
-    workingUntilByAgentId,
-  ]);
-  const streamingTextByAgentId = useMemo(() => {
-    const map: Record<string, string | null> = {};
-    for (const agent of state.agents) {
-      if (agent.streamText?.trim()) {
-        map[agent.agentId] = agent.streamText.trim();
-      }
-    }
-    return map;
-  }, [state.agents]);
+  }, [clockTick, state.agents, workingUntilByAgentId]);
   const openClawLiveStateText = useMemo(() => {
     const lines = [t("office.liveStateHeader")];
     if (state.agents.length === 0) {
@@ -4403,39 +3436,18 @@ export function OfficeScreen({
   const focusedRemoteChatState = focusedRemoteChatTarget
     ? (remoteChatByAgentId[focusedRemoteChatTarget.id] ?? EMPTY_REMOTE_CHAT_SESSION)
     : null;
-  const allVisibleAgents = useMemo(
-    () => [...officeAgents, ...remoteOfficeAgents],
-    [officeAgents, remoteOfficeAgents],
-  );
-  const [officeViewMode, setOfficeViewMode] = useOfficeViewMode();
+  // The hall seats the local team and, when one is configured, the agents of
+  // the remote office.
   const hqAgents = useMemo<HqAgentInput[]>(
     () =>
-      allVisibleAgents.map((agent) => ({
+      [...officeAgents, ...remoteOfficeAgents].map((agent) => ({
         id: agent.id,
         name: agent.name,
         role: agent.subtitle ?? null,
         status: agent.status,
       })),
-    [allVisibleAgents],
+    [officeAgents, remoteOfficeAgents],
   );
-  const remoteOfficeVisible =
-    remoteOfficeEnabled &&
-    (remoteOfficeSourceKind === "presence_endpoint"
-      ? remoteOfficePresenceUrl.trim().length > 0
-      : remoteOfficeGatewayUrl.trim().length > 0);
-  const remoteOfficeStatusText = !remoteOfficeVisible
-    ? t("office.remoteDisabled")
-    : remoteOfficeError
-      ? remoteOfficeError
-      : !remoteOfficeLoaded
-        ? t("office.remoteLoading")
-        : remoteOfficeAgents.length > 0
-          ? t("office.remoteVisible", { count: remoteOfficeAgents.length })
-          : remoteOfficeSourceKind === "openclaw_gateway"
-            ? t("office.remoteGatewayEmpty")
-          : remoteOfficeTokenConfigured
-            ? t("office.remoteConnectedEmpty")
-            : t("office.remoteEmpty");
   const remoteMessagingAvailable =
     remoteOfficeSourceKind === "openclaw_gateway" &&
     remoteOfficeGatewayUrl.trim().length > 0;
@@ -4527,42 +3539,6 @@ export function OfficeScreen({
     window.URL.revokeObjectURL(url);
   }, [openClawConsoleExportJson]);
 
-  const monitorByAgentId = useMemo(
-    () => {
-      const nextCache = new Map<
-        string,
-        { agent: AgentState; monitor: OfficeDeskMonitor }
-      >();
-      const nextMonitorByAgentId: Record<string, OfficeDeskMonitor> = {};
-
-      for (const agent of state.agents) {
-        const cached = deskMonitorCacheRef.current.get(agent.agentId);
-        if (cached && cached.agent === agent) {
-          nextCache.set(agent.agentId, cached);
-          nextMonitorByAgentId[agent.agentId] = cached.monitor;
-          continue;
-        }
-
-        const monitor = buildOfficeDeskMonitor(agent);
-        const entry = { agent, monitor };
-        nextCache.set(agent.agentId, entry);
-        nextMonitorByAgentId[agent.agentId] = monitor;
-      }
-
-      deskMonitorCacheRef.current = nextCache;
-      return nextMonitorByAgentId;
-    },
-    [state.agents],
-  );
-  const githubSkill = useMemo<SkillStatusEntry | null>(
-    () =>
-      marketplace.skillsReport?.skills.find((skill) => {
-        const normalizedKey = skill.skillKey.trim().toLowerCase();
-        const normalizedName = skill.name.trim().toLowerCase();
-        return normalizedKey === "github" || normalizedName === "github";
-      }) ?? null,
-    [marketplace.skillsReport],
-  );
   const soundclawSkill = useMemo<SkillStatusEntry | null>(
     () =>
       marketplace.skillsReport?.skills.find((skill) => {
@@ -4571,19 +3547,6 @@ export function OfficeScreen({
         return normalizedKey === "soundclaw" || normalizedName === "soundclaw";
       }) ?? null,
     [marketplace.skillsReport],
-  );
-  const taskManagerSkill = useMemo<SkillStatusEntry | null>(
-    () =>
-      marketplace.skillsReport?.skills.find((skill) => {
-        const normalizedKey = skill.skillKey.trim().toLowerCase();
-        const normalizedName = skill.name.trim().toLowerCase();
-        return normalizedKey === "task-manager" || normalizedName === "task-manager";
-      }) ?? null,
-    [marketplace.skillsReport],
-  );
-  const taskManagerReady = useMemo(
-    () => (taskManagerSkill ? deriveSkillReadinessState(taskManagerSkill) === "ready" : false),
-    [taskManagerSkill],
   );
   const soundclawReady = useMemo(
     () => (soundclawSkill ? deriveSkillReadinessState(soundclawSkill) === "ready" : false),
@@ -4729,14 +3692,7 @@ export function OfficeScreen({
     (shouldPromptForConnect || showDelayedGatewayConnectOverlay);
 
   const runningCount = state.agents.filter(
-    (agent) =>
-      agent.status === "running" ||
-      deskHoldByAgentId[agent.agentId] ||
-      gymHoldByAgentId[agent.agentId] ||
-      jukeboxHoldByAgentId[agent.agentId] ||
-      phoneBoothHoldByAgentId[agent.agentId] ||
-      smsBoothHoldByAgentId[agent.agentId] ||
-      qaHoldByAgentId[agent.agentId],
+    (agent) => agent.status === "running",
   ).length;
   const unseenInboxCount = state.agents.filter(
     (agent) => agent.hasUnseenActivity,
@@ -4749,7 +3705,7 @@ export function OfficeScreen({
 
   return (
     <HermesControlProvider value={hermesControl}>
-    <main className={`relative h-full w-full overflow-hidden bg-black ${officeViewMode === "hq" ? "hq-theme" : ""}`}>
+    <main className="hq-theme relative h-full w-full overflow-hidden bg-black">
       {showGatewayLoadingOverlay ? (
         <div
           className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/76"
@@ -4787,200 +3743,16 @@ export function OfficeScreen({
           </div>
         </div>
       ) : null}
-      {/* The HQ is a single hall, so the floor directory only belongs to the classic office. */}
-      {officeViewMode === "classic" ? (
-        <OfficeFloorNav
-          activeFloorId={activeFloor.id}
-          floorRosterCache={floorRosterCache}
-          onSelectFloor={(floorId) => {
-            void handleSelectFloor(floorId);
-          }}
-          activeAdapterType={(selectedAdapterType as FloorProvider) ?? null}
-        />
-      ) : null}
       <section className="relative h-full min-h-0 min-w-0 overflow-hidden">
-        {officeViewMode === "hq" ? (
-          <HqOffice
-            agents={hqAgents}
-            namespace={activeFloor.id}
-            selectedAgentId={selectedChatAgentId ?? state.selectedAgentId ?? null}
-            onAgentSelect={handleOpenAgentChat}
-          />
-        ) : (
-          <RetroOffice3D
-            key={activeFloor.id}
-            agents={allVisibleAgents}
-            storageNamespace={activeFloor.id}
-            layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
-            officeCenterSignal={officeCameraCenterSignal}
-            animationState={officeAnimationState}
-            deskAssignmentByDeskUid={deskAssignmentByDeskUid}
-            githubReviewAgentId={githubReviewAgentId}
-            qaTestingAgentId={qaTestingAgentId}
-            phoneBoothAgentId={activePhoneBoothAgentId}
-            phoneBoothCall={activePhoneBoothCall?.view ?? null}
-            smsBoothAgentId={activeSmsBoothAgentId}
-            boothMessage={activeBoothMessage?.view ?? null}
-            onMessagingInteract={() => {
-              setMessagingOpen(true);
-            }}
-            monitorAgentId={monitorAgentId}
-            monitorByAgentId={monitorByAgentId}
-            githubSkill={githubSkill}
-            taskManagerEnabled={taskManagerReady}
-            soundclawEnabled={soundclawReady}
-            officeTitle={officeTitle}
-            officeTitleLoaded={officeTitleLoaded}
-            remoteOfficeEnabled={remoteOfficeEnabled}
-            remoteOfficeSourceKind={remoteOfficeSourceKind}
-            remoteOfficeLabel={remoteOfficeLabel}
-            remoteOfficePresenceUrl={remoteOfficePresenceUrl}
-            remoteOfficeGatewayUrl={remoteOfficeGatewayUrl}
-            remoteOfficeStatusText={remoteOfficeStatusText}
-            remoteLayoutSnapshot={remoteOfficeLayoutSnapshot}
-            remoteOfficeTokenConfigured={remoteOfficeTokenConfigured}
-            voiceRepliesEnabled={voiceRepliesEnabled}
-            voiceRepliesVoiceId={voiceRepliesVoiceId}
-            voiceRepliesSpeed={voiceRepliesSpeed}
-            voiceRepliesLoaded={voiceRepliesLoaded}
-            onOfficeTitleChange={setOfficeTitle}
-            onRemoteOfficeEnabledChange={setRemoteOfficeEnabled}
-            onRemoteOfficeSourceKindChange={setRemoteOfficeSourceKind}
-            onRemoteOfficeLabelChange={setRemoteOfficeLabel}
-            onRemoteOfficePresenceUrlChange={setRemoteOfficePresenceUrl}
-            onRemoteOfficeGatewayUrlChange={setRemoteOfficeGatewayUrl}
-            onRemoteOfficeTokenChange={setRemoteOfficeToken}
-            onVoiceRepliesToggle={setVoiceRepliesEnabled}
-            onVoiceRepliesVoiceChange={setVoiceRepliesVoiceId}
-            onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
-            voiceSetup={voiceSetup}
-            voiceAgents={state.agents
-              .filter((agent) => !isRemoteOfficeAgentId(agent.agentId))
-              .map((agent) => ({
-                agentId: agent.agentId,
-                name: agent.name || agent.agentId,
-                voiceId: voiceForAgent(agent.agentId),
-                chosen: Boolean(voiceRepliesPreference.agentVoices[agent.agentId]),
-              }))}
-            onAgentVoiceChange={setVoiceRepliesAgentVoiceId}
-            onVoiceRepliesPreview={(voiceId, voiceName) => {
-              void previewVoiceReply({
-                text: t("office.voicePreview", { name: voiceName }),
-                provider: voiceRepliesPreference.provider,
-                voiceId,
-                speed: voiceRepliesSpeed,
-              });
-            }}
-            atmAnalytics={{
-              client,
-              status,
-              agents: state.agents,
-              gatewayUrl,
-              settingsCoordinator,
-            }}
-            gatewayUrl={gatewayUrl}
-            gatewayToken={token}
-            selectedAdapterType={selectedAdapterType}
-            activeAdapterType={activeAdapterType}
-            onGatewayDisconnect={disconnect}
-            onGatewayConnect={() => void connect()}
-            onGatewayUrlChange={setGatewayUrl}
-            onGatewayTokenChange={setToken}
-            onGatewayAdapterTypeChange={setSelectedAdapterType}
-            onOpenOnboarding={handleOpenOnboarding}
-            feedEvents={feedEvents}
-            gatewayStatus={status}
-            runCountByAgentId={runCountByAgentId}
-            lastSeenByAgentId={lastSeenByAgentId}
-            streamingTextByAgentId={streamingTextByAgentId}
-            standupMeeting={meetingRoom.meeting}
-            standupAutoOpenBoard={meetingRoom.openBoardByDefault}
-            onStandupArrivalsChange={(arrivedAgentIds) => {
-              void meetingRoom.reportArrivals(arrivedAgentIds);
-            }}
-            onStandupStartRequested={() => {
-              if (
-                !meetingRoom.meeting ||
-                meetingRoom.meeting.phase === "complete"
-              ) {
-                void meetingRoom.startMeeting("manual").catch((error) => {
-                  console.error("Failed to start the meeting.", error);
-                });
-              }
-            }}
-            onStandupStopRequested={
-              hermesMeetings.available
-                ? () => {
-                    void hermesMeetings.stopMeeting().catch((error) => {
-                      console.error("Failed to stop the meeting.", error);
-                    });
-                  }
-                : undefined
-            }
-            onMonitorSelect={(agentId) => {
-              setMonitorAgentId(agentId);
-              if (agentId && !isRemoteOfficeAgentId(agentId)) {
-                focusLocalAgent(agentId, { openChat: false });
-              }
-            }}
-            onAgentChatSelect={(agentId) => {
-              handleOpenAgentChat(agentId);
-            }}
-            onAddAgent={handleOpenCreateAgentWizard}
-            onAgentEdit={(agentId) => {
-              openAgentEditor(agentId, "avatar");
-            }}
-            onAgentDelete={(agentId) => {
-              void handleDeleteAgent(agentId);
-            }}
-            onDeskAssignmentChange={handleDeskAssignmentChange}
-            onDeskAssignmentsReset={handleDeskAssignmentsReset}
-            onGithubReviewDismiss={() => {
-              handleGithubReviewDismiss();
-            }}
-            onQaLabDismiss={() => {
-              handleQaDismiss();
-            }}
-            onPhoneCallComplete={handlePhoneCallComplete}
-            onTextMessageComplete={handleTextMessageComplete}
-            onOpenGithubSkillSetup={() => {
-              setMarketplaceOpen(true);
-            }}
-            onJukeboxInteract={() => {
-              setJukeboxOpen(true);
-            }}
-            onKanbanInteract={() => {
-              setKanbanInstallPromptOpen(true);
-            }}
-            onPhoneBoothInteract={() => {
-              setCallFeedOpen(true);
-            }}
-            taskBoardAgents={state.agents}
-            taskBoardCardsByStatus={taskBoard.cardsByStatus}
-            taskBoardSelectedCard={taskBoard.selectedCard}
-            taskBoardActiveRuns={taskBoard.activeRuns}
-            taskBoardCronJobs={taskBoard.cronJobs}
-            taskBoardCronLoading={taskBoard.cronLoading}
-            taskBoardCronError={
-              taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
-            }
-            taskBoardCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
-            onTaskBoardCreateCard={() => {
-              taskBoard.createManualCard();
-            }}
-            onTaskBoardMoveCard={taskBoard.moveCard}
-            onTaskBoardSelectCard={(cardId) => {
-              taskBoard.selectCard(cardId);
-            }}
-            onTaskBoardUpdateCard={taskBoard.updateCard}
-            onTaskBoardDeleteCard={taskBoard.removeCard}
-            onTaskBoardRefreshCronJobs={() => {
-              void taskBoard.refreshSharedTasks();
-              void taskBoard.refreshRemoteTasks();
-              void taskBoard.refreshCronJobs();
-            }}
-          />
-        )}
+        <HqOffice
+          agents={hqAgents}
+          namespace={activeFloor.id}
+          selectedAgentId={selectedChatAgentId ?? state.selectedAgentId ?? null}
+          onAgentSelect={handleOpenAgentChat}
+          runtimeStatus={{ adapter: activeAdapterType, status }}
+          settingsOpen={settingsOpen}
+          onOpenSettings={() => setSettingsOpen((open) => !open)}
+        />
         {jukeboxOpen ? (
           soundclawReady ? (
             <JukeboxPanel
@@ -4997,75 +3769,6 @@ export function OfficeScreen({
               }}
             />
           )
-        ) : null}
-        {kanbanInstallPromptOpen ? (
-          <KanbanDisabledPanel
-            onClose={() => {
-              if (kanbanInstallProgress.active) {
-                return;
-              }
-              setKanbanInstallPromptOpen(false);
-              setKanbanInstallProgress({
-                active: false,
-                percent: 0,
-                message: "",
-                error: null,
-              });
-            }}
-            onInstall={() => {
-              const targetAgentId =
-                (selectedChatAgentId ?? state.selectedAgentId ?? state.agents[0]?.agentId ?? "")
-                  .trim() || null;
-              setKanbanInstallProgress({
-                active: true,
-                percent: 8,
-                message: t("office.taskManagerInstalling"),
-                error: null,
-              });
-              void (async () => {
-                try {
-                  await marketplace.handleInstallPackagedSkillAndEnable({
-                    skillKey: "task-manager",
-                    agentId: targetAgentId,
-                    onProgress: ({ percent, message }) => {
-                      setKanbanInstallProgress({
-                        active: true,
-                        percent,
-                        message,
-                        error: null,
-                      });
-                    },
-                  });
-                  setKanbanInstallProgress({
-                    active: true,
-                    percent: 100,
-                    message: t("office.taskManagerRefreshing"),
-                    error: null,
-                  });
-                  setKanbanInstallPromptOpen(false);
-                  setKanbanInstallProgress({
-                    active: false,
-                    percent: 0,
-                    message: "",
-                    error: null,
-                  });
-                } catch (error) {
-                  setKanbanInstallProgress((current) => ({
-                    ...current,
-                    active: false,
-                    error:
-                      error instanceof Error
-                        ? error.message
-                        : t("office.taskManagerFailed"),
-                  }));
-                }
-              })();
-            }}
-            installing={kanbanInstallProgress.active}
-            progressPercent={kanbanInstallProgress.percent}
-            progressMessage={kanbanInstallProgress.message}
-            errorMessage={kanbanInstallProgress.error}
-          />
         ) : null}
       </section>
 
@@ -5211,6 +3914,104 @@ export function OfficeScreen({
         />
       ) : null}
 
+      {settingsOpen ? (
+        // Above the scene, the HUD and the sidebar, below the chat (z-30); it
+        // stops short of the chat button so nothing in it hides behind it.
+        <div
+          className="fixed inset-0 z-[25] flex justify-end bg-black/40 px-3 pb-14 pt-3 backdrop-blur-[1px]"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setSettingsOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-labelledby="office-settings-title"
+            className="flex h-full w-full max-w-[440px] flex-col overflow-hidden rounded border border-red-900/50 bg-[#070404]/96 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-red-500/15 px-4 py-3">
+              <div>
+                <div
+                  id="office-settings-title"
+                  className="font-mono text-[10px] font-semibold tracking-[0.28em] text-red-300/80"
+                >
+                  {t("office.studioSettings")}
+                </div>
+                <div className="mt-1 text-[11px] text-white/45">{t("office.studioSettingsLead")}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                aria-label={t("office.closeStudioSettings")}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-500/20 text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <SettingsPanel
+                gatewayStatus={status}
+                gatewayUrl={gatewayUrl}
+                gatewayToken={token}
+                selectedAdapterType={selectedAdapterType}
+                activeAdapterType={activeAdapterType}
+                onGatewayDisconnect={() => {
+                  disconnect();
+                  setSettingsOpen(false);
+                }}
+                onGatewayConnect={() => void connect()}
+                onGatewayUrlChange={setGatewayUrl}
+                onGatewayTokenChange={setToken}
+                onGatewayAdapterTypeChange={setSelectedAdapterType}
+                onOpenOnboarding={() => {
+                  handleOpenOnboarding();
+                  setSettingsOpen(false);
+                }}
+                officeTitle={officeTitle}
+                officeTitleLoaded={officeTitleLoaded}
+                onOfficeTitleChange={setOfficeTitle}
+                remoteOfficeEnabled={remoteOfficeEnabled}
+                remoteOfficeSourceKind={remoteOfficeSourceKind}
+                remoteOfficeLabel={remoteOfficeLabel}
+                remoteOfficePresenceUrl={remoteOfficePresenceUrl}
+                remoteOfficeGatewayUrl={remoteOfficeGatewayUrl}
+                remoteOfficeTokenConfigured={remoteOfficeTokenConfigured}
+                onRemoteOfficeEnabledChange={setRemoteOfficeEnabled}
+                onRemoteOfficeSourceKindChange={setRemoteOfficeSourceKind}
+                onRemoteOfficeLabelChange={setRemoteOfficeLabel}
+                onRemoteOfficePresenceUrlChange={setRemoteOfficePresenceUrl}
+                onRemoteOfficeGatewayUrlChange={setRemoteOfficeGatewayUrl}
+                onRemoteOfficeTokenChange={setRemoteOfficeToken}
+                voiceRepliesEnabled={voiceRepliesEnabled}
+                voiceRepliesVoiceId={voiceRepliesVoiceId}
+                voiceRepliesSpeed={voiceRepliesSpeed}
+                voiceRepliesLoaded={voiceRepliesLoaded}
+                onVoiceRepliesToggle={setVoiceRepliesEnabled}
+                onVoiceRepliesVoiceChange={setVoiceRepliesVoiceId}
+                onVoiceRepliesSpeedChange={setVoiceRepliesSpeed}
+                onVoiceRepliesPreview={(voiceId, voiceName) => {
+                  void previewVoiceReply({
+                    text: t("office.voicePreview", { name: voiceName }),
+                    provider: voiceRepliesPreference.provider,
+                    voiceId,
+                    speed: voiceRepliesSpeed,
+                  });
+                }}
+                voiceSetup={voiceSetup}
+                voiceAgents={state.agents
+                  .filter((agent) => !isRemoteOfficeAgentId(agent.agentId))
+                  .map((agent) => ({
+                    agentId: agent.agentId,
+                    name: agent.name || agent.agentId,
+                    voiceId: voiceForAgent(agent.agentId),
+                    chosen: Boolean(voiceRepliesPreference.agentVoices[agent.agentId]),
+                  }))}
+                onAgentVoiceChange={setVoiceRepliesAgentVoiceId}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <MessagingModal
         open={messagingOpen}
         messaging={messaging}
@@ -5276,7 +4077,7 @@ export function OfficeScreen({
       ) : null}
 
       {showOpenClawConsole ? (
-        <section className={`pointer-events-auto fixed left-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur ${officeViewMode === "hq" ? "top-3" : "bottom-3"} ${officeViewMode === "hq" && openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"}`}>
+        <section className={`pointer-events-auto fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur ${openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"}`}>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-red-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-red-200/80">
             <span className="whitespace-nowrap">{t("office.eventConsole")}</span>
             <div className="flex flex-wrap items-center gap-2">
@@ -5721,17 +4522,6 @@ export function OfficeScreen({
           </div>
         )}
 
-        {officeViewMode === "classic" ? (
-          <button
-            type="button"
-            aria-label={t("hqScene.returnToHqLabel")}
-            onClick={() => setOfficeViewMode("hq")}
-            className="flex items-center gap-1.5 rounded border border-red-700/50 bg-[#0e0404]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-red-300/85 shadow-lg backdrop-blur transition-colors hover:border-red-500/70 hover:text-red-200"
-          >
-            <Radar className="h-3.5 w-3.5" />
-            <span>{t("hqScene.returnToHq")}</span>
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={() => setChatOpen((prev) => !prev)}

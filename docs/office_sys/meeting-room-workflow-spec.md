@@ -353,9 +353,9 @@ V1 должна сосредоточиться на превращении пл�
 Скорее всего, работа должна опираться на:
 
 - `src/features/office/hooks/useOfficeStandupController.ts`
-- `src/features/office/screens/StandupImmersiveScreen.tsx`
+- `src/features/office/components/panels/PlaybooksPanel.tsx` (планёрки в боковой панели штаба)
 - `src/app/api/office/standup/*`
-- позиционирование переговорной и перемещение агентов в ретро-офисе
+- переговорные в плане штаба (`src/features/hq/core/layout.ts`) и поведение агентов в симуляции (`src/features/hq/core/sim.ts`)
 - сохранение состояния офиса
 
 Это важно, потому что в Office3D уже есть каркас системы встреч.
