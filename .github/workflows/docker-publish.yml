@@ -22,7 +22,7 @@ env:
   # IMAGE_NAME is assembled in the "Prepare Docker tags" step rather than here:
   # GHCR requires a lowercase namespace, `github.repository_owner` preserves the
   # owner's original casing, and `env:` cannot lowercase a value.
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
 
 jobs:
   verify:

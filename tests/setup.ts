@@ -1,4 +1,9 @@
-import "@testing-library/jest-dom/vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { expect } from "vitest";
+
+// jest-dom's own "vitest" entry augments Vitest 4's Assertion<T>; Vitest 5
+// takes Matchers<R, T> instead (tests/jest-dom-vitest.d.ts).
+expect.extend(matchers);
 
 const ensureLocalStorage = () => {
   if (typeof window === "undefined") return;

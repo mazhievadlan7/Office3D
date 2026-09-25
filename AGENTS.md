@@ -14,7 +14,7 @@
 
 ### Обзор сервиса
 
-Office3D — фронтенд на Next.js 16 (TypeScript, React 19, Three.js, Phaser) для OpenClaw. Он запускает собственный сервер на Node.js (`server/index.js`), в который встроен WebSocket-прокси с того же источника (same-origin) к вышестоящему шлюзу OpenClaw. База данных и Docker не нужны. Единственная обязательная системная зависимость — Node.js 20+ с npm 10+.
+Office3D — фронтенд на Next.js 16 (TypeScript, React 19, Three.js, Phaser) для OpenClaw. Он запускает собственный сервер на Node.js (`server/index.js`), в который встроен WebSocket-прокси с того же источника (same-origin) к вышестоящему шлюзу OpenClaw. База данных и Docker не нужны. Единственная обязательная системная зависимость — Node.js 24 LTS (минимум 22.22) с npm 10+.
 
 ### Запуск приложения
 
