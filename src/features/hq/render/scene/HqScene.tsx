@@ -57,6 +57,7 @@ export type HqSceneProps = {
   qualityMode: HqQualityMode;
   onQualityTierChange: (tierIndex: number) => void;
   onCameraModeChange: (mode: HqCameraMode) => void;
+  onIntroChange?: (playing: boolean) => void;
   onSelect: (agentId: string) => void;
   onFocus: (agentId: string) => void;
 };
@@ -85,6 +86,7 @@ export const HqScene = memo(function HqScene({
   qualityMode,
   onQualityTierChange,
   onCameraModeChange,
+  onIntroChange,
   onSelect,
   onFocus,
 }: HqSceneProps) {
@@ -93,7 +95,13 @@ export const HqScene = memo(function HqScene({
     <>
       <HqSimDriver simRef={simRef} activityRef={activityRef} />
       <HqAdaptiveQuality tiers={qualityTiers} mode={qualityMode} onTierChange={onQualityTierChange} />
-      <HqCameraRig layout={layout} simRef={simRef} apiRef={cameraApiRef} onModeChange={onCameraModeChange} />
+      <HqCameraRig
+        layout={layout}
+        simRef={simRef}
+        apiRef={cameraApiRef}
+        onModeChange={onCameraModeChange}
+        onIntroChange={onIntroChange}
+      />
       <HqLighting layout={layout} quality={quality} />
 
       <HqModuleSlot name="environment" resetKey={resetKey} fallback={<FallbackFloor layout={layout} />}>

@@ -119,6 +119,8 @@ export function HqOffice({
   const [cameraMode, setCameraMode] = useState<HqCameraMode>("overview");
   const [deskPoll, setDeskPoll] = useState<{ capacity: HqCapacity; free: number } | null>(null);
   const [ready, setReady] = useState(false);
+  // The opening fly-through: letterbox bars on, HUD off until it lands.
+  const [introPlaying, setIntroPlaying] = useState(false);
 
   const layout = useMemo(() => generateHqLayout(capacity), [capacity]);
 
@@ -295,10 +297,15 @@ export function HqOffice({
             qualityMode={qualityMode}
             onQualityTierChange={setTierIndex}
             onCameraModeChange={handleCameraMode}
+            onIntroChange={setIntroPlaying}
             onSelect={handleSelect}
             onFocus={handleFocus}
           />
         </Canvas>
+        <div
+          aria-hidden={introPlaying}
+          className={`transition-opacity duration-700 ease-out ${introPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
+        >
         <HqHoverCard sinkRef={hoverSinkRef} agentsRef={agentsRef} />
         <HqHud
           counts={counts}
@@ -313,6 +320,20 @@ export function HqOffice({
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}
         />
+        </div>
+        {/* Letterbox bars while the fly-through plays. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className={`absolute inset-x-0 top-0 h-[9vh] bg-black transition-transform duration-1000 ease-out ${introPlaying ? "translate-y-0" : "-translate-y-full"}`}
+          />
+          <div
+            className={`absolute inset-x-0 bottom-0 flex h-[9vh] items-center justify-center bg-black transition-transform duration-1000 ease-out ${introPlaying ? "translate-y-0" : "translate-y-full"}`}
+          >
+            <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-red-400/70">
+              {t("hqScene.introSkip")}
+            </span>
+          </div>
+        </div>
       </HqCanvasBoundary>
       {/* Fades in from black as the intro swoop starts. */}
       <div

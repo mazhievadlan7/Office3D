@@ -188,15 +188,3 @@ export function distanceLimits(layout: HqLayout, aspect: number): { min: number;
   const overview = overviewPose(layout, Math.min(aspect, 1.2));
   return { min: HQ_CAMERA.minDistance, max: overview.distance * 1.3 };
 }
-
-/** A higher, turned, further start for the intro swoop. */
-export function introStartPose(home: HqCameraPose, maxDistance: number): HqCameraPose {
-  return {
-    tx: home.tx - home.distance * 0.08,
-    ty: home.ty,
-    tz: home.tz - home.distance * 0.12,
-    azimuth: Math.min(HQ_CAMERA.maxAzimuth, home.azimuth + 30 * DEG),
-    polar: HQ_CAMERA.minPolar + 4 * DEG,
-    distance: Math.min(maxDistance, home.distance * 1.45),
-  };
-}

@@ -1059,6 +1059,7 @@ export const ru = {
   "hqScene.countIdle": "Ожидают",
   "hqScene.countWorking": "Работают",
   "hqScene.countersLabel": "Сводка штаба",
+  "hqScene.introSkip": "Щелчок, колесо или любая клавиша — пропустить облёт",
   "hqScene.leadBadge": "Руководитель",
   "hqScene.messageLead": "Написать AM7",
   "hqScene.messageLeadTitle": "Открыть чат с руководителем штаба",
