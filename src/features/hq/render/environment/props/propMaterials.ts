@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
 import { GLSL_HQ_NOISE, patchMaterial } from "../glsl";
 import { GLOW, themeColor } from "../palette";
+import { createScreenTextureMaterial } from "@/features/hq/render/screens/screenMaterial";
+import { SRGB_DECODE_GLSL, WALL_ATLAS, atlasUvGlsl } from "@/features/hq/render/screens/screenSurfaces";
 
 // Animated prop materials. Time and the animation switch are shared uniforms
 // owned by HqEnvironment, so switching quality flips a uniform instead of
@@ -172,10 +174,10 @@ export function createScreenMaterial(uniforms: PropUniforms): THREE.MeshBasicMat
   });
 }
 
-// Wall screens show a layer of the screen hub's wall texture array (one per
-// channel: AM7's report, news, security, music). The layer rides on a
-// per-instance attribute written from HqProp.screen; props.glb display UVs
-// have v = 0 at the top, like the canvas rows.
+// Wall screens show a tile of the screen hub's wall atlas (one per channel:
+// AM7's report, news, security, music). The channel rides on a per-instance
+// attribute written from HqProp.screen; props.glb display UVs have v = 0 at
+// the top, like the canvas rows.
 const WALL_VERTEX_PARS = /* glsl */ `
 attribute float aPanel;
 flat varying float vHqPanel;
@@ -184,13 +186,15 @@ const WALL_VERTEX = /* glsl */ `
 vHqPanel = aPanel;
 `;
 const WALL_FRAGMENT_PARS = /* glsl */ `
-uniform highp sampler2DArray uHqWalls;
+uniform sampler2D uHqWalls;
 uniform float uHqWallGain;
 flat varying float vHqPanel;
+${atlasUvGlsl("hqWallUv", WALL_ATLAS)}
+${SRGB_DECODE_GLSL}
 `;
 const WALL_FRAGMENT = /* glsl */ `
 {
-  vec3 hqWall = texture(uHqWalls, vec3(vUv, vHqPanel)).rgb;
+  vec3 hqWall = hqSrgbToLinear(texture2D(uHqWalls, hqWallUv(vHqPanel, vUv)).rgb);
   // Faint scanlines, faded where they would alias.
   float hqScan = vUv.y * 360.0;
   float hqScanAA = clamp(fwidth(hqScan) - 0.5, 0.0, 1.0);
@@ -205,7 +209,7 @@ export function createWallScreenMaterial(walls: THREE.Texture): THREE.MeshBasicM
   material.name = "hq-wall-screen";
   material.defines = { ...(material.defines ?? {}), USE_UV: "" };
   return patchMaterial(material, {
-    key: "hq-wall-screen-v1",
+    key: "hq-wall-screen-v3",
     uniforms: { uHqWalls: { value: walls }, uHqWallGain: { value: GLOW.screen * 1.25 } },
     vertexPars: WALL_VERTEX_PARS,
     fragmentPars: WALL_FRAGMENT_PARS,
@@ -216,10 +220,7 @@ export function createWallScreenMaterial(walls: THREE.Texture): THREE.MeshBasicM
 
 /** AM7's curved monitor: the command-centre canvas, pushed a little into bloom. */
 export function createExecScreenMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
-  const material = new THREE.MeshBasicMaterial({ map, toneMapped: false });
-  material.color.setScalar(GLOW.screen * 1.25);
-  material.name = "hq-exec-screen";
-  return material;
+  return createScreenTextureMaterial(map, GLOW.screen * 1.25, "hq-exec-screen");
 }
 
 /** Materials for the procedural stand-ins drawn while props.glb is missing. */

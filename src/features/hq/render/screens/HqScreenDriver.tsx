@@ -12,9 +12,9 @@ type Props = {
   quality: HqQuality;
 };
 
-/** Repaints the screens that are due, before the renderers draw (frame order 0). */
+/** Uploads the screens' new frames (painted in a worker) before the renderers draw. */
 export function HqScreenDriver({ screens, agentsRef, quality }: Props) {
   useEffect(() => screens.setQuality(quality), [screens, quality]);
-  useFrame((state) => screens.update(state.clock.elapsedTime, agentsRef.current), -10);
+  useFrame((state) => screens.update(state.clock.elapsedTime, agentsRef.current, state.gl), -10);
   return null;
 }

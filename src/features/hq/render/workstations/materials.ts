@@ -3,6 +3,7 @@ import { HQ_THEME } from "@/features/hq/core/config";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import type { HqScreenHub } from "@/features/hq/render/screens/screenHub";
 import { UNPACK_DESK_STATE_GLSL, screenAppsGlsl } from "@/features/hq/render/screens/screenApps";
+import { MONITOR_ATLAS, SRGB_DECODE_GLSL, atlasUvGlsl } from "@/features/hq/render/screens/screenSurfaces";
 
 // Per-instance attributes shared by the screen and LED batches:
 //   aSeed  (float) stable random 0..1 per desk, varies content between desks;
@@ -45,7 +46,7 @@ uniform vec3 uScreenText;
 uniform vec3 uScreenSoft;
 uniform vec3 uScreenBg;
 uniform vec3 uScreenAlert;
-uniform highp sampler2DArray uScreenAtlas;
+uniform sampler2D uScreenAtlas;
 varying vec2 vScreenUv;
 varying float vScreenSeed;
 varying vec2 vScreenState;
@@ -53,6 +54,8 @@ varying vec2 vScreenState;
 ${STATE_GLSL}
 ${UNPACK_DESK_STATE_GLSL}
 ${screenAppsGlsl()}
+${atlasUvGlsl("hqMonitorUv", MONITOR_ATLAS)}
+${SRGB_DECODE_GLSL}
 
 float hqHash1(float p) {
   p = fract(p * 0.1031);
@@ -72,7 +75,7 @@ float hqRect(vec2 p, vec2 a, vec2 b) {
   return s.x * s.y;
 }
 
-// Monitor content comes from the screen atlas (render/screens): one layer per
+// Monitor content comes from the screen atlas (render/screens): one tile per
 // app, painted with real text and charts and repainted several times a
 // second. Which app a monitor shows follows its agent's role family and
 // status (screenApps.ts); each desk picks among a few candidates by its seed
@@ -109,7 +112,7 @@ vec3 hqScreenColor() {
   // A slightly different crop per desk and monitor.
   vec2 crop = vec2(hqHash2(vec2(seed * 13.0, mon)), hqHash2(vec2(mon * 7.0, seed * 17.0))) * vec2(0.05, 0.07);
   vec2 q = crop + clamp(p, 0.0, 1.0) * (1.0 - vec2(0.05, 0.07));
-  vec3 color = texture(uScreenAtlas, vec3(q.x, 1.0 - q.y, float(app))).rgb;
+  vec3 color = hqSrgbToLinear(texture(uScreenAtlas, hqMonitorUv(float(app), vec2(q.x, 1.0 - q.y))).rgb);
   float level = 1.0 - idle * 0.45;
   color = color * 2.1 * level + uScreenBg * 1.5;
   color = mix(color, color * vec3(1.15, 0.8, 0.75), alert * 0.5);
@@ -207,9 +210,9 @@ function linearColor(hex: string): THREE.Color {
   return new THREE.Color(hex);
 }
 
-/** A one-texel dark array texture, for when no screen hub is given. */
-function blankAtlas(): THREE.DataArrayTexture {
-  const texture = new THREE.DataArrayTexture(new Uint8Array([0, 0, 0, 255]), 1, 1, 1);
+/** A one-texel dark texture, for when no screen hub is given. */
+function blankAtlas(): THREE.DataTexture {
+  const texture = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
   texture.needsUpdate = true;
   return texture;
 }
@@ -246,7 +249,7 @@ export function createWorkstationMaterials(screens: HqScreenHub | null): Worksta
       .replace("#include <common>", `#include <common>\n${SCREEN_FRAGMENT_HEADER}`)
       .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb = hqScreenColor();");
   };
-  screen.customProgramCacheKey = () => "hq-ws-screen-2";
+  screen.customProgramCacheKey = () => "hq-ws-screen-4";
 
   const led = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
   led.name = "hq-ws-led";

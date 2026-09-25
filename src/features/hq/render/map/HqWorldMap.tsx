@@ -10,6 +10,7 @@ import { MAP_DOT_COLUMNS, MAP_HOTSPOT_COUNT, fitMap, type MapFit } from "@/featu
 import { DEFAULT_MAP_ACTIVITY, HOTSPOT_UV, MapRig, type MapFrameInput } from "@/features/hq/render/map/mapRig";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { MAP_PANEL_ASPECT, type HqScreenHub } from "@/features/hq/render/screens/screenHub";
+import { createScreenTextureMaterial } from "@/features/hq/render/screens/screenMaterial";
 
 export type HqWorldMapProps = {
   wall: HqMapWall;
@@ -58,11 +59,7 @@ export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldM
   useEffect(() => () => sides?.geometry.dispose(), [sides]);
   const sideMaterials = useMemo(() => {
     if (!screens) return null;
-    const make = (map: THREE.Texture) => {
-      const material = new THREE.MeshBasicMaterial({ map, toneMapped: false });
-      material.color.setScalar(1.9);
-      return material;
-    };
+    const make = (map: THREE.Texture) => createScreenTextureMaterial(map, 1.9, "hq-map-panel");
     return { left: make(screens.mapLeft), right: make(screens.mapRight) };
   }, [screens]);
   useEffect(
@@ -163,7 +160,11 @@ function sidePanels(fit: MapFit): { geometry: THREE.PlaneGeometry; leftX: number
     w = h * MAP_PANEL_ASPECT;
   }
   const centre = (outer + inner) / 2;
-  return { geometry: new THREE.PlaneGeometry(w, h), leftX: -centre, rightX: centre };
+  // The hub's textures keep their top row at v = 0; a plane has v = 1 at the top.
+  const geometry = new THREE.PlaneGeometry(w, h);
+  const uv = geometry.getAttribute("uv");
+  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+  return { geometry, leftX: -centre, rightX: centre };
 }
 
 function useLandMask(): LandMask | null {
