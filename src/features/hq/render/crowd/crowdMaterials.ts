@@ -9,11 +9,9 @@ import { PARAMS_WIDTH } from "./crowdPalette";
  * skinning for the per-frame bone palette (crowdPalette.ts): instance k reads
  * its bone matrices from row k, and its lead flag from the params texture.
  *
- * The lead agent (AM7) wears his own mesh (a black suit with thin red
- * accents) on a hero rig of his own, with a brighter emissive so the accents
- * read. A character file without that mesh falls back to the body with a
- * brighter emissive and a thin red fresnel trim, driven by the per-instance
- * flag in the crowd and by a separate material on the hero rig.
+ * The lead agent (AM7) gets a brighter emissive and a thin red fresnel trim,
+ * driven by the per-instance flag in the crowd and by a separate material on
+ * the hero rig, so both tiers look identical.
  */
 
 // Linear-space trim colour; >1 so bloom picks it up.
@@ -99,20 +97,13 @@ export function createCrowdMaterial(base: Material | Material[] | undefined, uni
   return material;
 }
 
-/**
- * Hero rig materials: the plain character, the AM7 fallback with the trim,
- * and the material of AM7's own suit mesh.
- */
+/** Hero rig materials: the plain character and the AM7 variant with the trim. */
 export function createHeroMaterials(base: Material | Material[] | undefined): {
   normal: MeshStandardMaterial;
   lead: MeshStandardMaterial;
-  suit: MeshStandardMaterial;
 } {
   const normal = cloneCharacterMaterial(base);
   normal.name = "hq-hero";
-  const suit = cloneCharacterMaterial(base);
-  suit.name = "hq-hero-suit";
-  suit.emissiveIntensity *= 1.6;
   const lead = cloneCharacterMaterial(base);
   lead.name = "hq-hero-lead";
   lead.onBeforeCompile = (shader) => {
@@ -122,5 +113,5 @@ export function createHeroMaterials(base: Material | Material[] | undefined): {
       .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>\n${TRIM_FRAGMENT}`);
   };
   lead.customProgramCacheKey = () => "hq-hero-lead-v1";
-  return { normal, lead, suit };
+  return { normal, lead };
 }

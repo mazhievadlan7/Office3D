@@ -1,9 +1,5 @@
 """Build the hacker character, author its animations and export a GLB.
 
-The GLB holds one skeleton, its clips and two skinned meshes on it that share
-one material: "HackerBody" (the hooded android every agent wears) and "AM7"
-(the lead's suit, lead.py).
-
 Run headless:
   blender -b --factory-startup -P blender/hacker/build.py -- [options]
 
@@ -34,7 +30,6 @@ sys.path.insert(0, HERE)
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 import body  # noqa: E402
-import lead  # noqa: E402
 import pose  # noqa: E402
 import rig  # noqa: E402
 
@@ -287,10 +282,7 @@ def main():
     opts = parse_args()
     scene = reset_scene()
     arm = rig.build_armature()
-    # One atlas for both meshes: the suit's blocks go in before it is built.
-    lead.extend_atlas()
-    hacker = body.build_body(arm)
-    am7 = lead.build_lead(arm, hacker.data.materials[0])
+    body.build_body(arm)
     build_clips(arm, opts["clips"])
     if opts.get("report"):
         report(scene, arm, opts["report"])
@@ -298,8 +290,6 @@ def main():
     if opts["export"]:
         export_glb(opts["out"])
     if opts["preview"]:
-        # The sheets show the regular body; tools/lead_concepts.py previews AM7.
-        am7.hide_render = True
         os.makedirs(opts["preview"], exist_ok=True)
         cam = setup_preview_scene(scene)
         if opts.get("props"):
