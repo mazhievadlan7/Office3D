@@ -59,6 +59,9 @@ import type { SharedTaskRecord } from "@/lib/tasks/shared-store";
 import { randomUUID } from "@/lib/uuid";
 import { LOCALE, t } from "@/lib/i18n";
 
+// How long board changes are collected before they are saved to the studio settings.
+const TASK_BOARD_SAVE_DEBOUNCE_MS = 1500;
+
 const TASK_EVENT_NAMES = new Set([
   "task_created",
   "task_updated",
@@ -708,7 +711,11 @@ export const useTaskBoardController = ({
   const gatewayTasksAuthoritativeRef = useRef(false);
   const authoritativeTaskIdsRef = useRef<Set<string>>(new Set());
   const sharedRefreshInFlightRef = useRef(false);
-  const lastPersistedTaskBoardSnapshotRef = useRef<string | null>(null);
+  const lastPersistedTaskBoardRef = useRef<{
+    gatewayUrl: string;
+    cards: TaskBoardCard[];
+    selectedCardId: string | null;
+  } | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -845,15 +852,22 @@ export const useTaskBoardController = ({
 
   useEffect(() => {
     if (!hydratedRef.current || !gatewayUrl.trim()) return;
-    const nextSnapshot = JSON.stringify({
+    // The reducer returns new arrays only on change, so identity is enough;
+    // serialising a busy board on every change to compare it was the costly part.
+    const last = lastPersistedTaskBoardRef.current;
+    if (
+      last &&
+      last.gatewayUrl === gatewayUrl &&
+      last.cards === state.cards &&
+      last.selectedCardId === state.selectedCardId
+    ) {
+      return;
+    }
+    lastPersistedTaskBoardRef.current = {
       gatewayUrl,
       cards: state.cards,
       selectedCardId: state.selectedCardId,
-    });
-    if (lastPersistedTaskBoardSnapshotRef.current === nextSnapshot) {
-      return;
-    }
-    lastPersistedTaskBoardSnapshotRef.current = nextSnapshot;
+    };
     settingsCoordinator.schedulePatch(
       {
         taskBoard: {
@@ -863,7 +877,8 @@ export const useTaskBoardController = ({
           },
         },
       },
-      150,
+      // A live team changes the board several times a second; save it in batches.
+      TASK_BOARD_SAVE_DEBOUNCE_MS,
     );
   }, [gatewayUrl, settingsCoordinator, state.cards, state.selectedCardId]);
 

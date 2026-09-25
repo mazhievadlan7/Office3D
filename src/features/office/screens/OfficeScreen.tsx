@@ -214,7 +214,7 @@ const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mo
 });
 
 // How long gateway events are collected before the screen applies them.
-const EVENT_FLUSH_MS = 100;
+const EVENT_FLUSH_MS = 200;
 
 const MAIN_AGENT_ID = "main";
 const DEMO_MAIN_SESSION_KEY = buildAgentMainSessionKey(MAIN_AGENT_ID, "main");
@@ -3487,7 +3487,8 @@ export function OfficeScreen({
       .toLowerCase()
       .includes(normalizedOpenClawConsoleSearch);
   }, [normalizedOpenClawConsoleSearch, openClawLiveStateText]);
-  const openClawConsoleExportJson = useMemo(
+  // Built on demand: serialising the log on every render of a busy office was wasted work.
+  const buildOpenClawConsoleExportJson = useCallback(
     () =>
       safeJsonStringify({
         exportedAt: new Date().toISOString(),
@@ -3512,7 +3513,7 @@ export function OfficeScreen({
   }, []);
   const handleCopyOpenClawConsoleJson = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(openClawConsoleExportJson);
+      await navigator.clipboard.writeText(buildOpenClawConsoleExportJson());
       setOpenClawConsoleCopyStatus("copied");
       window.setTimeout(() => {
         setOpenClawConsoleCopyStatus("idle");
@@ -3524,9 +3525,9 @@ export function OfficeScreen({
         setOpenClawConsoleCopyStatus("idle");
       }, 1800);
     }
-  }, [openClawConsoleExportJson]);
+  }, [buildOpenClawConsoleExportJson]);
   const handleDownloadOpenClawConsoleJson = useCallback(() => {
-    const blob = new Blob([openClawConsoleExportJson], {
+    const blob = new Blob([buildOpenClawConsoleExportJson()], {
       type: "application/json;charset=utf-8",
     });
     const url = window.URL.createObjectURL(blob);
@@ -3537,7 +3538,7 @@ export function OfficeScreen({
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(url);
-  }, [openClawConsoleExportJson]);
+  }, [buildOpenClawConsoleExportJson]);
 
   const soundclawSkill = useMemo<SkillStatusEntry | null>(
     () =>
