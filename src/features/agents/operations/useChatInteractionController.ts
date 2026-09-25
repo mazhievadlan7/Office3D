@@ -25,6 +25,8 @@ type GatewayClientLike = {
   call: (method: string, params: unknown) => Promise<unknown>;
 };
 
+const AMBIENT_RUN_ID_PREFIX = "ambient-";
+
 const buildQueuedAttachmentMessage = (message: string, attachments: RuntimeAttachment[]): string => {
   const trimmed = message.trim();
   const attachmentBlocks = attachments.map((attachment) => {
@@ -228,7 +230,9 @@ export function useChatInteractionController(
         });
         return;
       }
-      if (agent.status === "running") {
+      // Background work in the demo gateway ("ambient-" runs) yields to the
+      // user: send now and let the gateway abort it instead of queueing.
+      if (agent.status === "running" && !agent.runId?.startsWith(AMBIENT_RUN_ID_PREFIX)) {
         params.dispatch({
           type: "enqueueQueuedMessage",
           agentId,

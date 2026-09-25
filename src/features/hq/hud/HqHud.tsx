@@ -28,7 +28,7 @@ function Counter({ label, value, tone }: { label: string; value: number; tone: s
   return (
     <div className="flex min-w-[58px] flex-col items-center px-2.5">
       <span className={`font-mono text-[15px] font-semibold tabular-nums leading-none ${tone}`}>{value}</span>
-      <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/45">{label}</span>
+      <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-red-400/80">{label}</span>
     </div>
   );
 }
@@ -60,7 +60,7 @@ function BarButton({
       className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[11px] tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
         active
           ? "border-red-500/60 bg-red-600/20 text-red-100 shadow-[0_0_14px_rgba(255,26,26,0.25)]"
-          : "border-white/10 bg-white/[0.03] text-white/70 hover:border-red-500/40 hover:text-red-100"
+          : "border-red-900/40 bg-black/40 text-red-200/80 hover:border-red-500/50 hover:text-red-100"
       }`}
     >
       {children}
@@ -116,20 +116,20 @@ export function HqHud({
         <div
           role="status"
           aria-label={t("hqScene.countersLabel")}
-          className="flex items-center divide-x divide-white/10 rounded-lg border border-red-900/40 bg-black/65 py-1.5 shadow-lg backdrop-blur-sm"
+          className="flex items-center divide-x divide-red-900/40 rounded-lg border border-red-900/50 bg-black/65 py-1.5 shadow-lg backdrop-blur-sm"
         >
-          <Counter label={t("hqScene.countAgents")} value={counts.total} tone="text-white/90" />
+          <Counter label={t("hqScene.countAgents")} value={counts.total} tone="text-white" />
           <Counter label={t("hqScene.countWorking")} value={counts.working} tone="text-red-400" />
-          <Counter label={t("hqScene.countIdle")} value={counts.idle} tone="text-amber-300" />
-          <Counter label={t("hqScene.countError")} value={counts.error} tone="text-fuchsia-400" />
-          <Counter label={t("hqScene.countFree")} value={counts.free} tone="text-white/70" />
+          <Counter label={t("hqScene.countIdle")} value={counts.idle} tone="text-white" />
+          <Counter label={t("hqScene.countError")} value={counts.error} tone="text-red-400" />
+          <Counter label={t("hqScene.countFree")} value={counts.free} tone="text-white" />
         </div>
       </div>
 
-      {/* Clear of the event console (bottom-left) and the chat button (bottom-right). */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-1.5 px-3 md:left-[330px] md:right-[120px]">
+      {/* Clear of the chat button (bottom-right); the event console sits top-left in the HQ. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-1.5 px-3 md:right-[110px]">
         <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-xl border border-red-900/40 bg-black/70 px-2 py-1.5 shadow-2xl backdrop-blur-sm">
-          <span className="hidden px-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/35 xl:inline">
+          <span className="hidden px-1 font-mono text-[9px] uppercase tracking-[0.16em] text-red-400/60 xl:inline">
             {t("hqScene.cameraLabel")}
           </span>
           <BarButton
@@ -166,7 +166,7 @@ export function HqHud({
           </BarButton>
 
           <Divider />
-          <span className="hidden px-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/35 xl:inline">
+          <span className="hidden px-1 font-mono text-[9px] uppercase tracking-[0.16em] text-red-400/60 xl:inline">
             {t("hqScene.capacityLabel")}
           </span>
           {HQ_CAPACITIES.map((option) => (
@@ -183,7 +183,7 @@ export function HqHud({
           <Divider />
           <BarButton title={t("hqScene.qualityTitle")} onClick={onQualityCycle}>
             <Gauge className="h-3.5 w-3.5" />
-            <span className="hidden text-white/45 xl:inline">{t("hqScene.quality")}</span>
+            <span className="hidden text-red-300/60 xl:inline">{t("hqScene.quality")}</span>
             <span>{qualityText}</span>
           </BarButton>
           {onSwitchToClassic ? (
@@ -193,7 +193,7 @@ export function HqHud({
             </BarButton>
           ) : null}
         </div>
-        <p className="hidden select-none font-mono text-[10px] tracking-wide text-white/35 xl:block">
+        <p className="hidden select-none font-mono text-[10px] tracking-wide text-red-300/45 xl:block">
           {t("hqScene.controlsHint")}
         </p>
       </div>

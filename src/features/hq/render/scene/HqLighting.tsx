@@ -209,13 +209,15 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
     <>
       <color attach="background" args={[HQ_THEME.background]} />
       <fog ref={fogRef} attach="fog" args={[HQ_THEME.fog, 30, 120]} />
-      <hemisphereLight args={["#9aa3b5", "#1a1214", 1.6]} />
+      <hemisphereLight args={["#a8b0c2", "#1c1416", 2.4]} />
+      {/* Soft fill from the camera side so hooded figures read against the dark floor. */}
+      <directionalLight position={[18, 26, 30]} color="#dfe6f2" intensity={1.3} />
       <primitive object={keyTarget} />
       <primitive object={am7Target} />
       <directionalLight
         ref={keyRef}
         color={KEY_COLOR}
-        intensity={3.4}
+        intensity={4.6}
         target={keyTarget}
         castShadow={shadowsOn}
         shadow-mapSize={[SHADOW_MAP_SIZE[quality], SHADOW_MAP_SIZE[quality]]}
@@ -245,7 +247,7 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
         ceiling strip, a red glow from the map side and a faint cool fill.
         Rendered once into a cube map; glossy floors and screens pick it up.
       */}
-      <Environment frames={1} resolution={256} environmentIntensity={0.9}>
+      <Environment frames={1} resolution={256} environmentIntensity={1.2}>
         <Lightformer form="rect" intensity={4} color="#fff4e8" scale={[14, 0.8, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
         <Lightformer form="rect" intensity={3} color={HQ_THEME.statusSelected} scale={[10, 0.6, 1]} position={[0, 6, 3]} rotation-x={Math.PI / 2} />
         <Lightformer form="rect" intensity={2.5} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, -9]} />

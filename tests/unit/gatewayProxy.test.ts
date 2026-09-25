@@ -936,7 +936,7 @@ describe("createGatewayProxy", () => {
       await waitForEvent(browser, "message");
       const closePromise = waitForEvent<[number, Buffer]>(browser, "close");
 
-      for (let index = 0; index < 200; index += 1) {
+      for (let index = 0; index < 1500; index += 1) {
         browser.send(
           JSON.stringify({
             type: "req",

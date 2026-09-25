@@ -396,10 +396,6 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
       addProp("planter_tall", x, z0 + 0.7);
     }
   }
-  // A low green strip between the plaza and the work floor, broken at aisles.
-  for (const px of colX) {
-    if (px + 1.2 < ox0 - 1) addProp("planter_low", px, z0 + plazaD - 0.5);
-  }
 
   // --- West column: server room, meeting rooms, lounge ---------------------
   const doorX = x0 + westW;

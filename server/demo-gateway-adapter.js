@@ -538,6 +538,8 @@ function endAmbientRun(run, outcome) {
   run.finish();
 }
 
+const AMBIENT_RUN_ID_PREFIX = "ambient-";
+
 function startAmbientRun(agent, durationScale = 1) {
   const random = ambient.random;
   const profile = profileFor(agent.role);
@@ -548,7 +550,9 @@ function startAmbientRun(agent, durationScale = 1) {
       ? between(AMBIENT_LEAD_RUN_MIN_MS, AMBIENT_LEAD_RUN_MAX_MS, random)
       : between(AMBIENT_RUN_MIN_MS, AMBIENT_RUN_MAX_MS, random)) * durationScale;
   const run = registerRun({
-    runId: randomUUID(),
+    // The "ambient-" prefix tells the client this is background demo work that
+    // a user message may interrupt (chat.send aborts it), not a run to queue behind.
+    runId: `${AMBIENT_RUN_ID_PREFIX}${randomUUID()}`,
     sessionKey: sessionKeyFor(agent.id),
     agentId: agent.id,
     isAmbient: true,

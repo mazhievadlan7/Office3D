@@ -367,6 +367,51 @@ summary,
   cursor: pointer;
 }
 
+/* The HQ view: black surfaces with red accents, matching the 3D scene
+   (HQ_THEME in src/features/hq/core/config.ts). Set on the office screen in
+   HQ mode, so every token-based panel inside it follows. */
+.hq-theme {
+  --neutral-tint-rgb: rgb(168 70 70);
+  --neutral-tint: #a84646;
+  --background: #050404;
+  --foreground: rgb(252 242 242 / 0.96);
+  --card: #0b0707;
+  --card-foreground: rgb(252 242 242 / 0.96);
+  --popover: #0b0707;
+  --popover-foreground: rgb(252 242 242 / 0.94);
+  --primary: #e3141c;
+  --primary-foreground: #ffffff;
+  --muted-foreground: rgb(255 196 196 / 0.7);
+  --accent-foreground: rgb(252 242 242 / 0.94);
+  --border: rgb(255 48 48 / 0.22);
+  --input: rgb(255 48 48 / 0.16);
+  --ring: #ff2a2a;
+  --sidebar: #070505;
+  --sidebar-primary: #e3141c;
+  --sidebar-ring: #ff2a2a;
+  --surface-0: #050404;
+  --surface-1: #0b0707;
+  --surface-2: #140909;
+  --surface-3: #1d0c0c;
+  --surface-selected: #2a0d0e;
+  --surface-selected-border: #7a151a;
+  --status-running-bg: rgb(255 26 26 / 0.16);
+  --status-running-border: rgb(255 42 42 / 0.45);
+  --status-running-fg: #ffb3b3;
+  --status-connected-bg: rgb(255 26 26 / 0.14);
+  --status-connected-border: rgb(255 42 42 / 0.4);
+  --status-connected-fg: #ffc2c2;
+  --status-connecting-bg: rgb(255 60 40 / 0.14);
+  --status-connecting-border: rgb(255 70 50 / 0.4);
+  --status-connecting-fg: #ffc7bd;
+  --status-approval-bg: rgb(255 60 40 / 0.16);
+  --status-approval-border: rgb(255 70 50 / 0.45);
+  --status-approval-fg: #ffc7bd;
+  --command-bg: #070303;
+  --command-border: rgb(122 21 26 / 0.7);
+  --command-fg: rgb(255 236 236 / 0.96);
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklch, var(--foreground) 11%, var(--border)) transparent;

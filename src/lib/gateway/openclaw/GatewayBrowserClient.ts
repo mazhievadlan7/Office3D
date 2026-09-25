@@ -402,6 +402,9 @@ export type GatewayBrowserClientOptions = {
 };
 
 const CONNECT_FAILED_CLOSE_CODE = 4008;
+// Outgoing request budget; kept below the proxy's limit in server/gateway-proxy.js.
+const SEND_RATE = 200;
+const SEND_BURST = 400;
 const WS_CLOSE_REASON_MAX_BYTES = 123;
 
 function truncateWsCloseReason(reason: string, maxBytes = WS_CLOSE_REASON_MAX_BYTES): string {
@@ -699,8 +702,39 @@ export class GatewayBrowserClient {
     const p = new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: (v) => resolve(v as T), reject });
     });
-    this.ws.send(JSON.stringify(frame));
+    this.outbox.push(JSON.stringify(frame));
+    this.flushOutbox();
     return p;
+  }
+
+  // Loading a large team fans out several requests per agent at once. The
+  // same-origin proxy closes the socket above its frame rate (see
+  // server/gateway-proxy.js), so requests beyond this budget wait here instead.
+  private readonly outbox: string[] = [];
+  private sendTokens = SEND_BURST;
+  private sendRefilledAt = 0;
+  private outboxTimer: number | null = null;
+
+  private flushOutbox() {
+    const now = Date.now();
+    if (this.sendRefilledAt === 0) this.sendRefilledAt = now;
+    this.sendTokens = Math.min(SEND_BURST, this.sendTokens + ((now - this.sendRefilledAt) / 1000) * SEND_RATE);
+    this.sendRefilledAt = now;
+    while (this.outbox.length > 0 && this.sendTokens >= 1) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.outbox.length = 0;
+        return;
+      }
+      this.ws.send(this.outbox.shift() as string);
+      this.sendTokens -= 1;
+    }
+    if (this.outbox.length > 0 && this.outboxTimer === null) {
+      const waitMs = Math.ceil(((1 - this.sendTokens) / SEND_RATE) * 1000);
+      this.outboxTimer = window.setTimeout(() => {
+        this.outboxTimer = null;
+        this.flushOutbox();
+      }, Math.max(4, waitMs));
+    }
   }
 
   private queueConnect() {

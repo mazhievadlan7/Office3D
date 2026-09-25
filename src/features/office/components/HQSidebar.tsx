@@ -71,7 +71,7 @@ export function HQSidebar({
         <button
           type="button"
           onClick={onToggle}
-          className="rounded-l-md border border-r-0 border-cyan-500/30 bg-[#06090d]/90 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-cyan-300 shadow-xl backdrop-blur transition-colors hover:border-cyan-400/50 hover:text-cyan-100"
+          className="rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors border-red-600/35 bg-[#0c0405]/90 text-red-300 hover:border-red-500/60 hover:text-red-100"
           aria-expanded={open}
           aria-label={open ? t("hq.collapseLabel") : t("hq.openLabel")}
         >
@@ -85,7 +85,7 @@ export function HQSidebar({
           onClick={() => {
             onOpenMarketplace();
           }}
-          className="rounded-l-md border border-r-0 border-fuchsia-500/25 bg-[#100611]/90 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-fuchsia-300/80 shadow-xl backdrop-blur transition-colors hover:border-fuchsia-400/45 hover:text-fuchsia-100"
+          className="rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors border-red-600/35 bg-[#0c0405]/90 text-red-300 hover:border-red-500/60 hover:text-red-100"
           aria-label={t("hq.openMarketplaceLabel")}
         >
           <span className="block leading-none [writing-mode:vertical-rl]">
@@ -103,8 +103,8 @@ export function HQSidebar({
           }}
           className={`rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors ${
             analyticsOnly
-              ? "border-amber-400/50 bg-[#1a1206]/95 text-amber-200"
-              : "border-amber-500/25 bg-[#120d06]/90 text-amber-300/80 hover:border-amber-400/45 hover:text-amber-100"
+              ? "border-red-500/60 bg-[#1a0607]/95 text-red-100"
+              : "border-red-600/35 bg-[#0c0405]/90 text-red-300 hover:border-red-500/60 hover:text-red-100"
           }`}
           aria-pressed={analyticsOnly}
           aria-label={t("hq.openAnalyticsLabel")}

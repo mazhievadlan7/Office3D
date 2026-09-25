@@ -6,11 +6,15 @@ const DEFAULT_UPSTREAM_HANDSHAKE_TIMEOUT_MS = 10_000;
 /** Maximum frame payload size (256 KB). */
 const MAX_FRAME_SIZE = 256 * 1024;
 
-/** Sustained frame rate per connection. */
-const MAX_FRAMES_PER_SECOND = 60;
+/**
+ * Sustained frame rate per connection. Loading a team of hundreds of agents
+ * sends several requests per agent; the browser client paces itself at 200/s
+ * (SEND_RATE in GatewayBrowserClient.ts), so this leaves it headroom.
+ */
+const MAX_FRAMES_PER_SECOND = 250;
 
 /** Allow short startup bursts before rate limiting. */
-const MAX_FRAME_BURST = 120;
+const MAX_FRAME_BURST = 500;
 
 // The close code GatewayClient treats as a failed connect; the reason carries
 // "connect failed: <code> <message>" (see parseConnectFailedCloseReason).
