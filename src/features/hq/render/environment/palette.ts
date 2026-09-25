@@ -8,11 +8,10 @@ export const FLOOR_TILE = 1.2;
 
 /**
  * Emissive multipliers in linear space. Bloom only picks up values well above
- * 1, and saturated red carries a fifth of white's luminance, so neon has to be
+ * 1, and saturated red carries a fifth of white's luminance, so red light has to be
  * pushed much harder than a white light would be.
  */
 export const GLOW = {
-  neon: 9,
   line: 6,
   curb: 3.2,
   faint: 1.6,

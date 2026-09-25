@@ -16,7 +16,6 @@ export type EnvMaterials = {
   /** The low curbs sit closest to the camera; a softer line keeps them from framing the shot. */
   lineCurb: THREE.MeshBasicMaterial;
   lineFaint: THREE.MeshBasicMaterial;
-  neon: THREE.MeshBasicMaterial;
   wallUniforms: {
     uHqWallTop: THREE.IUniform<number>;
     uHqOrigin: THREE.IUniform<THREE.Vector2>;
@@ -137,10 +136,8 @@ export function createEnvMaterials(): EnvMaterials {
   lineCurb.name = "hq-line-curb";
   const lineFaint = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accent, GLOW.faint), toneMapped: false });
   lineFaint.name = "hq-line-faint";
-  const neon = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accentSoft, GLOW.neon), toneMapped: false });
-  neon.name = "hq-neon";
 
-  return { wall, metal, glass, line, lineCurb, lineFaint, neon, wallUniforms };
+  return { wall, metal, glass, line, lineCurb, lineFaint, wallUniforms };
 }
 
 export function applyLayoutToEnvMaterials(materials: EnvMaterials, layout: HqLayout): void {
@@ -155,5 +152,4 @@ export function disposeEnvMaterials(materials: EnvMaterials): void {
   materials.line.dispose();
   materials.lineCurb.dispose();
   materials.lineFaint.dispose();
-  materials.neon.dispose();
 }

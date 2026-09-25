@@ -9,7 +9,6 @@ import { applyLayoutToEnvMaterials, createEnvMaterials, disposeEnvMaterials } fr
 import { buildFloorGlow } from "./floorGlow";
 import { applyGlowToFloor, applyLayoutToFloor, createFloorMaterial } from "./floorMaterial";
 import { noRaycast } from "./glsl";
-import { HqAm7Sign } from "./HqAm7Sign";
 import { WALL_THICKNESS } from "./palette";
 import { buildPartitions, createUnitBox } from "./partitions";
 import { HqProps } from "./props/HqProps";
@@ -100,7 +99,6 @@ export function HqEnvironment({ layout, quality }: Props) {
       <mesh geometry={shell.curbLines} material={env.lineCurb} raycast={noRaycast} />
       <primitive object={partitions} />
       <HqProps props={layout.props} quality={quality} uniforms={propUniforms} />
-      <HqAm7Sign layout={layout} materials={env} />
     </group>
   );
 }
