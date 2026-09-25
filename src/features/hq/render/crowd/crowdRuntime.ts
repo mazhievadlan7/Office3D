@@ -60,7 +60,7 @@ type Character = {
   bake: HqSkinBake;
   crowd: HqSkinnedCrowd;
   heroes: HqCrowdHeroes;
-  heroMaterials: { normal: Material; lead: Material };
+  heroMaterials: { normal: Material; lead: Material; suit: Material };
 };
 
 export class HqCrowdRuntime {
@@ -138,6 +138,7 @@ export class HqCrowdRuntime {
     c.heroes.dispose();
     c.heroMaterials.normal.dispose();
     c.heroMaterials.lead.dispose();
+    c.heroMaterials.suit.dispose();
     this.heroSlot.fill(-1);
   }
 
@@ -237,11 +238,13 @@ export class HqCrowdRuntime {
     const character = this.character;
     if (character) {
       character.heroes.update(f, this.want, wantCount, HERO_COUNT[this.quality], sim, dt, this.heroSlot);
-      // 3. Everyone else on screen: one instanced draw.
+      // 3. Everyone else on screen: one instanced draw. AM7 in his own suit
+      // is always a hero; the crowd only has the hooded body.
       const crowd = character.crowd;
+      const skipLead = character.heroes.hasLeadMesh ? lead : -1;
       crowd.begin();
       for (let i = 0; i < n; i += 1) {
-        if (visible[i] === 1 && this.heroSlot[i] < 0) crowd.push(f, i);
+        if (visible[i] === 1 && this.heroSlot[i] < 0 && i !== skipLead) crowd.push(f, i);
       }
       crowd.end(renderer);
     } else {

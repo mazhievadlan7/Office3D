@@ -74,9 +74,14 @@ export const HQ_CLIP_INFO: Record<HqClipName, { duration: number; loop: boolean;
   Talk: { duration: 144 / 30, loop: true, speed: 0 },
 };
 
-export const HQ_CHARACTER_URL = "/office-assets/models/characters/hacker.glb";
-export const HQ_WORKSTATION_URL = "/office-assets/models/hq/workstation.glb";
-export const HQ_PROPS_URL = "/office-assets/models/hq/props.glb";
+/**
+ * Bumped whenever a model under public/office-assets/models is rebuilt, so
+ * browsers and proxies holding the old file fetch the new one.
+ */
+const HQ_MODELS_VERSION = "2026-09-25";
+export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
+export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
+export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORLD_LAND_URL = "/office-assets/data/land-110m.json";
 
 // Crossfade between clips, seconds.

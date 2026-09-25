@@ -55,7 +55,20 @@ def setup_scene(scene):
     scene.camera = cam
     _setup_bloom(scene)
     _screen_test_pattern()
+    _emissive_floor()
     return cam, lights
+
+
+def _emissive_floor():
+    """Lift emissive strengths to the app's floor so dim inlays preview as they render there."""
+    from props_lib import EMISSIVE_FLOOR
+
+    for m in bpy.data.materials:
+        if not m.name.startswith("emissive"):
+            continue
+        p = m.node_tree.nodes.get("Principled BSDF")
+        s = p.inputs["Emission Strength"]
+        s.default_value = max(s.default_value, EMISSIVE_FLOOR)
 
 
 def _setup_bloom(scene):
@@ -184,7 +197,17 @@ def _show_only(roots, keep):
 
 
 # Extra camera angles (azimuth, elevation) per kind; 180 looks from +Y (behind).
-EXTRA_VIEWS = {"exec_desk": [(200.0, 24.0)], "server_rack": [(12.0, 8.0)]}
+EXTRA_VIEWS = {
+    "exec_desk": [(200.0, 24.0)],
+    "server_rack": [(12.0, 8.0)],
+    "server_pillar": [(12.0, 8.0), (72.0, 16.0)],
+    "data_monolith": [(14.0, 6.0)],
+    "dark_plant": [(30.0, 52.0)],
+}
+
+
+# Tall, slim kinds need a looser frame than the bounding sphere gives.
+FRAME_FILL = {"server_pillar": 1.12, "data_monolith": 1.12}
 
 
 def render_sheet(scene, cam, lights, roots, out_dir, size=460, cols=5, only=None, views=EXTRA_VIEWS):
@@ -202,7 +225,7 @@ def render_sheet(scene, cam, lights, roots, out_dir, size=460, cols=5, only=None
         for az, el in [(38.0, 26.0)] + (views or {}).get(r.name, []):
             _show_only(roots, [r])
             lo, hi = _bounds(r)
-            c, R = _frame_camera(cam, lo, hi, az=az, el=el)
+            c, R = _frame_camera(cam, lo, hi, az=az, el=el, fill=FRAME_FILL.get(r.name, 0.92))
             _place_lights(lights, c, R)
             tiles.append(_render_to_pixels(scene, tmp))
     _show_only(roots, roots)
@@ -226,7 +249,8 @@ SHOWROOM = [
     ("meeting_chair", 2.3, 2.1, 0.0), ("meeting_chair", 3.3, 2.1, 0.0), ("meeting_chair", 4.3, 2.1, 0.0),
     ("sofa", -3.4, -0.2, 0.0), ("lounge_chair", -1.6, -1.3, -math.pi / 2 + 0.25),
     ("coffee_table", -3.4, -1.3, 0.0), ("planter_low", -3.4, 0.75, 0.0),
-    ("coffee_bar", 0.5, -1.2, 0.0), ("planter_tall", 2.2, -1.2, 0.0),
+    ("coffee_bar", 0.5, -1.2, 0.0), ("dark_plant", 2.2, -1.2, 0.0),
+    ("server_pillar", -2.1, 2.85, 0.0), ("data_monolith", -5.25, 2.75, 0.35),
 ]
 
 

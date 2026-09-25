@@ -65,10 +65,19 @@ export type HqSkinBake = {
 const MAX_ROWS = 4096;
 export const RIG_ROWS = 3;
 
-export function findSkinnedMesh(root: Object3D): SkinnedMesh | null {
+/** Node name of the lead's own mesh in hacker.glb (blender/hacker/lead.py). */
+export const HQ_LEAD_MESH_NAME = "AM7";
+
+/**
+ * The character's skinned mesh: the body every agent wears, or with
+ * `lead` the lead's own mesh ("AM7", null when the file has none). Both are
+ * bound to the same skeleton and share one material.
+ */
+export function findSkinnedMesh(root: Object3D, lead = false): SkinnedMesh | null {
   let found: SkinnedMesh | null = null;
   root.traverse((node) => {
-    if (!found && (node as SkinnedMesh).isSkinnedMesh) found = node as SkinnedMesh;
+    if (found || !(node as SkinnedMesh).isSkinnedMesh) return;
+    if ((node.name === HQ_LEAD_MESH_NAME) === lead) found = node as SkinnedMesh;
   });
   return found;
 }

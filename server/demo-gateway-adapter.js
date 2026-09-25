@@ -359,13 +359,26 @@ function buildDemoTeam(count) {
   const team = [
     { id: LEAD_AGENT_ID, name: LEAD_AGENT_NAME, role: LEAD_ROLE, workspace: `/demo/${LEAD_AGENT_ID}` },
   ];
+  // The first pass uses the call signs as they are; later passes pair each one
+  // with another (no digits in names), up to 10 letters, never repeating.
+  const used = new Set(CALL_SIGNS.map((sign) => sign.toLowerCase()));
   for (let index = 1; index < total; index += 1) {
-    const base = CALL_SIGNS[(index - 1) % CALL_SIGNS.length];
+    const slot = (index - 1) % CALL_SIGNS.length;
+    const base = CALL_SIGNS[slot];
     const round = Math.floor((index - 1) / CALL_SIGNS.length);
+    let name = base;
+    for (let step = round; round > 0; step += 1) {
+      const candidate = `${base}${CALL_SIGNS[(slot + step) % CALL_SIGNS.length]}`;
+      if (candidate.length <= 10 && !used.has(candidate.toLowerCase())) {
+        name = candidate;
+        used.add(candidate.toLowerCase());
+        break;
+      }
+    }
     const id = `agent-${String(index).padStart(3, "0")}`;
     team.push({
       id,
-      name: round === 0 ? base : `${base}${round + 1}`,
+      name,
       role: TEAM_ROLES[(index - 1) % TEAM_ROLES.length],
       workspace: `/demo/${id}`,
     });

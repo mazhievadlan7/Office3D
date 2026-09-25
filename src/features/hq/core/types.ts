@@ -36,6 +36,12 @@ export type HqPropKind =
   | "planter_tall"
   | "planter_low"
   | "server_rack"
+  /** Slim black rack column with a smoked glass door and blinking red LEDs. */
+  | "server_pillar"
+  /** Glossy black stele with a vertical red light slit and a lit base. */
+  | "data_monolith"
+  /** Black planter with a red rim and near-black foliage (AM7's office only). */
+  | "dark_plant"
   | "sofa"
   | "lounge_chair"
   | "coffee_table"
@@ -54,6 +60,36 @@ export type HqProp = {
   z: number;
   rotY: number;
   scale?: number;
+  /** Wall screens: what they show (HQ_WALL_SCREEN). */
+  screen?: HqWallScreen;
+};
+
+/** Channels of the wall screens; the layer order of the screen hub's wall texture. */
+export const HQ_WALL_SCREEN = { exec: 0, news: 1, security: 2, music: 3 } as const;
+export type HqWallScreen = (typeof HQ_WALL_SCREEN)[keyof typeof HQ_WALL_SCREEN];
+
+/**
+ * A soft seat in the lounge (a sofa cushion or a lounge chair). Same SitDown
+ * contract as HqDesk: the character root sits on (x, z) facing rotY, and a
+ * walker stops at `approach`, 0.14 m in front, before playing SitDown.
+ */
+export type HqSeat = {
+  x: number;
+  z: number;
+  /** Heading of the seated character (radians, rotation.y; 0 faces +Z). */
+  rotY: number;
+  approach: Vec2;
+  /** Nav node straight in front of the seat, in the aisle around the table. */
+  navNode: number;
+  /** Index into HqLayout.loungeGroups. */
+  group: number;
+};
+
+/** One lounge seating group: sofas and chairs around a coffee table. */
+export type HqLoungeGroup = {
+  /** Centre of the group's coffee table, where idle sitters look. */
+  tableX: number;
+  tableZ: number;
 };
 
 export type HqSocialSpotKind = "coffee" | "map" | "lounge" | "meeting" | "server";
@@ -76,6 +112,8 @@ export type HqMapWall = {
   z: number;
   width: number;
   height: number;
+  /** The holographic globe floating in front of the wall's centre, on a floor projector. */
+  globe: { x: number; y: number; z: number; radius: number };
 };
 
 export type HqNavGraph = {
@@ -100,6 +138,9 @@ export type HqLayout = {
   partitions: HqSegment[];
   props: HqProp[];
   socialSpots: HqSocialSpot[];
+  /** Seats in the lounge, grouped: every group's seats are contiguous. */
+  loungeSeats: HqSeat[];
+  loungeGroups: HqLoungeGroup[];
   nav: HqNavGraph;
   /** Entrance, where new agents appear. */
   spawn: Vec2;

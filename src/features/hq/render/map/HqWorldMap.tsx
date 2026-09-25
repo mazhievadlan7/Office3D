@@ -4,44 +4,56 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import * as THREE from "three";
 import type { HqMapWall } from "@/features/hq/core/types";
-import { extractLandDots, loadLandMask, type LandDots, type LandMask } from "@/features/hq/render/map/landMask";
-import { ARC_SEGMENTS, ARC_SLOTS, ArcScheduler, createArcBuffers } from "@/features/hq/render/map/mapArcs";
-import { MAP_DOT_COLUMNS, MAP_HOTSPOT_COUNT, fitMap, type MapFit } from "@/features/hq/render/map/mapProjection";
-import { DEFAULT_MAP_ACTIVITY, HOTSPOT_UV, MapRig, type MapFrameInput } from "@/features/hq/render/map/mapRig";
+import { HqGlobe } from "@/features/hq/render/map/HqGlobe";
+import { loadLandMask, type LandMask } from "@/features/hq/render/map/landMask";
+import { MAP_DOT_COLUMNS, fitMap, type MapFit } from "@/features/hq/render/map/mapProjection";
+import { DEFAULT_MAP_ACTIVITY, MapRig, type MapFrameInput } from "@/features/hq/render/map/mapRig";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import { MAP_PANEL_ASPECT, type HqScreenHub } from "@/features/hq/render/screens/screenHub";
 
 export type HqWorldMapProps = {
   wall: HqMapWall;
   quality: HqQuality;
   /** Share of working agents, 0..1; drives arc count and speed and overall energy. */
   activity?: MutableRefObject<number>;
+  /** Paints the data panels either side of the globe; without it the glass draws glyph panels. */
+  screens?: HqScreenHub | null;
 };
 
 // Layer depths in display-local metres (the wall face is z = 0).
 const BEZEL_DEPTH = 0.07;
 const PANEL_Z = 0.035;
-const DOTS_Z = PANEL_Z + 0.004;
+const SIDE_Z = PANEL_Z + 0.004;
 const HALO_Z = 0.012;
 const FLOOR_LIFT = 0.012;
+/** The backdrop behind the globe, as a multiple of the globe's diameter. */
+const BACKDROP_SCALE = 2.2;
 
 const noRaycast = () => null;
 
 /**
- * The giant holographic world map on the north wall: dark glass behind a
- * dot-matrix of the continents, pulsing city hotspots, travelling arcs, a
- * glowing frame and a red spill onto the wall and floor. Until the land data
- * loads it shows the frame and graticule alone.
+ * The map wall on the north side of the hall: a long dark glass display with a
+ * glowing frame, a holographic Earth floating in front of its centre (HqGlobe)
+ * and two live data panels either side of it, the left one on the floor's
+ * activity and the right one on the network and compute, plus a red spill
+ * onto the wall and floor.
  */
-export function HqWorldMap({ wall, quality, activity }: HqWorldMapProps) {
+export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldMapProps) {
   const fit = useMemo(
     () => fitMap(wall.width, wall.height, MAP_DOT_COLUMNS[quality]),
     [wall.width, wall.height, quality],
   );
   const floorY = -wall.y;
-  const boundsRadius = Math.hypot(fit.outerW, fit.outerH) / 2 + 1.5;
+  // The glass's map rectangle becomes the backdrop behind the globe: its
+  // graticule, ruler ticks and scan line frame the Earth.
+  const backdrop = useMemo<MapFit>(() => {
+    const half = Math.min(fit.panelW * 0.2, wall.globe.radius * BACKDROP_SCALE);
+    return { ...fit, mapX0: -half, mapX1: half };
+  }, [fit, wall.globe.radius]);
+  const sides = useMemo(() => sidePanels(backdrop), [backdrop]);
+  useEffect(() => () => sides?.geometry.dispose(), [sides]);
 
   const mask = useLandMask();
-  const dots = useMemo(() => (mask ? extractLandDots(mask, fit.cols, fit.rows) : null), [mask, fit.cols, fit.rows]);
 
   const rig = useMemo(() => new MapRig(), []);
   useEffect(() => () => rig.dispose(), [rig]);
@@ -49,58 +61,86 @@ export function HqWorldMap({ wall, quality, activity }: HqWorldMapProps) {
   const display = useMemo(() => createDisplayGeometry(fit, floorY), [fit, floorY]);
   useEffect(() => () => display.dispose(), [display]);
 
-  const dotGeometry = useMemo(() => createDotGeometry(dots, boundsRadius), [dots, boundsRadius]);
-  useEffect(() => () => dotGeometry.dispose(), [dotGeometry]);
-
-  const hotspotGeometry = useMemo(() => createHotspotGeometry(boundsRadius), [boundsRadius]);
-  useEffect(() => () => hotspotGeometry.dispose(), [hotspotGeometry]);
-
-  const arcs = useMemo(
-    () => createArcBuffers(ARC_SEGMENTS[quality], ARC_SLOTS[quality], boundsRadius),
-    [quality, boundsRadius],
+  const sideMaterials = useMemo(() => {
+    if (!screens) return null;
+    const make = (map: THREE.Texture) => {
+      const material = new THREE.MeshBasicMaterial({ map, toneMapped: false });
+      material.color.setScalar(1.9);
+      return material;
+    };
+    return { left: make(screens.mapLeft), right: make(screens.mapRight) };
+  }, [screens]);
+  useEffect(
+    () => () => {
+      sideMaterials?.left.dispose();
+      sideMaterials?.right.dispose();
+    },
+    [sideMaterials],
   );
-  useEffect(() => () => arcs.geometry.dispose(), [arcs]);
-  const scheduler = useMemo(() => new ArcScheduler(HOTSPOT_UV, ARC_SLOTS[quality]), [quality]);
 
-  // Nothing here re-renders per frame: the rig writes uniforms and attributes.
-  // The input object is reused so the frame loop allocates nothing.
+  // Nothing here re-renders per frame: the rig writes uniforms. The input
+  // object is reused so the frame loop allocates nothing.
   const frameInput = useRef<MapFrameInput | null>(null);
   useFrame((_state, delta) => {
     const raw = activity ? activity.current : DEFAULT_MAP_ACTIVITY;
     const level = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0;
     let input = frameInput.current;
     if (!input) {
-      input = { fit, floorSize: display.floorSize, quality, landReady: false, arcs, scheduler, activity: level };
+      input = { fit: backdrop, floorSize: display.floorSize, quality, activity: level, hud: !screens };
       frameInput.current = input;
     }
-    input.fit = fit;
+    input.fit = backdrop;
     input.floorSize = display.floorSize;
     input.quality = quality;
-    input.landReady = dots !== null;
-    input.arcs = arcs;
-    input.scheduler = scheduler;
     input.activity = level;
+    input.hud = !screens;
     rig.frame(delta, input);
   });
 
   return (
-    <group position={[wall.x, wall.y, wall.z]}>
-      <mesh geometry={display.halo} material={rig.halo} position={[0, 0, HALO_Z]} raycast={noRaycast} />
-      <mesh geometry={display.bezel} material={rig.bezel} raycast={noRaycast} />
-      <mesh geometry={display.panel} material={rig.panel} position={[0, 0, PANEL_Z]} raycast={noRaycast} />
-      {/* Always mounted (empty until the land loads) so programs compile up front. */}
-      <mesh geometry={dotGeometry} material={rig.dots} position={[0, 0, DOTS_Z]} raycast={noRaycast} />
-      <mesh geometry={hotspotGeometry} material={rig.hotspots} position={[0, 0, DOTS_Z]} raycast={noRaycast} />
-      <mesh geometry={arcs.geometry} material={rig.arcs} position={[0, 0, DOTS_Z]} raycast={noRaycast} />
-      <mesh
-        geometry={display.floor}
-        material={rig.floor}
-        position={[0, floorY + FLOOR_LIFT, display.floorSize.y / 2]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        raycast={noRaycast}
-      />
-    </group>
+    <>
+      <group position={[wall.x, wall.y, wall.z]}>
+        <mesh geometry={display.halo} material={rig.halo} position={[0, 0, HALO_Z]} raycast={noRaycast} />
+        <mesh geometry={display.bezel} material={rig.bezel} raycast={noRaycast} />
+        <mesh geometry={display.panel} material={rig.panel} position={[0, 0, PANEL_Z]} raycast={noRaycast} />
+        {sideMaterials && sides ? (
+          <>
+            <mesh geometry={sides.geometry} material={sideMaterials.left} position={[sides.leftX, 0, SIDE_Z]} raycast={noRaycast} />
+            <mesh geometry={sides.geometry} material={sideMaterials.right} position={[sides.rightX, 0, SIDE_Z]} raycast={noRaycast} />
+          </>
+        ) : null}
+        <mesh
+          geometry={display.floor}
+          material={rig.floor}
+          position={[0, floorY + FLOOR_LIFT, display.floorSize.y / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          raycast={noRaycast}
+        />
+      </group>
+      <HqGlobe globe={wall.globe} mask={mask} quality={quality} activity={activity} />
+    </>
   );
+}
+
+/**
+ * The two data panels: as large as the space between the frame and the
+ * backdrop allows at the canvases' aspect, centred in it.
+ */
+function sidePanels(fit: MapFit): { geometry: THREE.PlaneGeometry; leftX: number; rightX: number } | null {
+  const margin = fit.frameInset * 2.2;
+  const outer = fit.panelW / 2 - fit.frameInset - margin;
+  const inner = fit.mapX1 + margin;
+  const width = outer - inner;
+  const height = fit.panelH - 2 * (fit.frameInset + margin);
+  if (width < 0.8 || height < 0.5) return null;
+  let w = width;
+  let h = w / MAP_PANEL_ASPECT;
+  if (h > height) {
+    h = height;
+    w = h * MAP_PANEL_ASPECT;
+  }
+  const centre = (outer + inner) / 2;
+  return { geometry: new THREE.PlaneGeometry(w, h), leftX: -centre, rightX: centre };
 }
 
 function useLandMask(): LandMask | null {
@@ -112,7 +152,7 @@ function useLandMask(): LandMask | null {
         if (alive) setMask(loaded);
       },
       (error: unknown) => {
-        // The frame and graticule stay up as the fallback.
+        // The globe keeps its oceans, graticule and atmosphere as the fallback.
         if (process.env.NODE_ENV !== "production") console.warn("[hq] world map land data failed to load", error);
       },
     );
@@ -179,34 +219,4 @@ function createDisplayGeometry(fit: MapFit, floorY: number): DisplayGeometry {
       floor.dispose();
     },
   };
-}
-
-const QUAD_POSITIONS = new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]);
-const QUAD_INDEX = [0, 1, 2, 0, 2, 3];
-
-function createQuadInstances(boundsRadius: number): THREE.InstancedBufferGeometry {
-  const geometry = new THREE.InstancedBufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(QUAD_POSITIONS, 3));
-  geometry.setIndex(QUAD_INDEX);
-  // Instances spread over the display, far beyond the unit quad.
-  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), boundsRadius);
-  return geometry;
-}
-
-/** One quad per land dot; empty (zero instances) while the land is loading. */
-function createDotGeometry(dots: LandDots | null, boundsRadius: number): THREE.InstancedBufferGeometry {
-  const geometry = createQuadInstances(boundsRadius);
-  const data = dots && dots.count > 0 ? dots.data : new Float32Array(4);
-  geometry.setAttribute("aDot", new THREE.InstancedBufferAttribute(data, 4));
-  geometry.instanceCount = dots ? dots.count : 0;
-  return geometry;
-}
-
-function createHotspotGeometry(boundsRadius: number): THREE.InstancedBufferGeometry {
-  const geometry = createQuadInstances(boundsRadius);
-  const index = new Float32Array(MAP_HOTSPOT_COUNT);
-  for (let i = 0; i < MAP_HOTSPOT_COUNT; i++) index[i] = i;
-  geometry.setAttribute("aIndex", new THREE.InstancedBufferAttribute(index, 1));
-  geometry.instanceCount = MAP_HOTSPOT_COUNT;
-  return geometry;
 }

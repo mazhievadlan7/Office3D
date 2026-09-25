@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { HqLayout } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import type { HqScreenHub } from "@/features/hq/render/screens/screenHub";
 import { applyLayoutToEnvMaterials, createEnvMaterials, disposeEnvMaterials } from "./envMaterials";
 import { buildFloorGlow } from "./floorGlow";
 import { applyGlowToFloor, applyLayoutToFloor, createFloorMaterial } from "./floorMaterial";
@@ -15,7 +16,7 @@ import { HqProps } from "./props/HqProps";
 import { createPropUniforms, setPropAnimation, setPropTime } from "./props/propMaterials";
 import { buildRoomShell } from "./roomShell";
 
-type Props = { layout: HqLayout; quality: HqQuality };
+type Props = { layout: HqLayout; quality: HqQuality; screens?: HqScreenHub | null };
 
 /**
  * The HQ room and its static dressing: glossy stone floor with fake
@@ -27,7 +28,7 @@ type Props = { layout: HqLayout; quality: HqQuality };
  * texture and flips uniforms, so it never adds or removes a shader program.
  * No lights here: the shell's fixed light set already covers AM7's office.
  */
-export function HqEnvironment({ layout, quality }: Props) {
+export function HqEnvironment({ layout, quality, screens = null }: Props) {
   const env = useMemo(() => createEnvMaterials(), []);
   const floor = useMemo(() => createFloorMaterial(), []);
   const propUniforms = useMemo(() => createPropUniforms(), []);
@@ -98,7 +99,7 @@ export function HqEnvironment({ layout, quality }: Props) {
       <mesh geometry={shell.lines} material={env.line} raycast={noRaycast} />
       <mesh geometry={shell.curbLines} material={env.lineCurb} raycast={noRaycast} />
       <primitive object={partitions} />
-      <HqProps props={layout.props} quality={quality} uniforms={propUniforms} />
+      <HqProps props={layout.props} quality={quality} uniforms={propUniforms} screens={screens} />
     </group>
   );
 }

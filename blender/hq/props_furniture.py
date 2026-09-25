@@ -5,7 +5,7 @@ its footprint on the floor.
 
 import math
 
-from props_plants import ficus_bush, grass_bed
+from props_plants import dark_rosette, ficus_bush, grass_bed
 
 PI = math.pi
 
@@ -28,6 +28,23 @@ def planter_low(p):
     p.tray("black_matte", (1.2, 0.35, 0.42), (0, 0, 0.23), rim=0.02, depth=0.03)
     p.box("soil", (1.155, 0.305, 0.02), (0, 0, 0.405), bevel=0.0)
     grass_bed(p, p.rng, -0.55, 0.55, -0.12, 0.12, 0.412)
+
+
+def dark_plant(p):
+    """AM7's office plant: a black gloss drum (r 0.28, h 0.55) on a recessed
+    foot, a steady red light ring set into the top of the rim, and a rosette
+    of near-black strap leaves reaching about 1.4 m."""
+    p.cyl("black_matte", 0.25, 0.021, (0, 0, 0.0105), segs=36, caps=False)
+    p.lathe("black_gloss", [
+        (0.0, 0.02), (0.262, 0.02), (0.274, 0.025), (0.28, 0.036), (0.28, 0.541), (0.278, 0.548),
+        (0.273, 0.55), (0.254, 0.55), (0.249, 0.546), (0.247, 0.505), (0.0, 0.505),
+    ], segs=36, sharp=35.0, true_poles=True)
+    # the light ring: outer wall, top and inner wall (its underside sits in the rim)
+    p.lathe("emissive_red", [(0.268, 0.5495), (0.268, 0.5525), (0.258, 0.5525), (0.258, 0.5495)],
+            segs=36, sharp=40.0)
+    # black lava-rock top dressing instead of brown soil
+    p.lathe("black_matte", [(0.248, 0.513), (0.17, 0.519), (0.0, 0.522)], segs=28, true_poles=True)
+    dark_rosette(p, p.rng, soil_z=0.52, top_z=1.4)
 
 
 # --- shared chair parts -----------------------------------------------------------
@@ -78,34 +95,6 @@ def sofa(p):
 
 def lounge_chair(p):
     _club_body(p, width=0.88, depth=0.86, arm_w=0.18, seat_n=1, back_h=0.8, arm_h=0.62)
-
-
-def exec_chair(p):
-    """High-back executive chair. Seat top 0.47 with its centre at y=+0.02,
-    backrest starting at y=+0.24 (the workstation seat contract)."""
-    star_base(p, 0.34, column_top=0.35)
-    p.box("black_matte", (0.24, 0.26, 0.05), (0, 0.02, 0.36), bevel=0.008)
-    p.rbox("black_matte", (0.54, 0.52, 0.04), (0, 0.02, 0.39), r=0.018, steps=1)
-    # channel-tufted seat: three strips running front to back
-    for i, x in enumerate((-0.176, 0.0, 0.176)):
-        p.rbox("leather", (0.174, 0.5, 0.07), (x, 0.015, 0.435), r=0.03, steps=1, splits=(0, 1, 0),
-               bulge=(0.0, 0.0, 0.008))
-    # back, pivoted a little behind the seat and reclined
-    with p.frame((0, 0.3, 0.5), (-0.14, 0, 0)):
-        p.rbox("black_matte", (0.56, 0.045, 0.84), (0, 0.045, 0.42), r=0.02, steps=1, splits=(1, 0, 1))
-        for i in range(5):
-            p.rbox("leather", (0.52, 0.075, 0.148), (0, -0.01, 0.08 + i * 0.152), r=0.035, steps=1,
-                   splits=(1, 0, 0), bulge=(0.0, 0.01, 0.0))
-        p.rbox("leather", (0.4, 0.09, 0.14), (0, -0.03, 0.86), r=0.045, steps=1, splits=(1, 0, 0),
-               bulge=(0.0, 0.012, 0.0))
-        p.box("metal_dark", (0.07, 0.03, 0.2), (0, 0.08, 0.05), bevel=0.006)
-    p.box("metal_dark", (0.07, 0.24, 0.025), (0, 0.18, 0.365), bevel=0.006)
-    # armrests
-    for sx in (-1, 1):
-        p.box("metal_dark", (0.16, 0.04, 0.02), (sx * 0.2, 0.1, 0.372), bevel=0.005)
-        p.tube("metal_dark", [(sx * 0.29, 0.1, 0.37), (sx * 0.295, 0.1, 0.5), (sx * 0.295, 0.08, 0.63)], 0.013,
-               segs=8)
-        p.rbox("leather", (0.075, 0.3, 0.035), (sx * 0.295, 0.05, 0.645), r=0.015, steps=1)
 
 
 def meeting_chair(p):

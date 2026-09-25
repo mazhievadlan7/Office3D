@@ -154,10 +154,10 @@ describe("demo team", () => {
 
     const names = team.map((agent) => agent.name);
     expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(1000);
-    for (const name of names) {
-      expect(name.length).toBeLessThanOrEqual(10);
-      expect(name).toMatch(/^[A-Za-z][A-Za-z0-9]*$/);
-    }
+    for (const name of names) expect(name.length).toBeLessThanOrEqual(10);
+    // The team's call signs are letters only; the first pass is the plain list.
+    for (const name of names.slice(1)) expect(name).toMatch(/^[A-Za-z]+$/);
+    expect(names.slice(1, 4)).toEqual(["Nyx", "Vex", "Kade"]);
 
     team.slice(1).forEach((agent, index) => {
       expect(agent.role).toBe(TEAM_ROLES[index % TEAM_ROLES.length]);

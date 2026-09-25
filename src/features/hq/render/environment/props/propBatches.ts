@@ -14,11 +14,15 @@ import { patchBlink, type FallbackRole, type PropUniforms } from "./propMaterial
 // exactly like the kind (Blender ".001" suffixes tolerated) with one mesh per
 // material below it; origin on the floor, front facing +Z. The "screen"
 // material becomes the animated dashboard, "emissive_red" LEDs blink on
-// server racks (per-LED phase in their UVs), emissive materials are pushed
-// into bloom range.
+// server racks and server pillars (per-LED phase in their UVs), emissive
+// materials are pushed into bloom range.
 
 export type PropMaterialSet = {
   screen: THREE.Material;
+  /** AM7's curved monitor ("screen_exec" in props.glb); `screen` when absent. */
+  execScreen?: THREE.Material;
+  /** True when `screen` reads the per-instance aPanel channel (HqProp.screen). */
+  screenChannels?: boolean;
   fallback: Record<FallbackRole, THREE.Material>;
 };
 
@@ -34,6 +38,9 @@ const KIND_NAMES: ReadonlySet<string> = new Set<HqPropKind>([
   "planter_tall",
   "planter_low",
   "server_rack",
+  "server_pillar",
+  "data_monolith",
+  "dark_plant",
   "sofa",
   "lounge_chair",
   "coffee_table",
@@ -46,6 +53,14 @@ const KIND_NAMES: ReadonlySet<string> = new Set<HqPropKind>([
   "wall_screen",
   "floor_lamp",
 ]);
+
+// Kinds whose "emissive_red" LEDs blink (the same shader path for all).
+const BLINKING: ReadonlySet<HqPropKind> = new Set<HqPropKind>(["server_rack", "server_pillar"]);
+
+// Kinds whose red lights glow at a set level instead of the bloom floor: the
+// server pillars stand among the desks, so their strips and LEDs sit at about
+// the brightness of the monitors around them, all in one tone.
+const GLOW_LEVEL: Partial<Record<HqPropKind, number>> = { server_pillar: 1.4 };
 
 // Kinds too flat or wall-mounted to be worth a shadow pass.
 const NO_SHADOW: ReadonlySet<HqPropKind> = new Set<HqPropKind>(["wall_screen", "coffee_table"]);
@@ -100,14 +115,15 @@ function glbParts(
       const role = materialRole(original);
       let material: THREE.Material = original;
       if (role === "screen") {
-        material = materials.screen;
+        material = original.name.toLowerCase().includes("exec") ? (materials.execScreen ?? materials.screen) : materials.screen;
       } else if (role === "led" || role === "emissive") {
-        const blink = role === "led" && kind === "server_rack";
-        const key = `${original.uuid}:${blink ? "blink" : "steady"}`;
+        const blink = role === "led" && BLINKING.has(kind);
+        const level = GLOW_LEVEL[kind];
+        const key = `${original.uuid}:${blink ? "blink" : "steady"}:${level ?? "floor"}`;
         let glow = glowCache.get(key);
         if (!glow) {
           glow = original.clone();
-          boostEmissive(glow);
+          boostEmissive(glow, level);
           if (blink) patchBlink(glow, uniforms);
           glowCache.set(key, glow);
           owned.materials.push(glow);
@@ -122,10 +138,15 @@ function glbParts(
   return [...byMaterial.values()];
 }
 
-/** Bloom only catches linear values above 1; make sure LEDs and lamps get there. */
-function boostEmissive(material: THREE.Material): void {
+/**
+ * Bloom only catches linear values above 1; make sure LEDs and lamps get there,
+ * or set them to `level` exactly when the kind asks for a fixed glow.
+ */
+function boostEmissive(material: THREE.Material, level?: number): void {
   const m = material as THREE.MeshStandardMaterial;
-  if (m.emissive && m.emissive.getHex() !== 0) m.emissiveIntensity = Math.max(m.emissiveIntensity ?? 1, GLOW.emissiveFloor);
+  if (m.emissive && m.emissive.getHex() !== 0) {
+    m.emissiveIntensity = level ?? Math.max(m.emissiveIntensity ?? 1, GLOW.emissiveFloor);
+  }
   m.toneMapped = false;
 }
 
@@ -206,6 +227,11 @@ export function buildPropBatches(
       for (const geometry of mergeParts(part)) {
         geometry.computeBoundingSphere();
         owned.geometries.push(geometry);
+        if (materials.screenChannels && part.material === materials.screen) {
+          const channels = new Float32Array(placements.length);
+          placements.forEach((p, i) => (channels[i] = p.screen ?? 0));
+          geometry.setAttribute("aPanel", new THREE.InstancedBufferAttribute(channels, 1));
+        }
         const mesh = new THREE.InstancedMesh(geometry, part.material, placements.length);
         mesh.name = `hq-prop-${kind}`;
         placements.forEach((p, i) => {

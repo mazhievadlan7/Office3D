@@ -18,9 +18,10 @@ Front of every prop faces +Z in three.js (-Y in Blender); the origin is the
 centre of the footprint on the floor. exec_desk and exec_chair follow the
 workstation seat contract instead (origin = chair centre = seated root).
 Materials are shared across props: black_matte, black_gloss, leather,
-fabric_dark, metal_dark, glass_dark, plant_leaf (COLOR_0), soil,
-emissive_red (LED quads: uv.x = blink phase, uv.y = 1 blink / 0 steady),
-emissive_warm, screen (UV 0..1 over each display surface).
+fabric_dark, metal_dark, glass_dark, plant_leaf and plant_leaf_dark (COLOR_0),
+soil, emissive_red (LED quads: uv.x = blink phase, uv.y = 1 blink / 0 steady),
+emissive_red_dim (faint steady inlays, same UV convention), emissive_warm,
+screen (UV 0..1 over each display surface).
 """
 
 import os
@@ -34,6 +35,7 @@ sys.path.insert(0, HERE)
 sys.dont_write_bytecode = True  # keep blender/hq free of __pycache__
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
+import props_exec as executive  # noqa: E402
 import props_furniture as furniture  # noqa: E402
 import props_tech as tech  # noqa: E402
 from props_lib import Prop, make_materials  # noqa: E402
@@ -49,13 +51,20 @@ KINDS = [
     ("coffee_bar", tech.coffee_bar),
     ("meeting_table", furniture.meeting_table),
     ("meeting_chair", furniture.meeting_chair),
-    ("exec_desk", tech.exec_desk),
-    ("exec_chair", furniture.exec_chair),
+    ("exec_desk", executive.exec_desk),
+    ("exec_chair", executive.exec_chair),
     ("exec_shelf", tech.exec_shelf),
     ("wall_screen", tech.wall_screen),
     ("floor_lamp", tech.floor_lamp),
+    # Hacker-style replacements for the planters. Appended so every earlier
+    # kind keeps its seed (and so its exact geometry).
+    ("server_pillar", tech.server_pillar),
+    ("data_monolith", tech.data_monolith),
+    ("dark_plant", furniture.dark_plant),
 ]
 TRI_BUDGET = 4200
+# AM7's desk and chair are drawn once, close up: they get a hero budget.
+HERO_BUDGET = {"exec_desk": 32000, "exec_chair": 18000}
 
 
 def parse_args():
@@ -93,9 +102,10 @@ def build_all():
         fn(prop)
         root, tris = prop.build(mats, coll)
         roots.append(root)
-        flag = "  OVER BUDGET" if tris > TRI_BUDGET else ""
+        budget = HERO_BUDGET.get(kind, TRI_BUDGET)
+        flag = "  OVER BUDGET" if tris > budget else ""
         print(f"[prop] {kind:14s} {tris:5d} tris  {len(root.children)} meshes  {time.time() - t0:.2f}s{flag}")
-        if tris > TRI_BUDGET:
+        if tris > budget:
             over.append(kind)
     total = sum(sum(len(p.vertices) - 2 for p in ob.data.polygons) for r in roots for ob in r.children)
     print(f"[prop] total {total} tris")

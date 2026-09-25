@@ -32,7 +32,10 @@ const WEIGHT_RATE = 5;
 
 type HeroRig = {
   object: Object3D;
+  /** The body every agent wears. */
   mesh: SkinnedMesh;
+  /** AM7's own suit mesh on the same skeleton, when the file has one. */
+  leadMesh: SkinnedMesh | null;
   mixer: AnimationMixer;
   /** One action per baked clip (HqSkinBake.clips order). */
   actions: AnimationAction[];
@@ -90,7 +93,7 @@ export class HqCrowdHeroes {
   constructor(
     scene: Object3D,
     bake: HqSkinBake,
-    private readonly materials: { normal: Material; lead: Material },
+    private readonly materials: { normal: Material; lead: Material; suit: Material },
     size: number,
   ) {
     this.root.name = "hq-crowd-heroes";
@@ -101,20 +104,25 @@ export class HqCrowdHeroes {
       const object = cloneSkinned(scene);
       const mesh = findSkinnedMesh(object);
       if (!mesh) break;
+      const leadMesh = findSkinnedMesh(object, true);
       object.visible = false;
       object.position.set(0, 0, 0);
       object.rotation.set(0, 0, 0);
       object.traverse((node) => {
         node.raycast = () => {};
-        // Only the skinned body draws; any helper meshes in the file stay hidden.
+        // Only the skinned body draws (AM7's mesh when the rig is his); any
+        // helper meshes in the file stay hidden.
         if ((node as SkinnedMesh).isMesh && node !== mesh) node.visible = false;
       });
       mesh.material = materials.normal;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      // Bounds of a skinned mesh follow the bind pose; the slot is only used
-      // for agents already known to be on screen.
-      mesh.frustumCulled = false;
+      for (const m of leadMesh ? [mesh, leadMesh] : [mesh]) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+        // Bounds of a skinned mesh follow the bind pose; the slot is only used
+        // for agents already known to be on screen.
+        m.frustumCulled = false;
+      }
+      if (leadMesh) leadMesh.material = materials.suit;
       const mixer = new AnimationMixer(object);
       const actions: AnimationAction[] = [];
       for (const clip of bake.sources) {
@@ -134,6 +142,7 @@ export class HqCrowdHeroes {
       this.rigs.push({
         object,
         mesh,
+        leadMesh,
         mixer,
         actions,
         neck,
@@ -150,6 +159,11 @@ export class HqCrowdHeroes {
 
   get size(): number {
     return this.rigs.length;
+  }
+
+  /** Whether AM7 is drawn in his own suit mesh (so never by the instanced crowd). */
+  get hasLeadMesh(): boolean {
+    return this.rigs.length > 0 && this.rigs[0].leadMesh !== null;
   }
 
   /**
@@ -180,7 +194,12 @@ export class HqCrowdHeroes {
       const lead = frame.lead[i] === 1;
       if (lead !== rig.lead) {
         rig.lead = lead;
-        rig.mesh.material = lead ? this.materials.lead : this.materials.normal;
+        if (rig.leadMesh) {
+          rig.leadMesh.visible = lead;
+          rig.mesh.visible = !lead;
+        } else {
+          rig.mesh.material = lead ? this.materials.lead : this.materials.normal;
+        }
       }
       const facing = frame.facing[i];
       rig.object.position.set(frame.x[i], frame.y[i], frame.z[i]);

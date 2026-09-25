@@ -7,6 +7,7 @@ import { HQ_WORKSTATION_URL } from "@/features/hq/core/config";
 import type { HqSimulation } from "@/features/hq/core/sim";
 import type { HqLayout } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import type { HqScreenHub } from "@/features/hq/render/screens/screenHub";
 import { DeskStatusCache, WorkstationBatchSet } from "./batches";
 import { createProceduralWorkstation, extractGlbWorkstation, type WorkstationSource } from "./geometry";
 import { createWorkstationMaterials, type WorkstationMaterials } from "./materials";
@@ -15,9 +16,11 @@ export type HqWorkstationsProps = {
   layout: HqLayout;
   simRef: MutableRefObject<HqSimulation | null>;
   quality: HqQuality;
+  /** Paints the monitors' content; without it they stay dark. */
+  screens: HqScreenHub | null;
 };
 
-type BatchProps = HqWorkstationsProps & {
+type BatchProps = Omit<HqWorkstationsProps, "screens"> & {
   source: WorkstationSource;
   materials: WorkstationMaterials;
   cache: DeskStatusCache;
@@ -29,8 +32,8 @@ type BatchProps = HqWorkstationsProps & {
  * workstation.glb supplies the meshes; until it loads, or if it is missing,
  * procedural stand-ins with the same material groups keep the floor furnished.
  */
-export function HqWorkstations({ layout, simRef, quality }: HqWorkstationsProps) {
-  const materials = useMemo(() => createWorkstationMaterials(), []);
+export function HqWorkstations({ layout, simRef, quality, screens }: HqWorkstationsProps) {
+  const materials = useMemo(() => createWorkstationMaterials(screens), [screens]);
   const procedural = useMemo(() => createProceduralWorkstation(), []);
   const cache = useMemo(() => new DeskStatusCache(layout.desks.length), [layout.desks]);
 
@@ -70,7 +73,8 @@ function WorkstationBatches({ layout, simRef, quality, source, materials, cache 
   useEffect(() => batches.setQuality(quality), [batches, quality]);
 
   useFrame((state) => {
-    batches.update(state.camera, state.size.height, state.clock.elapsedTime, simRef.current?.deskStatus ?? null);
+    const sim = simRef.current;
+    batches.update(state.camera, state.size.height, state.clock.elapsedTime, sim?.deskStatus ?? null, sim?.deskRole ?? null);
   });
 
   return <primitive object={batches.root} />;

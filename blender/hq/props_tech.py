@@ -1,7 +1,7 @@
-"""Server rack, coffee bar, AM7's executive desk and shelf, wall screen and
-floor lamp. Blender frame: metres, Z up, front faces -Y, origin at the centre
-of the footprint on the floor (the executive desk instead follows the
-workstation seat contract, see exec_desk).
+"""Server rack, server pillar, data monolith, coffee bar, AM7's shelf, wall
+screen and floor lamp (AM7's desk and chair are in props_exec.py). Blender
+frame: metres, Z up, front faces -Y, origin at the centre of the footprint on
+the floor.
 
 LED convention for "emissive_red" (as three.js reads the GLB): every LED quad
 carries a constant UV, (phase, 1) for a blinking LED with a random phase in
@@ -122,6 +122,132 @@ def server_rack(p):
             _led(p, 0.008, 0.005, (0.2, fz, zc + h / 2 - 0.02), blink=False)
 
 
+# --- server pillar --------------------------------------------------------------------
+PILLAR_H = 1.35
+
+
+def server_pillar(p):
+    """0.62 x 0.62 x 1.35 m rack column at the pod ends: low enough that the
+    agents seated beside it stay in view from the usual high camera.
+
+    Black gloss shell on a gunmetal plinth with shadow gaps under the shell and
+    the roof cap; the front is a 5 cm bezel around a smoked glass door, behind
+    it a stack of blade faceplates carrying a 6-column grid of status LEDs
+    (about half lit, most blinking). Thin red strips run up both door edges in
+    gunmetal channels; louvred vents on the sides, a fan in the roof. Every red
+    light is the same material, so strips and LEDs glow in one tone.
+    """
+    rng = p.rng
+    W, H = 0.6, PILLAR_H
+    z0, z1 = 0.07, H - 0.05  # shell bottom and top
+    zc, hh = (z0 + z1) / 2, z1 - z0
+    front = -W / 2
+    rim, recess = 0.05, 0.03
+    # plinth, a recessed shadow gap, the shell with its recessed door opening
+    p.box("metal_dark", (0.62, 0.62, 0.045), (0, 0, 0.0225), bevel=0.006)
+    p.box("black_matte", (0.55, 0.55, 0.035), (0, 0, 0.055), bevel=0.0)
+    p.tray("black_gloss", (W, hh, W), (0, 0, zc), rim=rim, depth=recess, bevel=0.005, rot=(PI / 2, 0, 0))
+    # roof: shadow gap, overhanging cap, fan
+    p.box("black_matte", (0.57, 0.57, 0.03), (0, 0, z1 + 0.005), bevel=0.0)
+    p.box("black_gloss", (0.62, 0.62, 0.035), (0, 0, H - 0.0175), bevel=0.007)
+    p.ring("metal_dark", 0.15, 0.172, H - 0.001, H + 0.007, segs=28)
+    p.cyl("black_matte", 0.151, 0.004, (0, 0, H), segs=28)
+    p.cyl("metal_dark", 0.034, 0.008, (0, 0, H + 0.003), segs=14)
+    for k in range(4):
+        p.box("metal_dark", (0.29, 0.008, 0.004), (0, 0, H + 0.003), rot=(0, 0, k * PI / 4 + PI / 8), bevel=0.0)
+
+    # the equipment wall behind the glass
+    open_w, open_z0, open_z1 = W - 2 * rim, z0 + rim, z1 - rim
+    back = front + recess  # recessed face of the shell
+    p.box("black_matte", (open_w - 0.004, 0.006, open_z1 - open_z0 - 0.004), (0, back - 0.003, zc), bevel=0.0)
+    plate = back - 0.006
+    for sx in (-1, 1):
+        p.box("metal_dark", (0.014, 0.008, open_z1 - open_z0 - 0.02), (sx * 0.228, plate - 0.004, zc), bevel=0.002)
+    rows, cols = 12, 6
+    lo, hi = open_z0 + 0.035, open_z1 - 0.035
+    pitch = (hi - lo) / rows
+    col_x = (-0.165, -0.115, -0.065, 0.065, 0.115, 0.165)
+    fz = plate - 0.002
+    # light half the grid, favouring busy blades over idle ones
+    activity = [rng.uniform(0.3, 1.0) for _ in range(rows)]
+    score = {(r, c): rng.random() * activity[r] for r in range(rows) for c in range(cols)}
+    lit = set(sorted(score, key=score.get, reverse=True)[: round(0.5 * rows * cols)])
+    for r in range(rows):
+        z = lo + pitch * (r + 0.5)
+        p.quad("black_gloss", 0.43, pitch - 0.009, (0, plate - 0.001, z))
+        p.quad("metal_dark", 0.012, pitch * 0.5, (-0.2, fz, z))
+        for c in range(cols):
+            x = col_x[c]
+            if (r, c) in lit:
+                _led(p, 0.028, 0.007, (x, fz, z), blink=rng.random() < 0.85)
+            else:
+                p.quad("black_matte", 0.028, 0.007, (x, fz, z))
+
+    # smoked glass door with a pull handle
+    gy = front + 0.007
+    p.box("glass_dark", (open_w - 0.002, 0.006, open_z1 - open_z0 - 0.002), (0, gy + 0.003, zc), bevel=0.0)
+    hx = 0.205
+    p.box("metal_dark", (0.014, 0.016, 0.26), (hx, front - 0.012, zc), bevel=0.004)
+    for z in (zc - 0.1, zc + 0.1):
+        p.box("metal_dark", (0.01, 0.016, 0.01), (hx, front - 0.0005, z), bevel=0.0)
+
+    # thin red strips in gunmetal channels along both door edges
+    strip_z0, strip_z1 = open_z0 + 0.015, open_z1 - 0.015
+    for sx in (-1, 1):
+        x = sx * (open_w / 2 + 0.013)
+        p.box("metal_dark", (0.014, 0.004, strip_z1 - strip_z0 + 0.01), (x, front - 0.0015, zc), bevel=0.001)
+        p.box("emissive_red", (0.004, 0.003, strip_z1 - strip_z0), (x, front - 0.004, zc), bevel=0.0)
+
+    # bezel details: power and activity LEDs on the top rail, intake slits below
+    _led(p, 0.012, 0.005, (-0.2, front - 0.001, z1 - rim / 2), blink=False)
+    for k in range(3):
+        _led(p, 0.006, 0.005, (-0.17 + k * 0.014, front - 0.001, z1 - rim / 2), blink=True)
+    for k in range(14):
+        p.quad("black_matte", 0.018, 0.008, (-0.169 + k * 0.026, front - 0.001, z0 + rim / 2))
+
+    # louvred vents on both sides, low (intake) and high (exhaust)
+    for sx in (-1, 1):
+        for vz in (0.36, 1.0):
+            p.box("black_matte", (0.004, 0.36, 0.26), (sx * (W / 2 + 0.001), 0.03, vz), bevel=0.0)
+            for k in range(7):
+                z = vz - 0.108 + k * 0.036
+                p.box("black_gloss", (0.012, 0.33, 0.004), (sx * (W / 2 + 0.005), 0.03, z),
+                      rot=(0, sx * 0.6, 0), bevel=0.0)
+    # rear service panel
+    p.box("black_matte", (0.5, 0.004, hh - 0.14), (0, W / 2 + 0.001, zc), bevel=0.0)
+    for z in (z0 + 0.15, zc, z1 - 0.15):
+        p.box("metal_dark", (0.03, 0.008, 0.06), (-0.22, W / 2 + 0.003, z), bevel=0.002)
+
+
+# --- data monolith --------------------------------------------------------------------
+def data_monolith(p):
+    """0.5 x 0.18 x 2.6 m black gloss stele on a 0.9 x 0.5 x 0.05 m gunmetal
+    base. The stele is split down the middle by a 2 cm slit whose matte core
+    carries a steady red light line; six dim red ticks cross the front and a
+    red line runs along the front edge of the base."""
+    H = 2.6
+    yc = 0.02  # stele a little behind centre: a deeper lit ledge in front
+    D = 0.18
+    yf = yc - D / 2
+    p.box("metal_dark", (0.9, 0.5, 0.05), (0, 0, 0.025), bevel=0.006)
+    p.box("emissive_red", (0.82, 0.006, 0.004), (0, -0.228, 0.0515), bevel=0.0)
+    p.box("black_matte", (0.47, 0.15, 0.03), (0, yc, 0.06), bevel=0.0)
+    s0 = 0.07
+    gap = 0.02
+    half = (0.5 - gap) / 2
+    for sx in (-1, 1):
+        p.box("black_gloss", (half, D, H - s0), (sx * (gap / 2 + half / 2), yc, (H + s0) / 2), bevel=0.005)
+    # matte core in the slit, recessed 14 mm from every face
+    inset = 0.014
+    p.box("black_matte", (gap + 0.004, D - 2 * inset, H - s0 - inset), (0, yc, (H + s0 - inset) / 2), bevel=0.0)
+    p.box("emissive_red", (0.01, 0.004, 2.2), (0, yf + inset - 0.002, 1.35), bevel=0.0)
+    for i in range(6):
+        z = 0.5 + i * 0.35
+        for sx in (-1, 1):
+            p.box("emissive_red_dim", (0.13, 0.003, 0.005), (sx * (gap / 2 + 0.018 + 0.065), yf - 0.0005, z),
+                  bevel=0.0)
+
+
 # --- coffee bar ------------------------------------------------------------------------
 def coffee_bar(p):
     """2.4 m counter: fluted black front, gloss stone top, espresso machine,
@@ -195,52 +321,6 @@ def _cup(p, loc, upside_down=False):
     prof = [(0.0, 0.0), (0.028, 0.0), (0.036, 0.008), (0.042, 0.068), (0.037, 0.07), (0.032, 0.012), (0.0, 0.012)]
     rot = (PI, 0, 0) if upside_down else None
     p.lathe("black_gloss", prof, loc=loc, rot=rot, segs=12, sharp=50)
-
-
-# --- AM7 executive desk -------------------------------------------------------------
-def exec_desk(p):
-    """Seat contract (same as a workstation): origin = chair centre = seated
-    character root, sitter faces -Y, desk front edge at y=-0.36, top at 0.75,
-    2.4 m wide, back edge at y=-1.25. Keyboard and mouse sit exactly where the
-    typing clip expects them; no chair included (see exec_chair)."""
-    top_z, front, back = 0.75, -0.36, -1.25
-    cy, depth = (front + back) / 2, front - back
-    p.slab("black_gloss", 2.4, depth, 0.05, (0, cy, top_z - 0.025), corner=0.012, csegs=2, bevel=0.004)
-    for sx in (-1, 1):
-        p.box("black_gloss", (0.05, depth, top_z - 0.05), (sx * 1.175, cy, (top_z - 0.05) / 2), bevel=0.004)
-        # red light line down the outer face of each waterfall leg
-        p.box("emissive_red", (0.004, 0.006, top_z - 0.12), (sx * 1.2015, cy, (top_z - 0.05) / 2),
-              bevel=0.0)
-    p.box("black_matte", (2.3, 0.02, 0.42), (0, back + 0.06, 0.47), bevel=0.003)
-    # red accent line along the front and back edges of the top
-    for y in (front + 0.0025, back - 0.0025):
-        p.box("emissive_red", (2.34, 0.004, 0.006), (0, y, top_z - 0.033), bevel=0.0)
-    # drawer pedestal on the sitter's left (+X), clear of the knees
-    px, py = 0.7, -0.9
-    p.box("black_matte", (0.46, 0.62, 0.66), (px, py, 0.36), bevel=0.004)
-    for i, z in enumerate((0.16, 0.37, 0.58)):
-        p.box("black_gloss", (0.44, 0.012, 0.195), (px, py + 0.312, z), bevel=0.002)
-        p.box("metal_dark", (0.2, 0.014, 0.008), (px, py + 0.322, z + 0.075), bevel=0.0)
-    p.box("black_matte", (0.44, 0.6, 0.03), (px, py, 0.015), bevel=0.0)
-
-    # two large monitors turned toward the sitter
-    for sx in (-1, 1):
-        with p.frame((sx * 0.39, -1.0, 0), (0, 0, sx * 0.3)):
-            p.box("black_gloss", (0.74, 0.028, 0.44), (0, 0, 1.13), bevel=0.004)
-            p.quad("screen", 0.724, 0.418, (0, 0.0145, 1.135), rot=(0, 0, PI))
-            p.box("black_matte", (0.42, 0.05, 0.26), (0, -0.035, 1.11), bevel=0.01)
-            p.box("metal_dark", (0.05, 0.03, 0.32), (0, -0.075, 0.9), bevel=0.004)
-            p.slab("metal_dark", 0.26, 0.2, 0.012, (0, -0.05, top_z + 0.006), corner=0.03, csegs=3, bevel=0.002)
-            _led(p, 0.008, 0.003, (0.3, 0.0145, 0.915), blink=False, rot=(0, 0, PI))
-    # desk pad, keyboard (0,-0.50,0.765) and mouse (-0.30,-0.50,0.765)
-    p.box("leather", (0.9, 0.42, 0.003), (0, -0.585, top_z + 0.0015), bevel=0.0)
-    p.box("metal_dark", (0.44, 0.14, 0.018), (0, -0.5, top_z + 0.012), bevel=0.003)
-    p.box("black_matte", (0.42, 0.12, 0.006), (0, -0.5, top_z + 0.022), bevel=0.001)
-    p.rbox("black_gloss", (0.062, 0.1, 0.03), (-0.3, -0.5, 0.768), r=0.014, steps=1, splits=(0, 1, 0))
-    # small desk items
-    p.box("black_gloss", (0.075, 0.155, 0.008), (0.5, -0.56, top_z + 0.004), rot=(0, 0, -0.2), bevel=0.002)
-    p.box("leather", (0.16, 0.22, 0.016), (-0.62, -0.62, top_z + 0.008), rot=(0, 0, 0.15), bevel=0.003)
-    p.tube("metal_dark", [(-0.57, -0.56, top_z + 0.021), (-0.6, -0.7, top_z + 0.021)], 0.004, segs=6)
 
 
 # --- executive shelf -----------------------------------------------------------------

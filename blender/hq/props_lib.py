@@ -57,6 +57,11 @@ def _scaled(rgb, k):
     return tuple(min(1.0, c * k) for c in rgb)
 
 
+# GLOW.emissiveFloor in src/features/hq/render/environment/palette.ts: the app raises the
+# emissive intensity of every prop material to at least this (the preview does too).
+EMISSIVE_FLOOR = 5.0
+
+
 # name: principled settings. Base colours are linear. The blacks are lifted a
 # little above the theme swatches so shapes still read under a dim key light;
 # the look comes from roughness contrast (matte body, gloss tops, satin leather).
@@ -70,13 +75,33 @@ MATERIALS = {
     "metal_dark": dict(base=_scaled(hex_lin(THEME["metal"]), 3.2), rough=0.3, metal=1.0),
     "glass_dark": dict(base=hex_lin(THEME["glass"]), rough=0.04, metal=0.0, alpha=0.32),
     "plant_leaf": dict(base=(1.0, 1.0, 1.0), rough=0.55, metal=0.0, vcol=True, double=True),
+    # AM7's black foliage: near-black red in the vertex colours, a satin sheen.
+    "plant_leaf_dark": dict(base=(1.0, 1.0, 1.0), rough=0.32, metal=0.0, vcol=True, double=True),
     "soil": dict(base=(0.018, 0.013, 0.01), rough=0.97, metal=0.0),
     "emissive_red": dict(base=_scaled(hex_lin(THEME["accent"]), 0.5), rough=0.4, metal=0.0,
                          emit=hex_lin(THEME["accent"]), strength=6.0),
+    # Faint red inlays. The app lifts every prop emissive to at least
+    # EMISSIVE_FLOOR and the exporter bakes a strength <= 1 into the colour, so
+    # the dimming lives in the emission colour: 0.08 x 5 = 0.4, below bloom.
+    "emissive_red_dim": dict(base=_scaled(hex_lin(THEME["accent"]), 0.1), rough=0.4, metal=0.0,
+                             emit=_scaled(hex_lin(THEME["accent"]), 0.08), strength=1.0),
+    # Soft red washes (keyboard underglow, the light under AM7's desk): 0.3 x 5 = 1.5.
+    "emissive_red_soft": dict(base=_scaled(hex_lin(THEME["accent"]), 0.15), rough=0.4, metal=0.0,
+                              emit=_scaled(hex_lin(THEME["accent"]), 0.3), strength=1.0),
+    # AM7's desk and chair (props_exec.py).
+    "black_satin": dict(base=(0.012, 0.012, 0.013), rough=0.3, metal=0.0),
+    "chrome_dark": dict(base=(0.16, 0.16, 0.17), rough=0.08, metal=1.0),
+    "metal_brushed": dict(base=(0.14, 0.14, 0.15), rough=0.26, metal=1.0),
+    # Red piping thread: a faint glow of its own, not lifted to bloom by the app.
+    "stitch": dict(base=(0.3, 0.01, 0.008), rough=0.55, metal=0.0,
+                   emit=_scaled(hex_lin(THEME["accent"]), 0.18), strength=1.0),
     "emissive_warm": dict(base=_scaled(hex_lin(THEME["ledWarm"]), 0.6), rough=0.8, metal=0.0,
                           emit=hex_lin(THEME["ledWarm"]), strength=3.0),
     "screen": dict(base=hex_lin(THEME["screenBackground"]), rough=0.18, metal=0.0,
                    emit=hex_lin(THEME["accentDeep"]), strength=1.0),
+    # AM7's curved monitor: its own display content in the app.
+    "screen_exec": dict(base=hex_lin(THEME["screenBackground"]), rough=0.18, metal=0.0,
+                        emit=hex_lin(THEME["accentDeep"]), strength=1.0),
 }
 
 
@@ -176,7 +201,7 @@ class Prop:
         the source's own colour layer is kept. uv: (u, v) forced on every corner.
         """
         dst = self._acc(mat)
-        if uv is None and mat == "emissive_red":
+        if uv is None and mat.startswith("emissive_red"):
             uv = STEADY_UV  # every red light is steady unless it asks to blink
         matrix = self.base @ (matrix if matrix is not None else Matrix.Identity(4))
         if matrix != Matrix.Identity(4):
@@ -236,8 +261,15 @@ class Prop:
         self.merge(mat, bm, xform(loc, rot))
 
     def lathe(self, mat, profile, loc=(0, 0, 0), rot=None, segs=32, sharp=40.0,
-              color=None, scale=None):
-        """Revolve [(radius, z), ...] around Z. A radius of 0 makes a pole."""
+              color=None, scale=None, true_poles=False):
+        """Revolve [(radius, z), ...] around Z. A radius of 0 makes a pole.
+
+        Faces point to the right of the profile's direction of travel in the
+        (radius, z) plane: outward on a wall climbing up, up on a top that runs
+        toward the axis. The fans at a pole are wound the other way round unless
+        true_poles is set; it stays off for the props built before the fix so
+        their geometry does not change.
+        """
         bm = _new_bm()
         rings = []
         for r, z in profile:
@@ -248,7 +280,7 @@ class Prop:
                                             r * math.sin(2 * math.pi * k / segs), z))
                               for k in range(segs)])
         for a, b in zip(rings, rings[1:]):
-            _bridge(bm, a, b, segs)
+            _bridge(bm, a, b, segs, flip_fans=true_poles)
         _autosharp(bm, sharp)
         self.merge(mat, bm, xform(loc, rot, scale), color=color)
 
@@ -359,9 +391,11 @@ class Prop:
         _autosharp(bm, 35.0)
         self.merge(mat, bm, xform(loc, rot))
 
-    def tray(self, mat, size, loc, rim=0.02, depth=0.03, bevel=0.004):
+    def tray(self, mat, size, loc, rim=0.02, depth=0.03, bevel=0.004, rot=None):
         """Box whose top is inset into a rim of width `rim` and dropped by
-        `depth` (a trough or planter body); loc is the box centre."""
+        `depth` (a trough or planter body); loc is the box centre. With
+        rot=(pi/2, 0, 0) the recess faces -Y instead (a door bezel): size is
+        then (width, height, depth)."""
         bm = _new_bm()
         bmesh.ops.create_cube(bm, size=1.0)
         bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
@@ -373,7 +407,7 @@ class Prop:
                             clamp_overlap=True)
         _box_uvs(bm)
         _autosharp(bm, smooth=False)
-        self.merge(mat, bm, xform(loc))
+        self.merge(mat, bm, xform(loc, rot))
 
     def ring(self, mat, r_in, r_out, z0, z1, loc=(0, 0, 0), rot=None, segs=32):
         """Flat washer / short tube wall around Z."""
@@ -476,15 +510,17 @@ class Prop:
         return root, tris
 
 
-def _bridge(bm, a, b, segs):
+def _bridge(bm, a, b, segs, flip_fans=False):
     if len(a) == 1 and len(b) == 1:
         return
     if len(a) == 1:
         for k in range(segs):
-            bm.faces.new((a[0], b[k], b[(k + 1) % segs]))
+            tri = (a[0], b[k], b[(k + 1) % segs])
+            bm.faces.new(tri[::-1] if flip_fans else tri)
     elif len(b) == 1:
         for k in range(segs):
-            bm.faces.new((a[(k + 1) % segs], a[k], b[0]))
+            tri = (a[(k + 1) % segs], a[k], b[0])
+            bm.faces.new(tri[::-1] if flip_fans else tri)
     else:
         for k in range(segs):
             k2 = (k + 1) % segs

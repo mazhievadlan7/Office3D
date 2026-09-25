@@ -9,6 +9,8 @@ import type { HqAgentInput, HqLayout } from "../../core/types";
 import { HqCrowd } from "../crowd/HqCrowd";
 import { HqEnvironment } from "../environment/HqEnvironment";
 import { HqWorldMap } from "../map/HqWorldMap";
+import { HqScreenDriver } from "../screens/HqScreenDriver";
+import { HqScreenHub } from "../screens/screenHub";
 import { HqWorkstations } from "../workstations/HqWorkstations";
 import { HqAdaptiveQuality, type HqQualityMode } from "./HqAdaptiveQuality";
 import { HqCameraRig, type HqCameraApi, type HqCameraMode } from "./HqCameraRig";
@@ -91,9 +93,13 @@ export const HqScene = memo(function HqScene({
   onFocus,
 }: HqSceneProps) {
   const resetKey = layout.capacity;
+  // Every screen's content (monitors, wall screens, AM7's monitor, the map panels).
+  const screens = useMemo(() => new HqScreenHub(), []);
+  useEffect(() => () => screens.dispose(), [screens]);
   return (
     <>
       <HqSimDriver simRef={simRef} activityRef={activityRef} />
+      <HqScreenDriver screens={screens} agentsRef={agentsRef} quality={quality} />
       <HqAdaptiveQuality tiers={qualityTiers} mode={qualityMode} onTierChange={onQualityTierChange} />
       <HqCameraRig
         layout={layout}
@@ -105,13 +111,13 @@ export const HqScene = memo(function HqScene({
       <HqLighting layout={layout} quality={quality} />
 
       <HqModuleSlot name="environment" resetKey={resetKey} fallback={<FallbackFloor layout={layout} />}>
-        <HqEnvironment layout={layout} quality={quality} />
+        <HqEnvironment layout={layout} quality={quality} screens={screens} />
       </HqModuleSlot>
       <HqModuleSlot name="map" resetKey={resetKey}>
-        <HqWorldMap wall={layout.mapWall} quality={quality} activity={activityRef} />
+        <HqWorldMap wall={layout.mapWall} quality={quality} activity={activityRef} screens={screens} />
       </HqModuleSlot>
       <HqModuleSlot name="workstations" resetKey={resetKey}>
-        <HqWorkstations layout={layout} simRef={simRef} quality={quality} />
+        <HqWorkstations layout={layout} simRef={simRef} quality={quality} screens={screens} />
       </HqModuleSlot>
       <HqModuleSlot name="crowd" resetKey={resetKey}>
         <HqCrowd

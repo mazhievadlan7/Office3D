@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { HqDesk } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import { packDeskState } from "@/features/hq/render/screens/screenApps";
 import { WS_GROUPS, type WorkstationSource, type WsGroup } from "./geometry";
 import { WS_TIME_WRAP, type WorkstationMaterials } from "./materials";
 
@@ -65,11 +66,12 @@ const UNSEEN = -2;
  * as they were instead of booting them again.
  */
 export class DeskStatusCache {
-  readonly status: Int8Array;
+  /** packDeskState of each desk (status and role family). */
+  readonly status: Int16Array;
   readonly changedAt: Float32Array;
 
   constructor(count: number) {
-    this.status = new Int8Array(count).fill(UNSEEN);
+    this.status = new Int16Array(count).fill(UNSEEN);
     this.changedAt = new Float32Array(count);
   }
 }
@@ -214,13 +216,22 @@ export class WorkstationBatchSet {
     this.lod0Budget = LOD0_DESK_BUDGET[quality];
   }
 
-  /** Per frame: sync desk status into the instance data and pick each chunk's LOD. */
-  update(camera: THREE.Camera, viewportHeight: number, seconds: number, deskStatus: Int8Array | null) {
+  /** Per frame: sync desk status (and role) into the instance data and pick each chunk's LOD. */
+  update(
+    camera: THREE.Camera,
+    viewportHeight: number,
+    seconds: number,
+    deskStatus: Int8Array | null,
+    deskRole: Uint8Array | null = null,
+  ) {
     const now = seconds % WS_TIME_WRAP;
     const { status, changedAt } = this.cache;
     const count = Math.min(this.deskChunk.length, status.length);
     for (let i = 0; i < count; i += 1) {
-      const next = deskStatus && i < deskStatus.length ? deskStatus[i] : -1;
+      const next = packDeskState(
+        deskStatus && i < deskStatus.length ? deskStatus[i] : -1,
+        deskRole && i < deskRole.length ? deskRole[i] : 0,
+      );
       const previous = status[i];
       if (next === previous) continue;
       status[i] = next;

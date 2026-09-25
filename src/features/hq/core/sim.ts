@@ -2,6 +2,12 @@
 // and a small behaviour state machine per agent. Output is the struct-of-arrays
 // `frame` the renderers read every frame.
 //
+// Lounge breaks: an idle agent heading for the lounge takes a free sofa or
+// lounge chair seat when there is one (reserved, so never double-booked),
+// sits there for a while looking at whoever else sits in the group, then
+// stands up and walks back to its desk. With every seat taken it stands at
+// the group's standing spot instead.
+//
 // Hot-path rules: update() allocates nothing (agents, waypoint buffers, the
 // spatial hash and scratch arrays are sized in the constructor / setAgents),
 // timers run on an internal clock advanced by the clamped dt, and every random
@@ -19,9 +25,18 @@ import {
   POD,
   WORKSTATION,
 } from "./config";
+import { HQ_LEAD_VIA, HQ_PROP_FOOTPRINT } from "./layout";
+import { hqRoleFamily } from "./roles";
 import { findPath, navNodeCount, nearestNode } from "./nav";
 import { HqRng, hashString, mixSeed } from "./rng";
-import { HQ_STATUS_CODE, type HqAgentFrame, type HqAgentInput, type HqLayout, type HqSocialSpotKind } from "./types";
+import {
+  HQ_STATUS_CODE,
+  type HqAgentFrame,
+  type HqAgentInput,
+  type HqLayout,
+  type HqRect,
+  type HqSocialSpotKind,
+} from "./types";
 
 const MAX_DT = 0.1;
 /** Waypoints per agent; longer routes are continued when the end is reached. */
@@ -40,6 +55,17 @@ const QUEUE_MAX = 16;
 const QUEUE_SPACING = 0.9;
 const MAX_SLOTS = 24;
 const TWO_PI = Math.PI * 2;
+/** Seconds on a lounge seat. */
+const LOUNGE_SIT_MIN = 35;
+const LOUNGE_SIT_MAX = 90;
+/** Where a lone sitter looks: the coffee table's top. */
+const TABLE_LOOK_Y = 0.45;
+/** Facing error (rad) under which a walker at a lounge seat starts to sit. */
+const SIT_ALIGN = 0.05;
+/** A standing place keeps this far inside its room's glass and off every prop. */
+const SLOT_CLEAR = 0.4;
+/** ...and this far off every aisle but its spot's own spur: walker and stander just pass. */
+const AISLE_CLEAR = HQ_AGENT_RADIUS * 2;
 
 const WORKING = HQ_STATUS_CODE.working;
 const IDLE = HQ_STATUS_CODE.idle;
@@ -63,6 +89,7 @@ const D_SEAT = 1; // sit at a desk
 const D_ERROR = 2; // stand beside the desk
 const D_SPOT = 3; // a social spot slot
 const D_VISIT = 4; // the lead standing by someone's desk
+const D_LOUNGE = 5; // sit on a lounge seat
 
 const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server"];
 const K_COFFEE = 0;
@@ -79,6 +106,8 @@ class Agent {
   readonly rng: HqRng;
   readonly speed: number;
   name = "";
+  /** hqRoleFamily of the agent's role: what its monitors show. */
+  roleFamily = 0;
   status: number = IDLE;
   lead = false;
   seat = -1;
@@ -119,6 +148,9 @@ class Agent {
   /** Reserved social spot slot (outing or overflow hangout). */
   spot = -1;
   slot = -1;
+  /** Reserved lounge seat (seat-array index), and the one it is sitting on. */
+  lounge = -1;
+  held = -1;
 
   clip: number = HqClip.Idle;
   clipTime = 0;
@@ -190,6 +222,8 @@ export class HqSimulation {
   readonly frame: HqAgentFrame;
   /** Per layout.desks index: -1 empty, else HQ_STATUS_CODE of the assigned agent. */
   readonly deskStatus: Int8Array;
+  /** Role family (core/roles.ts) of the agent at each desk, 0 when empty. */
+  readonly deskRole: Uint8Array;
   onAssignmentsChange?: (assignments: Record<string, number>) => void;
 
   private readonly seed: number;
@@ -200,8 +234,10 @@ export class HqSimulation {
   private warmStarted = false;
   private leadStatus = -1;
 
-  // Seats: layout.desks, then the lead desk at index `leadSeat`.
+  // Seats: layout.desks, then the lead desk at index `leadSeat`, then the
+  // lounge seats from `loungeBase` on.
   private readonly leadSeat: number;
+  private readonly loungeBase: number;
   private readonly seatX: Float32Array;
   private readonly seatZ: Float32Array;
   private readonly seatRot: Float32Array;
@@ -220,10 +256,19 @@ export class HqSimulation {
   private readonly errFacing: Float32Array;
   private readonly seatNode: Int32Array;
 
+  // Lounge seats (index k = seat - loungeBase): group, reservation, sitter.
+  private readonly loungeGroup: Int32Array;
+  /** First lounge seat of each group, plus the total at the end. */
+  private readonly groupStart: Int32Array;
+  private readonly loungeReserved: Array<Agent | null>;
+  private readonly loungeHeld: Array<Agent | null>;
+
   // Social spots.
   private readonly spotKind: Uint8Array;
   private readonly spotNode: Int32Array;
   private readonly spotAgents: Array<Agent | null>;
+  /** Per spot slot: 1 where someone can stand (in the spot's room, off props and aisles). */
+  private readonly slotOk: Uint8Array;
 
   // Routing scratch.
   private readonly spawnNode: number;
@@ -251,8 +296,10 @@ export class HqSimulation {
     this.seed = (opts.seed ?? 0x5eed) >>> 0;
     const desks = layout.desks;
     const seats = [...desks, layout.leadDesk];
-    const n = seats.length;
+    const loungeSeats = layout.loungeSeats ?? [];
+    const n = seats.length + loungeSeats.length;
     this.leadSeat = desks.length;
+    this.loungeBase = seats.length;
     this.seatX = new Float32Array(n);
     this.seatZ = new Float32Array(n);
     this.seatRot = new Float32Array(n);
@@ -271,6 +318,7 @@ export class HqSimulation {
     this.errFacing = new Float32Array(n);
     this.seatNode = new Int32Array(n);
     this.deskStatus = new Int8Array(desks.length).fill(-1);
+    this.deskRole = new Uint8Array(desks.length);
 
     // Neighbour lookup so each desk is entered from its free side, not
     // through the chair of the desk next to it.
@@ -324,7 +372,10 @@ export class HqSimulation {
         const dMinus = Math.hypot(this.tmpX - pos[s.navNode * 2], this.tmpZ - pos[s.navNode * 2 + 1]);
         side = dMinus < dPlus ? -1 : 1;
       }
-      local(s, side * 0.85, 0);
+      // AM7's arc desk wraps round the chair's sides: step in from behind the
+      // chair, on the side of its nav node (west), instead of beside it.
+      if (i === this.leadSeat) local(s, HQ_LEAD_VIA.x, HQ_LEAD_VIA.z);
+      else local(s, side * 0.85, 0);
       this.viaX[i] = this.tmpX;
       this.viaZ[i] = this.tmpZ;
       local(s, side * 1.15, -0.25);
@@ -342,6 +393,41 @@ export class HqSimulation {
       this.errFacing[i] = Math.atan2(this.kbX[i] - this.viaX[i], this.kbZ[i] - this.viaZ[i]);
     });
 
+    // Lounge seats: entered straight from the aisle node in front, looking at
+    // the group's coffee table ("monitor") when nobody else is sitting there.
+    const groups = layout.loungeGroups ?? [];
+    this.loungeGroup = new Int32Array(loungeSeats.length);
+    this.groupStart = new Int32Array(groups.length + 1).fill(loungeSeats.length);
+    this.loungeReserved = new Array<Agent | null>(loungeSeats.length).fill(null);
+    this.loungeHeld = new Array<Agent | null>(loungeSeats.length).fill(null);
+    loungeSeats.forEach((s, k) => {
+      const i = this.loungeBase + k;
+      const g = Math.max(0, Math.min(groups.length - 1, s.group));
+      const table = groups[g] ?? { tableX: s.x, tableZ: s.z };
+      this.loungeGroup[k] = g;
+      if (k < this.groupStart[g]) this.groupStart[g] = k;
+      this.seatX[i] = s.x;
+      this.seatZ[i] = s.z;
+      this.seatRot[i] = s.rotY;
+      this.apprX[i] = s.approach.x;
+      this.apprZ[i] = s.approach.z;
+      this.seatNode[i] = s.navNode;
+      this.viaX[i] = s.approach.x;
+      this.viaZ[i] = s.approach.z;
+      this.visitX[i] = s.approach.x;
+      this.visitZ[i] = s.approach.z;
+      this.monX[i] = this.kbX[i] = table.tableX;
+      this.monZ[i] = this.kbZ[i] = table.tableZ;
+      local(s, 0, 0.1);
+      this.headX[i] = this.tmpX;
+      this.headZ[i] = this.tmpZ;
+      this.errFacing[i] = s.rotY;
+    });
+    // Seats are listed group by group; an empty group starts where the next does.
+    for (let g = groups.length - 1; g >= 0; g--) {
+      this.groupStart[g] = Math.min(this.groupStart[g], this.groupStart[g + 1]);
+    }
+
     const spots = layout.socialSpots;
     this.spotKind = new Uint8Array(spots.length);
     this.spotNode = new Int32Array(spots.length);
@@ -350,6 +436,8 @@ export class HqSimulation {
       this.spotNode[i] = s.navNode;
     });
     this.spotAgents = new Array<Agent | null>(spots.length * MAX_SLOTS).fill(null);
+    this.slotOk = new Uint8Array(spots.length * MAX_SLOTS);
+    this.markStandingSlots();
 
     this.spawnNode = nearestNode(layout.nav, layout.spawn.x, layout.spawn.z);
     this.pathBuf = new Int32Array(Math.max(1, navNodeCount(layout.nav)));
@@ -471,6 +559,7 @@ export class HqSimulation {
       }
       agent.status = status;
       agent.name = typeof input.name === "string" ? input.name : "";
+      agent.roleFamily = hqRoleFamily(input.role);
       const rank = leadIdRank(input.id);
       if (rank >= 0 || agent.name.trim().toLowerCase() === HQ_LEAD_AGENT_NAME.toLowerCase()) {
         const score = rank >= 0 ? rank : HQ_LEAD_AGENT_IDS.length + next.length;
@@ -488,6 +577,8 @@ export class HqSimulation {
       if (nextById.get(agent.id) === agent) continue;
       agent.alive = false;
       this.releaseSpot(agent);
+      this.releaseLounge(agent);
+      this.releaseHold(agent);
       this.endVisit(agent);
       if (agent.visitor) agent.visitor = null;
     }
@@ -723,6 +814,8 @@ export class HqSimulation {
   /** Timers and reservations: outings, visits, overflow wandering. */
   private think(a: Agent): void {
     const now = this.time;
+    // Lounge seats are for desk agents' breaks (lead and deskless agents stand).
+    if (a.lounge >= 0 && (a.lead || a.seat < 0)) this.releaseLounge(a);
     if (a.lead) {
       if (a.status === ERROR) {
         this.releaseSpot(a);
@@ -731,7 +824,8 @@ export class HqSimulation {
       }
       const t = a.visitTarget;
       if (t) {
-        const valid = t.alive && t.seat >= 0 && t.status === WORKING && (t.mode === M_SEATED || t.mode === M_SIT);
+        const valid =
+          t.alive && t.seat >= 0 && t.status === WORKING && t.place === D_SEAT && (t.mode === M_SEATED || t.mode === M_SIT);
         const done = a.place === D_VISIT && a.mode === M_STAND && now >= a.leaveAt;
         if (!valid || done) {
           this.endVisit(a);
@@ -756,7 +850,14 @@ export class HqSimulation {
           this.releaseSpot(a);
           a.nextOuting = now + a.rng.range(90, 300);
         }
-      } else if (a.status === IDLE && a.mode === M_SEATED && now >= a.nextOuting) {
+      } else if (a.lounge >= 0) {
+        // The seat stays held until the agent has stood up (releaseHold).
+        if (a.status !== IDLE) this.releaseLounge(a);
+        else if (a.place === D_LOUNGE && a.mode === M_SEATED && now >= a.leaveAt) {
+          this.releaseLounge(a);
+          a.nextOuting = now + a.rng.range(90, 300);
+        }
+      } else if (a.status === IDLE && a.mode === M_SEATED && a.place === D_SEAT && now >= a.nextOuting) {
         if (!this.reserveOuting(a, -1)) a.nextOuting = now + a.rng.range(20, 60);
       }
       return;
@@ -781,6 +882,7 @@ export class HqSimulation {
       if (a.status === ERROR) return D_ERROR;
       if (a.visitTarget) return D_VISIT;
       if (a.spot >= 0) return D_SPOT;
+      if (a.lounge >= 0) return D_LOUNGE;
       return D_SEAT;
     }
     return a.spot >= 0 ? D_SPOT : D_NONE;
@@ -793,6 +895,7 @@ export class HqSimulation {
     let spot = -1;
     let slot = -1;
     if (kind === D_SEAT || kind === D_ERROR) seat = a.seat;
+    else if (kind === D_LOUNGE) seat = a.lounge;
     else if (kind === D_VISIT) seat = a.visitTarget ? a.visitTarget.seat : -1;
     else if (kind === D_SPOT) {
       spot = a.spot;
@@ -817,7 +920,7 @@ export class HqSimulation {
         a.needsRoute = true;
         break;
       case M_RISE:
-        if (kind === D_SEAT && seat === a.placeSeat) {
+        if ((kind === D_SEAT || kind === D_LOUNGE) && kind === a.place && seat === a.placeSeat) {
           a.mode = M_SIT;
           a.clipRate = 1;
           a.wpCount = a.wpIdx = 0;
@@ -843,6 +946,7 @@ export class HqSimulation {
     for (let k = 0; k < 16; k++) {
       const t = this.agents[a.rng.int(n)];
       if (t === a || t.lead || t.seat < 0 || t.status !== WORKING || t.mode !== M_SEATED || t.visitor) continue;
+      if (t.place !== D_SEAT) continue;
       a.visitTarget = t;
       t.visitor = a;
       return true;
@@ -857,6 +961,85 @@ export class HqSimulation {
     a.visitTarget = null;
   }
 
+  // --- Lounge seats ---------------------------------------------------------
+
+  private releaseLounge(a: Agent): void {
+    if (a.lounge >= 0) {
+      const k = a.lounge - this.loungeBase;
+      if (this.loungeReserved[k] === a) this.loungeReserved[k] = null;
+    }
+    a.lounge = -1;
+  }
+
+  private releaseHold(a: Agent): void {
+    if (a.held >= 0) {
+      const k = a.held - this.loungeBase;
+      if (this.loungeHeld[k] === a) this.loungeHeld[k] = null;
+    }
+    a.held = -1;
+  }
+
+  /**
+   * Reserves a free lounge seat, preferring groups where someone already sits
+   * or is on the way (so people end up talking). A seat is free only when
+   * nobody has it reserved and nobody is still sitting on or rising from it.
+   */
+  private reserveLoungeSeat(a: Agent): boolean {
+    const count = this.loungeReserved.length;
+    let best = -1;
+    let bestScore = -Infinity;
+    for (let k = 0; k < count; k++) {
+      if (this.loungeReserved[k] || this.loungeHeld[k]) continue;
+      const g = this.loungeGroup[k];
+      let company = 0;
+      for (let j = this.groupStart[g], end = this.groupStart[g + 1]; j < end; j++) {
+        if (this.loungeReserved[j] || this.loungeHeld[j]) company++;
+      }
+      const score = (company > 0 ? 1 : 0) + a.rng.next();
+      if (score > bestScore) {
+        bestScore = score;
+        best = k;
+      }
+    }
+    if (best < 0) return false;
+    this.loungeReserved[best] = a;
+    a.lounge = this.loungeBase + best;
+    return true;
+  }
+
+  /** Head target of someone on a lounge seat: the nearest other sitter in the group, else the table. */
+  private loungeLook(a: Agent, seat: number): void {
+    const k = seat - this.loungeBase;
+    const g = this.loungeGroup[k];
+    let best = -1;
+    let bestD = Infinity;
+    if (a.mode === M_SEATED) {
+      for (let j = this.groupStart[g], end = this.groupStart[g + 1]; j < end; j++) {
+        const b = this.loungeHeld[j];
+        if (j === k || !b || b.mode !== M_SEATED) continue;
+        const other = this.loungeBase + j;
+        const dx = this.seatX[other] - this.seatX[seat];
+        const dz = this.seatZ[other] - this.seatZ[seat];
+        const d = dx * dx + dz * dz;
+        if (d < bestD) {
+          bestD = d;
+          best = other;
+        }
+      }
+    }
+    if (best >= 0) {
+      a.wantX = this.headX[best];
+      a.wantY = HEAD_SEATED;
+      a.wantZ = this.headZ[best];
+      a.wantW = 0.85;
+    } else {
+      a.wantX = this.monX[seat];
+      a.wantY = TABLE_LOOK_Y;
+      a.wantZ = this.monZ[seat];
+      a.wantW = a.mode === M_SEATED ? 0.4 : 0.15;
+    }
+  }
+
   // --- Social spots ----------------------------------------------------------
 
   private releaseSpot(a: Agent): void {
@@ -868,7 +1051,74 @@ export class HqSimulation {
     a.slot = -1;
   }
 
-  /** Free slot of a spot, centre-most first; -1 when full. */
+  /**
+   * Marks where someone can stand at each spot: inside the hall and inside
+   * the spot's own room (a spot in the open keeps out of every room), clear
+   * of the props, and clear of every aisle but the spot's own spur, so nobody
+   * stands where others walk. Overflow rings reach past the furniture and the
+   * glass; freeSlot skips their bad places. Runs once, in the constructor.
+   */
+  private markStandingSlots(): void {
+    const layout = this.layout;
+    const spots = layout.socialSpots;
+    const rooms: HqRect[] = [...layout.meetingRooms, layout.lounge, layout.serverRoom, layout.am7Office];
+    const inside = (r: HqRect, x: number, z: number, margin: number) =>
+      x >= r.x0 + margin && x <= r.x1 - margin && z >= r.z0 + margin && z <= r.z1 - margin;
+    const props = layout.props;
+    const pos = layout.nav.positions;
+    const edges = layout.nav.edges;
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i];
+      let home: HqRect | null = null;
+      for (const r of rooms) {
+        if (inside(r, spot.x, spot.z, 0)) {
+          home = r;
+          break;
+        }
+      }
+      for (let slot = 0; slot < MAX_SLOTS; slot++) {
+        this.slotPosition(i, slot);
+        const x = this.tmpX;
+        const z = this.tmpZ;
+        let ok = inside(layout.bounds, x, z, SLOT_CLEAR);
+        if (ok && home) ok = inside(home, x, z, SLOT_CLEAR);
+        else if (ok) for (const r of rooms) if (inside(r, x, z, -SLOT_CLEAR)) ok = false;
+        for (let p = 0; ok && p < props.length; p++) {
+          const prop = props[p];
+          const size = HQ_PROP_FOOTPRINT[prop.kind];
+          const dx = x - prop.x;
+          const dz = z - prop.z;
+          if (!size || size[0] <= 0 || Math.abs(dx) > 3 || Math.abs(dz) > 3) continue;
+          const c = Math.cos(prop.rotY);
+          const s = Math.sin(prop.rotY);
+          const ex = Math.max(0, Math.abs(dx * c - dz * s) - size[0] / 2);
+          const ez = Math.max(0, Math.abs(dx * s + dz * c) - size[1] / 2);
+          if (ex * ex + ez * ez < SLOT_CLEAR * SLOT_CLEAR) ok = false;
+        }
+        for (let e = 0; ok && e < edges.length; e += 2) {
+          const a = edges[e];
+          const b = edges[e + 1];
+          if (a === spot.navNode || b === spot.navNode) continue;
+          const ax = pos[a * 2];
+          const az = pos[a * 2 + 1];
+          const bx = pos[b * 2];
+          const bz = pos[b * 2 + 1];
+          if (x < Math.min(ax, bx) - AISLE_CLEAR || x > Math.max(ax, bx) + AISLE_CLEAR) continue;
+          if (z < Math.min(az, bz) - AISLE_CLEAR || z > Math.max(az, bz) + AISLE_CLEAR) continue;
+          const ux = bx - ax;
+          const uz = bz - az;
+          const len2 = ux * ux + uz * uz;
+          const t = len2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * ux + (z - az) * uz) / len2)) : 0;
+          const qx = x - ax - ux * t;
+          const qz = z - az - uz * t;
+          if (qx * qx + qz * qz < AISLE_CLEAR * AISLE_CLEAR) ok = false;
+        }
+        this.slotOk[i * MAX_SLOTS + slot] = ok ? 1 : 0;
+      }
+    }
+  }
+
+  /** Free slot of a spot where someone can stand, centre-most first; -1 when full. */
   private freeSlot(spot: number, allowOverflow: boolean): number {
     const cap = Math.min(MAX_SLOTS, this.layout.socialSpots[spot].capacity);
     const base = spot * MAX_SLOTS;
@@ -877,7 +1127,7 @@ export class HqSimulation {
     const mid = (cap - 1) / 2;
     const line = this.spotKind[spot] === K_MAP || this.spotKind[spot] === K_SERVER;
     for (let s = 0; s < cap; s++) {
-      if (this.spotAgents[base + s]) continue;
+      if (this.spotAgents[base + s] || !this.slotOk[base + s]) continue;
       const score = line ? Math.abs(s - mid) : s;
       if (score < bestScore) {
         bestScore = score;
@@ -885,7 +1135,7 @@ export class HqSimulation {
       }
     }
     if (best >= 0 || !allowOverflow) return best;
-    for (let s = cap; s < MAX_SLOTS; s++) if (!this.spotAgents[base + s]) return s;
+    for (let s = cap; s < MAX_SLOTS; s++) if (!this.spotAgents[base + s] && this.slotOk[base + s]) return s;
     return -1;
   }
 
@@ -921,6 +1171,8 @@ export class HqSimulation {
     if (kind < 0) {
       const r = a.rng.next();
       kind = r < 0.35 ? K_COFFEE : r < 0.65 ? K_MAP : r < 0.85 ? K_LOUNGE : r < 0.95 ? K_MEETING : K_SERVER;
+      // A lounge break is taken sitting down when a seat is free.
+      if (kind === K_LOUNGE && this.reserveLoungeSeat(a)) return true;
     }
     let spot = this.nearestFreeSpot(a, kind, false);
     if (spot < 0 && forcedKind < 0) spot = this.nearestFreeSpot(a, -1, false);
@@ -1003,6 +1255,9 @@ export class HqSimulation {
         return this.pushWp(n, this.apprX[s], this.apprZ[s], -1);
       case D_ERROR:
         return this.pushWp(n, this.viaX[s], this.viaZ[s], -1);
+      case D_LOUNGE:
+        // The seat's nav node is the aisle point right in front of it.
+        return this.pushWp(n, this.apprX[s], this.apprZ[s], -1);
       case D_VISIT:
         return this.pushWp(n, this.visitX[s], this.visitZ[s], -1);
       case D_SPOT:
@@ -1135,11 +1390,11 @@ export class HqSimulation {
         if (a.clipTime >= SIT_DOWN_DURATION) {
           a.clipTime = SIT_DOWN_DURATION;
           a.mode = M_SEATED;
-          this.setClip(a, a.status === WORKING ? HqClip.SitType : HqClip.SitIdle, 0, 1);
+          this.setClip(a, this.seatedClip(a), 0, 1);
         }
         break;
       case M_SEATED: {
-        const clip = a.status === WORKING ? HqClip.SitType : HqClip.SitIdle;
+        const clip = this.seatedClip(a);
         if (a.clip !== clip) this.setClip(a, clip, 0, 1);
         break;
       }
@@ -1151,6 +1406,8 @@ export class HqSimulation {
           a.bx = this.apprX[s];
           a.bz = this.apprZ[s];
           a.mode = M_WALK;
+          // Up from a lounge seat: only now can someone else take it.
+          this.releaseHold(a);
           // A route still waiting for its turn is built from the chair.
           if (!a.needsRoute) a.place = D_NONE;
           if (a.dest === D_NONE) a.wpCount = a.wpIdx = 0;
@@ -1169,6 +1426,11 @@ export class HqSimulation {
     }
     this.syncPosition(a);
     this.desiredLook(a);
+  }
+
+  /** Typing at a desk while working; sitting idle otherwise (and always in the lounge). */
+  private seatedClip(a: Agent): number {
+    return a.status === WORKING && a.place === D_SEAT ? HqClip.SitType : HqClip.SitIdle;
   }
 
   private setClip(a: Agent, clip: number, time: number, rate: number): void {
@@ -1205,6 +1467,7 @@ export class HqSimulation {
         this.setClip(a, HqClip.Idle, 0, 1);
         return;
       }
+      if (a.dest === D_LOUNGE && !this.turnToSit(a, dt)) return;
       this.arrive(a);
       return;
     }
@@ -1218,7 +1481,8 @@ export class HqSimulation {
     let dist = Math.hypot(dx, dz);
     let want = dist > 1e-3 ? Math.atan2(dx, dz) : a.facing;
     if (a.wpIdx === a.wpCount - 1 && dist < 0.55 && !a.wpMore) {
-      // Line up with the desk while taking the last steps.
+      // Line up with the desk while taking the last steps. A lounge seat is
+      // walked up to face first; the walker turns round on the spot (turnToSit).
       if (a.dest === D_SEAT) want = this.seatRot[a.destSeat];
       else if (a.dest === D_ERROR) want = this.errFacing[a.destSeat];
     }
@@ -1264,7 +1528,21 @@ export class HqSimulation {
         a.oz *= left;
       }
     }
-    if (a.wpIdx >= a.wpCount && !a.needsRoute && !a.wpMore) this.arrive(a);
+    if (a.wpIdx >= a.wpCount && !a.needsRoute && !a.wpMore && a.dest !== D_LOUNGE) this.arrive(a);
+  }
+
+  /** At a lounge seat's approach: turn round on the spot; true once facing the seat's way. */
+  private turnToSit(a: Agent, dt: number): boolean {
+    const want = this.seatRot[a.destSeat];
+    if (Math.abs(wrapAngle(want - a.facing)) <= SIT_ALIGN) return true;
+    a.facing = turnToward(a.facing, want, TURN_RATE * dt);
+    a.moving = false;
+    // Settle onto the approach point itself while turning.
+    const settle = 1 - Math.min(1, 10 * dt);
+    a.ox *= settle;
+    a.oz *= settle;
+    if (a.clip !== HqClip.Idle) this.setClip(a, HqClip.Idle, 0, 1);
+    return false;
   }
 
   /** Light crowd separation; returns a speed factor. Offsets stay near the route. */
@@ -1356,6 +1634,20 @@ export class HqSimulation {
         a.placeSeat = s;
         this.setClip(a, HqClip.Idle, 0, 1);
         return;
+      case D_LOUNGE: {
+        a.bx = this.seatX[s];
+        a.bz = this.seatZ[s];
+        a.facing = this.seatRot[s];
+        a.mode = M_SIT;
+        a.place = D_LOUNGE;
+        a.placeSeat = s;
+        const k = s - this.loungeBase;
+        this.loungeHeld[k] = a;
+        a.held = s;
+        a.leaveAt = this.time + a.rng.range(LOUNGE_SIT_MIN, LOUNGE_SIT_MAX);
+        this.setClip(a, HqClip.SitDown, 0, 1);
+        return;
+      }
       case D_SPOT: {
         a.mode = M_STAND;
         a.place = D_SPOT;
@@ -1423,6 +1715,10 @@ export class HqSimulation {
       case M_SIT:
       case M_RISE: {
         const s = a.placeSeat;
+        if (a.place === D_LOUNGE) {
+          this.loungeLook(a, s);
+          return;
+        }
         const v = a.visitor;
         if (a.mode === M_SEATED && v && v.visitTarget === a && v.mode === M_STAND && v.place === D_VISIT) {
           // The lead dropped by: look up at him.
@@ -1526,11 +1822,16 @@ export class HqSimulation {
 
   private updateDeskStatus(): void {
     const ds = this.deskStatus;
+    const dr = this.deskRole;
     ds.fill(-1);
+    dr.fill(0);
     const agents = this.agents;
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
-      if (!a.lead && a.seat >= 0 && a.seat < ds.length) ds[a.seat] = a.status;
+      if (!a.lead && a.seat >= 0 && a.seat < ds.length) {
+        ds[a.seat] = a.status;
+        dr[a.seat] = a.roleFamily;
+      }
     }
   }
 

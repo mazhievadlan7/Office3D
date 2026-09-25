@@ -202,6 +202,87 @@ def ficus_bush(prop, rng, soil_z, top_z):
                    rng=rng, droop=1.9, segs=4)
 
 
+# Linear RGB for "plant_leaf_dark": near-black blades that warm to a deep wine
+# toward the tip, with a faint oxblood margin (a black dracaena, not a green one).
+DARK_BASE = (0.0022, 0.0014, 0.0015)
+DARK_BLADE = (0.0075, 0.0026, 0.0028)
+DARK_TIP = (0.016, 0.0042, 0.0044)
+DARK_MARGIN = (0.034, 0.0036, 0.004)
+
+
+def strap_leaf(prop, base, direction, length, width, rng, droop=0.6, channel=0.35, twist=0.0, segs=8):
+    """A long strap leaf: narrow at the base, parallel sided, tapering to a
+    point over its last third. The cross-section is a shallow channel (edges
+    raised) that flattens toward the tip; the blade arches outward and down.
+    """
+    d, side, nrm = _frame(Vector(direction))
+    step = length / segs
+    base_c = _jitter(rng, DARK_BASE, 0.2)
+    blade_c = _jitter(rng, DARK_BLADE, 0.25)
+    tip_c = _jitter(rng, DARK_TIP, 0.25)
+    margin_c = _jitter(rng, DARK_MARGIN, 0.3)
+    across = (-1.0, -0.45, 0.0, 0.45, 1.0)
+    verts, cols, faces, rows = [], [], [], []
+    p = Vector(base)
+    for i in range(segs + 1):
+        t = i / segs
+        if i == segs:
+            verts.append(p.copy())
+            cols.append(tip_c)
+            rows.append(None)
+            break
+        if t < 0.16:
+            w = width * (0.4 + 0.6 * math.sin(0.5 * math.pi * t / 0.16))
+        elif t > 0.62:
+            w = width * ((1.0 - t) / 0.38) ** 0.85
+        else:
+            w = width
+        # twist the blade a little around its own axis
+        tw = Matrix.Rotation(twist * t, 3, d)
+        s_ax, n_ax = tw @ side, tw @ nrm
+        c_mid = lerp3(lerp3(base_c, blade_c, min(1.0, t * 2.5)), tip_c, max(0.0, t - 0.4) / 0.6)
+        c_edge = lerp3(c_mid, margin_c, min(1.0, 0.25 + t))
+        depth = channel * w * (1.0 - 0.7 * t)
+        row = []
+        for a in across:
+            off = s_ax * (a * w / 2) + n_ax * (depth * a * a)
+            verts.append(p + off)
+            cols.append(c_edge if abs(a) > 0.9 else lerp3(c_mid, c_edge, 0.25) if a else c_mid)
+            row.append(len(verts) - 1)
+        rows.append(row)
+        bend = Matrix.Rotation(-droop * step / length * (0.3 + 1.7 * t), 3, side)
+        d = (bend @ d).normalized()
+        nrm = side.cross(d).normalized()
+        p = p + d * step
+    tip = len(verts) - 1
+    for a, b in zip(rows, rows[1:]):
+        if b is None:
+            for k in range(len(a) - 1):
+                faces.append((a[k], a[k + 1], tip))
+        else:
+            for k in range(len(a) - 1):
+                faces.append((a[k], a[k + 1], b[k + 1], b[k]))
+    prop.mesh("plant_leaf_dark", verts, faces, colors=cols, smooth=True)
+
+
+def dark_rosette(prop, rng, soil_z, top_z, leaves=36):
+    """A dense rosette of strap leaves: young leaves upright in the middle,
+    older ones leaning out and arching, the oldest spilling over the rim."""
+    golden = math.radians(137.5)
+    reach = top_z - soil_z
+    for k in range(leaves):
+        age = 1.0 - k / (leaves - 1)  # 1 = oldest, outermost
+        ang = k * golden + rng.uniform(-0.12, 0.12)
+        tilt = 0.1 + 0.95 * age ** 1.3 + rng.uniform(-0.06, 0.06)
+        r0 = 0.012 + 0.05 * age
+        at = Vector((r0 * math.cos(ang), r0 * math.sin(ang), soil_z + 0.01 + 0.03 * (1.0 - age)))
+        direction = Vector((math.sin(tilt) * math.cos(ang), math.sin(tilt) * math.sin(ang), math.cos(tilt)))
+        length = reach * (0.96 - 0.3 * age) + rng.uniform(-0.05, 0.03)
+        strap_leaf(prop, at, direction, length=length, width=0.054 + rng.uniform(-0.008, 0.01), rng=rng,
+                   droop=0.25 + 1.2 * age ** 1.2 + rng.uniform(-0.12, 0.12),
+                   twist=rng.uniform(-0.6, 0.6), segs=8)
+
+
 def grass_bed(prop, rng, x0, x1, y0, y1, z, clumps=11, ferns=5):
     """Fill a rectangle with ferns and soft arching grass clumps between them."""
     for i in range(ferns):
