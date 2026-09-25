@@ -23,6 +23,7 @@ import {
   type TaskBoardPreferencePatch,
 } from "@/features/office/tasks/types";
 import { t } from "@/lib/i18n";
+import { capAutomaticTaskCards } from "@/lib/tasks/taskBoardCap";
 
 export type StudioGatewaySettings = {
   url: string;
@@ -540,9 +541,10 @@ const normalizeTaskBoardPreference = (
   const record = isRecord(value) ? value : {};
   const rawCards = Array.isArray(record.cards) ? record.cards : fallback.cards;
   return {
-    cards: rawCards
-      .map((entry) => normalizeTaskBoardCard(entry))
-      .filter((entry) => entry.id.length > 0),
+    // Capped here too, so an oversized saved board is trimmed on read.
+    cards: capAutomaticTaskCards(
+      rawCards.map((entry) => normalizeTaskBoardCard(entry)).filter((entry) => entry.id.length > 0),
+    ),
     selectedCardId:
       normalizeSelectedAgentId(record.selectedCardId, fallback.selectedCardId) ?? null,
   };

@@ -59,6 +59,10 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const nextConfig: NextConfig = {
+  // React Compiler: components and hooks are memoized automatically, so a
+  // parent re-render (the office screen updates several times a second with
+  // a live team) no longer re-renders and recomputes everything below it.
+  reactCompiler: true,
   turbopack: {
     root: path.resolve(__dirname),
   },

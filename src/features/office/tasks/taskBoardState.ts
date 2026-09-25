@@ -4,6 +4,7 @@ import {
   type TaskBoardPreference,
   type TaskBoardStatus,
 } from "@/features/office/tasks/types";
+import { capSortedAutomaticCards } from "@/lib/tasks/taskBoardCap";
 
 type TaskBoardAction =
   | { type: "hydrate"; preference: TaskBoardPreference }
@@ -35,23 +36,11 @@ const compareCards = (left: TaskBoardCard, right: TaskBoardCard) => {
   return left.title.localeCompare(right.title);
 };
 
-/**
- * Cards captured from agent activity (not made by a person) are capped, oldest
- * first, so a busy team cannot grow the board, and the copy saved with the
- * studio settings, without bound.
- */
-export const MAX_INFERRED_TASK_CARDS = 300;
-
-const capInferredCards = (sorted: TaskBoardCard[]): TaskBoardCard[] => {
-  let inferred = 0;
-  for (const card of sorted) if (card.isInferred) inferred += 1;
-  if (inferred <= MAX_INFERRED_TASK_CARDS) return sorted;
-  let kept = 0;
-  return sorted.filter((card) => !card.isInferred || (kept += 1) <= MAX_INFERRED_TASK_CARDS);
-};
+// Cards made automatically from agent activity are capped (lib/tasks/taskBoardCap.ts).
+const capAutomaticCards = (sorted: TaskBoardCard[]): TaskBoardCard[] => capSortedAutomaticCards(sorted);
 
 export const sortTaskBoardCards = (cards: TaskBoardCard[]): TaskBoardCard[] =>
-  capInferredCards([...cards].sort(compareCards));
+  capAutomaticCards([...cards].sort(compareCards));
 
 // `cards` is kept sorted, so a card goes straight to its place.
 const insertSorted = (cards: TaskBoardCard[], card: TaskBoardCard): TaskBoardCard[] => {
@@ -74,7 +63,7 @@ export const upsertTaskBoardCard = (
   const existingIndex = cards.findIndex((card) => card.id === cardId);
   const rest =
     existingIndex < 0 ? cards : [...cards.slice(0, existingIndex), ...cards.slice(existingIndex + 1)];
-  return capInferredCards(insertSorted(rest, nextCard));
+  return capAutomaticCards(insertSorted(rest, nextCard));
 };
 
 export const taskBoardReducer = (
