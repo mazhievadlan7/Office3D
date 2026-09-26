@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
-import type { ArcBuffers, ArcScheduler } from "@/features/hq/render/map/mapArcs";
+import type { MapRaster } from "@/features/hq/render/map/mapGeo";
 import {
   MAP_HOTSPOT_COUNT,
   MAP_HOTSPOTS,
@@ -9,8 +9,7 @@ import {
   type MapFit,
 } from "@/features/hq/render/map/mapProjection";
 import {
-  createArcMaterial,
-  createDotsMaterial,
+  createEarthMaterial,
   createGlowMaterial,
   createHotspotMaterial,
   createPanelMaterial,
@@ -21,13 +20,18 @@ import { sunDirection } from "@/features/hq/render/map/sun";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 
 // Shader clock wraps so float32 precision never degrades; 3600 s is a whole
-// number of periods for the scan, ripples, pulses and dashes.
+// number of periods for the scan and the markers' breathing.
 const TIME_WRAP = 3600;
 const SCAN_PERIOD = 12;
 const SCAN_SWEEP = 0.7;
 const REVEAL_SECONDS = 1.8;
-const FLASH_DECAY = 0.9;
 const ACTIVITY_EASE = 1.5;
+/** Seconds for NASA imagery to fade in over the procedural look once it arrives. */
+const IMAGERY_FADE_SECONDS = 1.6;
+/** Anisotropic filtering at most this strong (the camera sees the wall at an angle). */
+const MAX_ANISOTROPY = 8;
+/** The Sun moves a quarter of a degree a minute: once a second is smooth, and spares a per-frame allocation. */
+const SUN_UPDATE_MS = 1000;
 export const DEFAULT_MAP_ACTIVITY = 0.4;
 
 const QUALITY_LEVEL: Record<HqQuality, number> = { low: 0, medium: 1, high: 2 };
@@ -39,14 +43,12 @@ MAP_HOTSPOTS.forEach(([lon, lat], i) => {
   HOTSPOT_UV[i * 2 + 1] = latToV(lat);
 });
 
+export type MapLayer = "geo" | "day" | "night";
+
 export type MapFrameInput = {
   fit: MapFit;
   floorSize: THREE.Vector2;
   quality: HqQuality;
-  /** True once the land dots exist; starts the reveal and the arcs. */
-  landReady: boolean;
-  arcs: ArcBuffers;
-  scheduler: ArcScheduler;
   /** Raw activity 0..1 (eased here unless quality is low). */
   activity: number;
   /** Whether the glass draws its own glyph panels beside the map. */
@@ -55,16 +57,53 @@ export type MapFrameInput = {
   clockMs: number;
 };
 
+/** A map texture from a raster: linear data (not colour), mipmapped, wrapping east-west like the globe. */
+export function rasterTexture(raster: MapRaster, anisotropy: number): THREE.DataTexture {
+  const format = raster.channels === 1 ? THREE.RedFormat : THREE.RGBAFormat;
+  const texture = new THREE.DataTexture(raster.data, raster.width, raster.height, format, THREE.UnsignedByteType);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.flipY = false;
+  texture.unpackAlignment = 1;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = Math.max(1, Math.min(MAX_ANISOTROPY, anisotropy));
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** 1x1 stand-ins until the real data arrives: open ocean, no borders, no lights, black imagery. */
+function placeholder(layer: MapLayer): THREE.DataTexture {
+  const texel = layer === "geo" ? new Uint8Array([0, 255, 255, 0]) : new Uint8Array([0]);
+  const texture = new THREE.DataTexture(texel, 1, 1, layer === "geo" ? THREE.RGBAFormat : THREE.RedFormat);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const MAP_UNIFORM: Record<MapLayer, "uGeoMap" | "uDayMap" | "uNightMap"> = {
+  geo: "uGeoMap",
+  day: "uDayMap",
+  night: "uNightMap",
+};
+
 /**
- * Owns the map's materials and its animation state. All per-frame writes
- * happen here so the React component stays a thin, pure description.
+ * Owns the map's materials, textures and animation state. All per-frame
+ * writes happen here so the React component stays a thin, pure description.
  */
 export class MapRig {
   readonly shared: MapSharedUniforms = createSharedUniforms();
+  private readonly placeholders: Record<MapLayer, THREE.DataTexture> = {
+    geo: placeholder("geo"),
+    day: placeholder("day"),
+    night: placeholder("night"),
+  };
   readonly panel = createPanelMaterial(this.shared);
-  readonly dots = createDotsMaterial(this.shared);
+  readonly earth = createEarthMaterial(this.shared, this.placeholders);
   readonly hotspots = createHotspotMaterial(this.shared);
-  readonly arcs = createArcMaterial(this.shared);
   readonly halo = createGlowMaterial(this.shared, 0);
   readonly floor = createGlowMaterial(this.shared, 1);
   readonly bezel = new THREE.MeshStandardMaterial({
@@ -79,19 +118,40 @@ export class MapRig {
   private revealStart = -1;
   private appliedFit: MapFit | null = null;
   private appliedFloor = new THREE.Vector2(-1, -1);
-  private readonly flash = new Float32Array(MAP_HOTSPOT_COUNT);
+  private anisotropy = 1;
+  private readonly loaded: Record<MapLayer, THREE.DataTexture | null> = { geo: null, day: null, night: null };
+  private readonly queued: Array<{ layer: MapLayer; texture: THREE.DataTexture }> = [];
+  private dayMix = 0;
+  private nightMix = 0;
+  private sunAtMs = Number.NEGATIVE_INFINITY;
+
+  /** The renderer's anisotropy limit, for textures that arrive later. */
+  setAnisotropy(max: number): void {
+    this.anisotropy = Number.isFinite(max) ? max : 1;
+  }
+
+  /**
+   * Hands over a layer's texels. The texture is attached on a later frame,
+   * one per frame, so no two big uploads ever land in the same frame.
+   */
+  setRaster(layer: MapLayer, raster: MapRaster): void {
+    this.queued.push({ layer, texture: rasterTexture(raster, this.anisotropy) });
+  }
+
+  /** Whether a layer's real data is on the map (not its stand-in). */
+  has(layer: MapLayer): boolean {
+    return this.loaded[layer] !== null;
+  }
 
   frame(delta: number, input: MapFrameInput): void {
     const dt = Math.min(Math.max(delta, 0), 0.1);
-    const { fit, arcs, scheduler, quality } = input;
+    const { fit, quality } = input;
     const u = this.shared;
 
     this.time += dt;
     if (this.time >= TIME_WRAP) {
       this.time -= TIME_WRAP;
       if (this.revealStart >= 0) this.revealStart -= TIME_WRAP;
-      scheduler.rebase(TIME_WRAP, arcs.timingArray);
-      arcs.timing.needsUpdate = true;
     }
 
     const target = input.activity;
@@ -103,10 +163,22 @@ export class MapRig {
     }
     u.uQuality.value = QUALITY_LEVEL[quality];
     u.uHud.value = input.hud ? 1 : 0;
-    sunDirection(input.clockMs, u.uSunDir.value);
-    this.arcs.uniforms.uSmooth.value = quality === "low" ? 0 : 1;
+    // Also refreshed when the clock jumps back (a changed system time).
+    if (Math.abs(input.clockMs - this.sunAtMs) >= SUN_UPDATE_MS) {
+      this.sunAtMs = input.clockMs;
+      sunDirection(input.clockMs, u.uSunDir.value);
+    }
 
-    if (input.landReady && this.revealStart < 0) this.revealStart = this.time;
+    const next = this.queued.shift();
+    if (next) this.attach(next.layer, next.texture);
+    // Imagery fades in over the procedural look rather than popping.
+    const fade = dt / IMAGERY_FADE_SECONDS;
+    this.dayMix = this.loaded.day ? Math.min(1, this.dayMix + fade) : 0;
+    this.nightMix = this.loaded.night ? Math.min(1, this.nightMix + fade) : 0;
+    this.earth.uniforms.uDayMix.value = this.dayMix;
+    this.earth.uniforms.uNightMix.value = this.nightMix;
+
+    if (this.loaded.geo && this.revealStart < 0) this.revealStart = this.time;
     const reveal = this.revealStart < 0 ? 0 : Math.min(1, (this.time - this.revealStart) / REVEAL_SECONDS);
 
     u.uTime.value = this.time;
@@ -114,35 +186,27 @@ export class MapRig {
     u.uFlicker.value = flicker(this.time);
     u.uScanY.value = scanY(this.time, fit);
     u.uReveal.value = reveal;
-
-    if (reveal >= 1 && scheduler.update(this.time, this.activity, arcs.endsArray, arcs.timingArray, this.flash)) {
-      arcs.ends.needsUpdate = true;
-      arcs.timing.needsUpdate = true;
-    }
-
-    const spots = u.uHotspots.value;
-    const decay = dt * FLASH_DECAY;
-    const w = fit.mapX1 - fit.mapX0;
-    const h = fit.mapY1 - fit.mapY0;
-    for (let i = 0; i < MAP_HOTSPOT_COUNT; i++) {
-      this.flash[i] = Math.max(0, this.flash[i] - decay);
-      spots[i].set(
-        fit.mapX0 + w * HOTSPOT_UV[i * 2],
-        fit.mapY0 + h * HOTSPOT_UV[i * 2 + 1],
-        (i * 0.618034) % 1,
-        this.flash[i],
-      );
-    }
   }
 
   dispose(): void {
     this.panel.dispose();
-    this.dots.dispose();
+    this.earth.dispose();
     this.hotspots.dispose();
-    this.arcs.dispose();
     this.halo.dispose();
     this.floor.dispose();
     this.bezel.dispose();
+    // GPU copies only: a disposed texture still in use uploads again on its next draw.
+    for (const layer of ["geo", "day", "night"] as const) {
+      this.placeholders[layer].dispose();
+      this.loaded[layer]?.dispose();
+    }
+    for (const { texture } of this.queued) texture.dispose();
+  }
+
+  private attach(layer: MapLayer, texture: THREE.DataTexture): void {
+    this.loaded[layer]?.dispose();
+    this.loaded[layer] = texture;
+    this.earth.uniforms[MAP_UNIFORM[layer]].value = texture;
   }
 
   private applyFit(fit: MapFit, floorSize: THREE.Vector2): void {
@@ -151,10 +215,16 @@ export class MapRig {
     this.shared.uMapRect.value.set(fit.mapX0, fit.mapY0, fit.mapX1, fit.mapY1);
     this.panel.uniforms.uHalf.value.set(fit.panelW / 2, fit.panelH / 2);
     this.panel.uniforms.uFrameInset.value = fit.frameInset;
-    this.dots.uniforms.uDotSize.value = fit.pitch * 0.74;
-    this.dots.uniforms.uRipple.value = fit.pitch * 14;
-    this.hotspots.uniforms.uSize.value = fit.pitch * 9;
-    this.arcs.uniforms.uWidth.value = Math.max(fit.pitch * 0.34, 0.008);
+    this.earth.uniforms.uHalf.value.set(fit.panelW / 2, fit.panelH / 2);
+    this.earth.uniforms.uSpot.value = fit.unit * 0.74;
+    this.hotspots.uniforms.uSize.value = fit.unit * 4.5;
+    // Markers only move with the fit: x, y, a breathing phase, and w = 0 (no flash).
+    const spots = this.shared.uHotspots.value;
+    const w = fit.mapX1 - fit.mapX0;
+    const h = fit.mapY1 - fit.mapY0;
+    for (let i = 0; i < MAP_HOTSPOT_COUNT; i++) {
+      spots[i].set(fit.mapX0 + w * HOTSPOT_UV[i * 2], fit.mapY0 + h * HOTSPOT_UV[i * 2 + 1], (i * 0.618034) % 1, 0);
+    }
     this.halo.uniforms.uHalf.value.set(fit.outerW / 2, fit.outerH / 2);
     this.floor.uniforms.uFloorSize.value.copy(floorSize);
   }

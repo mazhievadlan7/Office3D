@@ -12,6 +12,8 @@ const COLOR_OWNED_FILES = [
   "src/features/agents/components/ConnectionPanel.tsx",
   "src/features/agents/components/AgentInspectPanels.tsx",
   "src/features/agents/components/GatewayConnectScreen.tsx",
+  // The HQ classes the connect screens, studio settings and onboarding share.
+  "src/features/agents/components/hqFormClasses.ts",
   "src/features/agents/components/AgentCreateModal.tsx",
   "src/features/agents/components/HeaderBar.tsx",
   "src/app/page.tsx",

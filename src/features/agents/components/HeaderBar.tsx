@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { Plug } from "lucide-react";
 import { resolveGatewayStatusBadgeClass } from "./colorSemantics";
@@ -53,7 +52,6 @@ export const HeaderBar = ({
               {status === "connecting" ? t("header.connecting") : t("header.connected")}
             </span>
           ) : null}
-          <ThemeToggle />
           {showConnectionSettings ? (
             <div className="relative z-[210]" ref={menuRef}>
               <button

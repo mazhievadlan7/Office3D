@@ -3,6 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { AgentState } from "@/features/agents/state/store";
+import {
+  HQ_BADGE,
+  HQ_BADGE_ERROR,
+  HQ_BUTTON_DANGER,
+  HQ_BUTTON_PRIMARY,
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD,
+  HQ_CARD_BUTTON_SELECTED,
+  HQ_CHECKBOX,
+  HQ_EMPTY,
+  HQ_FIELD,
+  HQ_FIELD_PROSE,
+  HQ_HINT,
+  HQ_INSET,
+  HQ_LABEL,
+  HQ_NOTICE_ERROR,
+  HQ_NOTICE_OK,
+  HQ_PANEL_HEADER,
+  HQ_PANEL_LEAD,
+  HQ_PANEL_TITLE,
+  HQ_SECTION,
+  HQ_SECTION_TITLE,
+  HQ_SELECT,
+} from "@/features/office/components/panels/hqPanelStyles";
 import type { OfficeStandupController } from "@/features/office/hooks/useOfficeStandupController";
 import {
   createCronJob,
@@ -397,78 +421,73 @@ export function PlaybooksPanel({
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-cyan-500/10 px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-              {t("playbooks.title")}
-            </div>
-            <div className="mt-1 font-mono text-[11px] text-white/40">
-              {t("playbooks.subtitle")}
-            </div>
+      <div className={HQ_PANEL_HEADER}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className={HQ_PANEL_TITLE}>{t("playbooks.title")}</div>
+            <div className={HQ_PANEL_LEAD}>{t("playbooks.subtitle")}</div>
           </div>
           <button
             type="button"
             onClick={() => void loadJobs()}
             disabled={!cronEnabled}
-            className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
+            className={HQ_BUTTON_SECONDARY}
           >
             {t("common.refresh")}
           </button>
         </div>
         {!cronEnabled ? (
-          <div className="mt-2 font-mono text-[11px] text-white/35">
-            {t("playbooks.unsupported")}
-          </div>
+          <div className={`mt-2 ${HQ_HINT}`}>{t("playbooks.unsupported")}</div>
         ) : null}
-        {error ? <div className="mt-2 font-mono text-[11px] text-rose-300">{error}</div> : null}
-        {actionMessage ? (
-          <div className="mt-2 font-mono text-[11px] text-emerald-300">{actionMessage}</div>
-        ) : null}
+        {error ? <div className={`mt-2 ${HQ_NOTICE_ERROR}`}>{error}</div> : null}
+        {actionMessage ? <div className={`mt-2 ${HQ_NOTICE_OK}`}>{actionMessage}</div> : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="border-b border-cyan-500/10 px-4 py-3">
-          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            {t("playbooks.activeJobs")}
-          </div>
-          <div className="mt-3 space-y-2">
+        <div className="border-b border-red-900/40 px-3 py-3">
+          <div className={HQ_SECTION_TITLE}>{t("playbooks.activeJobs")}</div>
+          <div className="mt-2.5 space-y-2">
             {loading ? (
-              <div className="font-mono text-[11px] text-white/40">{t("playbooks.loadingJobs")}</div>
+              <div className={HQ_EMPTY}>{t("playbooks.loadingJobs")}</div>
             ) : jobs.length === 0 ? (
-              <div className="font-mono text-[11px] text-white/35">{t("playbooks.noJobs")}</div>
+              <div className={HQ_EMPTY}>{t("playbooks.noJobs")}</div>
             ) : (
               jobs.map((job) => {
                 const agentName = agentById.get(job.agentId ?? "")?.name || job.agentId || t("playbooks.unknown");
                 return (
-                  <div
-                    key={job.id}
-                    className="rounded border border-white/8 bg-white/[0.03] px-3 py-3"
-                  >
+                  <div key={job.id} className={`${HQ_CARD} px-3 py-2.5`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                        <div className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
                           {job.name}
                         </div>
-                        <div className="mt-1 font-mono text-[11px] text-white/45">{agentName}</div>
+                        <div className="mt-0.5 truncate font-mono text-[11px] text-white/60">{agentName}</div>
                       </div>
-                      <div className="shrink-0 rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-200">
+                      <span
+                        className={
+                          job.state.lastStatus === "error"
+                            ? HQ_BADGE_ERROR
+                            : HQ_BADGE
+                        }
+                      >
                         {CRON_STATUS_LABELS[job.state.lastStatus ?? "ready"]()}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 space-y-1 font-mono text-[11px] leading-4 text-white/75">
+                      <div className="text-white">{formatCronSchedule(job.schedule)}</div>
+                      <div>{t("playbooks.nextRun", { when: formatRelativeDateTime(job.state.nextRunAtMs) })}</div>
+                      <div className="text-white/55">
+                        {t("playbooks.lastRun", { when: formatRelativeDateTime(job.state.lastRunAtMs) })}
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-1 font-mono text-[11px] text-white/65">
-                      <div>{formatCronSchedule(job.schedule)}</div>
-                      <div>{t("playbooks.nextRun", { when: formatRelativeDateTime(job.state.nextRunAtMs) })}</div>
-                      <div>{t("playbooks.lastRun", { when: formatRelativeDateTime(job.state.lastRunAtMs) })}</div>
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => void handleRunNow(job.id)}
                         disabled={runBusyJobId === job.id || deleteBusyJobId === job.id}
-                        className="rounded border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200 transition-colors hover:border-amber-400/50 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className={HQ_BUTTON_SECONDARY}
                       >
                         {runBusyJobId === job.id ? t("playbooks.running") : t("playbooks.run")}
                       </button>
@@ -476,7 +495,7 @@ export function PlaybooksPanel({
                         type="button"
                         onClick={() => void handleDelete(job.id)}
                         disabled={deleteBusyJobId === job.id || runBusyJobId === job.id}
-                        className="rounded border border-rose-500/25 bg-rose-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-rose-200 transition-colors hover:border-rose-400/50 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className={HQ_BUTTON_DANGER}
                       >
                         {deleteBusyJobId === job.id ? t("playbooks.deleting") : t("playbooks.delete")}
                       </button>
@@ -488,112 +507,113 @@ export function PlaybooksPanel({
           </div>
         </div>
 
-        <div className="px-4 py-3">
-          <div className="rounded border border-emerald-500/15 bg-emerald-500/[0.05] px-3 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-200/85">
-                  {t("playbooks.standupTitle")}
-                </div>
-                <div className="mt-1 font-mono text-[11px] leading-5 text-white/50">
+        <div className="px-3 py-3">
+          <div className={HQ_SECTION}>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className={HQ_SECTION_TITLE}>{t("playbooks.standupTitle")}</div>
+                <div className="mt-1 text-[11px] leading-4 text-white/55">
                   {t("playbooks.standupSubtitle")}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => void standup.startMeeting("manual")}
-                className="rounded border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-100 transition-colors hover:border-emerald-400/50 hover:text-white"
+                className={HQ_BUTTON_PRIMARY}
               >
                 {t("playbooks.startNow")}
               </button>
             </div>
 
             <div className="mt-3 grid gap-3">
-              <label className="flex items-center gap-2 font-mono text-[11px] text-white/75">
+              <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-4 text-white/85">
                 <input
                   type="checkbox"
+                  className={`mt-px ${HQ_CHECKBOX}`}
                   checked={standupScheduleEnabled}
                   onChange={(event) => setStandupScheduleEnabled(event.target.checked)}
                 />
                 {t("playbooks.enableSchedule")}
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.cronExpression")}
                 </span>
                 <input
                   value={standupCronExpr}
                   onChange={(event) => setStandupCronExpr(event.target.value)}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.timezone")}
                 </span>
                 <input
                   value={standupTimezone}
                   onChange={(event) => setStandupTimezone(event.target.value)}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.secondsPerSpeaker")}
                 </span>
                 <input
                   value={standupSpeakerSeconds}
                   onChange={(event) => setStandupSpeakerSeconds(event.target.value)}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex items-center gap-2 font-mono text-[11px] text-white/75">
+              <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-4 text-white/85">
                 <input
                   type="checkbox"
+                  className={`mt-px ${HQ_CHECKBOX}`}
                   checked={standupAutoOpenBoard}
                   onChange={(event) => setStandupAutoOpenBoard(event.target.checked)}
                 />
                 {t("playbooks.autoOpenBoard")}
               </label>
 
-              <label className="flex items-center gap-2 font-mono text-[11px] text-white/75">
+              <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-4 text-white/85">
                 <input
                   type="checkbox"
+                  className={`mt-px ${HQ_CHECKBOX}`}
                   checked={jiraEnabled}
                   onChange={(event) => setJiraEnabled(event.target.checked)}
                 />
                 {t("playbooks.enableJira")}
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.jiraBaseUrl")}
                 </span>
                 <input
                   value={jiraBaseUrl}
                   onChange={(event) => setJiraBaseUrl(event.target.value)}
                   placeholder="https://company.atlassian.net"
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none placeholder:text-white/20"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.jiraEmail")}
                 </span>
                 <input
                   value={jiraEmail}
                   onChange={(event) => setJiraEmail(event.target.value)}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.jiraToken")}
                 </span>
                 <input
@@ -606,35 +626,33 @@ export function PlaybooksPanel({
                   placeholder={
                     jiraApiTokenConfigured ? t("playbooks.jiraTokenHint") : ""
                   }
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
                 {jiraApiTokenConfigured ? (
-                  <span className="text-[10px] text-white/45">
-                    {t("playbooks.jiraTokenStored")}
-                  </span>
+                  <span className={HQ_HINT}>{t("playbooks.jiraTokenStored")}</span>
                 ) : null}
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.jiraProjectKey")}
                 </span>
                 <input
                   value={jiraProjectKey}
                   onChange={(event) => setJiraProjectKey(event.target.value)}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("playbooks.jiraJql")}
                 </span>
                 <textarea
                   value={jiraJql}
                   onChange={(event) => setJiraJql(event.target.value)}
                   rows={3}
-                  className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                  className={`${HQ_FIELD} resize-y`}
                 />
               </label>
 
@@ -642,25 +660,23 @@ export function PlaybooksPanel({
                 type="button"
                 onClick={() => void handleSaveStandupConfig()}
                 disabled={standup.saving}
-                className="rounded border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-100 transition-colors hover:border-emerald-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className={`${HQ_BUTTON_SECONDARY} w-full`}
               >
                 {standup.saving ? t("playbooks.savingStandup") : t("playbooks.saveStandup")}
               </button>
             </div>
 
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-                {t("playbooks.manualInput")}
-              </div>
+            <div className="mt-4 border-t border-red-900/40 pt-4">
+              <div className={HQ_SECTION_TITLE}>{t("playbooks.manualInput")}</div>
               <div className="mt-3 grid gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <label className="flex flex-col gap-1.5">
+                  <span className={HQ_LABEL}>
                     {t("playbooks.agent")}
                   </span>
                   <select
                     value={standupAgentId}
                     onChange={(event) => setStandupAgentId(event.target.value)}
-                    className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                    className={HQ_SELECT}
                   >
                     <option value="">{t("playbooks.selectAgent")}</option>
                     {agents.map((agent) => (
@@ -671,56 +687,56 @@ export function PlaybooksPanel({
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <label className="flex flex-col gap-1.5">
+                  <span className={HQ_LABEL}>
                     {t("playbooks.jiraAssignee")}
                   </span>
                   <input
                     value={manualJiraAssignee}
                     onChange={(event) => setManualJiraAssignee(event.target.value)}
-                    className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                    className={HQ_FIELD}
                   />
                 </label>
 
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <label className="flex flex-col gap-1.5">
+                  <span className={HQ_LABEL}>
                     {t("playbooks.currentTask")}
                   </span>
                   <input
                     value={manualTask}
                     onChange={(event) => setManualTask(event.target.value)}
-                    className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                    className={HQ_FIELD_PROSE}
                   />
                 </label>
 
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <label className="flex flex-col gap-1.5">
+                  <span className={HQ_LABEL}>
                     {t("playbooks.blockers")}
                   </span>
                   <textarea
                     value={manualBlockers}
                     onChange={(event) => setManualBlockers(event.target.value)}
                     rows={3}
-                    className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                    className={`${HQ_FIELD_PROSE} resize-y`}
                   />
                 </label>
 
-                <label className="flex flex-col gap-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <label className="flex flex-col gap-1.5">
+                  <span className={HQ_LABEL}>
                     {t("playbooks.manualNote")}
                   </span>
                   <textarea
                     value={manualNote}
                     onChange={(event) => setManualNote(event.target.value)}
                     rows={4}
-                    className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                    className={`${HQ_FIELD_PROSE} resize-y`}
                   />
                 </label>
 
                 <button
                   type="button"
                   onClick={() => void handleSaveManualNotes()}
-                  className="rounded border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:border-cyan-400/50 hover:text-white"
+                  className={`${HQ_BUTTON_SECONDARY} w-full`}
                 >
                   {t("playbooks.saveNotes")}
                 </button>
@@ -728,29 +744,39 @@ export function PlaybooksPanel({
             </div>
 
             {standup.meeting ? (
-              <div className="mt-4 rounded border border-white/8 bg-white/[0.03] px-3 py-3 font-mono text-[11px] text-white/65">
-                <div>{t("playbooks.meetingPhase")} {standupPhaseLabel(standup.meeting.phase)}</div>
-                <div>{t("playbooks.participants")} {standup.meeting.participantOrder.length}</div>
+              <div className={`mt-4 space-y-1 px-3 py-2.5 font-mono text-[11px] leading-4 text-white/60 ${HQ_INSET}`}>
                 <div>
-                  {t("playbooks.currentSpeaker")} {standup.meeting.currentSpeakerAgentId ?? t("playbooks.waiting")}
+                  {t("playbooks.meetingPhase")}{" "}
+                  <span className="text-white">{standupPhaseLabel(standup.meeting.phase)}</span>
+                </div>
+                <div>
+                  {t("playbooks.participants")}{" "}
+                  <span className="tabular-nums text-white">{standup.meeting.participantOrder.length}</span>
+                </div>
+                <div>
+                  {t("playbooks.currentSpeaker")}{" "}
+                  <span className="text-white">
+                    {standup.meeting.currentSpeakerAgentId
+                      ? (agentById.get(standup.meeting.currentSpeakerAgentId)?.name ||
+                        standup.meeting.currentSpeakerAgentId)
+                      : t("playbooks.waiting")}
+                  </span>
                 </div>
               </div>
             ) : null}
           </div>
 
-          <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            {t("playbooks.templates")}
-          </div>
-          <div className="mt-3 space-y-2">
+          <div className={`mt-5 ${HQ_SECTION_TITLE}`}>{t("playbooks.templates")}</div>
+          <div className="mt-2.5 space-y-2">
             {PLAYBOOK_TEMPLATES.map((template) => {
               const isSelected = template.id === selectedTemplateId;
               return (
                 <div
                   key={template.id}
-                  className={`rounded border px-3 py-3 transition-colors ${
+                  className={`px-3 py-2.5 ${
                     isSelected
-                      ? "border-cyan-400/30 bg-cyan-500/[0.06]"
-                      : "border-white/8 bg-white/[0.03]"
+                      ? HQ_CARD_BUTTON_SELECTED
+                      : `${HQ_CARD} transition-colors hover:border-red-500/50 hover:bg-red-950/40`
                   }`}
                 >
                   <button
@@ -762,26 +788,27 @@ export function PlaybooksPanel({
                       setError(null);
                       setActionMessage(null);
                     }}
-                    className="w-full text-left"
+                    aria-expanded={isSelected}
+                    className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                   >
-                    <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                    <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
                       {template.name}
                     </div>
-                    <div className="mt-1 font-mono text-[11px] leading-5 text-white/50">
+                    <div className="mt-1 text-[11px] leading-4 text-white/60">
                       {template.description}
                     </div>
                   </button>
 
                   {isSelected ? (
-                    <div className="mt-3 space-y-3 border-t border-cyan-500/10 pt-3">
-                      <label className="flex flex-col gap-1">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                    <div className="mt-3 space-y-3 border-t border-red-900/40 pt-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className={HQ_LABEL}>
                           {t("playbooks.agent")}
                         </span>
                         <select
                           value={selectedAgentId}
                           onChange={(event) => setSelectedAgentId(event.target.value)}
-                          className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+                          className={HQ_SELECT}
                         >
                           <option value="">{t("playbooks.selectAgent")}</option>
                           {agents.map((agent) => (
@@ -792,15 +819,15 @@ export function PlaybooksPanel({
                         </select>
                       </label>
 
-                      <label className="flex flex-col gap-1">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                      <label className="flex flex-col gap-1.5">
+                        <span className={HQ_LABEL}>
                           {t("playbooks.nameOverride")}
                         </span>
                         <input
                           value={nameOverride}
                           onChange={(event) => setNameOverride(event.target.value)}
                           placeholder={template.name}
-                          className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none placeholder:text-white/20"
+                          className={HQ_FIELD}
                         />
                       </label>
 
@@ -808,7 +835,7 @@ export function PlaybooksPanel({
                         type="button"
                         onClick={() => void handleCreate()}
                         disabled={createBusy}
-                        className="w-full rounded border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:border-cyan-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className={`${HQ_BUTTON_PRIMARY} w-full`}
                       >
                         {createBusy ? t("playbooks.creating") : t("playbooks.launch")}
                       </button>

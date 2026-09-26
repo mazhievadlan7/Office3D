@@ -1,14 +1,7 @@
 import { HQ_SCREEN_APPS } from "./screenApps";
+import { paintMarkets, paintMusic, paintNews } from "./screenBroadcast";
 import { APP_PAINTERS, type HqScreenFeed, type Painter } from "./screenPaint";
-import {
-  paintExecMonitor,
-  paintExecWall,
-  paintMapLeft,
-  paintMapRight,
-  paintMusic,
-  paintNews,
-  paintSecurity,
-} from "./screenPanels";
+import { paintExecMonitor, paintExecWall, paintMapLeft, paintMapRight } from "./screenPanels";
 
 /**
  * Every surface the screen hub paints, shared by the painting worker and the
@@ -37,7 +30,7 @@ export const MAP_H = 600;
 /** Width over height of the map wall's data panels (HqWorldMap sizes its planes by it). */
 export const MAP_PANEL_ASPECT = MAP_W / MAP_H;
 
-/** Wall screen channels, in tile order (HQ_WALL_SCREEN). */
+/** Wall screen channels, in tile order (HQ_WALL_SCREEN: AM7's report, news, business, radio). */
 export const WALL_LAYERS = 4;
 
 /** A grid of equal tiles, each inside a gutter of GUTTER pixels. */
@@ -67,14 +60,27 @@ export type ScreenTarget =
   | { kind: "layer"; set: "monitors" | "walls"; layer: number }
   | { kind: "single"; id: "exec" | "mapLeft" | "mapRight" };
 
+/**
+ * The big screens the hub can see or not (screenViews.ts): a surface with a
+ * view repaints at `period` while one of its screens is in view and at
+ * `idlePeriod` otherwise. Surfaces without one always repaint at `period`.
+ */
+export type ScreenView = "execWall" | "news" | "markets" | "music" | "exec";
+
 export type ScreenSurface = {
   target: ScreenTarget;
   w: number;
   h: number;
-  /** Seconds between repaints at full quality. */
+  /** Seconds between repaints at full quality (while in view). */
   period: number;
+  /** Seconds between repaints while none of its screens is in view. */
+  idlePeriod?: number;
+  view?: ScreenView;
   paint: (p: Painter, t: number, feed: HqScreenFeed) => void;
 };
+
+/** Off-screen channels still repaint now and then, so a glance never finds a stale picture. */
+const IDLE_PERIOD = 2;
 
 /** Seconds between repaints of each monitor app (typing apps repaint fastest). */
 const APP_PERIOD: Partial<Record<(typeof HQ_SCREEN_APPS)[number], number>> = {
@@ -102,15 +108,22 @@ export const SCREEN_SURFACES: readonly ScreenSurface[] = [
       paint: (p, t, feed) => app(p, t, seed, feed),
     };
   }),
-  // Layer order = HQ_WALL_SCREEN: AM7's report, news, security, music.
-  { target: { kind: "layer", set: "walls", layer: 0 }, w: WALL_W, h: WALL_H, period: 1, paint: paintExecWall },
-  { target: { kind: "layer", set: "walls", layer: 1 }, w: WALL_W, h: WALL_H, period: 1 / 10, paint: paintNews },
-  { target: { kind: "layer", set: "walls", layer: 2 }, w: WALL_W, h: WALL_H, period: 1 / 8, paint: paintSecurity },
-  { target: { kind: "layer", set: "walls", layer: 3 }, w: WALL_W, h: WALL_H, period: 1 / 10, paint: (p, t) => paintMusic(p, t) },
-  { target: { kind: "single", id: "exec" }, w: EXEC_W, h: EXEC_H, period: 0.25, paint: paintExecMonitor },
+  // Layer order = HQ_WALL_SCREEN: AM7's report, news, business, radio. The
+  // channels with a crawl or a turning Earth repaint at broadcast-like rates
+  // while someone is watching, and rest otherwise.
+  { target: { kind: "layer", set: "walls", layer: 0 }, w: WALL_W, h: WALL_H, period: 1 / 10, idlePeriod: IDLE_PERIOD, view: "execWall", paint: paintExecWall },
+  { target: { kind: "layer", set: "walls", layer: 1 }, w: WALL_W, h: WALL_H, period: 1 / 20, idlePeriod: IDLE_PERIOD, view: "news", paint: paintNews },
+  { target: { kind: "layer", set: "walls", layer: 2 }, w: WALL_W, h: WALL_H, period: 1 / 16, idlePeriod: IDLE_PERIOD, view: "markets", paint: paintMarkets },
+  { target: { kind: "layer", set: "walls", layer: 3 }, w: WALL_W, h: WALL_H, period: 1 / 15, idlePeriod: IDLE_PERIOD, view: "music", paint: paintMusic },
+  { target: { kind: "single", id: "exec" }, w: EXEC_W, h: EXEC_H, period: 1 / 6, idlePeriod: IDLE_PERIOD, view: "exec", paint: paintExecMonitor },
   { target: { kind: "single", id: "mapLeft" }, w: MAP_W, h: MAP_H, period: 0.25, paint: paintMapLeft },
-  { target: { kind: "single", id: "mapRight" }, w: MAP_W, h: MAP_H, period: 0.25, paint: paintMapRight },
+  { target: { kind: "single", id: "mapRight" }, w: MAP_W, h: MAP_H, period: 0.2, paint: paintMapRight },
 ];
+
+/** Seconds between repaints of a surface, given whether any of its screens is in view. */
+export function surfacePeriod(surface: ScreenSurface, inView: boolean): number {
+  return inView || surface.idlePeriod === undefined ? surface.period : Math.max(surface.period, surface.idlePeriod);
+}
 
 /**
  * GLSL: `vec2 <name>(float tile, vec2 p)`, the atlas UV of point p inside a

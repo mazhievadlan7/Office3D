@@ -13,6 +13,16 @@ type RunningAvatarLoaderProps = {
 
 const S = 4;
 
+// The HQ palette: a red operative in black, so the loader belongs to the
+// black-and-red office rather than looking pasted in from elsewhere.
+const SHIRT = "#e3141c";
+const SHORTS = "#1c1212";
+const SHOE = "#f5f5f5";
+const SKIN = "#f5c9a5";
+const DARK = "#0b0707";
+const MOUTH = "#7a151a";
+const CAP = "#ff2a2a";
+
 const box = (
   w: number,
   h: number,
@@ -55,7 +65,9 @@ export function RunningAvatarLoader({
             height: 2 * S,
             marginLeft: -5 * S,
             borderRadius: "50%",
-            background: "rgba(0,0,0,0.2)",
+            // A red glow rather than a shadow: a black shadow vanishes on the
+            // black panels the loader sits on.
+            background: "rgba(255,26,26,0.35)",
           }}
         />
 
@@ -82,11 +94,11 @@ export function RunningAvatarLoader({
             }}
           >
             {/* Shorts. */}
-            <div style={box(3, 3, "#64748b", { top: 0, left: 0 })} />
+            <div style={box(3, 3, SHORTS, { top: 0, left: 0 })} />
             {/* Skin. */}
-            <div style={box(2, 2, "#f5c9a5", { top: 3 * S, left: 0.5 * S })} />
+            <div style={box(2, 2, SKIN, { top: 3 * S, left: 0.5 * S })} />
             {/* Shoe. */}
-            <div style={box(3, 2, "#f8fafc", { top: 5 * S, left: 0 })} />
+            <div style={box(3, 2, SHOE, { top: 5 * S, left: 0 })} />
           </div>
 
           {/* Right leg. */}
@@ -100,13 +112,13 @@ export function RunningAvatarLoader({
               transformOrigin: "50% 0",
             }}
           >
-            <div style={box(3, 3, "#64748b", { top: 0, left: 0 })} />
-            <div style={box(2, 2, "#f5c9a5", { top: 3 * S, left: 0.5 * S })} />
-            <div style={box(3, 2, "#f8fafc", { top: 5 * S, left: 0 })} />
+            <div style={box(3, 3, SHORTS, { top: 0, left: 0 })} />
+            <div style={box(2, 2, SKIN, { top: 3 * S, left: 0.5 * S })} />
+            <div style={box(3, 2, SHOE, { top: 5 * S, left: 0 })} />
           </div>
 
-          {/* Torso (yellow shirt). */}
-          <div style={box(10, 5, "#eab308", { left: 2 * S, bottom: 7 * S })} />
+          {/* Torso (red shirt). */}
+          <div style={box(10, 5, SHIRT, { left: 2 * S, bottom: 7 * S })} />
 
           {/* Left arm. */}
           <div
@@ -119,8 +131,8 @@ export function RunningAvatarLoader({
               transformOrigin: "50% 0",
             }}
           >
-            <div style={box(2, 4, "#eab308", { top: 0, left: 0 })} />
-            <div style={box(2, 2, "#f5c9a5", { top: 4 * S, left: 0 })} />
+            <div style={box(2, 4, SHIRT, { top: 0, left: 0 })} />
+            <div style={box(2, 2, SKIN, { top: 4 * S, left: 0 })} />
           </div>
 
           {/* Right arm. */}
@@ -134,31 +146,31 @@ export function RunningAvatarLoader({
               transformOrigin: "50% 0",
             }}
           >
-            <div style={box(2, 4, "#eab308", { top: 0, left: 0 })} />
-            <div style={box(2, 2, "#f5c9a5", { top: 4 * S, left: 0 })} />
+            <div style={box(2, 4, SHIRT, { top: 0, left: 0 })} />
+            <div style={box(2, 2, SKIN, { top: 4 * S, left: 0 })} />
           </div>
 
           {/* Neck. */}
-          <div style={box(3, 1, "#f5c9a5", { left: 5 * S, bottom: 12 * S })} />
+          <div style={box(3, 1, SKIN, { left: 5 * S, bottom: 12 * S })} />
 
           {/* Head. */}
-          <div style={box(7, 5, "#f5c9a5", { left: 3 * S, bottom: 13 * S })} />
+          <div style={box(7, 5, SKIN, { left: 3 * S, bottom: 13 * S })} />
 
           {/* Eyes. */}
-          <div style={box(1, 1, "#1e293b", { left: 4.5 * S, bottom: 15.5 * S })} />
-          <div style={box(1, 1, "#1e293b", { left: 8 * S, bottom: 15.5 * S })} />
+          <div style={box(1, 1, DARK, { left: 4.5 * S, bottom: 15.5 * S })} />
+          <div style={box(1, 1, DARK, { left: 8 * S, bottom: 15.5 * S })} />
 
           {/* Mouth. */}
-          <div style={box(2, 0.5, "#ef4444", { left: 5.5 * S, bottom: 14 * S })} />
+          <div style={box(2, 0.5, MOUTH, { left: 5.5 * S, bottom: 14 * S })} />
 
           {/* Hair. */}
-          <div style={box(7, 1, "#111827", { left: 3 * S, bottom: 18 * S })} />
+          <div style={box(7, 1, DARK, { left: 3 * S, bottom: 18 * S })} />
 
           {/* Hat brim. */}
-          <div style={box(9, 1.5, "#fcd34d", { left: 2 * S, bottom: 19 * S })} />
+          <div style={box(9, 1.5, CAP, { left: 2 * S, bottom: 19 * S })} />
 
           {/* Hat top. */}
-          <div style={box(5, 1.5, "#0f172a", { left: 4 * S, bottom: 20.5 * S })} />
+          <div style={box(5, 1.5, SHIRT, { left: 4 * S, bottom: 20.5 * S })} />
         </div>
 
         <style>{`
@@ -167,8 +179,8 @@ export function RunningAvatarLoader({
             50% { transform: translateY(-${2 * S}px); }
           }
           @keyframes ra-shadow-kf {
-            0%, 100% { transform: scaleX(1); opacity: 0.2; }
-            50% { transform: scaleX(0.65); opacity: 0.12; }
+            0%, 100% { transform: scaleX(1); opacity: 1; }
+            50% { transform: scaleX(0.65); opacity: 0.55; }
           }
           @keyframes ra-leg-l-kf {
             0% { transform: rotate(-25deg); }
@@ -213,7 +225,7 @@ export function RunningAvatarLoader({
 
       {label ? (
         <p
-          className={`${inline ? "" : "text-center"} font-mono text-[11px] tracking-[0.08em] text-white/55 ${labelClassName}`}
+          className={`${inline ? "" : "text-center"} font-mono text-[11px] tracking-[0.08em] text-white/65 ${labelClassName}`}
         >
           {label}
         </p>

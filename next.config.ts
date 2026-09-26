@@ -63,6 +63,9 @@ const nextConfig: NextConfig = {
   // parent re-render (the office screen updates several times a second with
   // a live team) no longer re-renders and recomputes everything below it.
   reactCompiler: true,
+  // No Next.js dev-tools badge (the "N" bottom-left) over the HQ; build and
+  // runtime errors are still shown in development.
+  devIndicators: false,
   turbopack: {
     root: path.resolve(__dirname),
   },

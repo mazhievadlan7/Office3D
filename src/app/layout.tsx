@@ -1,10 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Oswald } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Office3D",
   description: "Операторская студия для шлюза OpenClaw.",
+};
+
+/**
+ * One look only: the black-and-red HQ. The meta tags tell the browser the page
+ * is dark before any CSS arrives, so native scrollbars, pickers and the
+ * mobile address bar never flash light.
+ */
+export const viewport: Viewport = {
+  colorScheme: "dark",
+  themeColor: "#050404",
 };
 
 /**
@@ -36,16 +46,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The theme lives on <html>, not on a screen, so modals and popovers portaled
+  // into document.body get the HQ tokens too. "dark" keeps Tailwind's dark:
+  // variants on; "hq-theme" (declared after .dark in globals.css) wins every
+  // token. Fixed classes, so there is no theme script and no first-paint flash.
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=t?t==='dark':m;document.documentElement.classList.toggle('dark',d);}catch(e){}})();",
-          }}
-        />
-      </head>
+    <html lang="ru" className="dark hq-theme" suppressHydrationWarning>
       <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
         <main className="h-screen w-screen overflow-hidden bg-background">{children}</main>
       </body>

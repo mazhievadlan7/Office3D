@@ -3,6 +3,17 @@
 import { useMemo } from "react";
 
 import type { AgentState } from "@/features/agents/state/store";
+import {
+  HQ_BADGE_ACCENT,
+  HQ_CARD_BUTTON,
+  HQ_DOT_IDLE,
+  HQ_DOT_LIVE,
+  HQ_EMPTY,
+  HQ_META,
+  HQ_PANEL_HEADER,
+  HQ_PANEL_LEAD,
+  HQ_PANEL_TITLE,
+} from "@/features/office/components/panels/hqPanelStyles";
 import { t } from "@/lib/i18n";
 
 const formatRelativeTime = (timestampMs: number | null) => {
@@ -37,20 +48,14 @@ export function InboxPanel({
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-cyan-500/10 px-4 py-3">
-        <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-          {t("inbox.title")}
-        </div>
-        <div className="mt-1 font-mono text-[11px] text-white/40">
-          {t("inbox.lead")}
-        </div>
+      <div className={HQ_PANEL_HEADER}>
+        <div className={HQ_PANEL_TITLE}>{t("inbox.title")}</div>
+        <div className={HQ_PANEL_LEAD}>{t("inbox.lead")}</div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {sortedAgents.length === 0 ? (
-          <div className="px-2 py-6 font-mono text-[11px] text-white/35">
-            {t("inbox.noAgents")}
-          </div>
+          <div className={HQ_EMPTY}>{t("inbox.noAgents")}</div>
         ) : (
           sortedAgents.map((agent) => {
             const preview = agent.latestPreview?.trim() || t("inbox.empty");
@@ -60,27 +65,24 @@ export function InboxPanel({
                 key={agent.agentId}
                 type="button"
                 onClick={() => onSelectAgent(agent.agentId)}
-                className="mb-2 flex w-full flex-col rounded border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/[0.05]"
+                // Unread replies get a red edge so they stand out in a long list.
+                className={`${HQ_CARD_BUTTON} flex flex-col px-3 py-2.5 ${
+                  agent.hasUnseenActivity ? "border-l-2 border-l-[#e3141c]" : ""
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      isRunning ? "bg-emerald-400" : "bg-amber-400/80"
-                    }`}
-                  />
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                  <span className={isRunning ? HQ_DOT_LIVE : HQ_DOT_IDLE} />
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
                     {agent.name || agent.agentId}
                   </span>
                   {agent.hasUnseenActivity ? (
-                    <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-300">
-                      {t("inbox.new")}
-                    </span>
+                    <span className={HQ_BADGE_ACCENT}>{t("inbox.new")}</span>
                   ) : null}
                 </div>
-                <div className="mt-2 line-clamp-3 font-mono text-[12px] leading-5 text-white/70">
+                <div className="mt-1.5 line-clamp-3 break-words text-[12px] leading-[18px] text-white/75">
                   {preview}
                 </div>
-                <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+                <div className={`mt-2 ${HQ_META}`}>
                   {formatRelativeTime(agent.lastAssistantMessageAt)}
                 </div>
               </button>

@@ -21,6 +21,11 @@ import { ConnectStep } from "@/features/onboarding/components/ConnectStep";
 import { AgentsStep } from "@/features/onboarding/components/AgentsStep";
 import { CompanyStep } from "@/features/onboarding/components/CompanyStep";
 import { CompleteStep } from "@/features/onboarding/components/CompleteStep";
+import {
+  HQ_BUTTON_PRIMARY,
+  HQ_CARD,
+  HQ_ICON_BUTTON,
+} from "@/features/agents/components/hqFormClasses";
 import { t } from "@/lib/i18n";
 
 export type OnboardingWizardProps = {
@@ -151,20 +156,22 @@ export const OnboardingWizard = ({
 
   return (
     <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="relative mx-4 flex h-[min(92vh,640px)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] shadow-2xl">
+      <div className={`${HQ_CARD} relative mx-4 flex h-[min(92vh,640px)] w-full max-w-[560px] flex-col overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.85),0_0_32px_rgba(255,26,26,0.08)]`}>
+        {/* A red hairline along the top edge, as on the office HUD. */}
+        <div aria-hidden className="h-px shrink-0 bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-white">
               {currentStepDef?.title ?? t("onboarding.title")}
             </h2>
-            <p className="mt-0.5 text-xs text-white/60">
+            <p className="mt-0.5 text-xs text-white/65">
               {currentStepDef?.description}
             </p>
           </div>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            className={`${HQ_ICON_BUTTON} h-8 w-8 shrink-0`}
             onClick={onComplete}
             aria-label={t("onboarding.close")}
             title={t("onboarding.skip")}
@@ -180,9 +187,9 @@ export const OnboardingWizard = ({
               key={step.id}
               className={`h-1 flex-1 rounded-full transition-colors ${
                 idx <= stepIndex
-                  ? "bg-amber-400"
+                  ? "bg-primary shadow-[0_0_8px_rgba(255,26,26,0.55)]"
                   : completedSteps.has(step.id)
-                    ? "bg-amber-400/40"
+                    ? "bg-primary/40"
                     : "bg-white/10"
               }`}
             />
@@ -193,12 +200,12 @@ export const OnboardingWizard = ({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{renderStepContent()}</div>
 
         {/* Footer navigation */}
-        <div className="flex items-center justify-between border-t border-white/10 px-6 py-4">
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <div>
             {stepIndex > 0 ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                className={`${HQ_ICON_BUTTON} gap-1.5 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em]`}
                 onClick={goPrev}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -207,13 +214,13 @@ export const OnboardingWizard = ({
             ) : null}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-white/40">
+            <span className="font-mono text-[11px] tabular-nums text-white/45">
               {stepIndex + 1} / {totalSteps}
             </span>
             {currentStep === "complete" ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-xs font-semibold text-[#1a1206] transition-colors hover:bg-amber-400"
+                className={`${HQ_BUTTON_PRIMARY} px-4 py-2 text-[10px]`}
                 onClick={onComplete}
               >
                 {t("onboarding.enterOffice")}
@@ -221,7 +228,7 @@ export const OnboardingWizard = ({
             ) : (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                className={`${HQ_BUTTON_PRIMARY} px-4 py-2 text-[10px]`}
                 onClick={goNext}
                 disabled={!canGoNext}
               >

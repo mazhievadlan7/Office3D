@@ -9,6 +9,7 @@ import type { HqProp } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { applyPropShadows, buildPropBatches, disposePropBatches, type PropMaterialSet } from "./propBatches";
 import type { HqScreenHub } from "@/features/hq/render/screens/screenHub";
+import { screenAnchors } from "@/features/hq/render/screens/screenViews";
 import {
   createExecScreenMaterial,
   createFallbackMaterials,
@@ -40,6 +41,8 @@ export function HqProps({ props, quality, uniforms, screens }: Props) {
     },
     [materials],
   );
+  // The hub repaints a big screen at full rate only while the camera can see it.
+  useEffect(() => screens?.setAnchors(screenAnchors(props)), [screens, props]);
 
   const standIns = <PropInstances props={props} scene={null} materials={materials} quality={quality} uniforms={uniforms} />;
   return (

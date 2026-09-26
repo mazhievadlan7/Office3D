@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { t } from "@/lib/i18n";
@@ -6,6 +6,18 @@ import { adapterLabel } from "@/lib/i18n/labels";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import type { StudioGatewayAdapterType, StudioGatewaySettings } from "@/lib/studio/settings";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import {
+  HQ_BUTTON_PRIMARY,
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD,
+  HQ_DOT_OFF,
+  HQ_DOT_ON,
+  HQ_FIELD,
+  HQ_ICON_BUTTON,
+  HQ_INSET,
+  HQ_LABEL,
+  hqOptionClass,
+} from "@/features/agents/components/hqFormClasses";
 
 type GatewayConnectScreenProps = {
   gatewayUrl: string;
@@ -49,6 +61,7 @@ export const GatewayConnectScreen = ({
 }: GatewayConnectScreenProps) => {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [showToken, setShowToken] = useState(false);
+  const chooseBackendId = useId();
   const tokenOptional =
     selectedAdapterType === "hermes" ||
     selectedAdapterType === "demo" ||
@@ -69,24 +82,16 @@ export const GatewayConnectScreen = ({
     () => `npm run demo-gateway`,
     []
   );
-  const useDemoPreset = () => {
-    onAdapterTypeChange("demo");
-  };
-  const useHermesPreset = () => {
-    onAdapterTypeChange("hermes");
-  };
-  const useOpenClawPreset = () => {
-    onAdapterTypeChange("openclaw");
-  };
-  const useCustomPreset = () => {
-    onAdapterTypeChange("custom");
-  };
-  const useLocalPreset = () => {
-    onAdapterTypeChange("local");
-  };
-  const useOffice3dPreset = () => {
-    onAdapterTypeChange("office3d");
-  };
+  // In the order the office recommends them: look around first, then the
+  // default backend, then the direct runtimes, OpenClaw last.
+  const backendOptions: ReadonlyArray<readonly [StudioGatewayAdapterType, string]> = [
+    ["demo", t("gateway.backendDemo")],
+    ["hermes", t("gateway.backendHermes")],
+    ["local", t("gateway.backendLocal")],
+    ["office3d", t("gateway.backendOffice3d")],
+    ["custom", t("gateway.backendCustom")],
+    ["openclaw", t("gateway.backendOpenClaw")],
+  ];
   const statusCopy = useMemo(() => {
     if (status === "connecting" && isLocal) {
       return t("gateway.detectedLocal", { port: localPort });
@@ -118,12 +123,7 @@ export const GatewayConnectScreen = ({
   }, [selectedAdapterType]);
   const connectDisabled = status === "connecting";
   const connectLabel = connectDisabled ? t("gateway.connecting") : t("gateway.connect");
-  const statusDotClass =
-    status === "connected"
-      ? "ui-dot-status-connected"
-      : status === "connecting"
-        ? "ui-dot-status-connecting"
-        : "ui-dot-status-disconnected";
+  const statusDotClass = status === "connected" ? HQ_DOT_ON : HQ_DOT_OFF;
 
   const copyLocalCommand = async () => {
     try {
@@ -138,13 +138,16 @@ export const GatewayConnectScreen = ({
 
   const commandField = (
     <div className="space-y-1.5">
-      <div className="ui-command-surface flex items-center gap-2 rounded-md px-3 py-2">
-        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-[var(--command-fg)]">
+      <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-black/70 px-3 py-2">
+        <span aria-hidden className="font-mono text-[12px] text-primary">
+          $
+        </span>
+        <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-white">
           {localGatewayCommand}
         </code>
         <button
           type="button"
-          className="ui-btn-icon ui-command-copy h-7 w-7 shrink-0"
+          className={`${HQ_BUTTON_SECONDARY} h-7 w-7 shrink-0`}
           onClick={copyLocalCommand}
           aria-label={t("gateway.copyCommandLabel")}
           title={t("gateway.copyCommand")}
@@ -153,11 +156,11 @@ export const GatewayConnectScreen = ({
         </button>
       </div>
       {copyStatus === "copied" ? (
-        <p className="text-xs text-muted-foreground">{t("common.copied")}</p>
+        <p className="text-xs text-white/65">{t("common.copied")}</p>
       ) : copyStatus === "failed" ? (
         <p className="ui-text-danger text-xs">{t("gateway.copyFailed")}</p>
       ) : (
-        <p className="text-xs leading-snug text-muted-foreground">
+        <p className="text-[11px] leading-snug text-white/45">
           {t("gateway.sourceCheckoutHint", { command: localGatewayCommandPnpm })}
         </p>
       )}
@@ -165,11 +168,11 @@ export const GatewayConnectScreen = ({
   );
 
   const remoteForm = (
-    <div className="mt-2.5 flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-[11px] font-medium text-foreground/90">
-        {t("gateway.upstreamUrl")}
+    <div className="mt-4 flex flex-col gap-3">
+      <label className="flex flex-col gap-1.5">
+        <span className={`${HQ_LABEL} text-[10px]`}>{t("gateway.upstreamUrl")}</span>
         <input
-          className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
+          className={`${HQ_FIELD} h-10 w-full px-3.5 font-mono text-[13px]`}
           type="text"
           value={gatewayUrl}
           onChange={(event) => onGatewayUrlChange(event.target.value)}
@@ -178,19 +181,21 @@ export const GatewayConnectScreen = ({
         />
       </label>
 
-      <div className="space-y-0.5 text-xs text-muted-foreground">
-        <p className="font-medium text-foreground">{t("gateway.tailscaleTitle")}</p>
+      <div className="space-y-0.5 text-[11px] leading-snug text-white/45">
+        <p className="font-semibold text-white/80">{t("gateway.tailscaleTitle")}</p>
         <p>
           {t("gateway.tailscaleUrl")}{" "}
-          <span className="font-mono">wss://&lt;хост-вашего-tailnet&gt;</span>
+          <span className="font-mono text-white/70">wss://&lt;хост-вашего-tailnet&gt;</span>
         </p>
       </div>
 
-      <label className="flex flex-col gap-1 text-[11px] font-medium text-foreground/90">
-        {tokenOptional ? t("gateway.upstreamTokenOptional") : t("gateway.upstreamToken")}
+      <label className="flex flex-col gap-1.5">
+        <span className={`${HQ_LABEL} text-[10px]`}>
+          {tokenOptional ? t("gateway.upstreamTokenOptional") : t("gateway.upstreamToken")}
+        </span>
         <div className="relative">
           <input
-            className="ui-input h-10 w-full rounded-md px-4 pr-10 font-sans text-sm text-foreground outline-none"
+            className={`${HQ_FIELD} h-10 w-full px-3.5 pr-11 font-mono text-[13px]`}
             type={showToken ? "text" : "password"}
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
@@ -199,22 +204,18 @@ export const GatewayConnectScreen = ({
           />
           <button
             type="button"
-            className="ui-btn-icon absolute inset-y-0 right-1 my-auto h-8 w-8 border-transparent bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+            className={`${HQ_ICON_BUTTON} absolute inset-y-0 right-1 my-auto h-8 w-8`}
             aria-label={showToken ? t("gateway.hideToken") : t("gateway.showToken")}
             onClick={() => setShowToken((prev) => !prev)}
           >
-            {showToken ? (
-              <EyeOff className="h-4 w-4 transition-transform duration-150" />
-            ) : (
-              <Eye className="h-4 w-4 transition-transform duration-150" />
-            )}
+            {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </label>
 
       <button
         type="button"
-        className="ui-btn-primary mt-1 h-11 w-full px-4 text-xs font-semibold tracking-[0.05em] disabled:cursor-not-allowed disabled:opacity-60"
+        className={`${HQ_BUTTON_PRIMARY} mt-1 h-11 w-full px-4 text-[11px]`}
         onClick={onConnect}
         disabled={connectDisabled || !gatewayUrl.trim()}
       >
@@ -222,18 +223,16 @@ export const GatewayConnectScreen = ({
       </button>
 
       {status === "connecting" ? (
-        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="inline-flex items-center gap-1.5 text-xs text-white/65">
           <RunningAvatarLoader size={16} trackWidth={32} inline />
           {t("gateway.connecting")}
         </div>
       ) : null}
-      {error ? <p className="ui-text-danger text-xs leading-snug">{error}</p> : null}
+      {error ? <p className="ui-alert-danger rounded-md px-3 py-2 text-xs leading-snug">{error}</p> : null}
       {showApprovalHint && selectedAdapterType === "openclaw" ? (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-3 text-xs text-muted-foreground">
-          <p className="leading-snug">
-            {t("gateway.approveHint")}
-          </p>
-          <code className="mt-2 block overflow-x-auto whitespace-nowrap rounded-md bg-[var(--command-bg)] px-2.5 py-2 font-mono text-[11px] text-[var(--command-fg)]">
+        <div className={`${HQ_INSET} px-3 py-3 text-xs text-white/65`}>
+          <p className="leading-snug">{t("gateway.approveHint")}</p>
+          <code className="mt-2 block overflow-x-auto whitespace-nowrap rounded-md border border-primary/30 bg-black/70 px-2.5 py-2 font-mono text-[11px] text-white">
             openclaw devices approve --latest
           </code>
         </div>
@@ -241,147 +240,99 @@ export const GatewayConnectScreen = ({
     </div>
   );
 
+  const tip = (title: string, body: string) => (
+    <div className={`${HQ_INSET} px-3 py-3`}>
+      <p className="flex items-center gap-2 text-xs font-semibold text-white">
+        <span aria-hidden className="h-3 w-0.5 shrink-0 rounded-full bg-primary" />
+        {title}
+      </p>
+      <p className="mt-1 text-[11px] leading-snug text-white/55">{body}</p>
+    </div>
+  );
+
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-[820px] flex-1 flex-col gap-5">
-      <div className="ui-card px-4 py-2">
-        <div className="flex items-center gap-2">
-          {status === "connecting" ? (
-            <RunningAvatarLoader size={18} trackWidth={36} inline />
-          ) : (
-            <span
-              className={`h-2.5 w-2.5 ${statusDotClass}`}
-            />
-          )}
-          <p className="text-sm font-semibold text-foreground">{statusCopy}</p>
-        </div>
+    <div className="mx-auto flex min-h-0 w-full max-w-[820px] flex-1 flex-col gap-3">
+      <div className={`${HQ_CARD} flex items-center gap-2.5 px-4 py-2.5`}>
+        {status === "connecting" ? (
+          <RunningAvatarLoader size={18} trackWidth={36} inline />
+        ) : (
+          <span className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass}`} />
+        )}
+        <p className="text-sm font-semibold text-white">{statusCopy}</p>
       </div>
 
-      <div className="ui-card px-4 py-5 sm:px-6">
-        <div>
-          <p className="font-mono text-[10px] font-medium tracking-[0.06em] text-muted-foreground">
-            {t("gateway.remoteTitle")}
-          </p>
-          <p className="mt-2 text-sm text-foreground/90">
-            {t("gateway.chooseBackend")}
-          </p>
-          <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-            {t("gateway.selectedBackend", {
-              selected: adapterLabel(selectedAdapterType),
-              active: adapterLabel(activeAdapterType),
-            })}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("gateway.backendsKeepOwnSettings")}
-          </p>
-          <p className="mt-2 text-xs leading-snug text-muted-foreground">
-            {selectedAdapterHint}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useDemoPreset}
-            >
-              {t("gateway.backendDemo")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useHermesPreset}
-            >
-              {t("gateway.backendHermes")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useLocalPreset}
-            >
-              {t("gateway.backendLocal")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useOffice3dPreset}
-            >
-              {t("gateway.backendOffice3d")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useCustomPreset}
-            >
-              {t("gateway.backendCustom")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-              onClick={useOpenClawPreset}
-            >
-              {t("gateway.backendOpenClaw")}
-            </button>
-          </div>
+      <div className={`${HQ_CARD} px-4 py-5 sm:px-6`}>
+        <p className={`${HQ_LABEL} text-[10px] font-semibold`}>{t("gateway.remoteTitle")}</p>
+        <p id={chooseBackendId} className="mt-2 text-sm text-white">
+          {t("gateway.chooseBackend")}
+        </p>
+        <div role="group" aria-labelledby={chooseBackendId} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {backendOptions.map(([adapterType, label]) => {
+            const selected = selectedAdapterType === adapterType;
+            return (
+              <button
+                key={adapterType}
+                type="button"
+                aria-pressed={selected}
+                className={`rounded-md border px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${hqOptionClass(selected)}`}
+                onClick={() => onAdapterTypeChange(adapterType)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
+        <p className="mt-3 border-l-2 border-primary/70 bg-black/40 py-2 pl-3 pr-2 text-xs leading-snug text-white/70">
+          {selectedAdapterHint}
+        </p>
+        <p className="mt-2 font-mono text-[10px] tracking-[0.04em] text-white/45">
+          {t("gateway.selectedBackend", {
+            selected: adapterLabel(selectedAdapterType),
+            active: adapterLabel(activeAdapterType),
+          })}
+        </p>
+        <p className="mt-0.5 text-[11px] text-white/45">{t("gateway.backendsKeepOwnSettings")}</p>
         {remoteForm}
       </div>
 
-      <div className="ui-card px-4 py-4 sm:px-6 sm:py-5">
+      <div className={`${HQ_CARD} px-4 py-4 sm:px-6 sm:py-5`}>
         <div className="space-y-1.5">
-          <p className="font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-            {t("gateway.runLocallyTitle")}
-          </p>
-          <p className="text-sm text-foreground/90">
-            {t("gateway.runLocallyLead")}
-          </p>
+          <p className={`${HQ_LABEL} text-[10px] font-semibold`}>{t("gateway.runLocallyTitle")}</p>
+          <p className="text-sm text-white">{t("gateway.runLocallyLead")}</p>
         </div>
         <div className="mt-3 space-y-3">
           {commandField}
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-3">
-            <p className="text-xs font-medium text-foreground">{t("gateway.tipDemoTitle")}</p>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {t("gateway.tipDemoBody", { command: localDemoCommand })}
-            </p>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-3">
-            <p className="text-xs font-medium text-foreground">{t("gateway.tipHermesTitle")}</p>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {t("gateway.tipHermesBody", {
+          <div className="grid gap-2 sm:grid-cols-2">
+            {tip(t("gateway.tipDemoTitle"), t("gateway.tipDemoBody", { command: localDemoCommand }))}
+            {tip(
+              t("gateway.tipHermesTitle"),
+              t("gateway.tipHermesBody", {
                 command: "docker compose up -d",
                 local: "npm run hermes-local",
-              })}
-            </p>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-3">
-            <p className="text-xs font-medium text-foreground">{t("gateway.tipRuntimeTitle")}</p>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {t("gateway.tipRuntimeBody")}
-            </p>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-3">
-            <p className="text-xs font-medium text-foreground">{t("gateway.tipRemoteTitle")}</p>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {t("gateway.tipRemoteBody", {
+              })
+            )}
+            {tip(t("gateway.tipRuntimeTitle"), t("gateway.tipRuntimeBody"))}
+            {tip(
+              t("gateway.tipRemoteTitle"),
+              t("gateway.tipRemoteBody", {
                 host: "HOST=0.0.0.0",
                 token: "STUDIO_ACCESS_TOKEN",
-              })}
-            </p>
+              })
+            )}
           </div>
           {localGatewayDefaults ? (
-            <div className="ui-input rounded-md px-3 py-3">
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  {t("gateway.localDefaultsToken", { path: "~/.openclaw/openclaw.json" })}
-                </p>
-                <p className="font-mono text-[11px] text-foreground">
-                  {localGatewayDefaults.url}
-                </p>
-                <button
-                  type="button"
-                  className="ui-btn-secondary h-9 w-full px-3 text-xs font-semibold tracking-[0.05em]"
-                  onClick={onUseLocalDefaults}
-                >
-                  {t("gateway.localDefaultsUse")}
-                </button>
-              </div>
+            <div className={`${HQ_INSET} space-y-2 px-3 py-3`}>
+              <p className="text-xs text-white/65">
+                {t("gateway.localDefaultsToken", { path: "~/.openclaw/openclaw.json" })}
+              </p>
+              <p className="font-mono text-[11px] text-white">{localGatewayDefaults.url}</p>
+              <button
+                type="button"
+                className={`${HQ_BUTTON_SECONDARY} h-9 w-full px-3 text-[10px]`}
+                onClick={onUseLocalDefaults}
+              >
+                {t("gateway.localDefaultsUse")}
+              </button>
             </div>
           ) : null}
         </div>

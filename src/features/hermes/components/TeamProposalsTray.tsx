@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
@@ -101,29 +102,29 @@ export function TeamProposalsTray({ onTeamChanged }: { onTeamChanged?: () => voi
         return (
           <section
             key={proposal.id}
-            className="pointer-events-auto rounded-lg border border-amber-400/35 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur"
+            className="pointer-events-auto rounded-lg border border-red-600/35 border-l-2 border-l-red-500 bg-black/85 px-4 py-3 shadow-[0_0_24px_rgba(255,26,26,0.15)] backdrop-blur"
             aria-label={t("proposals.title")}
           >
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
+            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">
               {proposal.kind === "hire" ? t("proposals.hireTitle") : t("proposals.dismissTitle")}
             </div>
-            <div className="mt-1 text-sm font-semibold text-amber-50">
+            <div className="mt-1 text-sm font-semibold text-white">
               {proposal.name}
               {proposal.role ? <span className="font-normal text-white/60"> · {proposal.role}</span> : null}
             </div>
             <div className="mt-2 whitespace-pre-wrap text-[12px] leading-snug text-white/85">
-              <span className="text-white/50">{t("proposals.reason")}: </span>
+              <span className="text-white/45">{t("proposals.reason")}: </span>
               {proposal.reason}
             </div>
             {proposal.instructions ? (
               <details className="mt-2 text-[11px] text-white/70">
-                <summary className="cursor-pointer text-white/55">{t("proposals.instructions")}</summary>
+                <summary className="cursor-pointer text-white/55 transition-colors hover:text-red-300">{t("proposals.instructions")}</summary>
                 <div className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">{proposal.instructions}</div>
               </details>
             ) : null}
             <input
               type="text"
-              className="mt-2 w-full rounded border border-white/15 bg-black/40 px-2 py-1 text-[12px] text-white outline-none focus:border-amber-300/50"
+              className="mt-2 w-full rounded-md border border-red-900/50 bg-black/60 px-2 py-1 text-[12px] text-white outline-none transition placeholder:text-white/35 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30"
               placeholder={t("proposals.notePlaceholder")}
               aria-label={t("proposals.notePlaceholder")}
               maxLength={1000}
@@ -132,7 +133,12 @@ export function TeamProposalsTray({ onTeamChanged }: { onTeamChanged?: () => voi
               onChange={(event) => setNotes((current) => ({ ...current, [proposal.id]: event.target.value }))}
             />
             <div className="mt-2 flex items-center justify-end gap-2">
-              {busy ? <span className="mr-auto text-[11px] text-amber-100/70">{t("proposals.working")}</span> : null}
+              {busy ? (
+                <span className="mr-auto inline-flex items-center gap-1.5 text-[11px] text-red-300">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" aria-hidden="true" />
+                  {t("proposals.working")}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="ui-btn-secondary px-3 py-1.5 text-xs font-semibold"
@@ -154,10 +160,15 @@ export function TeamProposalsTray({ onTeamChanged }: { onTeamChanged?: () => voi
         );
       })}
       {message ? (
-        <div className="pointer-events-auto flex items-start justify-between gap-2 rounded-lg border border-white/15 bg-black/85 px-3 py-2 text-[12px] text-white/85 shadow-2xl">
+        <div className="pointer-events-auto flex items-start justify-between gap-2 rounded-lg border border-red-900/40 bg-black/85 px-3 py-2 text-[12px] text-white/85 shadow-2xl backdrop-blur">
           <span>{message}</span>
-          <button type="button" className="text-white/50 hover:text-white" aria-label={t("proposals.dismissMessage")} onClick={() => setMessage(null)}>
-            ×
+          <button
+            type="button"
+            className="rounded p-0.5 text-white/50 transition-colors hover:bg-red-950/40 hover:text-white"
+            aria-label={t("proposals.dismissMessage")}
+            onClick={() => setMessage(null)}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       ) : null}

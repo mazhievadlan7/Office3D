@@ -42,7 +42,6 @@ type HeroRig = {
   headRest: Quaternion;
   gaze: Quaternion;
   gazeWeight: number;
-  lead: boolean;
 };
 
 function findBone(root: Object3D, name: string): Bone | null {
@@ -90,7 +89,8 @@ export class HqCrowdHeroes {
   constructor(
     scene: Object3D,
     bake: HqSkinBake,
-    private readonly materials: { normal: Material; lead: Material },
+    // AM7 wears the same material as everyone (see crowdMaterials.ts).
+    materials: { normal: Material },
     size: number,
   ) {
     this.root.name = "hq-crowd-heroes";
@@ -142,7 +142,6 @@ export class HqCrowdHeroes {
         headRest: head ? head.quaternion.clone() : new Quaternion(),
         gaze: new Quaternion(),
         gazeWeight: 0,
-        lead: false,
       });
       this.root.add(object);
     }
@@ -178,10 +177,6 @@ export class HqCrowdHeroes {
       }
       rig.object.visible = true;
       const lead = frame.lead[i] === 1;
-      if (lead !== rig.lead) {
-        rig.lead = lead;
-        rig.mesh.material = lead ? this.materials.lead : this.materials.normal;
-      }
       const facing = frame.facing[i];
       rig.object.position.set(frame.x[i], frame.y[i], frame.z[i]);
       rig.object.rotation.set(0, facing, 0);

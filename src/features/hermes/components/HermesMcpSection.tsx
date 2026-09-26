@@ -2,6 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_BADGE,
+  HQ_FORM_BADGE_LIVE,
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_BUTTON_SMALL,
+  HQ_FORM_BUTTON_SMALL_PRIMARY,
+  HQ_FORM_CHECKBOX,
+  HQ_FORM_FIELD,
+  HQ_FORM_HINT,
+  HQ_FORM_INSET,
+  HQ_FORM_SECTION,
+  HQ_FORM_SECTION_TITLE,
+  HQ_FORM_STATUS_ERROR,
+  HQ_FORM_STATUS_OK,
+} from "@/features/agents/components/hqFormStyles";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type McpServer = {
@@ -391,23 +407,23 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
   };
 
   const runsProgram = (entry: CatalogEntry) => Boolean(entry.command) || entry.needsInstall;
-  const field = "min-w-0 ui-input rounded px-2 py-1 text-[11px]";
+  const field = `min-w-0 ${HQ_FORM_FIELD}`;
 
   return (
-    <section className="mt-4 rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="hermes-mcp">
-      <div className="text-[11px] font-medium text-foreground">{t("hermesMcp.title")}</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesMcp.lead")}</div>
+    <section className={`mt-4 ${HQ_FORM_SECTION}`} data-testid="hermes-mcp">
+      <div className={HQ_FORM_SECTION_TITLE}>{t("hermesMcp.title")}</div>
+      <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesMcp.lead")}</div>
 
       <div className="mt-3 space-y-2">
-        {servers === null ? <div className="text-[11px] text-muted-foreground">{t("hermesMcp.loading")}</div> : null}
-        {servers?.length === 0 ? <div className="text-[11px] text-muted-foreground">{t("hermesMcp.none")}</div> : null}
+        {servers === null ? <div className="text-[11px] text-white/50">{t("hermesMcp.loading")}</div> : null}
+        {servers?.length === 0 ? <div className="text-[11px] text-white/50">{t("hermesMcp.none")}</div> : null}
         {servers?.map((server) => (
-          <div key={server.name} className="rounded bg-muted/40 px-2 py-1.5 text-[11px]">
+          <div key={server.name} className={`${HQ_FORM_INSET} px-2.5 py-2 text-[11px]`}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0">
-                <span className="text-foreground">{server.name}</span>
-                {server.managed ? <span className="ml-2 text-cyan-700 dark:text-cyan-300">{t("hermesMcp.managed")}</span> : null}
-                <span className="block truncate text-muted-foreground">
+                <span className="text-white">{server.name}</span>
+                {server.managed ? <span className={`ml-2 ${HQ_FORM_BADGE}`}>{t("hermesMcp.managed")}</span> : null}
+                <span className="block truncate text-white/50">
                   {server.url ?? [server.command, ...server.args].filter(Boolean).join(" ")}
                   {server.auth === "header" ? ` · ${t("hermesMcp.withToken")}` : ""}
                   {server.auth === "oauth" ? ` · ${t("hermesMcp.withOauth")}` : ""}
@@ -416,6 +432,7 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
               {server.managed || server.source === "plugin" ? null : (
                 <input
                   type="checkbox"
+                  className={HQ_FORM_CHECKBOX}
                   aria-label={t("hermesMcp.toggle", { name: server.name })}
                   checked={server.enabled}
                   disabled={busy}
@@ -433,10 +450,10 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
               />
             ) : null}
             <div className="mt-1 flex flex-wrap items-center justify-end gap-2">
-              {tests[server.name] ? <span className="mr-auto text-muted-foreground">{tests[server.name]}</span> : null}
+              {tests[server.name] ? <span className="mr-auto text-white/55">{tests[server.name]}</span> : null}
               {server.auth === "oauth" && !server.managed && server.source !== "plugin" ? (
                 logins[server.name]?.phase === "waiting" || logins[server.name]?.phase === "starting" ? (
-                  <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" onClick={() => cancelLogin(server.name)}>
+                  <button type="button" className={HQ_FORM_BUTTON_SMALL} onClick={() => cancelLogin(server.name)}>
                     {t("hermesMcp.loginCancel")}
                   </button>
                 ) : (
@@ -444,7 +461,7 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
                     {clientFor?.name === server.name ? null : (
                       <button
                         type="button"
-                        className="ui-btn-secondary px-2 py-0.5 text-[10px]"
+                        className={HQ_FORM_BUTTON_SMALL}
                         disabled={busy}
                         onClick={() => setClientFor({ name: server.name, client: { ...EMPTY_CLIENT } })}
                       >
@@ -453,7 +470,7 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
                     )}
                     <button
                       type="button"
-                      className="ui-btn-primary px-2 py-0.5 text-[10px] font-semibold"
+                      className={HQ_FORM_BUTTON_SMALL_PRIMARY}
                       disabled={busy || (clientFor?.name === server.name && !clientFor.client.clientId.trim())}
                       onClick={() => login(server.name, clientFor?.name === server.name ? clientFor.client : null)}
                     >
@@ -462,20 +479,20 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
                   </>
                 )
               ) : null}
-              <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" disabled={busy} onClick={() => void test(server.name)}>
+              <button type="button" className={HQ_FORM_BUTTON_SMALL} disabled={busy} onClick={() => void test(server.name)}>
                 {t("hermesMcp.test")}
               </button>
               {server.managed || server.source === "plugin" ? null : removing === server.name ? (
                 <>
-                  <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" onClick={() => setRemoving(null)}>
+                  <button type="button" className={HQ_FORM_BUTTON_SMALL} onClick={() => setRemoving(null)}>
                     {t("hermesMcp.cancel")}
                   </button>
-                  <button type="button" className="ui-btn-primary px-2 py-0.5 text-[10px] font-semibold" disabled={busy} onClick={() => void remove(server.name)}>
+                  <button type="button" className={HQ_FORM_BUTTON_SMALL_PRIMARY} disabled={busy} onClick={() => void remove(server.name)}>
                     {t("hermesMcp.confirmRemove")}
                   </button>
                 </>
               ) : (
-                <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" disabled={busy} onClick={() => setRemoving(server.name)}>
+                <button type="button" className={HQ_FORM_BUTTON_SMALL} disabled={busy} onClick={() => setRemoving(server.name)}>
                   {t("hermesMcp.remove")}
                 </button>
               )}
@@ -485,11 +502,11 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
       </div>
 
       {draft ? (
-        <div className="mt-3 space-y-2 rounded border border-border/50 px-3 py-2 text-[11px]" data-testid="hermes-mcp-form">
-          <div className="flex gap-3 text-foreground">
+        <div className={`mt-3 space-y-2 ${HQ_FORM_INSET} px-3 py-2.5 text-[11px]`} data-testid="hermes-mcp-form">
+          <div className="flex gap-3 text-white">
             {(["http", "stdio"] as const).map((kind) => (
               <label key={kind} className="flex items-center gap-1">
-                <input type="radio" checked={draft.kind === kind} onChange={() => setDraft({ ...draft, kind })} />
+                <input type="radio" className={HQ_FORM_CHECKBOX} checked={draft.kind === kind} onChange={() => setDraft({ ...draft, kind })} />
                 {kind === "http" ? t("hermesMcp.kindHttp") : t("hermesMcp.kindStdio")}
               </label>
             ))}
@@ -498,10 +515,10 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
           {draft.kind === "http" ? (
             <>
               <input className={`${field} w-full`} placeholder="https://…/mcp" aria-label={t("hermesMcp.url")} value={draft.url} onChange={(event) => setDraft({ ...draft, url: event.target.value })} />
-              <div className="flex flex-wrap gap-3 text-foreground" role="radiogroup">
+              <div className="flex flex-wrap gap-3 text-white" role="radiogroup">
                 {(["none", "token", "oauth"] as const).map((auth) => (
                   <label key={auth} className="flex items-center gap-1">
-                    <input type="radio" checked={draft.auth === auth} onChange={() => setDraft({ ...draft, auth })} />
+                    <input type="radio" className={HQ_FORM_CHECKBOX} checked={draft.auth === auth} onChange={() => setDraft({ ...draft, auth })} />
                     {t(auth === "none" ? "hermesMcp.authNone" : auth === "token" ? "hermesMcp.authToken" : "hermesMcp.authOauth")}
                   </label>
                 ))}
@@ -519,10 +536,11 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
               ) : null}
               {draft.auth === "oauth" ? (
                 <>
-                  <div className="text-[10px] text-muted-foreground">{t("hermesMcp.oauthHint")}</div>
-                  <label className="flex items-center gap-2 text-muted-foreground">
+                  <div className={HQ_FORM_HINT}>{t("hermesMcp.oauthHint")}</div>
+                  <label className="flex items-center gap-2 text-white/65">
                     <input
                       type="checkbox"
+                      className={HQ_FORM_CHECKBOX}
                       checked={draft.oauthClient !== null}
                       onChange={(event) => setDraft({ ...draft, oauthClient: event.target.checked ? { ...EMPTY_CLIENT } : null })}
                     />
@@ -541,7 +559,7 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
             </>
           ) : (
             <>
-              <div className="text-[10px] text-amber-700 dark:text-amber-300">{t("hermesMcp.stdioWarning")}</div>
+              <div className="text-[11px] text-orange-300">{t("hermesMcp.stdioWarning")}</div>
               <input className={`${field} w-full`} placeholder="npx" aria-label={t("hermesMcp.command")} value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value })} />
               <textarea className={`${field} w-full`} placeholder={t("hermesMcp.args")} aria-label={t("hermesMcp.args")} value={draft.args} onChange={(event) => setDraft({ ...draft, args: event.target.value })} />
               <textarea
@@ -554,17 +572,17 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
               />
             </>
           )}
-          <label className="flex items-center gap-2 text-muted-foreground">
-            <input type="checkbox" checked={draft.everyone} onChange={(event) => setDraft({ ...draft, everyone: event.target.checked })} />
+          <label className="flex items-center gap-2 text-white/65">
+            <input type="checkbox" className={HQ_FORM_CHECKBOX} checked={draft.everyone} onChange={(event) => setDraft({ ...draft, everyone: event.target.checked })} />
             {t("hermesMcp.forEveryone")}
           </label>
           <div className="flex justify-end gap-2">
-            <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" onClick={() => setDraft(null)}>
+            <button type="button" className={HQ_FORM_BUTTON_SECONDARY} onClick={() => setDraft(null)}>
               {t("hermesMcp.cancel")}
             </button>
             <button
               type="button"
-              className="ui-btn-primary px-2 py-1 text-[11px] font-semibold"
+              className={HQ_FORM_BUTTON_PRIMARY}
               disabled={
                 busy ||
                 !draft.name.trim() ||
@@ -579,10 +597,10 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
         </div>
       ) : (
         <div className="mt-3 flex justify-end gap-2">
-          <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" disabled={busy} onClick={() => void openCatalog()}>
+          <button type="button" className={HQ_FORM_BUTTON_SECONDARY} disabled={busy} onClick={() => void openCatalog()}>
             {t("hermesMcp.catalog")}
           </button>
-          <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" disabled={busy} onClick={() => setDraft({ ...EMPTY_DRAFT })}>
+          <button type="button" className={HQ_FORM_BUTTON_SECONDARY} disabled={busy} onClick={() => setDraft({ ...EMPTY_DRAFT })}>
             {t("hermesMcp.addOwn")}
           </button>
         </div>
@@ -590,19 +608,19 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
 
       {catalog && !choice ? (
         <div className="mt-2 max-h-56 space-y-1 overflow-auto">
-          {catalog.length === 0 ? <div className="text-[11px] text-muted-foreground">{t("hermesMcp.catalogEmpty")}</div> : null}
+          {catalog.length === 0 ? <div className="text-[11px] text-white/50">{t("hermesMcp.catalogEmpty")}</div> : null}
           {catalog.map((entry) => (
             <div key={entry.name} className="flex items-start justify-between gap-3 text-[11px]">
               <span className="min-w-0">
-                <span className="text-foreground">{entry.name}</span>
-                {entry.description ? <span className="block truncate text-muted-foreground">{entry.description}</span> : null}
+                <span className="text-white">{entry.name}</span>
+                {entry.description ? <span className="block truncate text-white/50">{entry.description}</span> : null}
               </span>
               {entry.installed ? (
-                <span className="shrink-0 ui-text-success">{t("hermesMcp.alreadyInstalled")}</span>
+                <span className={HQ_FORM_BADGE_LIVE}>{t("hermesMcp.alreadyInstalled")}</span>
               ) : (
                 <button
                   type="button"
-                  className="ui-btn-secondary shrink-0 px-2 py-0.5 text-[10px]"
+                  className={HQ_FORM_BUTTON_SMALL}
                   disabled={busy}
                   onClick={() => setChoice({ entry, env: {}, confirmed: false })}
                 >
@@ -615,8 +633,8 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
       ) : null}
 
       {choice ? (
-        <div className="mt-3 space-y-2 rounded border border-border/50 px-3 py-2 text-[11px]" data-testid="hermes-mcp-install">
-          <div className="text-foreground">{choice.entry.name}</div>
+        <div className={`mt-3 space-y-2 ${HQ_FORM_INSET} px-3 py-2.5 text-[11px]`} data-testid="hermes-mcp-install">
+          <div className="text-white">{choice.entry.name}</div>
           {choice.entry.requiredEnv.map((spec) => (
             <input
               key={spec.name}
@@ -629,28 +647,28 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
               onChange={(event) => setChoice({ ...choice, env: { ...choice.env, [spec.name]: event.target.value } })}
             />
           ))}
-          {choice.entry.authType === "oauth" ? <div className="text-[10px] text-muted-foreground">{t("hermesMcp.oauthHint")}</div> : null}
+          {choice.entry.authType === "oauth" ? <div className={HQ_FORM_HINT}>{t("hermesMcp.oauthHint")}</div> : null}
           {runsProgram(choice.entry) ? (
-            <div className="rounded border border-amber-400/40 px-2 py-1.5">
-              <div className="text-amber-700 dark:text-amber-200">{t("hermesMcp.runsProgram")}</div>
-              <code className="mt-1 block whitespace-pre-wrap break-all text-[10px] text-foreground">
+            <div className="rounded-md border border-orange-400/40 bg-orange-950/20 px-2.5 py-2">
+              <div className="text-orange-300">{t("hermesMcp.runsProgram")}</div>
+              <code className="mt-1 block whitespace-pre-wrap break-all font-mono text-[10px] text-white/85">
                 {[choice.entry.command, ...choice.entry.args].filter(Boolean).join(" ")}
                 {choice.entry.installUrl ? `\n${t("hermesMcp.clones", { url: choice.entry.installUrl })}` : ""}
                 {choice.entry.bootstrap.length ? `\n${choice.entry.bootstrap.join("\n")}` : ""}
               </code>
-              <label className="mt-1 flex items-center gap-2 text-foreground">
-                <input type="checkbox" checked={choice.confirmed} onChange={(event) => setChoice({ ...choice, confirmed: event.target.checked })} />
+              <label className="mt-1 flex items-center gap-2 text-white">
+                <input type="checkbox" className={HQ_FORM_CHECKBOX} checked={choice.confirmed} onChange={(event) => setChoice({ ...choice, confirmed: event.target.checked })} />
                 {t("hermesMcp.confirmRuns")}
               </label>
             </div>
           ) : null}
           <div className="flex justify-end gap-2">
-            <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" onClick={() => setChoice(null)}>
+            <button type="button" className={HQ_FORM_BUTTON_SECONDARY} onClick={() => setChoice(null)}>
               {t("hermesMcp.cancel")}
             </button>
             <button
               type="button"
-              className="ui-btn-primary px-2 py-1 text-[11px] font-semibold"
+              className={HQ_FORM_BUTTON_PRIMARY}
               disabled={busy || (runsProgram(choice.entry) && !choice.confirmed)}
               onClick={install}
             >
@@ -661,20 +679,20 @@ export function HermesMcpSection({ agentId }: { agentId: string }) {
       ) : null}
 
       {message ? (
-        <div className={`mt-2 text-[11px] ${message.kind === "error" ? "ui-text-danger" : "text-muted-foreground"}`}>{message.text}</div>
+        <div className={`mt-2 text-[11px] ${message.kind === "error" ? "text-red-400" : "text-white/70"}`}>{message.text}</div>
       ) : null}
     </section>
   );
 }
 
 function LoginState({ login }: { login: Login }) {
-  if (login.phase === "starting") return <div className="mt-1 text-muted-foreground">{t("hermesMcp.loginStarting")}</div>;
-  if (login.phase === "done") return <div className="mt-1 ui-text-success">{login.text}</div>;
-  if (login.phase === "failed") return <div className="mt-1 ui-text-danger">{login.text}</div>;
+  if (login.phase === "starting") return <div className="mt-1 text-white/55">{t("hermesMcp.loginStarting")}</div>;
+  if (login.phase === "done") return <div className={`mt-1 ${HQ_FORM_STATUS_OK}`}>{login.text}</div>;
+  if (login.phase === "failed") return <div className={`mt-1 ${HQ_FORM_STATUS_ERROR}`}>{login.text}</div>;
   return (
-    <div className="mt-1 text-muted-foreground" data-testid="hermes-mcp-login-waiting">
+    <div className="mt-1 text-white/55" data-testid="hermes-mcp-login-waiting">
       {login.popupBlocked ? t("hermesMcp.loginPopupBlocked") : t("hermesMcp.loginWaiting")}{" "}
-      <a className="underline" href={login.url} target="_blank" rel="noopener noreferrer">
+      <a className="text-red-300 underline underline-offset-2 hover:text-white" href={login.url} target="_blank" rel="noopener noreferrer">
         {t("hermesMcp.loginOpen")}
       </a>
     </div>
@@ -694,7 +712,7 @@ function OAuthClientFields({
 }) {
   return (
     <div className="mt-1 space-y-1">
-      <div className="text-[10px] text-muted-foreground">{t("hermesMcp.clientHint", { url: redirectUrl })}</div>
+      <div className={HQ_FORM_HINT}>{t("hermesMcp.clientHint", { url: redirectUrl })}</div>
       <input
         className={`${field} w-full`}
         autoComplete="off"

@@ -1,5 +1,6 @@
+import { loadEarth } from "./screenGlobe";
 import { EMPTY_FEED, Painter, type HqScreenFeed } from "./screenPaint";
-import { SCREEN_SURFACES } from "./screenSurfaces";
+import { SCREEN_SURFACES, surfacePeriod } from "./screenSurfaces";
 
 /**
  * Paints the HQ's screens off the main thread. Every surface of
@@ -7,15 +8,19 @@ import { SCREEN_SURFACES } from "./screenSurfaces";
  * handed over as an ImageBitmap (transferred, not copied); the main thread
  * uploads it straight into its texture and acks, and the surface is not
  * painted again until then, so a busy or hidden page never piles frames up.
+ * The big screens repaint at their full rate only while one of them is in
+ * view ("views"); the NASA Earth images for the globes load here, once.
  *
  * Messages in:  { type: "feed", feed } | { type: "slowdown", value } | { type: "ack", index }
+ *               | { type: "views", value: number[] (1 = in view, per surface) }
  * Messages out: { index, bitmap }
  */
 
 type Incoming =
   | { type: "feed"; feed: HqScreenFeed }
   | { type: "slowdown"; value: number }
-  | { type: "ack"; index: number };
+  | { type: "ack"; index: number }
+  | { type: "views"; value: number[] };
 
 // The project compiles against the DOM lib; the worker needs only these two.
 type WorkerScope = {
@@ -42,25 +47,38 @@ function painterFor(w: number, h: number): Painter {
 const count = SCREEN_SURFACES.length;
 const next = new Float64Array(count);
 const inFlight = new Uint8Array(count);
+const inView = new Uint8Array(count).fill(1);
 // Stagger the first paints so the first frames do not all land at once.
 for (let i = 0; i < count; i++) next[i] = (i % 8) * 0.05;
-let feed: HqScreenFeed = EMPTY_FEED;
+// A copy of its own: the clock is set on it before every paint.
+let feed: HqScreenFeed = { ...EMPTY_FEED };
 let slowdown = 1;
 let cursor = 0;
 const start = performance.now();
 /** At most this long painting per tick, so acks and feed updates are never kept waiting. */
 const TICK_BUDGET_MS = 12;
 
+// The globes are procedural until (and unless) the images arrive.
+void loadEarth();
+
+function now(): number {
+  return (performance.now() - start) / 1000;
+}
+
 function tick(): void {
-  const now = (performance.now() - start) / 1000;
+  const t = now();
   const until = performance.now() + TICK_BUDGET_MS;
   for (let k = 0; k < count && performance.now() < until; k++) {
     const i = (cursor + k) % count;
-    if (inFlight[i] || now < next[i]) continue;
+    if (inFlight[i] || t < next[i]) continue;
     const surface = SCREEN_SURFACES[i];
-    next[i] = now + surface.period * slowdown;
+    next[i] = t + surfacePeriod(surface, inView[i] === 1) * slowdown;
     const painter = painterFor(surface.w, surface.h);
-    surface.paint(painter, now, feed);
+    // The feed comes about once a second, stamped at a frame's time; the
+    // on-screen clocks read the wall clock now, so their seconds never lag,
+    // skip or repeat (and are right before the first feed).
+    feed.clock = Date.now();
+    surface.paint(painter, t, feed);
     const bitmap = (painter.ctx.canvas as OffscreenCanvas).transferToImageBitmap();
     inFlight[i] = 1;
     scope.postMessage({ index: i, bitmap }, [bitmap]);
@@ -73,6 +91,15 @@ scope.onmessage = (event: MessageEvent<Incoming>) => {
   if (message.type === "ack") inFlight[message.index] = 0;
   else if (message.type === "feed") feed = message.feed;
   else if (message.type === "slowdown") slowdown = message.value;
+  else if (message.type === "views") {
+    const t = now();
+    for (let i = 0; i < count; i++) {
+      const seen = message.value[i] ? 1 : 0;
+      // Coming into view: repaint at once rather than at the end of an idle wait.
+      if (seen && !inView[i]) next[i] = Math.min(next[i], t);
+      inView[i] = seen;
+    }
+  }
 };
 
 setInterval(tick, 16);

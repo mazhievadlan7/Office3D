@@ -36,8 +36,8 @@ import type {
 import { HQ_WALL_SCREEN } from "./types";
 
 const HALF_PI = Math.PI / 2;
-/** Lounge wall screens, group by group: different content on each. */
-const LOUNGE_CHANNELS = [HQ_WALL_SCREEN.news, HQ_WALL_SCREEN.security, HQ_WALL_SCREEN.music] as const;
+/** Lounge wall screens, group by group: the news first, then business, then radio. */
+const LOUNGE_CHANNELS = [HQ_WALL_SCREEN.news, HQ_WALL_SCREEN.markets, HQ_WALL_SCREEN.music] as const;
 
 /** Floor space behind a chair centre that belongs to its pod (chair pushed back). */
 export const HQ_CHAIR_CLEARANCE = 0.5;
@@ -651,7 +651,7 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
       // south, a dashboard on the wall above the wall sofa (hung like AM7's).
       addProp("floor_lamp", sofaA.x, sofaB.z);
       addProp("data_monolith", lx0 + 0.3, gz + 1.75, HALF_PI);
-      // The lounge screens take turns: news, the security monitor, music.
+      // The lounge screens take turns: news, business, radio.
       props.push({ kind: "wall_screen", x: round3(lx0 + 0.025), z: round3(gz), rotY: HALF_PI, screen: LOUNGE_CHANNELS[g % LOUNGE_CHANNELS.length] });
       const group = loungeGroups.length;
       loungeGroups.push({ tableX: table.x, tableZ: table.z });

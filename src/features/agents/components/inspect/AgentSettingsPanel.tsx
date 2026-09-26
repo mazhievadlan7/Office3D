@@ -28,6 +28,18 @@ import type { CronCreateDraft, CronCreateTemplateId } from "@/lib/cron/createPay
 import { formatCronPayload, formatCronSchedule, type CronJobSummary } from "@/lib/cron/types";
 import type { SkillStatusReport } from "@/lib/skills/types";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
+import {
+  HQ_FORM_BADGE_MUTED,
+  HQ_FORM_BUTTON_DANGER,
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_CARD,
+  HQ_FORM_FIELD,
+  HQ_FORM_INSET,
+  HQ_FORM_LABEL,
+  HQ_FORM_NOTICE_ERROR,
+  HQ_FORM_SELECT,
+} from "@/features/agents/components/hqFormStyles";
 import { LOCALE, t } from "@/lib/i18n";
 
 export type AgentSettingsPanelProps = {
@@ -490,10 +502,10 @@ export const AgentSettingsPanel = ({
           <section className="sidebar-section" data-testid="agent-settings-permissions">
             <div className="mt-2 flex flex-col gap-8">
               <div className="px-1 py-1">
-                <div className="sidebar-copy flex flex-col gap-1 text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground/88">{t("agentSettings.runCommands")}</span>
+                <div className="sidebar-copy flex flex-col gap-1 text-[11px] text-white/60">
+                  <span className={HQ_FORM_LABEL}>{t("agentSettings.runCommands")}</span>
                   <div
-                    className="ui-segment ui-segment-command-mode mt-2 grid-cols-3"
+                    className="mt-2 grid grid-cols-3 gap-1 rounded-md border border-red-900/40 bg-black/40 p-1"
                     role="group"
                     aria-label={t("agentSettings.runCommands")}
                   >
@@ -511,7 +523,11 @@ export const AgentSettingsPanel = ({
                           type="button"
                           aria-label={t("agentSettings.runCommandsOption", { option: option.label.toLowerCase() })}
                           aria-pressed={selected}
-                          className="ui-segment-item px-3 py-2.5 text-center font-mono text-[11px] font-semibold tracking-[0.04em]"
+                          className={`rounded border px-3 py-2 text-center font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
+                            selected
+                              ? "border-red-500/60 bg-red-600/25 text-white shadow-[0_0_12px_rgba(255,26,26,0.2)]"
+                              : "border-transparent text-white/55 hover:bg-red-950/40 hover:text-white"
+                          }`}
                           data-active={selected ? "true" : "false"}
                           onClick={() =>
                             setPermissionsDraftValue((current) => ({
@@ -545,11 +561,11 @@ export const AgentSettingsPanel = ({
                     <span className="ui-switch-thumb" />
                   </button>
                   <div className="sidebar-copy flex flex-col">
-                    <span className="text-[11px] font-medium text-foreground/88">{t("agentSettings.webAccess")}</span>
-                    <span className="text-[10px] text-muted-foreground/70">{t("agentSettings.webAccessHint")}</span>
+                    <span className="text-[12px] font-medium text-white">{t("agentSettings.webAccess")}</span>
+                    <span className="text-[11px] text-white/50">{t("agentSettings.webAccessHint")}</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/55" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 text-white/40" aria-hidden="true" />
               </div>
               <div className="ui-settings-row flex min-h-[68px] items-center justify-between gap-6 px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -569,11 +585,11 @@ export const AgentSettingsPanel = ({
                     <span className="ui-switch-thumb" />
                   </button>
                   <div className="sidebar-copy flex flex-col">
-                    <span className="text-[11px] font-medium text-foreground/88">{t("agentSettings.fileTools")}</span>
-                    <span className="text-[10px] text-muted-foreground/70">{t("agentSettings.fileToolsHint")}</span>
+                    <span className="text-[12px] font-medium text-white">{t("agentSettings.fileTools")}</span>
+                    <span className="text-[11px] text-white/50">{t("agentSettings.fileToolsHint")}</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/55" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 text-white/40" aria-hidden="true" />
               </div>
               <div className="ui-settings-row flex min-h-[68px] items-center justify-between gap-6 px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -588,14 +604,14 @@ export const AgentSettingsPanel = ({
                     <span className="ui-switch-thumb" />
                   </button>
                   <div className="sidebar-copy flex flex-col">
-                    <span className="text-[11px] font-medium text-foreground/88">{t("agentSettings.browserAutomation")}</span>
-                    <span className="text-[10px] text-muted-foreground/70">{t("agentSettings.comingSoon")}</span>
+                    <span className="text-[12px] font-medium text-white">{t("agentSettings.browserAutomation")}</span>
+                    <span className="text-[11px] text-white/50">{t("agentSettings.comingSoon")}</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/55" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 text-white/40" aria-hidden="true" />
               </div>
             </div>
-            <div className="sidebar-copy mt-3 text-[11px] text-muted-foreground">
+            <div className="sidebar-copy mt-3 text-[11px] text-white/60">
               {permissionsSaveState === "saving" ? t("agentSettings.saving") : null}
               {permissionsSaveState === "saved" ? t("agentSettings.saved") : null}
               {permissionsSaveState === "error" && permissionsSaveError ? (
@@ -603,7 +619,7 @@ export const AgentSettingsPanel = ({
                   {t("agentSettings.saveFailedWith", { reason: permissionsSaveError ?? "" })}{" "}
                   <button
                     type="button"
-                    className="underline underline-offset-2"
+                    className="text-red-300 underline underline-offset-2 hover:text-white"
                     onClick={() => {
                       void runPermissionsSave(permissionsDraftValue);
                     }}
@@ -612,7 +628,7 @@ export const AgentSettingsPanel = ({
               ) : null}
             </div>
             {permissionsSaveState === "error" && !permissionsSaveError ? (
-              <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">
+              <div className={`mt-3 ${HQ_FORM_NOTICE_ERROR}`}>
                 {t("agentSettings.permissionsSaveFailed")}
               </div>
             ) : null}
@@ -658,30 +674,30 @@ export const AgentSettingsPanel = ({
               <h3 className="sidebar-section-title">{t("agentSettings.timedAutomations")}</h3>
               {!cronLoading && !cronError && cronJobs.length > 0 ? (
                 <button
-                  className="sidebar-btn-ghost px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={HQ_FORM_BUTTON_SECONDARY}
                   type="button"
                   onClick={openCronCreate}
                 >{t("agentSettings.create")}</button>
               ) : null}
             </div>
             {cronLoading ? (
-              <div className="mt-3 text-[11px] text-muted-foreground">{t("agentSettings.loadingAutomations")}</div>
+              <div className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-white/50">{t("agentSettings.loadingAutomations")}</div>
             ) : null}
             {!cronLoading && cronError ? (
-              <div className="ui-alert-danger mt-3 rounded-md px-3 py-2 text-xs">
+              <div className={`mt-3 ${HQ_FORM_NOTICE_ERROR}`}>
                 {cronError}
               </div>
             ) : null}
             {!cronLoading && !cronError && cronJobs.length === 0 ? (
-              <div className="sidebar-card mt-3 flex flex-col items-center justify-center gap-4 px-5 py-6 text-center">
+              <div className="mt-3 flex flex-col items-center justify-center gap-4 rounded-md border border-dashed border-red-900/40 px-5 py-6 text-center">
                 <CalendarDays
-                  className="h-4 w-4 text-muted-foreground/70"
+                  className="h-4 w-4 text-red-400/80"
                   aria-hidden="true"
                   data-testid="cron-empty-icon"
                 />
-                <div className="sidebar-copy text-[11px] text-muted-foreground/82">{t("agentSettings.noAutomations")}</div>
+                <div className="sidebar-copy text-[12px] text-white/55">{t("agentSettings.noAutomations")}</div>
                 <button
-                  className="sidebar-btn-primary mt-2 w-auto min-w-[116px] self-center px-4 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`${HQ_FORM_BUTTON_PRIMARY} mt-2 min-w-[116px] self-center`}
                   type="button"
                   onClick={openCronCreate}
                 >{t("agentSettings.create")}</button>
@@ -703,33 +719,33 @@ export const AgentSettingsPanel = ({
                   return (
                     <div
                       key={job.id}
-                      className="group/cron ui-card flex items-start justify-between gap-2 px-4 py-3"
+                      className={`group/cron ${HQ_FORM_CARD} flex items-start justify-between gap-2 px-4 py-3 transition-colors hover:border-red-600/45`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <div className="min-w-0 flex-1 truncate font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground">
+                          <div className="min-w-0 flex-1 truncate font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                             {job.name}
                           </div>
                           {!job.enabled ? (
-                            <div className="shrink-0 rounded-md bg-muted/50 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground shadow-2xs">{t("agentSettings.disabled")}</div>
+                            <div className={HQ_FORM_BADGE_MUTED}>{t("agentSettings.disabled")}</div>
                           ) : null}
                         </div>
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("agentSettings.frequency")}</span>
+                        <div className="mt-1 text-[11px] text-white/70">
+                          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{t("agentSettings.frequency")}</span>
                           <div className="break-words">{scheduleText}</div>
                         </div>
                         {stateLine ? (
-                          <div className="mt-1 break-words text-[11px] text-muted-foreground">
+                          <div className="mt-1 break-words text-[11px] text-white/55">
                             {stateLine}
                           </div>
                         ) : null}
                         {payloadText ? (
-                          <div className="mt-1 text-[11px] text-muted-foreground">
+                          <div className="mt-1 text-[11px] text-white/70">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("agentSettings.task")}</span>
+                              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{t("agentSettings.task")}</span>
                               {payloadExpandable ? (
                                 <button
-                                  className="ui-btn-secondary shrink-0 min-h-0 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-[0.06em] text-muted-foreground"
+                                  className="shrink-0 rounded border border-red-600/35 bg-black/50 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-white/70 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
                                   type="button"
                                   onClick={() => {
                                     setExpandedCronJobIds((prev) => {
@@ -755,7 +771,7 @@ export const AgentSettingsPanel = ({
                       </div>
                       <div className="flex items-center gap-1 opacity-0 transition group-focus-within/cron:opacity-100 group-hover/cron:opacity-100">
                         <button
-                          className="ui-btn-icon h-7 w-7 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-600/35 bg-black/50 text-white/75 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           aria-label={t("agentSettings.runNowLabel", { name: job.name })}
                           onClick={() => {
@@ -766,7 +782,7 @@ export const AgentSettingsPanel = ({
                           <Play className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          className="ui-btn-icon ui-btn-icon-danger h-7 w-7 bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-500/45 bg-red-950/40 text-red-300 transition-colors hover:border-red-500/70 hover:bg-red-900/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           aria-label={t("agentSettings.deleteLabel", { name: job.name })}
                           onClick={() => {
@@ -785,7 +801,7 @@ export const AgentSettingsPanel = ({
             {isOpenClawRuntime ? (
               <section className="sidebar-section" data-testid="agent-settings-heartbeat-coming-soon">
                 <h3 className="sidebar-section-title">{t("agentSettings.heartbeats")}</h3>
-                <div className="mt-3 text-[11px] text-muted-foreground">{t("agentSettings.heartbeatsSoon")}</div>
+                <div className="mt-3 text-[11px] text-white/55">{t("agentSettings.heartbeatsSoon")}</div>
               </section>
             ) : null}
           </section>
@@ -796,7 +812,7 @@ export const AgentSettingsPanel = ({
             {isOpenClawRuntime ? (
               <section className="sidebar-section mt-8" data-testid="agent-settings-control-ui">
                 <h3 className="sidebar-section-title ui-text-danger">{t("agentSettings.dangerZone")}</h3>
-                <div className="ui-alert-danger mt-3 rounded-md px-3 py-3 text-[11px]">
+                <div className={`mt-3 ${HQ_FORM_NOTICE_ERROR}`}>
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <div className="space-y-1">
@@ -808,7 +824,7 @@ export const AgentSettingsPanel = ({
                 </div>
                 {canOpenControlUi ? (
                   <a
-                    className="sidebar-btn-primary ui-btn-danger mt-3 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-center font-mono text-[10px] font-semibold tracking-[0.06em]"
+                    className={`${HQ_FORM_BUTTON_DANGER} mt-3`}
                     href={controlUiUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
@@ -817,11 +833,11 @@ export const AgentSettingsPanel = ({
                 ) : (
                   <>
                     <button
-                      className="sidebar-btn-primary ui-btn-danger mt-3 inline-flex px-3 py-2.5 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-65"
+                      className={`${HQ_FORM_BUTTON_DANGER} mt-3`}
                       type="button"
                       disabled
                     >{t("agentSettings.openControlUi")}</button>
-                    <div className="mt-2 text-[10px] text-muted-foreground/70">{t("agentSettings.controlUiUnavailable")}</div>
+                    <div className="mt-2 text-[11px] text-white/45">{t("agentSettings.controlUiUnavailable")}</div>
                   </>
                 )}
               </section>
@@ -829,9 +845,9 @@ export const AgentSettingsPanel = ({
 
             {canDelete ? (
               <section className="sidebar-section mt-8">
-                <div className="text-[11px] text-muted-foreground/68">{t("agentSettings.deleteHint")}</div>
+                <div className="text-[11px] text-white/55">{t("agentSettings.deleteHint")}</div>
                 <button
-                  className="sidebar-btn-ghost ui-btn-danger mt-3 inline-flex px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.06em]"
+                  className={`${HQ_FORM_BUTTON_DANGER} mt-3`}
                   type="button"
                   onClick={onDelete}
                 >{t("agentSettings.deleteAgent")}</button>
@@ -839,7 +855,7 @@ export const AgentSettingsPanel = ({
             ) : (
               <section className="sidebar-section mt-8">
                 <h3 className="sidebar-section-title">{t("agentSettings.systemAgent")}</h3>
-                <div className="mt-3 text-[11px] text-muted-foreground">{t("agentSettings.mainReserved")}</div>
+                <div className="mt-3 text-[11px] text-white/55">{t("agentSettings.mainReserved")}</div>
               </section>
             )}
           </>
@@ -848,38 +864,38 @@ export const AgentSettingsPanel = ({
 
       {cronCreateOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={t("agentSettings.createAutomation")}
           onClick={closeCronCreate}
         >
           <div
-            className="ui-panel w-full max-w-2xl bg-card shadow-xs"
+            className="w-full max-w-2xl rounded-lg border border-red-900/50 bg-[#070404] text-white shadow-[0_0_40px_rgba(255,26,26,0.1)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 px-6 py-5">
+            <div className="flex items-start justify-between gap-3 border-b border-red-900/40 px-6 py-5">
               <div className="min-w-0">
-                <div className="text-[11px] font-medium tracking-[0.01em] text-muted-foreground/80">{t("agentSettings.composer")}</div>
-                <div className="mt-1 text-base font-semibold text-foreground">
+                <div className={HQ_FORM_LABEL}>{t("agentSettings.composer")}</div>
+                <div className="mt-1 text-base font-semibold text-white">
                   {timedAutomationStepMeta.title}
                 </div>
               </div>
               <button
                 type="button"
-                className="sidebar-btn-ghost px-3 font-mono text-[10px] font-semibold tracking-[0.06em]"
+                className={HQ_FORM_BUTTON_SECONDARY}
                 onClick={closeCronCreate}
               >{t("agentSettings.close")}</button>
             </div>
             <div className="space-y-4 px-5 py-5">
               {cronCreateError ? (
-                <div className="ui-alert-danger rounded-md px-3 py-2 text-xs">
+                <div className={HQ_FORM_NOTICE_ERROR}>
                   {cronCreateError}
                 </div>
               ) : null}
               {cronCreateStep === 0 ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">{t("agentSettings.pickTemplate")}</div>
+                  <div className="text-[13px] text-white/65">{t("agentSettings.pickTemplate")}</div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {CRON_TEMPLATE_OPTIONS.map((option) => {
                       const active = option.id === cronDraft.templateId;
@@ -889,18 +905,20 @@ export const AgentSettingsPanel = ({
                           key={option.id}
                           type="button"
                           aria-label={option.title}
-                          className={`ui-card px-3 py-3 text-left transition ${
-                            active ? "ui-selected" : "bg-surface-2/60 hover:bg-surface-3/90"
+                          className={`rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
+                            active
+                              ? "border-red-500/60 bg-red-600/20 shadow-[0_0_14px_rgba(255,26,26,0.18)]"
+                              : "border-red-900/40 bg-[#0b0707] hover:border-red-500/50 hover:bg-red-950/40"
                           }`}
                           onClick={() => selectCronTemplate(option.id)}
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-foreground" />
-                            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground">
+                            <Icon className={`h-4 w-4 ${active ? "text-red-400" : "text-white/60"}`} />
+                            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                               {option.title}
                             </div>
                           </div>
-                          <div className="mt-1 text-[11px] text-muted-foreground">
+                          <div className="mt-1 text-[11px] text-white/55">
                             {option.description}
                           </div>
                         </button>
@@ -911,21 +929,21 @@ export const AgentSettingsPanel = ({
               ) : null}
               {cronCreateStep === 1 ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">{t("agentSettings.nameAndDescribe")}</div>
-                  <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.automationName")}</span>
+                  <div className="text-[13px] text-white/65">{t("agentSettings.nameAndDescribe")}</div>
+                  <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.automationName")}</span>
                     <input
                       aria-label={t("agentSettings.automationName")}
-                      className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                      className={`h-10 ${HQ_FORM_FIELD}`}
                       value={cronDraft.name}
                       onChange={(event) => updateCronDraft({ name: event.target.value })}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.task")}</span>
+                  <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.task")}</span>
                     <textarea
                       aria-label={t("agentSettings.task")}
-                      className="min-h-28 rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-foreground outline-none"
+                      className={`min-h-28 ${HQ_FORM_FIELD}`}
                       value={cronDraft.taskText}
                       onChange={(event) => updateCronDraft({ taskText: event.target.value })}
                     />
@@ -934,11 +952,11 @@ export const AgentSettingsPanel = ({
               ) : null}
               {cronCreateStep === 2 ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">{t("agentSettings.chooseWhen")}</div>
-                  <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.scheduleType")}</span>
+                  <div className="text-[13px] text-white/65">{t("agentSettings.chooseWhen")}</div>
+                  <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.scheduleType")}</span>
                     <select
-                      className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                      className={`h-10 ${HQ_FORM_SELECT}`}
                       value={cronDraft.scheduleKind}
                       onChange={(event) =>
                         updateCronDraft({
@@ -952,13 +970,13 @@ export const AgentSettingsPanel = ({
                   </label>
                   {cronDraft.scheduleKind === "every" ? (
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.every")}</span>
+                      <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.every")}</span>
                         <input
                           type="number"
                           min={1}
                           step={1}
-                          className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                          className={`h-10 ${HQ_FORM_FIELD}`}
                           value={String(cronDraft.everyAmount ?? 30)}
                           onChange={(event) =>
                             updateCronDraft({
@@ -967,10 +985,10 @@ export const AgentSettingsPanel = ({
                           }
                         />
                       </label>
-                      <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.unit")}</span>
+                      <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.unit")}</span>
                         <select
-                          className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                          className={`h-10 ${HQ_FORM_SELECT}`}
                           value={cronDraft.everyUnit ?? "minutes"}
                           onChange={(event) =>
                             updateCronDraft({
@@ -985,19 +1003,19 @@ export const AgentSettingsPanel = ({
                       </label>
                       {cronDraft.everyUnit === "days" ? (
                         <>
-                          <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.timeOfDay")}</span>
+                          <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.timeOfDay")}</span>
                             <input
                               type="time"
-                              className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                              className={`h-10 ${HQ_FORM_FIELD}`}
                               value={cronDraft.everyAtTime ?? "09:00"}
                               onChange={(event) => updateCronDraft({ everyAtTime: event.target.value })}
                             />
                           </label>
-                          <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.timezone")}</span>
+                          <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.timezone")}</span>
                             <input
-                              className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                              className={`h-10 ${HQ_FORM_FIELD}`}
                               value={cronDraft.everyTimeZone ?? resolveLocalTimeZone()}
                               onChange={(event) =>
                                 updateCronDraft({ everyTimeZone: event.target.value })
@@ -1009,11 +1027,11 @@ export const AgentSettingsPanel = ({
                     </div>
                   ) : null}
                   {cronDraft.scheduleKind === "at" ? (
-                    <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">{t("agentSettings.runAt")}</span>
+                    <label className="flex flex-col gap-1.5 text-[11px] text-white/60">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{t("agentSettings.runAt")}</span>
                       <input
                         type="datetime-local"
-                        className="h-10 rounded-md border border-border bg-surface-3 px-3 text-sm text-foreground outline-none"
+                        className={`h-10 ${HQ_FORM_FIELD}`}
                         value={cronDraft.scheduleAt ?? ""}
                         onChange={(event) => updateCronDraft({ scheduleAt: event.target.value })}
                       />
@@ -1022,10 +1040,10 @@ export const AgentSettingsPanel = ({
                 </div>
               ) : null}
               {cronCreateStep === 3 ? (
-                <div className="space-y-3 text-sm text-muted-foreground">
+                <div className="space-y-3 text-[13px] text-white/65">
                   <div>{t("agentSettings.reviewBeforeCreate")}</div>
-                  <div className="ui-card px-3 py-2">
-                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground">
+                  <div className={`${HQ_FORM_INSET} px-3 py-2 text-white/75`}>
+                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                       {cronDraft.name || t("agentSettings.untitled")}
                     </div>
                     <div className="mt-1 text-[11px]">
@@ -1050,21 +1068,21 @@ export const AgentSettingsPanel = ({
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-border/50 px-5 pb-4 pt-5">
-              <div className="text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 border-t border-red-900/40 px-5 pb-4 pt-5">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
                 {t("agentSettings.stepOf", { indicator: timedAutomationStepMeta.indicator, step: cronCreateStep + 1, total: 4 })}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="sidebar-btn-ghost px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={HQ_FORM_BUTTON_SECONDARY}
                   onClick={moveCronCreateBack}
                   disabled={cronCreateStep === 0 || cronCreateBusy}
                 >{t("agentSettings.back")}</button>
                 {cronCreateStep < 3 ? (
                   <button
                     type="button"
-                    className="sidebar-btn-ghost px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                    className={HQ_FORM_BUTTON_SECONDARY}
                     onClick={moveCronCreateNext}
                     disabled={
                       cronCreateBusy ||
@@ -1076,7 +1094,7 @@ export const AgentSettingsPanel = ({
                 {cronCreateStep === 3 ? (
                   <button
                     type="button"
-                    className="sidebar-btn-primary px-3 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+                    className={HQ_FORM_BUTTON_PRIMARY}
                     onClick={() => {
                       void submitCronCreate();
                     }}

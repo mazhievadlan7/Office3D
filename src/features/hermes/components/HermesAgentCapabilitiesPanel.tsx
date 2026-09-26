@@ -1,6 +1,10 @@
 "use client";
 
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_LEAD,
+  HQ_FORM_SECTION_TITLE,
+} from "@/features/agents/components/hqFormStyles";
 import { HermesAgentModelSection } from "@/features/hermes/components/HermesAgentModelSection";
 import { HermesEndpointsSection } from "@/features/hermes/components/HermesEndpointsSection";
 import { HermesToolsetsSection } from "@/features/hermes/components/HermesToolsetsSection";
@@ -12,11 +16,11 @@ import { HermesMemorySection } from "@/features/hermes/components/HermesMemorySe
 export function HermesAgentCapabilitiesPanel({ agentId }: { agentId: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="hermes-agent-capabilities">
-      <div className="border-b border-border/40 px-6 py-4">
-        <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="border-b border-red-900/40 px-6 py-4">
+        <div className={HQ_FORM_SECTION_TITLE}>
           {t("hermesCapabilities.title")}
         </div>
-        <div className="mt-1 text-sm text-muted-foreground">{t("hermesCapabilities.lead")}</div>
+        <div className={`mt-1 ${HQ_FORM_LEAD}`}>{t("hermesCapabilities.lead")}</div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         <div className="mx-auto w-full max-w-[760px]">

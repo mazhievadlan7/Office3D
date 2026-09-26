@@ -1,7 +1,8 @@
 import * as THREE from "three";
+import { HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_STATUS_CODE, type HqAgentInput } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
-import { EMPTY_FEED, Painter, type Ctx2D, type HqScreenFeed } from "./screenPaint";
+import { EMPTY_FEED, Painter, type Ctx2D, type HqScreenFeed, type HqTeamStat } from "./screenPaint";
 import {
   EXEC_H,
   EXEC_W,
@@ -10,10 +11,13 @@ import {
   MONITOR_ATLAS,
   SCREEN_SURFACES,
   WALL_ATLAS,
+  surfacePeriod,
   tileOrigin,
   type ScreenAtlas,
   type ScreenSurface,
+  type ScreenView,
 } from "./screenSurfaces";
+import { anchorFacing, type ScreenAnchor } from "./screenViews";
 
 export { MAP_PANEL_ASPECT } from "./screenSurfaces";
 
@@ -24,7 +28,7 @@ export { MAP_PANEL_ASPECT } from "./screenSurfaces";
  *    logs…); every desk monitor samples the tile its agent's role and status
  *    call for (workstations/materials.ts).
  *  - `walls`: an atlas for the wall screens, one tile per channel
- *    (HQ_WALL_SCREEN): AM7's report, the lounge's news, security and music.
+ *    (HQ_WALL_SCREEN): AM7's report, the lounge's news, business and radio.
  *  - `exec`: AM7's curved command monitor.
  *  - `mapLeft` / `mapRight`: the data panels either side of the world map.
  *
@@ -34,6 +38,10 @@ export { MAP_PANEL_ASPECT } from "./screenSurfaces";
  * pass per texture), a few per frame, so the main thread only uploads.
  * Browsers without OffscreenCanvas in workers paint here instead, more
  * slowly and within a small budget.
+ *
+ * The big screens (lounge TVs, AM7's office) repaint at broadcast rates only
+ * while the camera can see one of them (setAnchors + the camera per frame);
+ * off screen they rest at a slow idle rate.
  *
  * Every picture's first pixel row is its top, at the smallest v.
  */
@@ -52,8 +60,15 @@ const FEED_PERIOD = 1;
  * is always fresh, the smaller ones (screens seen from afar) lag a moment.
  */
 const MIPMAP_PERIOD = 0.4;
+/** The wall atlas while a channel is on screen: TVs seen from across the room move too. */
+const WALL_MIPMAP_PERIOD = 1 / 12;
 const HISTORY = 180;
 const EVENTS = 24;
+/** How often the visibility of the big screens is re-checked. */
+const VIEW_PERIOD = 0.2;
+/** Per-family working counts are kept this many seconds back for the "change in a minute" columns. */
+const TEAM_HISTORY = 60;
+const NO_ANCHORS: readonly ScreenAnchor[] = [];
 
 type Ready = { index: number; bitmap: ImageBitmap };
 
@@ -87,15 +102,26 @@ export class HqScreenHub {
   private worker: Worker | null = null;
   private readonly ready = new Map<number, ImageBitmap>();
   private fallback: { painters: Map<string, { ctx: Ctx2D; painter: Painter }>; next: Float64Array } | null = null;
-  private feed: HqScreenFeed = EMPTY_FEED;
+  private feed: HqScreenFeed = { ...EMPTY_FEED };
   private feedAt = -Infinity;
   private readonly lastStatus = new Map<string, number>();
   private readonly events: Array<{ at: number; name: string; status: number }> = [];
   private readonly history: number[] = [];
+  private sample = 0;
   private slowdown = 1;
   private disposed = false;
   private readonly mipmapAt = new Map<THREE.Texture, number>();
   private readonly mipmapDue = new Set<THREE.DataTexture>();
+  /** Null until the props report where the screens hang: then everything counts as seen. */
+  private anchors: Map<ScreenView, ScreenAnchor[]> | null = null;
+  /** 1 while a surface's screens are in view (or it has no view to track). */
+  private readonly inView = new Uint8Array(SCREEN_SURFACES.length).fill(1);
+  private viewAt = -Infinity;
+  private readonly frustum = new THREE.Frustum();
+  private readonly viewProjection = new THREE.Matrix4();
+  private readonly sphere = new THREE.Sphere();
+  private readonly familyOf = new Map<string, number>();
+  private readonly teamWorking: number[][] = [];
 
   constructor() {
     if (workerSupported()) {
@@ -125,15 +151,63 @@ export class HqScreenHub {
     this.worker?.postMessage({ type: "slowdown", value: this.slowdown });
   }
 
+  /**
+   * Where the big screens are (screenViews.ts screenAnchors). A view no screen
+   * of the layout shows (the radio below capacity 1000) is never seen, so it
+   * rests at its idle rate.
+   */
+  setAnchors(anchors: Map<ScreenView, ScreenAnchor[]>): void {
+    this.anchors = anchors;
+    this.viewAt = -Infinity;
+  }
+
   /** Per frame: refresh the floor feed about once a second and upload what is ready. */
-  update(seconds: number, agents: readonly HqAgentInput[], renderer: THREE.WebGLRenderer): void {
+  update(seconds: number, agents: readonly HqAgentInput[], renderer: THREE.WebGLRenderer, camera?: THREE.Camera): void {
     if (seconds - this.feedAt >= FEED_PERIOD || seconds < this.feedAt) {
       this.feedAt = seconds;
       this.feed = this.buildFeed(agents);
       this.worker?.postMessage({ type: "feed", feed: this.feed });
     }
+    if (camera && (seconds - this.viewAt >= VIEW_PERIOD || seconds < this.viewAt)) {
+      this.viewAt = seconds;
+      this.updateViews(camera);
+    }
     if (this.worker) this.uploadReady(renderer, seconds);
     else this.paintHere(seconds);
+  }
+
+  /** Which big screens the camera can see; tells the worker when that changes. */
+  private updateViews(camera: THREE.Camera): void {
+    this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.viewProjection);
+    const eye = camera.matrixWorld.elements;
+    const ex = eye[12];
+    const ey = eye[13];
+    const ez = eye[14];
+    let changed = false;
+    for (let i = 0; i < SCREEN_SURFACES.length; i++) {
+      const view = SCREEN_SURFACES[i].view;
+      let next = 1;
+      if (view !== undefined && this.anchors) {
+        next = 0;
+        for (const a of this.anchors.get(view) ?? NO_ANCHORS) {
+          if (!anchorFacing(a, ex, ey, ez)) continue;
+          this.sphere.center.set(a.x, a.y, a.z);
+          this.sphere.radius = a.r;
+          if (this.frustum.intersectsSphere(this.sphere)) {
+            next = 1;
+            break;
+          }
+        }
+      }
+      if (next !== this.inView[i]) {
+        this.inView[i] = next;
+        changed = true;
+        // Coming into view: repaint now rather than at the end of an idle wait.
+        if (next && this.fallback) this.fallback.next[i] = 0;
+      }
+    }
+    if (changed) this.worker?.postMessage({ type: "views", value: Array.from(this.inView) });
   }
 
   private uploadReady(renderer: THREE.WebGLRenderer, seconds: number): void {
@@ -161,15 +235,25 @@ export class HqScreenHub {
     this.refreshMipmaps(renderer, seconds);
   }
 
-  /** One mipmap pass per changed texture, at most every MIPMAP_PERIOD. */
+  /** One mipmap pass per changed texture, at most every MIPMAP_PERIOD (faster for a watched wall channel). */
   private refreshMipmaps(renderer: THREE.WebGLRenderer, seconds: number): void {
     for (const texture of this.mipmapDue) {
       const last = this.mipmapAt.get(texture) ?? -Infinity;
-      if (seconds - last < MIPMAP_PERIOD && seconds >= last) continue;
+      const period = texture === this.walls && this.wallInView() ? WALL_MIPMAP_PERIOD : MIPMAP_PERIOD;
+      if (seconds - last < period && seconds >= last) continue;
       mipmap(renderer, texture);
       this.mipmapAt.set(texture, seconds);
       this.mipmapDue.delete(texture);
     }
+  }
+
+  /** Whether a tracked wall channel is on screen right now. */
+  private wallInView(): boolean {
+    for (let i = 0; i < SCREEN_SURFACES.length; i++) {
+      const s = SCREEN_SURFACES[i];
+      if (s.target.kind === "layer" && s.target.set === "walls" && s.view !== undefined && this.anchors?.has(s.view) && this.inView[i]) return true;
+    }
+    return false;
   }
 
   private atlasOf(set: "monitors" | "walls"): [THREE.DataTexture, ScreenAtlas] {
@@ -195,8 +279,10 @@ export class HqScreenHub {
       const i = (start + k) % count;
       if (seconds < fallback.next[i]) continue;
       const surface = SCREEN_SURFACES[i];
-      fallback.next[i] = seconds + surface.period * this.slowdown * FALLBACK_SLOWDOWN;
+      fallback.next[i] = seconds + surfacePeriod(surface, this.inView[i] === 1) * this.slowdown * FALLBACK_SLOWDOWN;
       const { painter } = this.fallbackPainter(surface);
+      // The clocks read the wall clock at paint time, as in the worker.
+      this.feed.clock = Date.now();
       surface.paint(painter, seconds, this.feed);
       const pixels = painter.ctx.getImageData(0, 0, surface.w, surface.h).data;
       const target = surface.target;
@@ -243,11 +329,24 @@ export class HqScreenHub {
     let error = 0;
     const names: string[] = [];
     const seen = new Set<string>();
+    const teams: HqTeamStat[] = [];
+    for (let f = 0; f < HQ_ROLE_FAMILY_COUNT; f++) teams.push({ total: 0, working: 0, error: 0, workingAgo: 0 });
     for (const agent of agents) {
       const status = HQ_STATUS_CODE[agent.status] ?? 1;
       if (status === 0) working++;
       else if (status === 2) error++;
       else idle++;
+      // Departments: role text to family, remembered per distinct role.
+      const role = agent.role ?? "";
+      let family = this.familyOf.get(role);
+      if (family === undefined) {
+        family = hqRoleFamily(role);
+        if (this.familyOf.size < 512) this.familyOf.set(role, family);
+      }
+      const team = teams[family];
+      team.total++;
+      if (status === 0) team.working++;
+      else if (status === 2) team.error++;
       if (names.length < 256 && agent.name) names.push(agent.name);
       seen.add(agent.id);
       const before = this.lastStatus.get(agent.id);
@@ -261,7 +360,12 @@ export class HqScreenHub {
     const total = agents.length;
     this.history.push(total > 0 ? working / total : 0);
     if (this.history.length > HISTORY) this.history.shift();
-    return { clock, total, working, idle, error, names, events: this.events.slice(), history: this.history.slice() };
+    this.teamWorking.push(teams.map((team) => team.working));
+    if (this.teamWorking.length > TEAM_HISTORY + 1) this.teamWorking.shift();
+    const ago = this.teamWorking[0];
+    teams.forEach((team, f) => (team.workingAgo = ago[f] ?? team.working));
+    this.sample++;
+    return { clock, sample: this.sample, total, working, idle, error, names, events: this.events.slice(), history: this.history.slice(), teams };
   }
 
   dispose(): void {

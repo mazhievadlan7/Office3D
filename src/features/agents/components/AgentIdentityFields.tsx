@@ -66,7 +66,7 @@ export function AgentIdentityFields({
         <input
           className={inputClassName}
           value={values.emoji}
-          placeholder="e.g. ✨"
+          placeholder={t("identity.emojiPlaceholder")}
           disabled={disabled}
           onChange={(event) => {
             onChange("emoji", event.target.value);

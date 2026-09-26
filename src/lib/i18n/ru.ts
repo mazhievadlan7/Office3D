@@ -439,27 +439,33 @@ export const ru = {
   // --- Аватар ----------------------------------------------------------------
   "avatar.accessories": "Аксессуары",
   "avatar.alt": "Аватар: {name}",
-  "avatar.backpack": "Рюкзак",
-  "avatar.bottomColor": "Цвет низа",
-  "avatar.bottomStyle": "Низ",
+  "avatar.animation": "Анимация",
   "avatar.cancel": "Отмена",
+  "avatar.chatIcon": "Значок в чате",
+  "avatar.chatIconLead": "Меняет только значок агента в чате и списках. Фигура в штабе у всех агентов одна.",
+  "avatar.clipIdle": "Ожидание",
+  "avatar.clipTalk": "Разговор",
+  "avatar.clipWalk": "Шаг",
   "avatar.creator": "Редактор аватара",
-  "avatar.creatorLead": "Настройте этот аватар офиса локально, на этом компьютере.",
+  "avatar.creatorLead": "Так агент выглядит в штабе: та же модель, свет и анимации.",
   "avatar.customizeFor": "Настройка аватара: {name}",
+  "avatar.dragToRotate": "Потяните, чтобы повернуть",
   "avatar.glasses": "Очки",
   "avatar.hairColor": "Цвет волос",
   "avatar.hairStyle": "Причёска",
   "avatar.hat": "Головной убор",
   "avatar.headset": "Гарнитура",
-  "avatar.loading": "Загрузка аватара…",
+  "avatar.hqLook": "Облик в штабе",
+  "avatar.hqLookLead": "Все агенты штаба — одна модель: чёрное худи, тёмный визор, красные акценты. AM7 выделяется ростом и подписью. Настройки значка ниже на фигуру не влияют.",
+  "avatar.loading": "Загрузка модели…",
+  "avatar.modelUnavailable": "Модель штаба не загрузилась",
   "avatar.randomize": "Случайный",
   "avatar.reset": "Сбросить",
   "avatar.save": "Сохранить аватар",
   "avatar.saving": "Сохранение…",
-  "avatar.shoeColor": "Цвет обуви",
   "avatar.skinTone": "Тон кожи",
+  "avatar.stageCaption": "Штаб · {clip}",
   "avatar.topColor": "Цвет верха",
-  "avatar.topStyle": "Верх",
 
   // --- Файлы мышления агента -------------------------------------------------
   "brain.cancel": "Отмена",
@@ -698,7 +704,7 @@ export const ru = {
   "createAgent.title": "Новый агент",
 
   // --- Редактор агента -------------------------------------------------------
-  "editor.avatarHint": "Внешний вид в офисе.",
+  "editor.avatarHint": "Облик в штабе и значок в чате.",
   "editor.close": "Закрыть редактор агента",
   "editor.connectFirst": "Подключитесь к шлюзу, чтобы править файлы мышления.",
   "editor.deleteAgent": "Удалить агента",
@@ -1031,6 +1037,7 @@ export const ru = {
   "hq.hqLead": "Следите за результатами, запусками и расписаниями.",
   "hq.hqTitle": "ШТАБ",
   "hq.marketplace": "МАРКЕТПЛЕЙС",
+  "hq.navLabel": "Разделы штаба",
   "hq.open": "ОТКРЫТЬ ШТАБ",
   "hq.openAnalyticsLabel": "Открыть панель аналитики",
   "hq.openLabel": "Открыть боковую панель штаба",
@@ -1078,8 +1085,6 @@ export const ru = {
   "hqScene.cameraMap": "Карта мира",
   "hqScene.cameraOverview": "Обзор",
   "hqScene.cameraStopFollow": "Перестать следить (Esc)",
-  "hqScene.controlsHint":
-    "Левая кнопка — сдвиг · правая — поворот · колесо — масштаб · двойной щелчок по агенту — следить",
   "hqScene.countAgents": "Агенты",
   "hqScene.countError": "Ошибки",
   "hqScene.countFree": "Свободно",
@@ -1097,6 +1102,7 @@ export const ru = {
 
   // --- Личность агента -------------------------------------------------------
   "identity.emoji": "Эмодзи",
+  "identity.emojiPlaceholder": "например, ✨",
   "identity.name": "Имя",
   "identity.namePlaceholder": "например, Лука",
   "identity.role": "Роль",
@@ -1758,7 +1764,7 @@ export const ru = {
     "Подключитесь к среде выполнения, прежде чем пользоваться конструктором компании.",
   "office.connectingRuntime": "Подключение к среде выполнения",
   "office.connectingRuntimeLong": "Подключаемся к вашей среде выполнения…",
-  "office.consoleCounts": "агентов {agents} | событий",
+  "office.consoleCounts": "Агентов {agents} · событий {shown}/{total}",
   "office.copyFailed": "Не скопировано",
   "office.copyJson": "Копировать JSON",
   "office.createCompanyFailed": "Не удалось создать компанию.",
@@ -2382,6 +2388,8 @@ export const ru = {
   "remoteChat.intervalThread":
     "Рабочая переписка. Используйте её для текущей координации и контрольных точек.",
   "remoteChat.lead": "Отправьте этому удалённому агенту текстовую заметку.",
+  "remoteChat.modeDirect": "Напрямую",
+  "remoteChat.modeInterval": "Переписка",
   "remoteChat.placeholder": "Сообщение удалённому агенту.",
   "remoteChat.sending": "Отправка…",
   "remoteChat.title": "Удалённый агент",
@@ -2560,7 +2568,9 @@ export const ru = {
   "skillSetup.working": "Выполняется…",
 
   // --- Панель маркетплейса -------------------------------------------------
+  "skills.accessAll": "все навыки",
   "skills.accessMode": "Режим доступа: {mode}",
+  "skills.accessNone": "навыки выключены",
   "skills.accessNote":
     "«Включить/Выключить для агента» меняет доступ только выбранного агента. «Убрать у всех агентов» удаляет установленный навык из рабочего пространства шлюза.",
   "skills.agentContext": "Контекст агента",
@@ -2594,8 +2604,6 @@ export const ru = {
   "skills.installsCount": "установок: {count}",
   "skills.loading": "Загрузка содержимого маркетплейса…",
   "skills.manageInSettings": "Настроить в параметрах",
-  "skills.marketLead": "Навыки шлюза — как в каталоге плагинов.",
-  "skills.marketTitle": "Маркетплейс навыков",
   "skills.noAgentSelected": "Агент не выбран",
   "skills.noMatches": "Подходящих навыков на этом шлюзе нет.",
   "skills.openSettings": "Открыть настройки",
@@ -2702,6 +2710,10 @@ export const ru = {
   "taskboard.sessionThread": "Сессия/переписка: {key}",
   "taskboard.sharedStore": "Общее хранилище: ",
   "taskboard.source": "Источник: {value}.",
+  "taskboard.sourceEvent": "Шлюз",
+  "taskboard.sourceInferred": "Распознано",
+  "taskboard.sourceManual": "Вручную",
+  "taskboard.sourcePlaybook": "Плейбук",
   "taskboard.statusBlocked": "Заблокировано",
   "taskboard.statusDone": "Готово",
   "taskboard.statusInProgress": "В работе",
@@ -2720,10 +2732,6 @@ export const ru = {
   "taskboard.updated": "Обновлена: {value}.",
   "taskboard.visibleCards": "Видимых карточек: {count}",
   "taskboard.waitingDetection": "Ждём распознавания входящих просьб.",
-
-  // --- Тема оформления -------------------------------------------------------
-  "theme.toDark": "Включить тёмную тему",
-  "theme.toLight": "Включить светлую тему",
 
   // --- Голоса ----------------------------------------------------------------
   "voices.balanced": "Сбалансированный, разговорный.",

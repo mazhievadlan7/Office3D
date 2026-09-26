@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { HqClock } from "@/features/hq/hud/HqClock";
+import { HQ_HUD_GLASS, hqHudButtonClass } from "@/features/hq/hud/hudStyle";
 import { t } from "@/lib/i18n";
 
 export type HQSidebarTab =
@@ -36,6 +38,19 @@ const TAB_LABELS: Record<HQSidebarTab, string> = {
 
 const PRIMARY_TABS: HQSidebarTab[] = ["inbox", "history", "kanban", "playbooks"];
 
+const navButtonClass = (active: boolean): string =>
+  `flex h-9 flex-auto items-center justify-center whitespace-nowrap px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] ${hqHudButtonClass(active)}`;
+
+const actionButtonClass =
+  "flex h-7 items-center whitespace-nowrap px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]";
+
+/**
+ * The HQ's right column: the local clock and the three HQ buttons (open or
+ * collapse the HQ panel, the marketplace, analytics) in one card at the top
+ * right, and the open panel under it. The panel stops above the bottom row,
+ * where the chat button lives, so nothing in the column collides with the
+ * HUD; the chat window moves left of it when both fit (OfficeScreen).
+ */
 export function HQSidebar({
   open,
   activeTab,
@@ -66,96 +81,98 @@ export function HQSidebar({
   const boardLikeWidth = activeTab === "kanban";
 
   return (
-    <aside className="pointer-events-none fixed inset-y-0 right-0 z-20 flex justify-end">
-      <div className="pointer-events-auto mt-14 flex shrink-0 flex-col items-end gap-1.5">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors border-red-600/35 bg-[#0c0405]/90 text-white hover:border-red-500/60 hover:bg-[#1a0607]/95"
-          aria-expanded={open}
-          aria-label={open ? t("hq.collapseLabel") : t("hq.openLabel")}
-        >
-          <span className="block leading-none [writing-mode:vertical-rl]">
-            {open ? t("hq.collapse") : t("hq.open")}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            onOpenMarketplace();
-          }}
-          className="rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors border-red-600/35 bg-[#0c0405]/90 text-white hover:border-red-500/60 hover:bg-[#1a0607]/95"
-          aria-label={t("hq.openMarketplaceLabel")}
-        >
-          <span className="block leading-none [writing-mode:vertical-rl]">
-            {t("hq.marketplace")}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            onTabChange("analytics");
-            if (!open) {
+    <aside className="pointer-events-none fixed bottom-[70px] right-3 top-3 z-20 flex flex-col items-end gap-2">
+      <div className={`pointer-events-auto w-[312px] shrink-0 ${HQ_HUD_GLASS}`}>
+        <HqClock className="px-3.5 pb-2 pt-2.5" />
+        <nav aria-label={t("hq.navLabel")} className="flex gap-1 border-t border-red-900/40 p-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              // «Открыть штаб» opens the HQ itself, not analytics left over
+              // from the last visit.
+              if (!open && analyticsOnly) onTabChange("inbox");
               onToggle();
-            }
-          }}
-          className={`rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors ${
-            analyticsOnly
-              ? "border-red-500/60 bg-[#1a0607]/95 text-white"
-              : "border-red-600/35 bg-[#0c0405]/90 text-white hover:border-red-500/60 hover:bg-[#1a0607]/95"
-          }`}
-          aria-pressed={analyticsOnly}
-          aria-label={t("hq.openAnalyticsLabel")}
-        >
-          <span className="block leading-none [writing-mode:vertical-rl]">
+            }}
+            className={navButtonClass(open && !analyticsOnly)}
+            aria-expanded={open}
+            aria-label={open ? t("hq.collapseLabel") : t("hq.openLabel")}
+          >
+            {open ? t("hq.collapse") : t("hq.open")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onOpenMarketplace();
+            }}
+            className={navButtonClass(false)}
+            aria-label={t("hq.openMarketplaceLabel")}
+          >
+            {t("hq.marketplace")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onTabChange("analytics");
+              if (!open) {
+                onToggle();
+              }
+            }}
+            className={navButtonClass(open && analyticsOnly)}
+            aria-pressed={open && analyticsOnly}
+            aria-label={t("hq.openAnalyticsLabel")}
+          >
             {t("hq.analyticsTitle")}
-          </span>
-        </button>
+          </button>
+        </nav>
       </div>
 
       {open ? (
         <div
-          className={`pointer-events-auto flex h-full flex-col border-l border-cyan-500/20 bg-black/85 shadow-2xl backdrop-blur ${
-            boardLikeWidth ? "w-[min(94vw,1180px)]" : "w-56"
+          className={`pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-red-900/50 bg-[#070404]/90 shadow-2xl backdrop-blur-sm ${
+            boardLikeWidth ? "w-[min(calc(100vw-1.5rem),1180px)]" : "w-[312px]"
           }`}
         >
-          <div className="border-b border-cyan-500/15 px-4 py-3">
-            <div className="font-mono text-[10px] font-semibold tracking-[0.32em] text-cyan-300/80">
+          <div className="border-b border-red-900/40 px-4 py-3">
+            <div className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-white">
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,42,42,0.9)]"
+              />
               {analyticsOnly ? t("hq.analyticsTitle") : t("hq.hqTitle")}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-white/45">
-              {analyticsOnly
-                ? t("hq.analyticsLead")
-                : t("hq.hqLead")}
-            </div>
-            {!railOnly && onAddAgent ? (
-              <button
-                type="button"
-                onClick={onAddAgent}
-                className="mt-3 rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
-              >
-                {t("hq.addAgent")}
-              </button>
-            ) : null}
-            {!railOnly && onOpenCompanyBuilder ? (
-              <button
-                type="button"
-                onClick={onOpenCompanyBuilder}
-                className="mt-2 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-200 transition-colors hover:border-emerald-400/40 hover:text-emerald-100"
-              >
-                {t("hq.buildCompany")}
-              </button>
-            ) : null}
-            {railOnly ? (
-              <button
-                type="button"
-                onClick={() => onTabChange("inbox")}
-                className="mt-3 rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-100"
-              >
-                {t("hq.backToHq")}
-              </button>
+            <p className="mt-1 font-mono text-[11px] leading-4 text-white/65">
+              {analyticsOnly ? t("hq.analyticsLead") : t("hq.hqLead")}
+            </p>
+            {railOnly || onAddAgent || onOpenCompanyBuilder ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {!railOnly && onAddAgent ? (
+                  <button
+                    type="button"
+                    onClick={onAddAgent}
+                    className={`${actionButtonClass} rounded-md border border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition-colors hover:border-red-400 hover:bg-[#ff2a2a]`}
+                  >
+                    {t("hq.addAgent")}
+                  </button>
+                ) : null}
+                {!railOnly && onOpenCompanyBuilder ? (
+                  <button
+                    type="button"
+                    onClick={onOpenCompanyBuilder}
+                    className={`${actionButtonClass} ${hqHudButtonClass(false)}`}
+                  >
+                    {t("hq.buildCompany")}
+                  </button>
+                ) : null}
+                {railOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => onTabChange("inbox")}
+                    className={`${actionButtonClass} ${hqHudButtonClass(false)}`}
+                  >
+                    {t("hq.backToHq")}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
@@ -163,7 +180,7 @@ export function HQSidebar({
             <div
               role="tablist"
               aria-label={t("hq.panelsLabel")}
-              className="grid grid-cols-4 border-b border-cyan-500/15"
+              className="flex border-b border-red-900/40"
             >
               {PRIMARY_TABS.map((tab) => {
                 const isActive = tab === activeTab;
@@ -177,16 +194,19 @@ export function HQSidebar({
                     aria-controls={`hq-panel-${tab}`}
                     id={`hq-tab-${tab}`}
                     onClick={() => onTabChange(tab)}
-                    className={`flex items-center justify-center gap-1 border-r border-cyan-500/10 px-2 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors last:border-r-0 ${
+                    className={`flex h-9 flex-auto items-center justify-center gap-1 whitespace-nowrap border-r border-red-900/40 px-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] transition-colors last:border-r-0 ${
                       isActive
-                        ? "bg-cyan-500/10 text-cyan-100"
-                        : "text-white/45 hover:bg-white/5 hover:text-white/80"
+                        ? "bg-red-600/20 text-white shadow-[inset_0_-2px_0_#e3141c]"
+                        : "text-white/65 hover:bg-red-950/40 hover:text-white"
                     }`}
                   >
                     <span>{TAB_LABELS[tab]}</span>
                     {showBadge ? (
-                      <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300" aria-label={t("hq.unreadCount", { count: inboxCount })}>
-                        {inboxCount}
+                      <span
+                        className="rounded-sm bg-[#e3141c] px-1 text-[9px] leading-[14px] tabular-nums text-white"
+                        aria-label={t("hq.unreadCount", { count: inboxCount })}
+                      >
+                        {inboxCount > 99 ? "99+" : inboxCount}
                       </span>
                     ) : null}
                   </button>

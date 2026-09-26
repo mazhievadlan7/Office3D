@@ -78,11 +78,19 @@ export const HQ_CLIP_INFO: Record<HqClipName, { duration: number; loop: boolean;
  * Bumped whenever a model under public/office-assets/models is rebuilt, so
  * browsers and proxies holding the old file fetch the new one.
  */
-const HQ_MODELS_VERSION = "2026-09-25b";
+const HQ_MODELS_VERSION = "2026-09-25c";
 export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;
-export const HQ_WORLD_LAND_URL = "/office-assets/data/land-110m.json";
+// World map. Coastlines and borders: Natural Earth 1:50m countries via the
+// world-atlas package (public domain / ISC). Imagery is optional (the map
+// falls back to a look built from the vector data): NASA Earth Observatory,
+// public domain — Blue Marble Next Generation with topography and bathymetry
+// (December 2004, 5400 x 2700) and Black Marble 2016 night lights (3600 x 1800),
+// both whole-globe equirectangular with north up.
+export const HQ_WORLD_COUNTRIES_URL = "/office-assets/data/countries-50m.json";
+export const HQ_MAP_DAY_URL = "/office-assets/textures/earth-topo-bathy-5400.jpg";
+export const HQ_MAP_NIGHT_URL = "/office-assets/textures/earth-night-3600.jpg";
 
 // Crossfade between clips, seconds.
 export const HQ_BLEND_TIME = 0.28;

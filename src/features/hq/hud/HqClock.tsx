@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { t, type TranslationKey } from "@/lib/i18n";
 
@@ -78,8 +78,16 @@ function dateLine(format: Intl.DateTimeFormat, now: Date): string {
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${get("day")} ${get("month")} ${get("year")}`;
 }
 
-/** Local time where the viewer is (Moscow by default), with the date and weekday. */
-export function HqClock() {
+const subscribeNothing = () => () => {};
+
+/**
+ * Local time where the viewer is (Moscow by default), with the date and weekday.
+ * Content only: the card around it belongs to whoever places it (the HQ's
+ * top-right block). The server and the first client render show dashes, so
+ * the server's clock and time zone never clash with the viewer's on hydration.
+ */
+export function HqClock({ className = "" }: { className?: string }) {
+  const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const zone = useMemo(() => viewerZone(), []);
   const format = useMemo(() => formatters(zone), [zone]);
   const [now, setNow] = useState(() => new Date());
@@ -96,21 +104,23 @@ export function HqClock() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const [hh, mm, ss] = format.time.format(now).split(":");
-  const city = cityName(zone);
+  const [hh, mm, ss] = hydrated ? format.time.format(now).split(":") : ["--", "--", "--"];
+  const city = hydrated ? cityName(zone) : "";
+  // Fixed line heights keep the block the same height whatever the font does,
+  // so the buttons and the panel under it never shift.
   return (
     <div
       role="timer"
       aria-live="off"
-      aria-label={t("hqClock.label", { city })}
-      className="pointer-events-none select-none rounded-lg border border-red-900/50 bg-black/65 px-3.5 py-2 text-right shadow-lg backdrop-blur-sm"
+      aria-label={hydrated ? t("hqClock.label", { city }) : undefined}
+      className={`select-none text-right ${className}`}
     >
-      <div className="flex items-center justify-end gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-white">
+      <div className="flex h-3.5 items-center justify-end gap-2 font-mono text-[10px] font-semibold uppercase leading-[14px] tracking-[0.2em] text-white">
         <span className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,42,42,0.9)]" />
         <span>{city}</span>
-        <span className="text-white/70">{utcOffset(format.offset, now)}</span>
+        <span className="text-white/65">{hydrated ? utcOffset(format.offset, now) : ""}</span>
       </div>
-      <div className="mt-1 font-mono text-[26px] font-bold leading-none tabular-nums tracking-[0.06em] text-white [text-shadow:0_0_16px_rgba(255,26,26,0.45)]">
+      <div className="mt-1 h-[26px] font-mono text-[26px] font-bold leading-none tabular-nums tracking-[0.06em] text-white [text-shadow:0_0_16px_rgba(255,26,26,0.45)]">
         {hh}
         <span className="text-red-500">:</span>
         {mm}
@@ -119,7 +129,9 @@ export function HqClock() {
           {ss}
         </span>
       </div>
-      <div className="mt-1 font-mono text-[11px] tracking-wide text-white">{dateLine(format.date, now)}</div>
+      <div className="mt-1 h-4 truncate font-mono text-[11px] leading-4 tracking-wide text-white">
+        {hydrated ? dateLine(format.date, now) : "\u00a0"}
+      </div>
     </div>
   );
 }

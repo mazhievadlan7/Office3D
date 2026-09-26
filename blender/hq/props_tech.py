@@ -410,10 +410,27 @@ def wall_screen(p):
     """2.2 x 1.25 m display, 5 cm deep, centred 1.55 m above the floor. The
     body is centred on the origin in depth (y -0.025..0.025): place it 2.5 cm
     in front of the wall face. The display surface is its own "screen"
-    material with UVs 0..1 (u to the viewer's right, v up)."""
+    material with UVs 0..1 (u to the viewer's right, v up).
+
+    Built like a current flagship TV: a slim gloss-black panel with a thin
+    brushed-metal edge, floating off the wall on a narrower matte housing
+    that carries the electronics and the wall mount, so the panel's edges
+    cast a shadow gap onto the wall."""
     zc = 1.55
-    p.box("black_gloss", (2.2, 0.05, 1.25), (0, 0, zc), bevel=0.006)
-    p.quad("screen", 2.2 - 0.024, 1.25 - 0.024, (0, -0.0252, zc))
+    W, H = 2.2, 1.25
+    panel_d = 0.022
+    py = -0.025 + panel_d / 2
+    p.box("black_gloss", (W - 0.006, panel_d, H - 0.006), (0, py, zc), bevel=0.004)
+    # brushed-metal rim round the panel edge, a hair proud of the gloss
+    t = 0.004
+    for sz in (-1, 1):
+        p.box("metal_brushed", (W, panel_d + 0.001, t), (0, py, zc + sz * (H / 2 - t / 2)), bevel=0.0012)
+    for sx in (-1, 1):
+        p.box("metal_brushed", (t, panel_d + 0.001, H - 2 * t), (sx * (W / 2 - t / 2), py, zc), bevel=0.0012)
+    # rear housing (electronics, mount), lower-centre like a real set
+    hd = 0.05 - panel_d
+    p.box("black_matte", (W * 0.66, hd, H * 0.58), (0, -0.025 + panel_d + hd / 2, zc - H * 0.1), bevel=0.012)
+    p.quad("screen", W - 0.024, H - 0.024, (0, -0.0252, zc))
     _led(p, 0.012, 0.003, (1.02, -0.0254, zc - 0.625 + 0.006), blink=False)
 
 

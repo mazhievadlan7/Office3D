@@ -2,6 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_BADGE_LIVE,
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_BUTTON_SMALL,
+  HQ_FORM_CHECKBOX,
+  HQ_FORM_FIELD,
+  HQ_FORM_HINT,
+  HQ_FORM_INSET,
+  HQ_FORM_SECTION,
+  HQ_FORM_SECTION_TITLE,
+  HQ_FORM_SELECT,
+} from "@/features/agents/components/hqFormStyles";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type Endpoint = { id: string; name: string; baseUrl: string; model: string; models: string[]; hasApiKey: boolean; isCurrent: boolean };
@@ -95,31 +108,31 @@ export function HermesEndpointsSection({ agentId }: { agentId: string }) {
       return t("hermesEndpoints.removed");
     });
 
-  const field = "ui-input w-full rounded px-2 py-1 text-[11px]";
+  const field = `w-full ${HQ_FORM_FIELD}`;
 
   return (
-    <section className="mt-4 rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="hermes-endpoints">
-      <div className="text-[11px] font-medium text-foreground">{t("hermesEndpoints.title")}</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesEndpoints.lead")}</div>
+    <section className={`mt-4 ${HQ_FORM_SECTION}`} data-testid="hermes-endpoints">
+      <div className={HQ_FORM_SECTION_TITLE}>{t("hermesEndpoints.title")}</div>
+      <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesEndpoints.lead")}</div>
 
       <div className="mt-3 space-y-1.5">
         {endpoints?.map((endpoint) => (
-          <div key={endpoint.id} className="flex items-start justify-between gap-2 rounded bg-muted/40 px-2 py-1.5 text-[11px]">
+          <div key={endpoint.id} className={`flex items-start justify-between gap-2 ${HQ_FORM_INSET} px-2.5 py-2 text-[11px]`}>
             <span className="min-w-0">
-              <span className="text-foreground">{endpoint.name}</span>
-              {endpoint.isCurrent ? <span className="ml-2 ui-text-success">{t("hermesEndpoints.current")}</span> : null}
-              <span className="block truncate text-muted-foreground">
+              <span className="text-white">{endpoint.name}</span>
+              {endpoint.isCurrent ? <span className={`ml-2 ${HQ_FORM_BADGE_LIVE}`}>{t("hermesEndpoints.current")}</span> : null}
+              <span className="block truncate text-white/50">
                 {endpoint.baseUrl} · {endpoint.model}
                 {endpoint.hasApiKey ? ` · ${t("hermesEndpoints.withKey")}` : ""}
               </span>
             </span>
             <span className="flex shrink-0 gap-1">
               {endpoint.isCurrent ? null : (
-                <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" disabled={busy} onClick={() => void activate(endpoint)}>
+                <button type="button" className={HQ_FORM_BUTTON_SMALL} disabled={busy} onClick={() => void activate(endpoint)}>
                   {t("hermesEndpoints.use")}
                 </button>
               )}
-              <button type="button" className="ui-btn-secondary px-2 py-0.5 text-[10px]" disabled={busy} onClick={() => void remove(endpoint)}>
+              <button type="button" className={HQ_FORM_BUTTON_SMALL} disabled={busy} onClick={() => void remove(endpoint)}>
                 {t("hermesEndpoints.remove")}
               </button>
             </span>
@@ -137,7 +150,7 @@ export function HermesEndpointsSection({ agentId }: { agentId: string }) {
             value={draft.baseUrl}
             onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value, checked: false, models: [] })}
           />
-          <div className="text-[10px] text-muted-foreground">{t("hermesEndpoints.addressHint")}</div>
+          <div className={HQ_FORM_HINT}>{t("hermesEndpoints.addressHint")}</div>
           <input
             className={field}
             type="password"
@@ -148,7 +161,7 @@ export function HermesEndpointsSection({ agentId }: { agentId: string }) {
             onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
           />
           {draft.checked ? (
-            <select className={`${field} h-8`} aria-label={t("hermesEndpoints.model")} value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
+            <select className={`h-8 w-full ${HQ_FORM_SELECT}`} aria-label={t("hermesEndpoints.model")} value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
               {draft.models.map((model) => (
                 <option key={model} value={model}>
                   {model}
@@ -156,30 +169,30 @@ export function HermesEndpointsSection({ agentId }: { agentId: string }) {
               ))}
             </select>
           ) : null}
-          <label className="flex items-center gap-2 text-muted-foreground">
-            <input type="checkbox" checked={draft.everyone} onChange={(e) => setDraft({ ...draft, everyone: e.target.checked })} />
+          <label className="flex items-center gap-2 text-white/65">
+            <input type="checkbox" className={HQ_FORM_CHECKBOX} checked={draft.everyone} onChange={(e) => setDraft({ ...draft, everyone: e.target.checked })} />
             {t("hermesEndpoints.forEveryone")}
           </label>
           <div className="flex justify-end gap-2">
-            <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" onClick={() => setDraft(null)}>
+            <button type="button" className={HQ_FORM_BUTTON_SECONDARY} onClick={() => setDraft(null)}>
               {t("hermesEndpoints.cancel")}
             </button>
-            <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" disabled={busy || !draft.baseUrl.trim()} onClick={() => void check()}>
+            <button type="button" className={HQ_FORM_BUTTON_SECONDARY} disabled={busy || !draft.baseUrl.trim()} onClick={() => void check()}>
               {t("hermesEndpoints.check")}
             </button>
-            <button type="button" className="ui-btn-primary px-2 py-1 text-[11px] font-semibold" disabled={busy || !draft.checked || !draft.model} onClick={() => void save()}>
+            <button type="button" className={HQ_FORM_BUTTON_PRIMARY} disabled={busy || !draft.checked || !draft.model} onClick={() => void save()}>
               {t("hermesEndpoints.saveAndUse")}
             </button>
           </div>
         </div>
       ) : (
         <div className="mt-3 flex justify-end">
-          <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" disabled={busy} onClick={() => setDraft({ ...EMPTY })}>
+          <button type="button" className={HQ_FORM_BUTTON_SECONDARY} disabled={busy} onClick={() => setDraft({ ...EMPTY })}>
             {t("hermesEndpoints.add")}
           </button>
         </div>
       )}
-      {message ? <div className={`mt-2 text-[11px] ${message.kind === "error" ? "ui-text-danger" : "text-muted-foreground"}`}>{message.text}</div> : null}
+      {message ? <div className={`mt-2 text-[11px] ${message.kind === "error" ? "text-red-400" : "text-white/70"}`}>{message.text}</div> : null}
     </section>
   );
 }

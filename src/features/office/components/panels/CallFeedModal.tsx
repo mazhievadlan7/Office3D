@@ -53,22 +53,26 @@ export function CallFeedModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[min(90vh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-cyan-500/20 bg-[#050607]/95 shadow-2xl"
+        className="flex h-[min(90vh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-red-600/35 bg-[#070404]/95 text-white shadow-[0_0_48px_rgba(255,26,26,0.12)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-cyan-500/10 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-red-900/40 bg-gradient-to-r from-red-950/30 via-transparent to-transparent px-5 py-4">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300/80">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-red-400">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,26,26,0.9)]"
+                aria-hidden="true"
+              />
               {t("phone.boothTitle")}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-white/45">
+            <div className="mt-1 font-mono text-[11px] text-white/55">
               {t("phone.boothLead")}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
+            className="inline-flex items-center gap-1 rounded-md border border-red-900/40 bg-black/40 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/80 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
           >
             <X className="h-3.5 w-3.5" />
             {t("common.close")}

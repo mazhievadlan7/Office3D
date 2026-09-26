@@ -7,7 +7,7 @@ import { t } from "@/lib/i18n";
 import { adapterLabel, gatewayStatusLabel } from "@/lib/i18n/labels";
 import type { HqCameraMode } from "../render/scene/HqCameraRig";
 import type { HqCameraPreset } from "../render/scene/cameraMath";
-import { HqClock } from "./HqClock";
+import { HQ_HUD_GLASS, hqHudButtonClass } from "./hudStyle";
 
 export type HqHudCounts = {
   total: number;
@@ -51,11 +51,7 @@ function BarButton({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[11px] tracking-wide text-white transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
-        active
-          ? "border-red-500/60 bg-red-600/20 shadow-[0_0_14px_rgba(255,26,26,0.25)]"
-          : "border-red-900/40 bg-black/40 hover:border-red-500/50 hover:bg-red-950/40"
-      }`}
+      className={`flex h-9 items-center gap-1.5 px-2.5 font-mono text-[12px] tracking-wide ${hqHudButtonClass(active)}`}
     >
       {children}
     </button>
@@ -95,7 +91,7 @@ export function HqSettingsControls({
           role="status"
           title={runtimeTitle}
           aria-label={runtimeTitle}
-          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white ${
+          className={`flex h-9 items-center gap-1.5 rounded-md border px-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white ${
             runtime.status === "connected" ? "border-red-500/45 bg-red-600/15" : "border-red-900/40 bg-black/40"
           }`}
         >
@@ -114,7 +110,7 @@ export function HqSettingsControls({
       ) : null}
       {onOpenSettings ? (
         <BarButton active={settingsOpen} label={t("office.voiceSettings")} onClick={onOpenSettings}>
-          <Settings className="h-3.5 w-3.5" />
+          <Settings className="h-4 w-4" />
         </BarButton>
       ) : null}
     </>
@@ -122,10 +118,11 @@ export function HqSettingsControls({
 }
 
 /**
- * The HQ overlay: title and live counters on top, the local clock top right,
- * the camera controls along the bottom. Dark glass with red accents and white
- * text, in the same monospace voice as the rest of the office HUD. The scene
- * always renders at its highest quality, so there is no quality switch.
+ * The HQ overlay: title and live counters on top, the camera controls along
+ * the bottom. The local clock and the HQ navigation sit in the right column
+ * (HQSidebar), the event console top left and the chat button bottom right;
+ * all of them share HQ_HUD_GLASS. The scene always renders at its highest
+ * quality, so there is no quality switch.
  */
 export function HqHud({
   counts,
@@ -162,7 +159,7 @@ export function HqHud({
         <div
           role="status"
           aria-label={t("hqScene.countersLabel")}
-          className="flex items-center divide-x divide-red-900/40 rounded-lg border border-red-900/50 bg-black/65 py-1.5 shadow-lg backdrop-blur-sm"
+          className={`flex items-center divide-x divide-red-900/40 py-1.5 ${HQ_HUD_GLASS}`}
         >
           <Counter label={t("hqScene.countAgents")} value={counts.total} />
           <Counter label={t("hqScene.countWorking")} value={counts.working} />
@@ -172,15 +169,11 @@ export function HqHud({
         </div>
       </div>
 
-      {/* Top right, clear of the sidebar tabs along the right edge. */}
-      <div className="absolute right-12 top-3 z-10">
-        <HqClock />
-      </div>
-
-      {/* Clear of the chat button (bottom-right); the event console sits top-left in the HQ. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-1.5 px-3 md:right-[110px]">
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-xl border border-red-900/40 bg-black/70 px-2 py-1.5 shadow-2xl backdrop-blur-sm">
-          <span className="hidden px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white xl:inline">
+      {/* Centred under the counters from lg up; the padding keeps it clear of
+          the chat button in the bottom-right corner (up to ~150px wide). */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3 md:pr-[164px] lg:pl-[164px]">
+        <div className={`pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 p-1.5 ${HQ_HUD_GLASS}`}>
+          <span className="hidden px-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white xl:inline">
             {t("hqScene.cameraLabel")}
           </span>
           <BarButton
@@ -188,15 +181,15 @@ export function HqHud({
             label={t("hqScene.cameraOverview")}
             onClick={() => onCameraPreset("overview")}
           >
-            <Maximize2 className="h-3.5 w-3.5" />
+            <Maximize2 className="h-4 w-4" />
             <span className="hidden xl:inline">{t("hqScene.cameraOverview")}</span>
           </BarButton>
           <BarButton active={cameraMode === "am7"} label={t("hqScene.cameraAm7")} onClick={() => onCameraPreset("am7")}>
-            <Crown className="h-3.5 w-3.5" />
+            <Crown className="h-4 w-4" />
             <span className="hidden xl:inline">{t("hqScene.cameraAm7")}</span>
           </BarButton>
           <BarButton active={cameraMode === "map"} label={t("hqScene.cameraMap")} onClick={() => onCameraPreset("map")}>
-            <Globe className="h-3.5 w-3.5" />
+            <Globe className="h-4 w-4" />
             <span className="hidden xl:inline">{t("hqScene.cameraMap")}</span>
           </BarButton>
           <BarButton
@@ -212,15 +205,14 @@ export function HqHud({
             }
             onClick={() => onCameraPreset("follow")}
           >
-            <Crosshair className="h-3.5 w-3.5" />
+            <Crosshair className="h-4 w-4" />
             <span className="hidden xl:inline">{t("hqScene.cameraFollow")}</span>
           </BarButton>
-
 
           <Divider />
           {onMessageLead ? (
             <BarButton label={t("hqScene.messageLead")} title={t("hqScene.messageLeadTitle")} onClick={onMessageLead}>
-              <MessageSquare className="h-3.5 w-3.5" />
+              <MessageSquare className="h-4 w-4" />
               <span className="hidden xl:inline">{t("hqScene.messageLead")}</span>
             </BarButton>
           ) : null}
@@ -231,9 +223,6 @@ export function HqHud({
             </>
           ) : null}
         </div>
-        <p className="hidden select-none font-mono text-[10px] tracking-wide text-white xl:block">
-          {t("hqScene.controlsHint")}
-        </p>
       </div>
     </>
   );

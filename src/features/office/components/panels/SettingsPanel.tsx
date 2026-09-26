@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
 import type { VoiceSetup } from "@/lib/voice/agentVoices";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
@@ -9,6 +9,19 @@ import { adapterLabel } from "@/lib/i18n/labels";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 import { HermesModelsPanel } from "@/features/hermes/components/HermesModelsPanel";
 import { SystemHealthSection } from "@/features/hermes/components/SystemHealthSection";
+import {
+  HQ_BUTTON_DANGER,
+  HQ_BUTTON_PRIMARY,
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD,
+  HQ_DOT_OFF,
+  HQ_DOT_ON,
+  HQ_FIELD,
+  HQ_INSET,
+  HQ_LABEL,
+  HQ_TEXT_ON,
+  hqOptionClass,
+} from "@/features/agents/components/hqFormClasses";
 
 // Spelled out rather than looked up by building a key: a key assembled at
 // runtime is invisible to the check that finds unused and missing phrases.
@@ -17,6 +30,77 @@ const GATEWAY_STATUS_LABELS: Record<string, string> = {
   connecting: t("settings.gatewayStatusConnecting"),
   disconnected: t("settings.gatewayStatusDisconnected"),
 };
+
+const CARD = `${HQ_CARD} px-4 py-3`;
+const LABEL = `${HQ_LABEL} mb-1.5 block text-[10px]`;
+const FIELD = `${HQ_FIELD} w-full px-3 py-2 text-[12px]`;
+const HINT = "mt-1.5 text-[10px] leading-snug text-white/45";
+const BUTTON_SIZE = "px-3 py-1.5 text-[10px]";
+
+const VOICE_SPEED_MIN = 0.7;
+const VOICE_SPEED_MAX = 1.2;
+
+function SectionHeader({ title, lead, status }: { title: string; lead?: string; status?: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-[12px] font-semibold text-white">{title}</div>
+        {lead ? <div className="mt-1 text-[11px] leading-snug text-white/65">{lead}</div> : null}
+      </div>
+      {status}
+    </div>
+  );
+}
+
+/** A section's state at a glance: a lit red dot when on, a grey one when off. */
+function StatusTag({ state, children }: { state: "on" | "busy" | "off"; children: ReactNode }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.16em] ${
+        state === "off" ? "text-white/50" : HQ_TEXT_ON
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full ${state === "off" ? HQ_DOT_OFF : HQ_DOT_ON} ${state === "busy" ? "animate-pulse" : ""}`}
+      />
+      {children}
+    </span>
+  );
+}
+
+function SettingsSwitch({
+  label,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-[22px] w-10 shrink-0 items-center rounded-[6px] border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? "border-ring/60 bg-primary shadow-[0_0_14px_rgba(255,26,26,0.35)]" : "border-primary/30 bg-black/60"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`h-4 w-4 rounded-[4px] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.6)] transition-transform duration-150 ${
+          checked ? "translate-x-[20px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
 
 export type SettingsPanelProps = {
   gatewayStatus?: string;
@@ -113,6 +197,7 @@ export function SettingsPanel({
   const gatewayStateLabel = gatewayStatus
     ? (GATEWAY_STATUS_LABELS[gatewayStatus] ?? gatewayStatus)
     : t("settings.unknown");
+  const gatewayState = gatewayStatus === "connected" ? "on" : gatewayStatus === "connecting" ? "busy" : "off";
   const isGatewayConnected = gatewayStatus === "connected";
   const gatewayDisconnectDisabled = !isGatewayConnected;
   const gatewayConnectDisabled = normalizedGatewayUrl.length === 0;
@@ -124,19 +209,63 @@ export function SettingsPanel({
     selectedAdapterType === "custom";
   const [remoteOfficeTokenDraft, setRemoteOfficeTokenDraft] = useState("");
   const hermesControl = useHermesControl();
+  // The slider's filled part, drawn as a gradient: native range inputs have
+  // no themable fill of their own.
+  const speedFill = Math.min(
+    100,
+    Math.max(0, ((voiceRepliesSpeed - VOICE_SPEED_MIN) / (VOICE_SPEED_MAX - VOICE_SPEED_MIN)) * 100)
+  );
+
+  const remoteTokenField = (label: string, hint?: string) => (
+    <div>
+      <div className={LABEL}>{label}</div>
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={remoteOfficeTokenDraft}
+          onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
+          placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
+          className={`${FIELD} min-w-0 flex-1`}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            onRemoteOfficeTokenChange(remoteOfficeTokenDraft);
+            setRemoteOfficeTokenDraft("");
+          }}
+          className={`${HQ_BUTTON_SECONDARY} shrink-0 px-3 py-2 text-[10px]`}
+        >
+          {t("settings.save")}
+        </button>
+        {remoteOfficeTokenConfigured ? (
+          <button
+            type="button"
+            onClick={() => {
+              onRemoteOfficeTokenChange("");
+              setRemoteOfficeTokenDraft("");
+            }}
+            className={`${HQ_BUTTON_DANGER} shrink-0 px-3 py-2 text-[10px]`}
+          >
+            {t("settings.clear")}
+          </button>
+        ) : null}
+      </div>
+      {hint ? <div className={HINT}>{hint}</div> : null}
+    </div>
+  );
 
   return (
     <div className="px-4 py-4">
-      <div className="rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-medium text-white">{t("settings.studioTitle")}</div>
-            <div className="mt-1 text-[10px] text-white/75">{t("settings.studioTitleLead")}</div>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
-            {officeTitleLoaded ? t("settings.ready") : t("settings.loading")}
-          </span>
-        </div>
+      <section className={CARD}>
+        <SectionHeader
+          title={t("settings.studioTitle")}
+          lead={t("settings.studioTitleLead")}
+          status={
+            <StatusTag state={officeTitleLoaded ? "on" : "busy"}>
+              {officeTitleLoaded ? t("settings.ready") : t("settings.loading")}
+            </StatusTag>
+          }
+        />
         <input
           type="text"
           value={officeTitle}
@@ -144,21 +273,18 @@ export function SettingsPanel({
           disabled={!officeTitleLoaded}
           onChange={(event) => onOfficeTitleChange(event.target.value)}
           placeholder={t("settings.titlePh")}
-          className="mt-3 w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${FIELD} mt-3 font-mono uppercase tracking-[0.18em]`}
         />
-        <div className="mt-2 text-[10px] text-white/50">{t("settings.titleHint")}</div>
-      </div>
-      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-medium text-white">{t("settings.gateway")}</div>
-            <div className="mt-1 text-[10px] text-white/75">{t("settings.gatewayLead")}</div>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
-            {gatewayStateLabel}
-          </span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={HINT}>{t("settings.titleHint")}</div>
+      </section>
+
+      <section className={`${CARD} mt-3`}>
+        <SectionHeader
+          title={t("settings.gateway")}
+          lead={t("settings.gatewayLead")}
+          status={<StatusTag state={gatewayState}>{gatewayStateLabel}</StatusTag>}
+        />
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
           {(
             [
               ["demo", t("settings.backendDemo")],
@@ -174,12 +300,9 @@ export function SettingsPanel({
               <button
                 key={adapterType}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => onGatewayAdapterTypeChange?.(adapterType)}
-                className={`rounded-md border px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors ${
-                  selected
-                    ? "border-red-400/35 bg-red-500/12 text-red-50"
-                    : "border-red-500/10 bg-black/20 text-white/75 hover:border-red-400/25 hover:text-red-50"
-                }`}
+                className={`truncate rounded-md border px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${hqOptionClass(selected)}`}
               >
                 {label}
               </button>
@@ -188,7 +311,7 @@ export function SettingsPanel({
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("gateway.upstreamUrl")}</div>
+            <div className={LABEL}>{t("gateway.upstreamUrl")}</div>
             <input
               type="text"
               value={gatewayUrl ?? ""}
@@ -201,11 +324,12 @@ export function SettingsPanel({
                     ? "http://localhost:3000/api/runtime/custom"
                   : "ws://localhost:18789"
               }
-              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 font-mono text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
+              spellCheck={false}
+              className={`${FIELD} font-mono`}
             />
           </div>
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">
+            <div className={LABEL}>
               {tokenOptional ? t("gateway.upstreamTokenOptional") : t("gateway.upstreamToken")}
             </div>
             <input
@@ -213,11 +337,11 @@ export function SettingsPanel({
               value={normalizedGatewayToken}
               onChange={(event) => onGatewayTokenChange?.(event.target.value)}
               placeholder={tokenOptional ? t("settings.tokenOptional") : t("settings.gatewayToken")}
-              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
+              className={`${FIELD} font-mono`}
             />
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-white/60">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-white/45">
           <span className="font-mono">
             {t("settings.selectedBackend", { name: adapterLabel(selectedAdapterType) })}
           </span>
@@ -226,14 +350,14 @@ export function SettingsPanel({
           </span>
           <span>{t("gateway.backendsKeepOwnSettings")}</span>
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="text-[10px] text-white/60">{t("settings.connectHint")}</div>
-          <div className="flex items-center gap-2">
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+          <div className="text-[10px] leading-snug text-white/45">{t("settings.connectHint")}</div>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => onGatewayConnect?.()}
               disabled={gatewayConnectDisabled}
-              className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/40 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className={`${HQ_BUTTON_PRIMARY} ${BUTTON_SIZE}`}
             >
               {gatewayStatus === "connecting" ? t("gateway.connecting") : t("gateway.connect")}
             </button>
@@ -241,45 +365,43 @@ export function SettingsPanel({
               type="button"
               onClick={() => onGatewayDisconnect?.()}
               disabled={gatewayDisconnectDisabled}
-              className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-40"
-            >{t("settings.disconnect")}</button>
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-medium text-white">{t("settings.remoteOffice")}</div>
-            <div className="mt-1 text-[10px] text-white/75">{t("settings.remoteOfficeLead")}</div>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
-            {remoteOfficeEnabled ? t("settings.enabled") : t("settings.disabled")}
-          </span>
-        </div>
-        <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-red-500/10 bg-black/15 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-label={t("settings.remoteOffice")}
-              aria-checked={remoteOfficeEnabled}
-              className={`ui-switch self-center ${remoteOfficeEnabled ? "ui-switch--on" : ""}`}
-              onClick={() => onRemoteOfficeEnabledChange(!remoteOfficeEnabled)}
+              className={`${HQ_BUTTON_DANGER} ${BUTTON_SIZE}`}
             >
-              <span className="ui-switch-thumb" />
+              {t("settings.disconnect")}
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section className={`${CARD} mt-3`}>
+        <SectionHeader
+          title={t("settings.remoteOffice")}
+          lead={t("settings.remoteOfficeLead")}
+          status={
+            <StatusTag state={remoteOfficeEnabled ? "on" : "off"}>
+              {remoteOfficeEnabled ? t("settings.enabled") : t("settings.disabled")}
+            </StatusTag>
+          }
+        />
+        <div className={`${HQ_INSET} mt-3 flex items-center justify-between gap-4 px-3 py-3`}>
+          <div className="flex items-center gap-3">
+            <SettingsSwitch
+              label={t("settings.remoteOffice")}
+              checked={remoteOfficeEnabled}
+              onChange={onRemoteOfficeEnabledChange}
+            />
             <div className="flex flex-col">
               <span className="text-[11px] font-medium text-white">{t("settings.showSecondOffice")}</span>
-              <span className="text-[10px] text-white/80">{t("settings.remoteReadOnly")}</span>
+              <span className="text-[10px] leading-snug text-white/55">{t("settings.remoteReadOnly")}</span>
             </div>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
+          <StatusTag state={remoteOfficeTokenConfigured ? "on" : "off"}>
             {remoteOfficeTokenConfigured ? t("settings.tokenSet") : t("settings.noToken")}
-          </span>
+          </StatusTag>
         </div>
         <div className="mt-3 grid gap-3">
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.sourceType")}</div>
+            <div className={LABEL}>{t("settings.sourceType")}</div>
             <select
               value={remoteOfficeSourceKind}
               onChange={(event) =>
@@ -287,162 +409,99 @@ export function SettingsPanel({
                   event.target.value as "presence_endpoint" | "openclaw_gateway"
                 )
               }
-              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors focus:border-red-400/30"
+              className={FIELD}
             >
               <option value="presence_endpoint">{t("settings.sourcePresence")}</option>
               <option value="openclaw_gateway">{t("settings.sourceGateway")}</option>
             </select>
-            <div className="mt-1 text-[10px] text-white/50">
-              {t("settings.remoteModeHint")}
-            </div>
+            <div className={HINT}>{t("settings.remoteModeHint")}</div>
           </div>
           <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.label")}</div>
+            <div className={LABEL}>{t("settings.label")}</div>
             <input
               type="text"
               value={remoteOfficeLabel}
               maxLength={48}
               onChange={(event) => onRemoteOfficeLabelChange(event.target.value)}
               placeholder={t("settings.remotePh")}
-              className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
+              className={`${FIELD} font-mono uppercase tracking-[0.14em]`}
             />
           </div>
           {remoteOfficeSourceKind === "presence_endpoint" ? (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.presenceUrl")}</div>
+                <div className={LABEL}>{t("settings.presenceUrl")}</div>
                 <input
                   type="url"
                   value={remoteOfficePresenceUrl}
                   onChange={(event) => onRemoteOfficePresenceUrlChange(event.target.value)}
                   placeholder="https://other-office.example.com/api/office/presence"
-                  className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
+                  spellCheck={false}
+                  className={`${FIELD} font-mono`}
                 />
-                <div className="mt-1 text-[10px] text-white/50">
-                  {t("settings.presencePollHint")}
-                </div>
+                <div className={HINT}>{t("settings.presencePollHint")}</div>
               </div>
-              <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.optionalToken")}</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    value={remoteOfficeTokenDraft}
-                    onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
-                    placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
-                    className="min-w-0 flex-1 rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRemoteOfficeTokenChange(remoteOfficeTokenDraft);
-                      setRemoteOfficeTokenDraft("");
-                    }}
-                    className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
-                  >{t("settings.save")}</button>
-                  {remoteOfficeTokenConfigured ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onRemoteOfficeTokenChange("");
-                        setRemoteOfficeTokenDraft("");
-                      }}
-                      className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30"
-                    >{t("settings.clear")}</button>
-                  ) : null}
-                </div>
-              </div>
+              {remoteTokenField(t("settings.optionalToken"))}
             </>
           ) : (
             <>
               <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.gatewayUrl")}</div>
+                <div className={LABEL}>{t("settings.gatewayUrl")}</div>
                 <input
                   type="text"
                   value={remoteOfficeGatewayUrl}
                   onChange={(event) => onRemoteOfficeGatewayUrlChange(event.target.value)}
                   placeholder="wss://remote-gateway.example.com"
-                  className="w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
+                  spellCheck={false}
+                  className={`${FIELD} font-mono`}
                 />
-                <div className="mt-1 text-[10px] text-white/50">
-                  {t("settings.remoteGatewayHint")}
-                </div>
+                <div className={HINT}>{t("settings.remoteGatewayHint")}</div>
               </div>
-              <div>
-                <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65">{t("settings.sharedToken")}</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    value={remoteOfficeTokenDraft}
-                    onChange={(event) => setRemoteOfficeTokenDraft(event.target.value)}
-                    placeholder={remoteOfficeTokenConfigured ? t("settings.tokenReplace") : t("settings.enterToken")}
-                    className="min-w-0 flex-1 rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRemoteOfficeTokenChange(remoteOfficeTokenDraft);
-                      setRemoteOfficeTokenDraft("");
-                    }}
-                    className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
-                  >{t("settings.save")}</button>
-                  {remoteOfficeTokenConfigured ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onRemoteOfficeTokenChange("");
-                        setRemoteOfficeTokenDraft("");
-                      }}
-                      className="rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30"
-                    >{t("settings.clear")}</button>
-                  ) : null}
-                </div>
-                <div className="mt-1 text-[10px] text-white/50">{t("settings.sharedTokenHint")}</div>
-              </div>
+              {remoteTokenField(t("settings.sharedToken"), t("settings.sharedTokenHint"))}
             </>
           )}
         </div>
-      </div>
+      </section>
+
       {hermesControl ? <HermesModelsPanel control={hermesControl} /> : null}
       {hermesControl ? <SystemHealthSection control={hermesControl} /> : null}
-      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-medium text-white">{t("settings.onboarding")}</div>
-            <div className="mt-1 text-[10px] text-white/75">{t("settings.onboardingLead")}</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenOnboarding?.()}
-            className="rounded-md border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15"
-          >{t("settings.launchWizard")}</button>
-        </div>
-      </div>
-      <div className="ui-settings-row mt-3 flex min-h-[72px] items-center justify-between gap-6 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
+
+      <section className={`${CARD} mt-3`}>
+        <SectionHeader
+          title={t("settings.onboarding")}
+          lead={t("settings.onboardingLead")}
+          status={
+            <button
+              type="button"
+              onClick={() => onOpenOnboarding?.()}
+              className={`${HQ_BUTTON_SECONDARY} ${BUTTON_SIZE} shrink-0`}
+            >
+              {t("settings.launchWizard")}
+            </button>
+          }
+        />
+      </section>
+
+      <section className={`${CARD} mt-3 flex items-center justify-between gap-4`}>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-label={t("settings.voiceReplies")}
-            aria-checked={voiceRepliesEnabled}
-            className={`ui-switch self-center ${voiceRepliesEnabled ? "ui-switch--on" : ""}`}
-            onClick={() => onVoiceRepliesToggle(!voiceRepliesEnabled)}
+          <SettingsSwitch
+            label={t("settings.voiceReplies")}
+            checked={voiceRepliesEnabled}
             disabled={!voiceRepliesLoaded}
-          >
-            <span className="ui-switch-thumb" />
-          </button>
+            onChange={onVoiceRepliesToggle}
+          />
           <div className="flex flex-col">
-            <span className="text-[11px] font-medium text-white">{t("settings.voiceReplies")}</span>
-            <span className="text-[10px] text-white/80">{t("settings.voiceRepliesLead")}</span>
+            <span className="text-[12px] font-semibold text-white">{t("settings.voiceReplies")}</span>
+            <span className="mt-0.5 text-[11px] leading-snug text-white/65">{t("settings.voiceRepliesLead")}</span>
           </div>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
+        <StatusTag state={!voiceRepliesLoaded ? "busy" : voiceRepliesEnabled ? "on" : "off"}>
           {voiceRepliesLoaded ? (voiceRepliesEnabled ? t("settings.on") : t("settings.off")) : t("settings.loading")}
-        </span>
-      </div>
-      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="text-[11px] font-medium text-white">{t("settings.voice")}</div>
-        <div className="mt-1 text-[10px] text-white/75">{t("settings.voiceLead")}</div>
+        </StatusTag>
+      </section>
+
+      <section className={`${CARD} mt-3`}>
+        <SectionHeader title={t("settings.voice")} lead={t("settings.voiceLead")} />
         <div className="mt-3 grid grid-cols-2 gap-2">
           {officeVoices.map((voice) => {
             const selected = voice.id === voiceRepliesVoiceId;
@@ -450,53 +509,55 @@ export function SettingsPanel({
               <button
                 key={voice.id ?? "default"}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => {
                   onVoiceRepliesVoiceChange(voice.id);
                   onVoiceRepliesPreview(voice.id, voice.label);
                 }}
                 disabled={!voiceRepliesLoaded}
-                className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-                  selected
-                    ? "border-red-400/40 bg-red-500/12 text-white"
-                    : "border-red-500/10 bg-black/15 text-white/80 hover:border-red-400/20 hover:bg-red-500/6"
-                }`}
+                className={`rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${hqOptionClass(selected)}`}
               >
-                <div className="text-[11px] font-medium">{voice.label}</div>
-                {voice.description ? <div className="mt-1 text-[10px] text-white/65">{voice.description}</div> : null}
+                <div className="text-[11px] font-semibold">{voice.label}</div>
+                {voice.description ? (
+                  <div className="mt-1 text-[10px] leading-snug text-white/55">{voice.description}</div>
+                ) : null}
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
+
       {voiceSetup ? (
-        <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3 text-[10px] text-white/75" data-testid="voice-providers">
-          <div>
+        <section className={`${CARD} mt-3 space-y-1.5 text-[11px] text-white/65`} data-testid="voice-providers">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${voiceSetup.tts.ready ? HQ_DOT_ON : HQ_DOT_OFF}`} />
             {t("settings.voiceTts", {
               provider: providerLabel(voiceSetup.tts.provider),
               state: voiceSetup.tts.ready ? t("settings.voiceReady") : t("settings.voiceNotConfigured"),
             })}
           </div>
-          <div className="mt-1">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${voiceSetup.stt.ready ? HQ_DOT_ON : HQ_DOT_OFF}`} />
             {t("settings.voiceStt", {
               provider: providerLabel(voiceSetup.stt.provider),
               state: voiceSetup.stt.ready ? t("settings.voiceReady") : t("settings.voiceNotConfigured"),
             })}
           </div>
-          <div className="mt-1 text-white/50">{t("settings.voicePttHint")}</div>
-        </div>
+          <div className="pt-0.5 text-[10px] leading-snug text-white/45">{t("settings.voicePttHint")}</div>
+        </section>
       ) : null}
+
       {voiceAgents.length > 0 && onAgentVoiceChange ? (
-        <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3" data-testid="team-voices">
-          <div className="text-[11px] font-medium text-white">{t("settings.teamVoices")}</div>
-          <div className="mt-1 text-[10px] text-white/75">{t("settings.teamVoicesLead")}</div>
-          <div className="mt-3 space-y-2">
+        <section className={`${CARD} mt-3`} data-testid="team-voices">
+          <SectionHeader title={t("settings.teamVoices")} lead={t("settings.teamVoicesLead")} />
+          <div className="mt-3 divide-y divide-border">
             {voiceAgents.map((agent) => (
-              <div key={agent.agentId} className="flex items-center justify-between gap-3">
+              <div key={agent.agentId} className="flex items-center justify-between gap-3 py-1.5">
                 <span className="truncate text-[11px] text-white/85">{agent.name}</span>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <select
                     aria-label={t("settings.agentVoice", { name: agent.name })}
-                    className="rounded border border-red-500/20 bg-black/40 px-2 py-1 text-[11px] text-white"
+                    className={`${HQ_FIELD} max-w-[180px] px-2 py-1 text-[11px]`}
                     value={agent.chosen ? (agent.voiceId ?? "") : ""}
                     disabled={!voiceRepliesLoaded}
                     onChange={(event) => onAgentVoiceChange(agent.agentId, event.target.value || null)}
@@ -514,7 +575,7 @@ export function SettingsPanel({
                   </select>
                   <button
                     type="button"
-                    className="rounded border border-red-500/20 px-2 py-1 text-[10px] text-red-100 hover:border-red-400/40"
+                    className={`${HQ_BUTTON_SECONDARY} px-2 py-1 text-[9px]`}
                     disabled={!voiceRepliesLoaded}
                     onClick={() => onVoiceRepliesPreview(agent.voiceId, agent.name)}
                   >
@@ -524,35 +585,39 @@ export function SettingsPanel({
               </div>
             ))}
           </div>
-        </div>
+        </section>
       ) : null}
-      <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-medium text-white">{t("settings.speed")}</div>
-            <div className="mt-1 text-[10px] text-white/75">{t("settings.speedLead")}</div>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-200/70">
-            {voiceRepliesSpeed.toFixed(2)}x
-          </span>
-        </div>
+
+      <section className={`${CARD} mt-3`}>
+        <SectionHeader
+          title={t("settings.speed")}
+          lead={t("settings.speedLead")}
+          status={
+            <span className="font-mono text-[12px] font-semibold tabular-nums text-white">
+              {voiceRepliesSpeed.toFixed(2)}x
+            </span>
+          }
+        />
         <input
           type="range"
-          min="0.7"
-          max="1.2"
+          min={VOICE_SPEED_MIN}
+          max={VOICE_SPEED_MAX}
           step="0.05"
           value={voiceRepliesSpeed}
           disabled={!voiceRepliesLoaded}
           onChange={(event) =>
             onVoiceRepliesSpeedChange(Number.parseFloat(event.target.value))
           }
-          className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-red-500/15 accent-red-400"
+          style={{
+            background: `linear-gradient(to right, var(--primary) ${speedFill}%, rgb(255 255 255 / 0.12) ${speedFill}%)`,
+          }}
+          className="mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full accent-primary disabled:cursor-not-allowed disabled:opacity-50 [&::-moz-range-track]:bg-transparent [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_0_8px_rgba(255,26,26,0.8)] [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(255,26,26,0.8)]"
         />
-        <div className="mt-1 flex items-center justify-between text-[10px] text-white/45">
+        <div className="mt-1.5 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.16em] text-white/45">
           <span>{t("settings.slower")}</span>
           <span>{t("settings.faster")}</span>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,5 +1,3 @@
-import type { HqQuality } from "@/features/hq/render/scene/quality";
-
 // Equirectangular crop used by the wall map. Antarctica and the far Arctic are
 // dropped so the populated latitudes fill a wide display.
 export const MAP_LON_WEST = -180;
@@ -8,12 +6,8 @@ export const MAP_LAT_SOUTH = -58;
 export const MAP_LAT_NORTH = 78;
 export const MAP_ASPECT = (MAP_LON_EAST - MAP_LON_WEST) / (MAP_LAT_NORTH - MAP_LAT_SOUTH);
 
-// Dot columns across the map. Low keeps half the dots of medium (1/sqrt 2 per axis).
-export const MAP_DOT_COLUMNS: Record<HqQuality, number> = {
-  high: 280,
-  medium: 220,
-  low: 156,
-};
+/** Markers, ripples and arc widths are sized in 1/MAP_MARKER_COLUMNS of the map width. */
+export const MAP_MARKER_COLUMNS = 280;
 
 /** Normalised map coordinates: u 0..1 west to east, v 0..1 south to north. */
 export function lonToU(lon: number): number {
@@ -22,6 +16,24 @@ export function lonToU(lon: number): number {
 
 export function latToV(lat: number): number {
   return (lat - MAP_LAT_SOUTH) / (MAP_LAT_NORTH - MAP_LAT_SOUTH);
+}
+
+export function uToLon(u: number): number {
+  return MAP_LON_WEST + u * (MAP_LON_EAST - MAP_LON_WEST);
+}
+
+export function vToLat(v: number): number {
+  return MAP_LAT_SOUTH + v * (MAP_LAT_NORTH - MAP_LAT_SOUTH);
+}
+
+/**
+ * The rows of a whole-globe equirectangular image (north at the top row,
+ * latitude 90..-90) that the map's crop shows, in source pixels.
+ */
+export function cropRows(imageHeight: number): { y: number; height: number } {
+  const y = ((90 - MAP_LAT_NORTH) / 180) * imageHeight;
+  const bottom = ((90 - MAP_LAT_SOUTH) / 180) * imageHeight;
+  return { y, height: bottom - y };
 }
 
 /**
@@ -42,18 +54,18 @@ export type MapFit = {
   mapY0: number;
   mapX1: number;
   mapY1: number;
-  /** Dot grid; pitch is the same along both axes. */
-  cols: number;
-  rows: number;
-  pitch: number;
+  /** Size unit for markers, ripples and arcs: the map width / MAP_MARKER_COLUMNS. */
+  unit: number;
 };
 
 // The land may stretch a little away from true equirectangular proportions so
-// it fills walls of other aspect ratios; beyond that it is letterboxed.
-const MAX_STRETCH_X = 1.85;
+// it fills walls of other aspect ratios; beyond that it is letterboxed. Kept
+// modest since the Earth is photographic: a wider stretch visibly flattened
+// the continents, and the spare width goes to the side screens' margins.
+const MAX_STRETCH_X = 1.35;
 const MAX_STRETCH_Y = 1.15;
 
-export function fitMap(width: number, height: number, cols: number): MapFit {
+export function fitMap(width: number, height: number): MapFit {
   const outerW = Math.max(width, 0.5);
   const outerH = Math.max(height, 0.3);
   const bezel = clamp(Math.min(outerW, outerH) * 0.018, 0.05, 0.14);
@@ -76,12 +88,6 @@ export function fitMap(width: number, height: number, cols: number): MapFit {
     mapH = Math.min(availH, (availW / MAP_ASPECT) * MAX_STRETCH_Y);
   }
 
-  const safeCols = Math.max(8, Math.round(cols));
-  const pitch = mapW / safeCols;
-  const rows = Math.max(4, Math.round(mapH / pitch));
-  // Snap the height to whole rows so dots stay square-pitched.
-  mapH = rows * pitch;
-
   return {
     outerW,
     outerH,
@@ -93,9 +99,7 @@ export function fitMap(width: number, height: number, cols: number): MapFit {
     mapY0: -mapH / 2,
     mapX1: mapW / 2,
     mapY1: mapH / 2,
-    cols: safeCols,
-    rows,
-    pitch,
+    unit: mapW / MAP_MARKER_COLUMNS,
   };
 }
 

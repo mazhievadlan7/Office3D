@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_BADGE_LIVE,
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_BUTTON_SMALL,
+  HQ_FORM_CHECKBOX,
+  HQ_FORM_FIELD,
+  HQ_FORM_HINT,
+  HQ_FORM_SECTION,
+  HQ_FORM_SECTION_TITLE,
+  HQ_FORM_STATUS_ERROR,
+} from "@/features/agents/components/hqFormStyles";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type Skill = { name: string; description: string; category: string | null; enabled: boolean; provenance: string | null };
@@ -132,24 +144,25 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
     });
 
   return (
-    <section className="mt-4 rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="hermes-skills">
-      <div className="text-[11px] font-medium text-foreground">{t("hermesSkills.title")}</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesSkills.lead")}</div>
+    <section className={`mt-4 ${HQ_FORM_SECTION}`} data-testid="hermes-skills">
+      <div className={HQ_FORM_SECTION_TITLE}>{t("hermesSkills.title")}</div>
+      <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesSkills.lead")}</div>
 
       <div className="mt-3 space-y-1">
         {skills === null ? (
-          <div className="text-[11px] text-muted-foreground">{t("hermesSkills.loading")}</div>
+          <div className="text-[11px] text-white/50">{t("hermesSkills.loading")}</div>
         ) : skills.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground">{t("hermesSkills.none")}</div>
+          <div className="text-[11px] text-white/50">{t("hermesSkills.none")}</div>
         ) : (
           skills.map((skill) => (
             <label key={skill.name} className="flex items-start justify-between gap-3 text-[11px]">
               <span className="min-w-0">
-                <span className="text-foreground">{skill.name}</span>
-                {skill.description ? <span className="block truncate text-muted-foreground">{skill.description}</span> : null}
+                <span className="text-white">{skill.name}</span>
+                {skill.description ? <span className="block truncate text-white/50">{skill.description}</span> : null}
               </span>
               <input
                 type="checkbox"
+                className={HQ_FORM_CHECKBOX}
                 aria-label={t("hermesSkills.toggle", { name: skill.name })}
                 checked={skill.enabled}
                 disabled={busy}
@@ -163,7 +176,7 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
       <div className="mt-3 flex gap-2">
         <input
           type="text"
-          className="min-w-0 flex-1 ui-input rounded px-2 py-1 text-[11px]"
+          className={`min-w-0 flex-1 ${HQ_FORM_FIELD}`}
           placeholder={t("hermesSkills.searchPlaceholder")}
           aria-label={t("hermesSkills.searchPlaceholder")}
           value={query}
@@ -172,24 +185,24 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
             if (event.key === "Enter") void search();
           }}
         />
-        <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" disabled={busy} onClick={() => void search()}>
+        <button type="button" className={HQ_FORM_BUTTON_SECONDARY} disabled={busy} onClick={() => void search()}>
           {query.trim() ? t("hermesSkills.search") : t("hermesSkills.catalog")}
         </button>
       </div>
 
       {hub ? (
         <div className="mt-2 max-h-56 space-y-1 overflow-auto">
-          {hub.length === 0 ? <div className="text-[11px] text-muted-foreground">{t("hermesSkills.nothingFound")}</div> : null}
+          {hub.length === 0 ? <div className="text-[11px] text-white/50">{t("hermesSkills.nothingFound")}</div> : null}
           {hub.map((entry) => (
             <div key={entry.identifier} className="flex items-start justify-between gap-3 text-[11px]">
               <span className="min-w-0">
-                <span className="text-foreground">{entry.name ?? entry.identifier}</span>
-                {entry.description ? <span className="block truncate text-muted-foreground">{entry.description}</span> : null}
+                <span className="text-white">{entry.name ?? entry.identifier}</span>
+                {entry.description ? <span className="block truncate text-white/50">{entry.description}</span> : null}
               </span>
               {entry.installed ? (
-                <span className="shrink-0 ui-text-success">{t("hermesSkills.alreadyInstalled")}</span>
+                <span className={HQ_FORM_BADGE_LIVE}>{t("hermesSkills.alreadyInstalled")}</span>
               ) : (
-                <button type="button" className="ui-btn-secondary shrink-0 px-2 py-0.5 text-[10px]" disabled={busy} onClick={() => void check(entry.identifier)}>
+                <button type="button" className={HQ_FORM_BUTTON_SMALL} disabled={busy} onClick={() => void check(entry.identifier)}>
                   {t("hermesSkills.install")}
                 </button>
               )}
@@ -200,10 +213,10 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
 
       {scan ? (
         <div
-          className={`mt-3 rounded border px-3 py-2 text-[11px] ${scan.policy === "block" ? "border-red-400/40" : scan.policy === "ask" ? "border-amber-400/40" : "border-emerald-400/30"}`}
+          className={`mt-3 rounded-md border px-3 py-2 text-[11px] ${scan.policy === "block" ? "border-red-500/50 bg-red-950/30" : scan.policy === "ask" ? "border-orange-400/40 bg-orange-950/20" : "border-red-600/35 bg-black/40"}`}
           data-testid="hermes-skill-scan"
         >
-          <div className="text-foreground">
+          <div className="text-white">
             {scan.policy === "block"
               ? t("hermesSkills.scanBlocked", { reason: scan.policyReason ?? scan.summary ?? "" })
               : scan.policy === "ask"
@@ -211,22 +224,22 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
                 : t("hermesSkills.scanOk")}
           </div>
           {scan.findings.length ? (
-            <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+            <ul className="mt-1 list-disc pl-4 text-white/55 marker:text-red-500">
               {scan.findings.slice(0, 6).map((finding, index) => (
                 <li key={index}>{describeFinding(finding)}</li>
               ))}
             </ul>
           ) : null}
-          <label className="mt-2 flex items-center gap-2 text-muted-foreground">
-            <input type="checkbox" checked={forEveryone} onChange={(event) => setForEveryone(event.target.checked)} />
+          <label className="mt-2 flex items-center gap-2 text-white/65">
+            <input type="checkbox" className={HQ_FORM_CHECKBOX} checked={forEveryone} onChange={(event) => setForEveryone(event.target.checked)} />
             {t("hermesSkills.forEveryone")}
           </label>
           <div className="mt-2 flex justify-end gap-2">
-            <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" onClick={() => setScan(null)}>
+            <button type="button" className={HQ_FORM_BUTTON_SECONDARY} onClick={() => setScan(null)}>
               {t("hermesSkills.cancel")}
             </button>
             {scan.policy !== "block" ? (
-              <button type="button" className="ui-btn-primary px-2 py-1 text-[11px] font-semibold" disabled={busy} onClick={() => void install(scan.policy === "ask")}>
+              <button type="button" className={HQ_FORM_BUTTON_PRIMARY} disabled={busy} onClick={() => void install(scan.policy === "ask")}>
                 {scan.policy === "ask" ? t("hermesSkills.installAnyway") : t("hermesSkills.install")}
               </button>
             ) : null}
@@ -234,8 +247,8 @@ export function HermesSkillsSection({ agentId }: { agentId: string }) {
         </div>
       ) : null}
 
-      {progress ? <div className="mt-2 text-[11px] text-muted-foreground">{progress}</div> : null}
-      {message ? <div className="mt-2 text-[11px] ui-text-danger">{message}</div> : null}
+      {progress ? <div className="mt-2 text-[11px] text-white/70">{progress}</div> : null}
+      {message ? <div className={`mt-2 ${HQ_FORM_STATUS_ERROR}`}>{message}</div> : null}
     </section>
   );
 }

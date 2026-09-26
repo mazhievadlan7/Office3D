@@ -1,338 +1,278 @@
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
-import { OfficeEnvironment } from "@/components/three/sceneAssets";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
+import { AgXToneMapping, Vector3, type Group, type PerspectiveCamera } from "three";
+import { SceneAssetBoundary } from "@/components/three/sceneAssets";
 import {
-  type AgentAvatarProfile,
-  createDefaultAgentAvatarProfile,
-} from "@/lib/avatars/profile";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+  HqPreviewRig,
+  PREVIEW_FRAME,
+  createRadialTexture,
+  previewCameraDistance,
+  type PreviewClip,
+} from "@/features/agents/components/avatarPreview/previewRig";
+import { HQ_CHARACTER_URL, HQ_THEME } from "@/features/hq/core/config";
+import type { AgentAvatarProfile } from "@/lib/avatars/profile";
 import { t } from "@/lib/i18n";
 
-const PreviewFigure = ({
-  profile,
-  onFirstFrame,
-}: {
-  profile: AgentAvatarProfile;
-  onFirstFrame: () => void;
-}) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const reportedReadyRef = useRef(false);
+/**
+ * The agent as it stands in the HQ: the same character GLB, material and
+ * clips, on a small dark stage — warm key, faint fill, red rims from behind,
+ * the HQ's red floor ring — swaying gently so the silhouette reads.
+ *
+ * The HQ draws every agent with that one model, so the preview looks the same
+ * for every profile; the profile only picks where the idle clip starts, so
+ * previews side by side do not move in lockstep.
+ *
+ * Cheap to keep open: one skinned draw plus four flat meshes, the reflection
+ * environment is rendered once, the GLTF comes from the cache the HQ already
+ * filled, and a preview scrolled out of view stops rendering.
+ */
 
-  useEffect(() => {
-    reportedReadyRef.current = false;
-  }, [profile]);
+type PreviewStatus = "loading" | "ready" | "failed";
 
-  useFrame((state) => {
-    if (!reportedReadyRef.current) {
-      reportedReadyRef.current = true;
-      onFirstFrame();
-    }
-    if (!groupRef.current) return;
-    groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.45) * 0.35 + 0.25;
-  });
+const FOV = 30;
+const TARGET = new Vector3(0, PREVIEW_FRAME.centerY, 0);
+const TARGET_TUPLE: [number, number, number] = [0, PREVIEW_FRAME.centerY, 0];
+// Hoisted: R3F re-applies renderer and camera options whenever they change
+// identity, which would reset the orbit on every re-render.
+const GL_OPTIONS = { antialias: true, alpha: false, toneMapping: AgXToneMapping, toneMappingExposure: 1.1 };
+const CAMERA_OPTIONS = { fov: FOV, near: 0.1, far: 40, position: [0, PREVIEW_FRAME.centerY + 0.08, 4] as [number, number, number] };
+const DPR: [number, number] = [1, 1.75];
+const STAGE_BACKGROUND = "#050404";
+// Long frames (tab switch, preview scrolled back into view) must not jump the clip.
+const MAX_DT = 0.1;
+// A gentle sway rather than a full turn: the face stays toward the viewer.
+const SWAY_SPEED = 0.32;
+const SWAY_ANGLE = 0.42;
 
-  const skin = profile.body.skinTone;
-  const topColor = profile.clothing.topColor;
-  const bottomColor = profile.clothing.bottomColor;
-  const shoeColor = profile.clothing.shoesColor;
-  const hairColor = profile.hair.color;
-  const accessoryColor = topColor;
-  const sleeveColor = profile.clothing.topStyle === "jacket" ? "#dbe4ff" : topColor;
-  const cuffColor = profile.clothing.topStyle === "hoodie" ? "#d1d5db" : sleeveColor;
+const _offset = new Vector3();
 
-  return (
-    <group ref={groupRef} position={[0, -0.72, 0]} scale={[1.45, 1.45, 1.45]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[0.22, 24]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.16} />
-      </mesh>
-
-      {profile.accessories.backpack ? (
-        <group position={[0, 0.31, -0.08]}>
-          <mesh>
-            <boxGeometry args={[0.16, 0.2, 0.06]} />
-            <meshLambertMaterial color={accessoryColor} />
-          </mesh>
-        </group>
-      ) : null}
-
-      <group position={[-0.05, 0.12, 0]}>
-        {profile.clothing.bottomStyle === "shorts" ? (
-          <>
-            <mesh position={[0, 0.03, 0]}>
-              <boxGeometry args={[0.07, 0.08, 0.08]} />
-              <meshLambertMaterial color={bottomColor} />
-            </mesh>
-            <mesh position={[0, -0.045, 0]}>
-              <boxGeometry args={[0.05, 0.06, 0.05]} />
-              <meshLambertMaterial color={skin} />
-            </mesh>
-          </>
-        ) : (
-          <mesh>
-            <boxGeometry args={[0.07, 0.14, 0.08]} />
-            <meshLambertMaterial color={bottomColor} />
-          </mesh>
-        )}
-        <mesh position={[0, -0.09, 0]}>
-          <boxGeometry args={[0.07, 0.05, 0.12]} />
-          <meshLambertMaterial color={shoeColor} />
-        </mesh>
-      </group>
-      <group position={[0.05, 0.12, 0]}>
-        {profile.clothing.bottomStyle === "shorts" ? (
-          <>
-            <mesh position={[0, 0.03, 0]}>
-              <boxGeometry args={[0.07, 0.08, 0.08]} />
-              <meshLambertMaterial color={bottomColor} />
-            </mesh>
-            <mesh position={[0, -0.045, 0]}>
-              <boxGeometry args={[0.05, 0.06, 0.05]} />
-              <meshLambertMaterial color={skin} />
-            </mesh>
-          </>
-        ) : (
-          <mesh>
-            <boxGeometry args={[0.07, 0.14, 0.08]} />
-            <meshLambertMaterial color={bottomColor} />
-          </mesh>
-        )}
-        <mesh position={[0, -0.09, 0]}>
-          <boxGeometry args={[0.07, 0.05, 0.12]} />
-          <meshLambertMaterial color={shoeColor} />
-        </mesh>
-      </group>
-
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[0.2, 0.22, 0.1]} />
-        <meshLambertMaterial color={topColor} />
-      </mesh>
-      {profile.clothing.topStyle === "hoodie" ? (
-        <>
-          <mesh position={[0, 0.37, -0.045]}>
-            <boxGeometry args={[0.18, 0.1, 0.03]} />
-            <meshLambertMaterial color={topColor} />
-          </mesh>
-          <mesh position={[0, 0.23, 0.056]}>
-            <boxGeometry args={[0.11, 0.03, 0.012]} />
-            <meshLambertMaterial color={cuffColor} />
-          </mesh>
-        </>
-      ) : null}
-      {profile.clothing.topStyle === "jacket" ? (
-        <>
-          <mesh position={[0, 0.3, 0.056]}>
-            <boxGeometry args={[0.202, 0.23, 0.012]} />
-            <meshLambertMaterial color="#1f2937" />
-          </mesh>
-          <mesh position={[0, 0.3, 0.063]}>
-            <boxGeometry args={[0.038, 0.21, 0.01]} />
-            <meshLambertMaterial color="#f8fafc" />
-          </mesh>
-        </>
-      ) : null}
-
-      <group position={[-0.13, 0.3, 0]}>
-        <mesh position={[0, -0.08, 0]}>
-          <boxGeometry args={[0.06, 0.16, 0.06]} />
-          <meshLambertMaterial color={sleeveColor} />
-        </mesh>
-        {profile.clothing.topStyle === "hoodie" ? (
-          <mesh position={[0, -0.145, 0]}>
-            <boxGeometry args={[0.064, 0.03, 0.064]} />
-            <meshLambertMaterial color={cuffColor} />
-          </mesh>
-        ) : null}
-        <mesh position={[0, -0.17, 0]}>
-          <boxGeometry args={[0.05, 0.05, 0.05]} />
-          <meshLambertMaterial color={skin} />
-        </mesh>
-      </group>
-      <group position={[0.13, 0.3, 0]}>
-        <mesh position={[0, -0.08, 0]}>
-          <boxGeometry args={[0.06, 0.16, 0.06]} />
-          <meshLambertMaterial color={sleeveColor} />
-        </mesh>
-        {profile.clothing.topStyle === "hoodie" ? (
-          <mesh position={[0, -0.145, 0]}>
-            <boxGeometry args={[0.064, 0.03, 0.064]} />
-            <meshLambertMaterial color={cuffColor} />
-          </mesh>
-        ) : null}
-        <mesh position={[0, -0.17, 0]}>
-          <boxGeometry args={[0.05, 0.05, 0.05]} />
-          <meshLambertMaterial color={skin} />
-        </mesh>
-      </group>
-
-      <mesh position={[0, 0.42, 0]}>
-        <boxGeometry args={[0.07, 0.05, 0.07]} />
-        <meshLambertMaterial color={skin} />
-      </mesh>
-      <mesh position={[0, 0.5, 0]}>
-        <boxGeometry args={[0.17, 0.17, 0.15]} />
-        <meshLambertMaterial color={skin} />
-      </mesh>
-
-      {profile.hair.style === "short" ? (
-        <mesh position={[0, 0.59, 0]}>
-          <boxGeometry args={[0.18, 0.05, 0.15]} />
-          <meshLambertMaterial color={hairColor} />
-        </mesh>
-      ) : null}
-      {profile.hair.style === "parted" ? (
-        <>
-          <mesh position={[0, 0.585, 0]}>
-            <boxGeometry args={[0.18, 0.045, 0.15]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-          <mesh position={[-0.03, 0.62, 0.01]} rotation={[0.1, 0, -0.2]}>
-            <boxGeometry args={[0.12, 0.03, 0.08]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-        </>
-      ) : null}
-      {profile.hair.style === "spiky" ? (
-        <>
-          <mesh position={[0, 0.58, 0]}>
-            <boxGeometry args={[0.17, 0.035, 0.14]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-          <mesh position={[-0.05, 0.62, 0]} rotation={[0, 0, -0.2]}>
-            <boxGeometry args={[0.04, 0.06, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-          <mesh position={[0, 0.635, 0]}>
-            <boxGeometry args={[0.04, 0.08, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-          <mesh position={[0.05, 0.62, 0]} rotation={[0, 0, 0.2]}>
-            <boxGeometry args={[0.04, 0.06, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-        </>
-      ) : null}
-      {profile.hair.style === "bun" ? (
-        <>
-          <mesh position={[0, 0.58, 0]}>
-            <boxGeometry args={[0.18, 0.04, 0.15]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-          <mesh position={[0, 0.63, -0.03]}>
-            <sphereGeometry args={[0.045, 16, 16]} />
-            <meshLambertMaterial color={hairColor} />
-          </mesh>
-        </>
-      ) : null}
-
-      {profile.accessories.hatStyle === "cap" ? (
-        <>
-          <mesh position={[0, 0.63, 0]}>
-            <boxGeometry args={[0.18, 0.03, 0.16]} />
-            <meshLambertMaterial color={accessoryColor} />
-          </mesh>
-          <mesh position={[0, 0.615, 0.07]}>
-            <boxGeometry args={[0.09, 0.012, 0.05]} />
-            <meshLambertMaterial color={accessoryColor} />
-          </mesh>
-        </>
-      ) : null}
-      {profile.accessories.hatStyle === "beanie" ? (
-        <mesh position={[0, 0.63, 0]}>
-          <boxGeometry args={[0.19, 0.06, 0.17]} />
-          <meshLambertMaterial color={accessoryColor} />
-        </mesh>
-      ) : null}
-
-      {profile.accessories.headset ? (
-        <>
-          <mesh position={[0, 0.6, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <torusGeometry args={[0.095, 0.008, 8, 24, Math.PI]} />
-            <meshLambertMaterial color="#94a3b8" />
-          </mesh>
-          <mesh position={[-0.105, 0.51, 0]}>
-            <boxGeometry args={[0.018, 0.05, 0.028]} />
-            <meshLambertMaterial color="#475569" />
-          </mesh>
-          <mesh position={[0.105, 0.51, 0]}>
-            <boxGeometry args={[0.018, 0.05, 0.028]} />
-            <meshLambertMaterial color="#475569" />
-          </mesh>
-        </>
-      ) : null}
-
-      <mesh position={[-0.04, 0.505, 0.078]}>
-        <boxGeometry args={[0.03, 0.03, 0.01]} />
-        <meshBasicMaterial color="#111827" />
-      </mesh>
-      <mesh position={[0.04, 0.505, 0.078]}>
-        <boxGeometry args={[0.03, 0.03, 0.01]} />
-        <meshBasicMaterial color="#111827" />
-      </mesh>
-      {profile.accessories.glasses ? (
-        <>
-          <mesh position={[-0.04, 0.505, 0.084]}>
-            <boxGeometry args={[0.05, 0.05, 0.01]} />
-            <meshBasicMaterial color="#111827" wireframe />
-          </mesh>
-          <mesh position={[0.04, 0.505, 0.084]}>
-            <boxGeometry args={[0.05, 0.05, 0.01]} />
-            <meshBasicMaterial color="#111827" wireframe />
-          </mesh>
-          <mesh position={[0, 0.505, 0.084]}>
-            <boxGeometry args={[0.02, 0.008, 0.01]} />
-            <meshBasicMaterial color="#111827" />
-          </mesh>
-        </>
-      ) : null}
-      <mesh position={[0, 0.46, 0.079]}>
-        <boxGeometry args={[0.05, 0.014, 0.01]} />
-        <meshBasicMaterial color="#9c4a4a" />
-      </mesh>
-    </group>
-  );
+export type AgentAvatarPreview3DProps = {
+  profile: AgentAvatarProfile | null | undefined;
+  className?: string;
+  /** Which HQ clip plays (default Idle); changes crossfade. */
+  clip?: PreviewClip;
+  /** Drag to orbit (default on). */
+  interactive?: boolean;
 };
 
 export const AgentAvatarPreview3D = ({
   profile,
   className = "",
-}: {
-  profile: AgentAvatarProfile | null | undefined;
-  className?: string;
-}) => {
-  const resolvedProfile = useMemo(
-    () => profile ?? createDefaultAgentAvatarProfile("preview"),
-    [profile]
-  );
-  const profileKey = useMemo(() => JSON.stringify(resolvedProfile), [resolvedProfile]);
-  const [readyProfileKey, setReadyProfileKey] = useState<string | null>(null);
-  const isReady = readyProfileKey === profileKey;
+  clip = "Idle",
+  interactive = true,
+}: AgentAvatarPreview3DProps) => {
+  const seed = profile?.seed ?? "preview";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<PreviewStatus>("loading");
+  const [onScreen, setOnScreen] = useState(true);
+
+  // A preview scrolled out of view (a long list of roles) stops rendering.
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry) setOnScreen(entry.isIntersecting);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const onStatus = useCallback((next: PreviewStatus) => setStatus(next), []);
 
   return (
-    <div className={`relative ${className}`}>
-      {!isReady ? (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#070b16] text-white/70">
-          <RunningAvatarLoader size={26} trackWidth={72} label={t("avatar.loading")} />
+    <div ref={containerRef} className={`relative overflow-hidden bg-[#050404] ${className}`}>
+      <Canvas frameloop={onScreen ? "always" : "never"} dpr={DPR} gl={GL_OPTIONS} camera={CAMERA_OPTIONS}>
+        <PreviewStage />
+        <FrameCamera />
+        <SceneAssetBoundary
+          name="avatar-preview-character"
+          fallback={<ReportStatus status="failed" onStatus={onStatus} />}
+        >
+          <Suspense fallback={null}>
+            <PreviewCharacter clip={clip} seed={seed} onStatus={onStatus} />
+          </Suspense>
+        </SceneAssetBoundary>
+        {interactive ? (
+          <OrbitControls
+            target={TARGET_TUPLE}
+            enablePan={false}
+            enableZoom={false}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.55}
+            minPolarAngle={1.18}
+            maxPolarAngle={1.72}
+          />
+        ) : null}
+      </Canvas>
+      {status !== "ready" ? (
+        <div
+          role="status"
+          className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 ${
+            status === "failed" ? "bg-[#050404]/70" : "bg-[#050404]"
+          }`}
+        >
+          {status === "loading" ? (
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff2a2a] shadow-[0_0_8px_rgba(255,42,42,0.9)]"
+            />
+          ) : null}
+          <span className="max-w-full px-2 text-center font-mono text-[9px] uppercase leading-3 tracking-[0.16em] text-white/55">
+            {status === "failed" ? t("avatar.modelUnavailable") : t("avatar.loading")}
+          </span>
         </div>
       ) : null}
-      <Canvas key={profileKey} camera={{ position: [0, 0.7, 2.5], fov: 34 }}>
-        <color attach="background" args={["#070b16"]} />
-        <ambientLight intensity={1.4} />
-        <directionalLight position={[3, 4, 5]} intensity={2.4} />
-        <directionalLight position={[-4, 2, 3]} intensity={0.9} color="#89a6ff" />
-        <PreviewFigure
-          profile={resolvedProfile}
-          onFirstFrame={() => {
-            setReadyProfileKey(profileKey);
-          }}
-        />
-        <OfficeEnvironment />
-        <OrbitControls enablePan={false} enableZoom={false} maxPolarAngle={1.8} minPolarAngle={1.1} />
-      </Canvas>
     </div>
   );
 };
+
+/** Reports a status once mounted (the load-failure fallback). */
+function ReportStatus({ status, onStatus }: { status: PreviewStatus; onStatus: (status: PreviewStatus) => void }) {
+  useEffect(() => {
+    onStatus(status);
+  }, [status, onStatus]);
+  return null;
+}
+
+/** Keeps the whole figure framed whatever the preview's aspect. */
+function FrameCamera() {
+  // Reached through get(): React treats a selected camera as frozen.
+  const get = useThree((state) => state.get);
+  const width = useThree((state) => state.size.width);
+  const height = useThree((state) => state.size.height);
+  useLayoutEffect(() => {
+    const { camera, invalidate } = get();
+    const distance = previewCameraDistance(width / Math.max(1, height), (camera as PerspectiveCamera).fov);
+    // Keep the current orbit direction, change only the distance.
+    _offset.copy(camera.position).sub(TARGET);
+    if (_offset.lengthSq() < 1e-6) _offset.set(0, 0, 1);
+    camera.position.copy(TARGET).addScaledVector(_offset.normalize(), distance);
+    camera.lookAt(TARGET);
+    invalidate();
+  }, [get, width, height]);
+  return null;
+}
+
+/** Dark stage in the HQ's light: key, fill, two red rims, a fading floor. */
+function PreviewStage() {
+  const radial = useMemo(() => createRadialTexture(), []);
+  useEffect(() => () => radial.dispose(), [radial]);
+  return (
+    <>
+      <color attach="background" args={[STAGE_BACKGROUND]} />
+      {/* The HQ's ambient (HqLighting), a little softer in the small frame. */}
+      <hemisphereLight args={["#a8b0c2", "#1c1416", 1.2]} />
+      {/* Key: warm white, high and front-left. */}
+      <directionalLight position={[-2.4, 3.4, 3.2]} intensity={3.4} color="#fff1e6" />
+      {/* Fill: faint, from the right, so the black hoodie keeps its folds. */}
+      <directionalLight position={[2.8, 1.6, 2.4]} intensity={0.9} color="#e6e8ee" />
+      {/* Red rims from behind: the HQ's accent traced along the silhouette. */}
+      <directionalLight position={[2.2, 2.6, -2.8]} intensity={5.5} color={HQ_THEME.accent} />
+      <directionalLight position={[-2.4, 1.4, -2.6]} intensity={3.2} color={HQ_THEME.accentSoft} />
+      {/* Reflections for the visor and metal parts, rendered once. */}
+      <Environment frames={1} resolution={128} environmentIntensity={0.9}>
+        <Lightformer form="rect" intensity={3} color="#fff4e8" scale={[6, 0.6, 1]} position={[0, 4, 1]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={1.2} color={HQ_THEME.accent} scale={[4, 3, 1]} position={[0, 1.5, -4]} />
+        <Lightformer form="rect" intensity={0.8} color="#e8ebf2" scale={[3, 3, 1]} position={[4, 1.5, 2]} rotation-y={-Math.PI / 2} />
+      </Environment>
+      {/* Red haze behind the figure. */}
+      <mesh position={[0, 1.15, -2.2]} renderOrder={-1}>
+        <planeGeometry args={[5.5, 4.2]} />
+        <meshBasicMaterial
+          color={HQ_THEME.accentDeep}
+          alphaMap={radial}
+          transparent
+          opacity={0.55}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Glossy floor fading into the dark. */}
+      <mesh rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[2.4, 48]} />
+        <meshStandardMaterial color="#0d0909" roughness={0.42} metalness={0.2} alphaMap={radial} transparent depthWrite={false} />
+      </mesh>
+      {/* Contact shadow. */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.004, 0]}>
+        <circleGeometry args={[0.5, 32]} />
+        <meshBasicMaterial color="#000000" alphaMap={radial} transparent opacity={0.85} depthWrite={false} />
+      </mesh>
+      {/* The HQ's floor ring. */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.008, 0]}>
+        <ringGeometry args={[0.5, 0.52, 64]} />
+        <meshBasicMaterial color={HQ_THEME.accent} transparent opacity={0.7} depthWrite={false} toneMapped={false} />
+      </mesh>
+    </>
+  );
+}
+
+/** The HQ character: loads (or reuses) the GLB, builds a private rig, plays the clip. */
+function PreviewCharacter({
+  clip,
+  seed,
+  onStatus,
+}: {
+  clip: PreviewClip;
+  seed: string;
+  onStatus: (status: PreviewStatus) => void;
+}) {
+  // Same URL and options as the HQ (no Draco/meshopt: the production CSP
+  // blocks their decoders), so the GLTF comes from the same cache entry.
+  const gltf = useGLTF(HQ_CHARACTER_URL, false, false);
+  const groupRef = useRef<Group>(null);
+  const rigRef = useRef<HqPreviewRig | null>(null);
+  const clipRef = useRef(clip);
+  const seedRef = useRef(seed);
+  const readyPendingRef = useRef(false);
+
+  // Declared before the rig effect, so a new rig starts on the current clip.
+  useEffect(() => {
+    clipRef.current = clip;
+    rigRef.current?.play(clip);
+  }, [clip]);
+
+  // The seed only sets the idle phase of a new rig; a change does not rebuild it.
+  useEffect(() => {
+    seedRef.current = seed;
+  }, [seed]);
+
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const rig = HqPreviewRig.create(gltf, seedRef.current);
+    if (!rig) {
+      console.warn("HQ character has no skinned mesh; the avatar preview stays empty.");
+      onStatus("failed");
+      return;
+    }
+    group.add(rig.root);
+    rig.play(clipRef.current);
+    rig.update(0);
+    rigRef.current = rig;
+    readyPendingRef.current = true;
+    return () => {
+      if (rigRef.current === rig) rigRef.current = null;
+      rig.dispose();
+    };
+  }, [gltf, onStatus]);
+
+  useFrame((state, delta) => {
+    const rig = rigRef.current;
+    const group = groupRef.current;
+    if (!rig || !group) return;
+    rig.update(Math.min(Math.max(delta, 0), MAX_DT));
+    group.rotation.y = Math.sin(state.clock.elapsedTime * SWAY_SPEED) * SWAY_ANGLE;
+    // Lift the loading cover once the posed figure is about to be drawn.
+    if (readyPendingRef.current) {
+      readyPendingRef.current = false;
+      onStatus("ready");
+    }
+  });
+
+  return <group ref={groupRef} />;
+}

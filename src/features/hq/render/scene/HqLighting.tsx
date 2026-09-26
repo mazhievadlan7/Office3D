@@ -231,10 +231,15 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
         decay={2}
       />
       <pointLight ref={serverLightRef} color={HQ_THEME.accent} intensity={14} distance={9} decay={2} />
+      {/*
+        AM7's office light is the neutral key colour, not red: a red spot over
+        the lead's desk tinted AM7's clothes red, which read as a glitch. The
+        office keeps its red from the LED trims and the screens.
+      */}
       <spotLight
         ref={am7LightRef}
-        color={HQ_THEME.accentSoft}
-        intensity={38}
+        color={KEY_COLOR}
+        intensity={22}
         distance={Math.max(8, (office.x1 - office.x0) * 1.6)}
         angle={0.95}
         penumbra={0.85}

@@ -893,6 +893,13 @@ async function handleMethod(method, params, id, sendEvent) {
     case "cron.remove":
       return resErr(id, "unsupported_method", `Демо-среда не поддерживает метод ${method}.`);
 
+    // No shared task board here: the office keeps its own (task-store) board.
+    case "tasks.list":
+    case "tasks.create":
+    case "tasks.update":
+    case "tasks.delete":
+      return resErr(id, "METHOD_NOT_FOUND", `unknown method: ${method}`);
+
     case "sessions.list": {
       // The office asks once per agent while hydrating: answering from the
       // agent map keeps that linear instead of listing the whole team N times.

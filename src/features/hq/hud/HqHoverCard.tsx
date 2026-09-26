@@ -77,7 +77,7 @@ export function HqHoverCard({
     <div
       ref={boxRef}
       aria-hidden="true"
-      className="pointer-events-none absolute left-0 top-0 z-20 max-w-[260px] rounded-md border border-red-500/30 bg-black/80 px-3 py-2 opacity-0 shadow-[0_0_24px_rgba(255,26,26,0.18)] backdrop-blur-sm transition-opacity duration-150"
+      className="pointer-events-none absolute left-0 top-0 z-20 max-w-[260px] rounded-lg border border-red-600/35 bg-black/80 px-3 py-2 opacity-0 shadow-[0_0_24px_rgba(255,26,26,0.18)] backdrop-blur-sm transition-opacity duration-150"
     >
       <div className="flex items-center gap-2">
         <span ref={dotRef} className="h-2 w-2 shrink-0 rounded-full" />
@@ -89,7 +89,7 @@ export function HqHoverCard({
           {t("hqScene.leadBadge")}
         </span>
       </div>
-      <span ref={metaRef} className="mt-0.5 block truncate font-mono text-[10px] text-white/55" />
+      <span ref={metaRef} className="mt-0.5 block truncate font-mono text-[10px] text-white/65" />
     </div>
   );
 }

@@ -1,7 +1,8 @@
-// In-world text for the HQ's screens: code the builders type, terminal
-// sessions, log lines, research notes, chat, news. Decoration inside the 3D
-// scene (like the demo gateway's scripts), not UI copy, so it is not routed
-// through the i18n dictionary. Everything is deterministic for a given seed.
+// In-world text for the HQ's desk monitors: code the builders type, terminal
+// sessions, log lines, research notes, chat (the big screens write theirs
+// from the feed, screenStories.ts). Decoration inside the 3D scene (like the
+// demo gateway's scripts), not UI copy, so it is not routed through the i18n
+// dictionary. Everything is deterministic for a given seed.
 
 /** mulberry32: a tiny deterministic PRNG. */
 export function makeRng(seed: number): () => number {
@@ -337,31 +338,6 @@ export const DOC_TEXT = [
   "",
   "Сроки: заморозка кода — пятница, релиз — вторник.",
   "Ответственные: разработка — Vex, данные — Rune, QA — Kade.",
-];
-
-export const NEWS_HEADLINES = [
-  "Штаб AM7 закрыл квартал с рекордом: 1,2 млн задач",
-  "Отдел исследований внедрил гибридный поиск",
-  "Задержка ответов агентов снизилась на 38%",
-  "Новый дашборд для аналитиков уже в работе",
-  "DevOps: 14 дней без единого инцидента",
-  "Команда дизайна представила интерфейс штаба v3",
-  "Тестирование: 4 200 автотестов проходят за 3 минуты",
-  "AM7 провёл планирование на следующий спринт",
-];
-
-export const NEWS_TICKER =
-  "РЫНКИ: NASDAQ +0,8% · S&P 500 +0,5% · BTC 104 210 $ · ИИ-СЕКТОР +2,1% · ШТАБ AM7: 300 АГЕНТОВ В СЕТИ · ОЧЕРЕДЬ ЗАДАЧ: НОРМА · ПОГОДА: МОСКВА +12°, ТОКИО +21°, НЬЮ-ЙОРК +16° · ";
-
-export const CITIES: ReadonlyArray<readonly [string, number]> = [
-  ["Нью-Йорк", -4],
-  ["Лондон", 1],
-  ["Москва", 3],
-  ["Дубай", 4],
-  ["Сингапур", 8],
-  ["Токио", 9],
-  ["Сидней", 10],
-  ["Сан-Паулу", -3],
 ];
 
 export const REGIONS = ["eu-west", "us-east", "us-west", "ap-south", "ap-east", "sa-east", "me-central", "af-south"];

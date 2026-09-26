@@ -16,7 +16,22 @@ import {
   serializePersonalityFiles,
 } from "@/lib/agents/personalityBuilder";
 import { useAgentFilesEditor } from "@/features/agents/hooks/useAgentFilesEditor";
+import {
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_HINT,
+  HQ_FORM_INSET,
+  HQ_FORM_LEAD,
+  HQ_FORM_NOTICE_ERROR,
+  HQ_FORM_SECTION_TITLE,
+  HQ_FORM_TEXTAREA,
+} from "@/features/agents/components/hqFormStyles";
 import { t } from "@/lib/i18n";
+
+// AgentIdentityFields is shared with the create wizard and styled with theme
+// tokens; inside the editor its fields take the HQ form look from here.
+const IDENTITY_FIELDS_CLASS =
+  "[&_label]:font-mono [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-[0.16em] [&_label]:text-white/60 [&_input]:border-red-900/50 [&_input]:bg-black/60 [&_input]:font-sans [&_input]:text-[13px] [&_input]:normal-case [&_input]:tracking-normal [&_input]:text-white [&_input]:caret-red-500 [&_input]:transition-colors [&_input]:placeholder:text-white/35 [&_input:hover]:border-red-600/45 [&_input:focus]:border-red-500/70 [&_input:focus]:ring-2 [&_input:focus]:ring-red-500/30 [&_input:disabled]:opacity-50";
 
 export type AgentBrainPanelProps = {
   client: GatewayClient;
@@ -35,8 +50,8 @@ const AgentBrainPanelSection = ({
   title: string;
   children: ReactNode;
 }) => (
-  <section className="space-y-3 border-t border-border/55 pt-8 first:border-t-0 first:pt-0">
-    <h3 className="text-sm font-medium text-foreground">{title}</h3>
+  <section className="space-y-3 border-t border-red-900/30 pt-8 first:border-t-0 first:pt-0">
+    <h3 className={HQ_FORM_SECTION_TITLE}>{title}</h3>
     {children}
   </section>
 );
@@ -50,15 +65,15 @@ const AgentFileProvenance = ({
 }) => {
   if (!path && !workspace) return null;
   return (
-    <div className="rounded-md border border-border/50 bg-black/20 px-3 py-2 text-[11px] text-muted-foreground">
+    <div className={`${HQ_FORM_INSET} space-y-0.5 px-3 py-2 text-[11px] text-white/45`}>
       {workspace ? (
         <div>
-          {t("brain.workspace")} <span className="font-mono text-foreground">{workspace}</span>
+          {t("brain.workspace")} <span className="break-all font-mono text-white/85">{workspace}</span>
         </div>
       ) : null}
       {path ? (
         <div>
-          {t("brain.file")} <span className="font-mono text-foreground">{path}</span>
+          {t("brain.file")} <span className="break-all font-mono text-white/85">{path}</span>
         </div>
       ) : null}
     </div>
@@ -169,16 +184,16 @@ export const AgentBrainPanel = ({
           : null;
       return (
         <AgentBrainPanelSection title={AGENT_FILE_META[name].title}>
-          <div className="text-xs text-muted-foreground">{AGENT_FILE_META[name].hint}</div>
+          <div className={HQ_FORM_LEAD}>{AGENT_FILE_META[name].hint}</div>
           {statusCopy ? (
-            <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className={`${HQ_FORM_INSET} px-3 py-2 text-[12px] text-white/60`}>
               {statusCopy}
             </div>
           ) : null}
           <AgentFileProvenance path={file.path} workspace={file.workspace} />
           <textarea
             aria-label={AGENT_FILE_META[name].title}
-            className="h-[min(56vh,480px)] w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 font-mono text-sm leading-6 text-foreground outline-none"
+            className={`h-[min(56vh,480px)] w-full resize-y ${HQ_FORM_TEXTAREA}`}
             value={file.content}
             placeholder={!file.exists ? t("brain.noFileYet", { name }) : ""}
             disabled={agentFilesLoading || agentFilesSaving}
@@ -194,25 +209,27 @@ export const AgentBrainPanel = ({
 
   const renderIdentityEditor = useCallback(
     () => (
-      <section className="space-y-3 border-t border-border/55 pt-8 first:border-t-0 first:pt-0">
-        <h3 className="text-sm font-medium text-foreground">{AGENT_FILE_META["IDENTITY.md"].title}</h3>
-        <div className="text-xs text-muted-foreground">
+      <section className="space-y-3 border-t border-red-900/30 pt-8 first:border-t-0 first:pt-0">
+        <h3 className={HQ_FORM_SECTION_TITLE}>{AGENT_FILE_META["IDENTITY.md"].title}</h3>
+        <div className={HQ_FORM_LEAD}>
           {AGENT_FILE_META["IDENTITY.md"].hint}
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className={HQ_FORM_HINT}>
           {t("brain.renameHint")}
         </div>
         <AgentFileProvenance
           path={agentFiles["IDENTITY.md"].path}
           workspace={agentFiles["IDENTITY.md"].workspace}
         />
-        <AgentIdentityFields
-          values={draft.identity}
-          disabled={agentFilesLoading || agentFilesSaving}
-          onChange={(field, value) => {
-            setIdentityField(field, value);
-          }}
-        />
+        <div className={IDENTITY_FIELDS_CLASS}>
+          <AgentIdentityFields
+            values={draft.identity}
+            disabled={agentFilesLoading || agentFilesSaving}
+            onChange={(field, value) => {
+              setIdentityField(field, value);
+            }}
+          />
+        </div>
       </section>
     ),
     [
@@ -251,21 +268,21 @@ export const AgentBrainPanel = ({
           data-testid="agent-personality-files"
         >
           {agentFilesError ? (
-            <div className="ui-alert-danger mb-4 rounded-md px-3 py-2 text-xs">
+            <div className={`mb-4 ${HQ_FORM_NOTICE_ERROR}`}>
               {agentFilesError}
             </div>
           ) : null}
           {saveError ? (
-            <div className="ui-alert-danger mb-4 rounded-md px-3 py-2 text-xs">
+            <div className={`mb-4 ${HQ_FORM_NOTICE_ERROR}`}>
               {saveError}
             </div>
           ) : null}
 
-          <div className="mb-6 flex items-center justify-end gap-2 border-b border-border/40 pb-4">
+          <div className="mb-6 flex items-center justify-end gap-2 border-b border-red-900/40 pb-4">
             {missingPersonalityFiles.length > 0 ? (
               <button
                 type="button"
-                className="ui-btn-secondary px-3 py-2 text-xs"
+                className={HQ_FORM_BUTTON_SECONDARY}
                 disabled={agentFilesLoading || agentFilesSaving}
                 onClick={() => {
                   void handleInitializeMissingFiles();
@@ -276,7 +293,7 @@ export const AgentBrainPanel = ({
             ) : null}
             <button
               type="button"
-              className="ui-btn-ghost px-3 py-2 text-xs"
+              className={HQ_FORM_BUTTON_SECONDARY}
               disabled={agentFilesLoading || agentFilesSaving}
               onClick={onCancel}
             >
@@ -284,7 +301,7 @@ export const AgentBrainPanel = ({
             </button>
             <button
               type="button"
-              className="ui-btn-primary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+              className={HQ_FORM_BUTTON_PRIMARY}
               disabled={agentFilesLoading || agentFilesSaving || !agentFilesDirty}
               onClick={() => {
                 void handleSave();

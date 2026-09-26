@@ -32,10 +32,11 @@ type CompanyBuilderModalProps = {
   }) => Promise<void>;
 };
 
+// HQ field look: black glass, a red-tinted edge that lights up on focus.
 const inputClassName =
-  "w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30";
+  "w-full rounded-md border border-red-900/50 bg-black/60 px-3 py-2 font-sans text-sm normal-case tracking-normal text-white outline-none transition placeholder:text-white/35 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30";
 const textareaClassName =
-  "min-h-[120px] w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30";
+  "min-h-[120px] w-full rounded-md border border-red-900/50 bg-black/60 px-3 py-2 font-sans text-sm normal-case tracking-normal text-white outline-none transition placeholder:text-white/35 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30";
 
 const createEmptyRole = (index: number): CompanyBuilderRole => ({
   id: `custom-role-${index + 1}`,
@@ -80,7 +81,7 @@ const renderRoleFacts = (label: string, values: string[]) => {
   if (values.length === 0) return null;
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/65">
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-red-400">
         {label}
       </p>
       <div className="text-xs leading-5 text-white/75">{values.join(", ")}</div>
@@ -186,11 +187,11 @@ export function CompanyBuilderModal({
 
   return (
     <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="flex h-[min(92vh,920px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#090d13] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <div className="flex h-[min(92vh,920px)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-red-600/35 bg-[#070404]/95 text-white shadow-[0_0_48px_rgba(255,26,26,0.12)]">
+        <div className="flex items-center justify-between border-b border-red-900/40 bg-gradient-to-r from-red-950/30 via-transparent to-transparent px-6 py-4">
           <div>
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-cyan-200/70">
-              <Sparkles className="h-4 w-4" />{t("company.title")}</div>
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-red-400">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />{t("company.title")}</div>
             <h2 className="mt-1 text-lg font-semibold">{t("company.heading")}</h2>
             <p className="mt-1 text-sm text-white/55">
               {plannerAgentName
@@ -201,7 +202,7 @@ export function CompanyBuilderModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold border border-red-500/50 bg-red-950/40 text-red-300 transition hover:border-red-400/70 hover:bg-red-900/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 setInput({ businessDescription: "", improvedBrief: "" });
                 setPromptDraft("");
@@ -214,7 +215,7 @@ export function CompanyBuilderModal({
             >{t("company.clear")}</button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-500 px-3 py-2 text-xs font-semibold text-[#1a1206] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold border border-red-500/50 bg-red-600/20 text-white transition hover:border-red-500/70 hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 void onGeneratePlan(effectiveBrief)
                   .then((nextPlan) => {
@@ -227,7 +228,7 @@ export function CompanyBuilderModal({
               <Sparkles className="h-3.5 w-3.5" />{t("company.generate")}</button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold border border-red-900/40 bg-black/40 text-white/85 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 setOrgChartOpen(true);
               }}
@@ -236,7 +237,7 @@ export function CompanyBuilderModal({
               <GitBranch className="h-3.5 w-3.5" />{t("company.orgChart")}</button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold border border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition hover:border-red-400/70 hover:bg-[#ff2a2a] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               onClick={() => {
                 if (!plan) return;
                 if (replacesExistingAgents) {
@@ -250,7 +251,7 @@ export function CompanyBuilderModal({
               <Wand2 className="h-3.5 w-3.5" />{t("company.create")}</button>
             <button
               type="button"
-              className="rounded-md border border-white/10 p-2 text-white/60 transition hover:bg-white/5 hover:text-white"
+              className="rounded-md border border-red-900/40 bg-black/40 p-2 text-white/70 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
               onClick={onClose}
               disabled={busy}
               aria-label={t("company.close")}
@@ -261,15 +262,15 @@ export function CompanyBuilderModal({
         </div>
 
         <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <section className="overflow-y-auto border-b border-white/10 px-6 py-5 lg:border-b-0 lg:border-r">
+          <section className="overflow-y-auto border-b border-red-900/40 px-6 py-5 lg:border-b-0 lg:border-r">
             <div className="space-y-5">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-lg border border-red-900/40 bg-[#0b0707] p-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.sourcePrompt")}</p>
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">{t("company.sourcePrompt")}</p>
                     <button
                       type="button"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold border border-red-500/50 bg-red-600/20 text-white transition hover:border-red-500/70 hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => {
                         setPromptDraft(input.businessDescription);
                         setPromptModalOpen(true);
@@ -288,10 +289,10 @@ export function CompanyBuilderModal({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-lg border border-red-900/40 bg-[#0b0707] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.improvedBrief")}</p>
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">{t("company.improvedBrief")}</p>
                     <p className="mt-1 text-[11px] text-white/45">{t("company.improvedBriefLead")}</p>
                   </div>
                 </div>
@@ -309,23 +310,23 @@ export function CompanyBuilderModal({
                 />
               </div>
 
-              <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="space-y-3 rounded-lg border border-red-900/40 bg-[#0b0707] p-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("company.actions")}</p>
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">{t("company.actions")}</p>
                   <p className="mt-1 text-[11px] text-white/45">{t("company.actionsLead")}</p>
                 </div>
                 {replacesExistingAgents ? (
-                  <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100/85">
+                  <div className="rounded-md border border-orange-400/25 bg-orange-500/[0.07] px-3 py-2 text-xs leading-5 text-orange-300">
                     {t("company.replaceNotice", { count: agentCount })}
                   </div>
                 ) : null}
                 {!canUseAi ? (
-                  <p className="text-xs text-amber-200/80">
+                  <p className="text-xs text-orange-300/85">
                     {t("company.needRuntime")}
                   </p>
                 ) : null}
-                {statusLine ? <p className="text-xs text-cyan-100/75">{statusLine}</p> : null}
-                {error ? <p className="text-xs text-red-200">{error}</p> : null}
+                {statusLine ? <p className="text-xs text-red-300">{statusLine}</p> : null}
+                {error ? <p className="rounded-md border border-red-500/50 bg-red-950/40 px-3 py-2 text-xs text-red-400">{error}</p> : null}
               </div>
             </div>
           </section>
@@ -334,7 +335,7 @@ export function CompanyBuilderModal({
             {plan ? (
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.name")}<input
+                  <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.name")}<input
                       className={inputClassName}
                       value={plan.companyName}
                       onChange={(event) =>
@@ -350,7 +351,7 @@ export function CompanyBuilderModal({
                       disabled={busy}
                     />
                   </label>
-                  <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.sharedRules")}<input
+                  <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.sharedRules")}<input
                       className={inputClassName}
                       value={joinCommaList(plan.sharedRules)}
                       onChange={(event) =>
@@ -368,7 +369,7 @@ export function CompanyBuilderModal({
                   </label>
                 </div>
 
-                <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.summary")}<textarea
+                <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.summary")}<textarea
                     className={`${textareaClassName} min-h-[110px]`}
                     value={plan.summary}
                     onChange={(event) =>
@@ -392,7 +393,7 @@ export function CompanyBuilderModal({
                   </div>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold border border-red-900/40 bg-black/40 text-white/85 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => {
                       pendingRoleScrollRef.current = true;
                       setPlan((current) =>
@@ -413,18 +414,18 @@ export function CompanyBuilderModal({
                   {plan.roles.map((role, index) => (
                     <div
                       key={role.id || `role-${index}`}
-                      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                      className="rounded-lg border border-red-900/40 bg-[#0b0707] p-4 transition-colors hover:border-red-600/35"
                     >
                       <div className="mb-4 flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-4">
-                          <div className="h-28 w-24 overflow-hidden rounded-xl border border-white/10 bg-[#070b16]">
+                          <div className="h-28 w-24 overflow-hidden rounded-md border border-red-900/40 bg-gradient-to-b from-[#140909] to-black">
                             <AgentAvatarPreview3D
                               profile={buildRoleAvatarProfile(role)}
                               className="h-full w-full"
                             />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs uppercase tracking-[0.14em] text-white/45">
+                            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">
                               {t("company.role")} {index + 1}
                             </div>
                             <div className="mt-2 text-sm font-semibold text-white">
@@ -437,7 +438,7 @@ export function CompanyBuilderModal({
                         </div>
                         <button
                           type="button"
-                          className="rounded-md border border-red-500/20 bg-red-500/10 p-2 text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="rounded-md p-2 border border-red-500/50 bg-red-950/40 text-red-300 transition hover:border-red-400/70 hover:bg-red-900/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                           onClick={() =>
                             setPlan((current) =>
                               current
@@ -456,7 +457,7 @@ export function CompanyBuilderModal({
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.fieldName")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.fieldName")}<input
                             className={inputClassName}
                             value={role.title}
                             onChange={(event) =>
@@ -476,7 +477,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.emoji")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.emoji")}<input
                             className={inputClassName}
                             value={role.emoji}
                             onChange={(event) =>
@@ -499,7 +500,7 @@ export function CompanyBuilderModal({
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.purpose")}<textarea
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.purpose")}<textarea
                             className={textareaClassName}
                             value={role.purpose}
                             onChange={(event) =>
@@ -519,7 +520,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.soul")}<textarea
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.soul")}<textarea
                             className={textareaClassName}
                             value={role.soul}
                             onChange={(event) =>
@@ -542,7 +543,7 @@ export function CompanyBuilderModal({
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.responsibilities")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.responsibilities")}<input
                             className={inputClassName}
                             value={joinCommaList(role.responsibilities)}
                             onChange={(event) =>
@@ -565,7 +566,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.collaborators")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.collaborators")}<input
                             className={inputClassName}
                             value={joinCommaList(role.collaborators)}
                             onChange={(event) =>
@@ -588,7 +589,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.toolNotes")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.toolNotes")}<input
                             className={inputClassName}
                             value={joinCommaList(role.tools)}
                             onChange={(event) =>
@@ -608,7 +609,7 @@ export function CompanyBuilderModal({
                             disabled={busy}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs text-white/60">{t("company.heartbeatChecklist")}<input
+                        <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">{t("company.heartbeatChecklist")}<input
                             className={inputClassName}
                             value={joinCommaList(role.heartbeat)}
                             onChange={(event) =>
@@ -634,9 +635,9 @@ export function CompanyBuilderModal({
                 </div>
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-red-900/50 bg-[#0b0707]/60 p-8 text-center">
                 <div className="max-w-md space-y-3">
-                  <Sparkles className="mx-auto h-8 w-8 text-cyan-300/70" />
+                  <Sparkles className="mx-auto h-8 w-8 text-red-500" aria-hidden="true" />
                   <p className="text-lg font-semibold text-white">{t("company.noneYet")}</p>
                   <p className="text-sm text-white/55">
                     {t("company.emptyLead")}
@@ -649,7 +650,7 @@ export function CompanyBuilderModal({
       </div>
       {busy ? (
         <div className="fixed inset-0 z-[100120] flex items-center justify-center bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-2xl border border-cyan-500/20 bg-[#08111a] px-6 py-6 text-center shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-red-600/35 bg-[#070404] px-6 py-6 text-center shadow-[0_0_48px_rgba(255,26,26,0.15)]">
             <RunningAvatarLoader size={40} trackWidth={104} />
             <p className="mt-4 text-sm font-semibold text-white">
               {statusLine?.trim() || t("company.working")}
@@ -659,7 +660,7 @@ export function CompanyBuilderModal({
               {Array.from({ length: 4 }, (_, index) => (
                 <span
                   key={`company-loading-${index}`}
-                  className="h-1.5 flex-1 rounded-full bg-cyan-400/30 animate-pulse"
+                  className="h-1.5 flex-1 rounded-full bg-red-500/45 animate-pulse"
                   style={{ animationDelay: `${index * 120}ms` }}
                 />
               ))}
@@ -669,7 +670,7 @@ export function CompanyBuilderModal({
       ) : null}
       {replaceConfirmOpen ? (
         <div className="fixed inset-0 z-[100115] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0b1119] p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-xl border border-red-600/35 bg-[#070404] p-6 shadow-[0_0_48px_rgba(255,26,26,0.12)]">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-white">{t("company.replaceTitle")}</p>
               <p className="text-sm leading-6 text-white/65">
@@ -681,7 +682,7 @@ export function CompanyBuilderModal({
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="rounded-md px-4 py-2 text-sm font-semibold border border-red-900/40 bg-black/40 text-white/85 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={() => {
                   setReplaceConfirmOpen(false);
                 }}
@@ -689,7 +690,7 @@ export function CompanyBuilderModal({
               >{t("company.cancel")}</button>
               <button
                 type="button"
-                className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-[#1a1206] transition hover:bg-amber-400"
+                className="rounded-md px-4 py-2 text-sm font-semibold border border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition hover:border-red-400/70 hover:bg-[#ff2a2a] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 onClick={() => {
                   setReplaceConfirmOpen(false);
                   triggerCreateCompany();
@@ -702,15 +703,15 @@ export function CompanyBuilderModal({
       ) : null}
       {orgChartOpen && plan ? (
         <div className="fixed inset-0 z-[100112] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="flex h-[min(88vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1119] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex h-[min(88vh,860px)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-red-600/35 bg-[#070404] shadow-[0_0_48px_rgba(255,26,26,0.12)]">
+            <div className="flex items-center justify-between border-b border-red-900/40 px-6 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">{t("company.previewTitle")}</p>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-red-400">{t("company.previewTitle")}</p>
                 <p className="mt-2 text-sm text-white/60">{t("company.previewLead")}</p>
               </div>
               <button
                 type="button"
-                className="rounded-md border border-white/10 p-2 text-white/60 transition hover:bg-white/5 hover:text-white"
+                className="rounded-md border border-red-900/40 bg-black/40 p-2 text-white/70 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
                 onClick={() => {
                   setOrgChartOpen(false);
                 }}
@@ -725,10 +726,10 @@ export function CompanyBuilderModal({
                 <div className="flex min-h-0 flex-col items-center">
                   <button
                     type="button"
-                    className={`flex w-full max-w-xs flex-col items-center rounded-2xl border px-5 py-5 text-center transition ${
+                    className={`flex w-full max-w-xs flex-col items-center rounded-lg border px-5 py-5 text-center transition ${
                       resolvedHoveredOrgRoleId === plan.roles[0]?.id
-                        ? "border-cyan-400/40 bg-cyan-500/12"
-                        : "border-cyan-500/20 bg-cyan-500/10 hover:border-cyan-300/35"
+                        ? "border-red-500/60 bg-red-600/20 shadow-[0_0_14px_rgba(255,26,26,0.25)]"
+                        : "border-red-600/35 bg-red-600/10 hover:border-red-500/50"
                     }`}
                     onMouseEnter={() => {
                       setHoveredOrgRoleId(plan.roles[0]?.id ?? null);
@@ -737,13 +738,13 @@ export function CompanyBuilderModal({
                       setHoveredOrgRoleId(plan.roles[0]?.id ?? null);
                     }}
                   >
-                    <div className="h-28 w-24 overflow-hidden rounded-xl border border-white/10 bg-[#070b16]">
+                    <div className="h-28 w-24 overflow-hidden rounded-md border border-red-900/40 bg-gradient-to-b from-[#140909] to-black">
                       <AgentAvatarPreview3D
                         profile={buildRoleAvatarProfile(plan.roles[0])}
                         className="h-full w-full"
                       />
                     </div>
-                    <p className="mt-3 text-xs uppercase tracking-[0.14em] text-cyan-100/65">{t("company.role1")}</p>
+                    <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">{t("company.role1")}</p>
                     <p className="mt-1 text-lg font-semibold text-white">
                       {plan.roles[0].title || t("company.untitledRole")}
                     </p>
@@ -753,17 +754,17 @@ export function CompanyBuilderModal({
                   </button>
                   {plan.roles.length > 1 ? (
                     <>
-                      <div className="h-10 w-px bg-white/10" />
-                      <div className="mb-8 h-px w-[min(100%,720px)] bg-white/10" />
+                      <div className="h-10 w-px bg-red-600/40" />
+                      <div className="mb-8 h-px w-[min(100%,720px)] bg-red-600/40" />
                       <div className="grid w-full max-w-4xl gap-5 md:grid-cols-2 xl:grid-cols-3">
                         {plan.roles.slice(1).map((role, index) => (
                           <button
                             key={role.id || `org-chart-role-${index + 2}`}
                             type="button"
-                            className={`flex flex-col items-center rounded-2xl border px-4 py-5 text-center transition ${
+                            className={`flex flex-col items-center rounded-lg border px-4 py-5 text-center transition ${
                               resolvedHoveredOrgRoleId === role.id
-                                ? "border-cyan-400/40 bg-cyan-500/10"
-                                : "border-white/10 bg-white/[0.03] hover:border-cyan-300/25"
+                                ? "border-red-500/60 bg-red-600/15"
+                                : "border-red-900/40 bg-[#0b0707] hover:border-red-500/50 hover:bg-red-950/40"
                             }`}
                             onMouseEnter={() => {
                               setHoveredOrgRoleId(role.id);
@@ -772,13 +773,13 @@ export function CompanyBuilderModal({
                               setHoveredOrgRoleId(role.id);
                             }}
                           >
-                            <div className="h-24 w-20 overflow-hidden rounded-xl border border-white/10 bg-[#070b16]">
+                            <div className="h-24 w-20 overflow-hidden rounded-md border border-red-900/40 bg-gradient-to-b from-[#140909] to-black">
                               <AgentAvatarPreview3D
                                 profile={buildRoleAvatarProfile(role)}
                                 className="h-full w-full"
                               />
                             </div>
-                            <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/45">
+                            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
                               {t("company.roleN", { index: index + 2 })}
                             </p>
                             <p className="mt-1 text-base font-semibold text-white">
@@ -793,11 +794,11 @@ export function CompanyBuilderModal({
                     </>
                   ) : null}
                 </div>
-                <aside className="rounded-2xl border border-white/10 bg-[#08111a] p-5 lg:sticky lg:top-0 lg:h-fit">
+                <aside className="rounded-lg border border-red-900/40 bg-[#0b0707] p-5 lg:sticky lg:top-0 lg:h-fit">
                   {hoveredOrgRole ? (
                     <div className="space-y-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.14em] text-cyan-100/65">{t("company.activeRole")}</p>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">{t("company.activeRole")}</p>
                         <p className="mt-2 text-xl font-semibold text-white">
                           {hoveredOrgRole.title || t("company.untitledRole")}
                         </p>
@@ -805,8 +806,8 @@ export function CompanyBuilderModal({
                           {hoveredOrgRole.soul || t("company.noSoul")}
                         </p>
                       </div>
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/65">{t("company.purpose")}</p>
+                      <div className="rounded-md border border-red-900/40 bg-black/40 px-4 py-3">
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-red-400">{t("company.purpose")}</p>
                         <p className="mt-2 text-sm leading-6 text-white/75">
                           {hoveredOrgRole.purpose || t("company.noPurpose")}
                         </p>
@@ -827,17 +828,17 @@ export function CompanyBuilderModal({
       ) : null}
       {promptModalOpen ? (
         <div className="fixed inset-0 z-[100110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b1119] p-6 shadow-2xl">
+          <div className="w-full max-w-2xl rounded-xl border border-red-600/35 bg-[#070404] p-6 shadow-[0_0_48px_rgba(255,26,26,0.12)]">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">{t("company.promptTitle")}</p>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-red-400">{t("company.promptTitle")}</p>
                 <p className="mt-2 text-sm text-white/55">
                   {t("company.submitNote")}
                 </p>
               </div>
               <button
                 type="button"
-                className="rounded-md border border-white/10 p-2 text-white/60 transition hover:bg-white/5 hover:text-white"
+                className="rounded-md border border-red-900/40 bg-black/40 p-2 text-white/70 transition hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
                 onClick={() => {
                   if (busy) return;
                   setPromptModalOpen(false);
@@ -860,11 +861,11 @@ export function CompanyBuilderModal({
             <div className="mt-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-white/45">{t("company.promptNote")}</p>
-                {error ? <p className="mt-2 text-xs text-red-200">{error}</p> : null}
+                {error ? <p className="mt-2 text-xs text-red-400">{error}</p> : null}
               </div>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-[#1a1206] transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold border border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition hover:border-red-400/70 hover:bg-[#ff2a2a] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 onClick={() => {
                   const trimmedPrompt = promptDraft.trim();
                   if (!trimmedPrompt) return;

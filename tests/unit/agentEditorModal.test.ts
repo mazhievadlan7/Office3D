@@ -78,6 +78,7 @@ describe("AgentEditorModal", () => {
   it("saves avatar changes from the avatar section", async () => {
     const agent = buildAgent();
     const onAvatarSave = vi.fn(async () => {});
+    const initialGlasses = agent.avatarProfile?.accessories.glasses;
     const initialBackpack = agent.avatarProfile?.accessories.backpack;
 
     render(
@@ -91,7 +92,7 @@ describe("AgentEditorModal", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Рюкзак" }));
+    fireEvent.click(screen.getByRole("button", { name: "Очки" }));
     fireEvent.click(screen.getByRole("button", { name: "Сохранить аватар" }));
 
     expect(onAvatarSave).toHaveBeenCalledTimes(1);
@@ -99,9 +100,39 @@ describe("AgentEditorModal", () => {
       "agent-1",
       expect.objectContaining({
         seed: "seed-a",
-        accessories: expect.objectContaining({ backpack: !initialBackpack }),
+        // Hidden controls keep their saved values.
+        accessories: expect.objectContaining({ glasses: !initialGlasses, backpack: initialBackpack }),
       }),
     );
+  });
+
+  it("shows only the avatar controls that still change something", () => {
+    const agent = buildAgent();
+
+    render(
+      createElement(AgentEditorModal, {
+        open: true,
+        client: {} as GatewayClient,
+        agents: [agent],
+        agent,
+        onClose: () => {},
+        onAvatarSave: () => {},
+      }),
+    );
+
+    // The HQ character is the same for every agent; the profile only draws the chat icon.
+    expect(screen.getByTestId("avatar-preview-3d")).toBeInTheDocument();
+    expect(screen.getByText("Значок в чате")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Гарнитура" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Рюкзак" })).toBeNull();
+    expect(screen.queryByText("Цвет обуви")).toBeNull();
+    expect(screen.queryByText("Цвет низа")).toBeNull();
+
+    // The preview's clip is a view setting, not part of the profile.
+    const walk = screen.getByRole("button", { name: "Шаг" });
+    expect(walk).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(walk);
+    expect(walk).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches to another file section", () => {

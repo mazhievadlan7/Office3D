@@ -35,8 +35,10 @@ export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
 /** What the screens know about the floor; refreshed about once a second. */
 export type HqScreenFeed = {
-  /** Wall clock, ms since the epoch. */
+  /** Wall clock, ms since the epoch (the worker sets it to the time of each paint). */
   clock: number;
+  /** How many feeds the hub has built, one history sample each: a phase that moves with `history`. */
+  sample: number;
   total: number;
   working: number;
   idle: number;
@@ -47,10 +49,21 @@ export type HqScreenFeed = {
   events: ReadonlyArray<{ at: number; name: string; status: number }>;
   /** Working share 0..1, one sample per second, oldest first. */
   history: readonly number[];
+  /** Per role family (HQ_ROLE_FAMILY order): the department boards and quotes. */
+  teams: readonly HqTeamStat[];
+};
+
+export type HqTeamStat = {
+  total: number;
+  working: number;
+  error: number;
+  /** Working agents about a minute ago, for the change columns. */
+  workingAgo: number;
 };
 
 export const EMPTY_FEED: HqScreenFeed = {
   clock: 0,
+  sample: 0,
   total: 0,
   working: 0,
   idle: 0,
@@ -58,6 +71,7 @@ export const EMPTY_FEED: HqScreenFeed = {
   names: [],
   events: [],
   history: [],
+  teams: [],
 };
 
 export const INK = {
@@ -94,6 +108,11 @@ export class Painter {
       this.ctx.font = font;
       this.font = font;
     }
+  }
+
+  /** Forgets the cached font (after a save/restore or a canvas reused between painters). */
+  resetFont(): void {
+    this.font = "";
   }
 
   clear(color: string = INK.bg): void {

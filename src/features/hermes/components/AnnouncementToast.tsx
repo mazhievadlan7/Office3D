@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
@@ -37,21 +38,25 @@ export function AnnouncementToast() {
   if (!control || !current) return null;
   return (
     <div className="pointer-events-none fixed left-1/2 top-28 z-40 w-full max-w-xl -translate-x-1/2 px-4" role="status">
-      <div className="pointer-events-auto rounded-lg border border-emerald-400/35 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur">
+      <div className="pointer-events-auto rounded-lg border border-red-500/50 border-l-2 border-l-red-500 bg-black/85 px-4 py-3 shadow-[0_0_24px_rgba(255,26,26,0.2)] backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-200/80">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,26,26,0.9)]"
+                aria-hidden="true"
+              />
               {t("announcement.title", { name: current.name })}
             </div>
-            <div className="mt-1 whitespace-pre-wrap text-sm text-white/90">{current.text}</div>
+            <div className="mt-1 whitespace-pre-wrap text-sm text-white">{current.text}</div>
           </div>
           <button
             type="button"
-            className="text-white/50 hover:text-white"
+            className="rounded p-0.5 text-white/50 transition-colors hover:bg-red-950/40 hover:text-white"
             aria-label={t("announcement.dismiss")}
             onClick={() => setCurrent(null)}
           >
-            ×
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>

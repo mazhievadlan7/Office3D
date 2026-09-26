@@ -27,17 +27,22 @@ const STATUS_LABEL: Record<CallStatus, string> = {
   failed: t("phone.statusFailed"),
 };
 
+// HQ palette: a live call is white on red, ringing/processing a softer red,
+// busy/no-answer the one sparing orange, finished calls muted, failure red.
 const STATUS_TONE: Record<CallStatus, string> = {
-  queued: "border-slate-600 bg-slate-800/70 text-slate-200",
-  ringing: "border-amber-300/40 bg-amber-400/15 text-amber-100",
-  "in-progress": "border-emerald-300/45 bg-emerald-400/18 text-emerald-50",
-  processing: "border-sky-300/40 bg-sky-400/15 text-sky-100",
-  completed: "border-slate-600 bg-slate-800/70 text-slate-200",
-  busy: "border-orange-300/40 bg-orange-400/15 text-orange-100",
-  "no-answer": "border-orange-300/40 bg-orange-400/15 text-orange-100",
-  canceled: "border-slate-600 bg-slate-800/70 text-slate-200",
-  failed: "border-rose-300/45 bg-rose-500/18 text-rose-50",
+  queued: "border-white/15 bg-white/[0.04] text-white/65",
+  ringing: "border-red-500/45 bg-red-600/15 text-red-300",
+  "in-progress": "border-red-500/60 bg-red-600/25 text-white shadow-[0_0_10px_rgba(255,26,26,0.25)]",
+  processing: "border-red-600/35 bg-red-600/10 text-white/80",
+  completed: "border-white/15 bg-white/[0.04] text-white/65",
+  busy: "border-orange-400/35 bg-orange-500/10 text-orange-300",
+  "no-answer": "border-orange-400/35 bg-orange-500/10 text-orange-300",
+  canceled: "border-white/15 bg-white/[0.04] text-white/55",
+  failed: "border-red-500/50 bg-red-950/40 text-red-400",
 };
+
+const PRIMARY_BUTTON =
+  "inline-flex items-center justify-center gap-2 rounded-md border border-red-500/60 bg-[#e3141c] px-4 text-sm font-medium text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition hover:border-red-400/70 hover:bg-[#ff2a2a] disabled:cursor-not-allowed disabled:border-red-900/40 disabled:bg-red-950/30 disabled:text-white/35 disabled:shadow-none";
 
 const SPEAKER_LABEL = {
   agent: t("phone.agentLabel"),
@@ -123,18 +128,18 @@ export function CallFeedPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 text-slate-100">
+    <div className="flex h-full min-h-0 flex-col gap-4 text-white">
       <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
-          <PhoneCall className="h-4 w-4" />
+        <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.28em] text-red-400">
+          <PhoneCall className="h-4 w-4" aria-hidden="true" />
           {t("phone.title")}
         </div>
         <button
           type="button"
           onClick={() => void feed.refresh()}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500 hover:text-slate-100"
+          className="inline-flex items-center gap-2 rounded-md border border-red-900/40 bg-black/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/80 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${feed.loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${feed.loading ? "animate-spin text-red-400" : ""}`} />
           {t("common.refresh")}
         </button>
       </header>
@@ -148,40 +153,40 @@ export function CallFeedPanel({
       {feed.error ? <NoticeBox tone="error">{feed.error}</NoticeBox> : null}
 
       {draft ? (
-        <div className="rounded-xl border border-sky-300/25 bg-sky-400/8 px-3 py-2.5 text-xs text-sky-100/85">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200/60">
+        <div className="rounded-md border border-red-600/35 border-l-2 border-l-red-500 bg-red-950/25 px-3 py-2.5 text-xs text-white/85">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-red-400">
             {t("request.requested")}
           </div>
           <div className="mt-1">
-            {t("request.callVerb")} <span className="font-medium">{draft.callee}</span>
+            {t("request.callVerb")} <span className="font-medium text-white">{draft.callee}</span>
             {draft.message ? <> — «{draft.message}»</> : null}
           </div>
           {/* The number is the operator's to supply: a name is not a number,
               and a real call costs money and rings a stranger. */}
-          <div className="mt-1 text-sky-200/60">{t("request.enterNumberCall")}</div>
+          <div className="mt-1 text-white/55">{t("request.enterNumberCall")}</div>
         </div>
       ) : null}
 
       <form
         onSubmit={submit}
-        className="grid gap-3 rounded-2xl border border-slate-700 bg-slate-900/60 p-4 sm:grid-cols-[1fr_1fr_auto]"
+        className="grid gap-3 rounded-lg border border-red-900/40 bg-[#0b0707] p-4 sm:grid-cols-[1fr_1fr_auto]"
       >
-        <label className="flex flex-col gap-1.5 text-xs text-slate-400">
+        <label className="flex flex-col gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
           {t("phone.numberLabel")}
           <input
             value={toNumber}
             onChange={(event) => setToNumber(event.target.value)}
             placeholder="+441234567890"
             inputMode="tel"
-            className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-400/60 focus:outline-none"
+            className="rounded-md border border-red-900/50 bg-black/60 px-3 py-2 font-mono text-sm normal-case tracking-normal text-white placeholder:text-white/35 focus:border-red-500/70 focus:outline-none focus:ring-1 focus:ring-red-500/30"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-xs text-slate-400">
+        <label className="flex flex-col gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
           {t("phone.callingAs")}
           <select
             value={agentId}
             onChange={(event) => setPickedAgentId(event.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 focus:border-sky-400/60 focus:outline-none"
+            className="rounded-md border border-red-900/50 bg-black/60 px-3 py-2 font-sans text-sm normal-case tracking-normal text-white [color-scheme:dark] focus:border-red-500/70 focus:outline-none focus:ring-1 focus:ring-red-500/30"
           >
             {agents.length === 0 ? <option value="">{t("phone.noAgents")}</option> : null}
             {agents.map((agent) => (
@@ -194,7 +199,7 @@ export function CallFeedPanel({
         <button
           type="submit"
           disabled={!canDial}
-          className="mt-auto inline-flex h-[38px] items-center justify-center gap-2 rounded-lg border border-emerald-300/45 bg-emerald-400/18 px-4 text-sm font-medium text-emerald-50 transition hover:bg-emerald-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
+          className={`mt-auto h-[38px] ${PRIMARY_BUTTON}`}
         >
           <Phone className="h-4 w-4" />
           {feed.dialing ? t("phone.dialing") : t("phone.call")}
@@ -209,7 +214,7 @@ export function CallFeedPanel({
       <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <ul className="min-h-0 space-y-2 overflow-y-auto pr-1">
           {feed.calls.length === 0 ? (
-            <li className="rounded-xl border border-dashed border-slate-700 px-3 py-6 text-center text-xs text-slate-500">
+            <li className="rounded-md border border-dashed border-red-900/50 px-3 py-6 text-center text-xs text-white/45">
               {t("phone.noCalls")}
             </li>
           ) : null}
@@ -218,24 +223,24 @@ export function CallFeedPanel({
               <button
                 type="button"
                 onClick={() => setSelectedSid(call.sid)}
-                className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
                   selected?.sid === call.sid
-                    ? "border-sky-400/50 bg-sky-400/10"
-                    : "border-slate-700 bg-slate-900/60 hover:border-slate-500"
+                    ? "border-red-500/60 bg-red-600/15"
+                    : "border-red-900/40 bg-[#0b0707] hover:border-red-500/50 hover:bg-red-950/40"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-sm text-slate-100">{call.to}</span>
+                  <span className="truncate font-mono text-sm tabular-nums text-white">{call.to}</span>
                   <StatusChip status={call.status} />
                 </div>
-                <div className="mt-1 truncate text-[11px] text-slate-400">
+                <div className="mt-1 truncate text-[11px] text-white/55">
                   {agents.find((agent) => agent.agentId === call.agentId)?.name ?? call.agentId}
                   {" · "}
                   {call.transcript.length}{" "}
                   {plural(call.transcript.length, ["реплика", "реплики", "реплик"])}
                 </div>
                 {feed.syncErrors[call.sid] ? (
-                  <div className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-200/80">
+                  <div className="mt-1 flex items-start gap-1.5 text-[11px] text-orange-300/85">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                     {/* Last known state, not live: saying so beats a stale
                         transcript that looks current. */}
@@ -266,7 +271,7 @@ export function CallFeedPanel({
 function StatusChip({ status }: { status: CallStatus }) {
   return (
     <span
-      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${STATUS_TONE[status]}`}
+      className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ${STATUS_TONE[status]}`}
     >
       {STATUS_LABEL[status]}
     </span>
@@ -275,7 +280,7 @@ function StatusChip({ status }: { status: CallStatus }) {
 
 function EmptyTranscript() {
   return (
-    <div className="flex min-h-0 items-center justify-center rounded-2xl border border-dashed border-slate-700 text-sm text-slate-500">
+    <div className="flex min-h-0 items-center justify-center rounded-lg border border-dashed border-red-900/50 text-sm text-white/45">
       {t("phone.emptyTranscript")}
     </div>
   );
@@ -306,11 +311,11 @@ function Transcript({
   }, [call.transcript.length, live]);
 
   return (
-    <div className="flex min-h-0 flex-col rounded-2xl border border-slate-700 bg-slate-950/60">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
+    <div className="flex min-h-0 flex-col rounded-lg border border-red-900/40 bg-[#070404]/80">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-red-900/40 px-4 py-3">
         <div>
-          <div className="font-mono text-sm text-slate-100">{call.to}</div>
-          <div className="text-[11px] text-slate-500">
+          <div className="font-mono text-sm tabular-nums text-white">{call.to}</div>
+          <div className="text-[11px] tabular-nums text-white/45">
             {call.from ? `${t("phone.from", { number: call.from })} · ` : ""}
             {t("phone.startedAt", { time: formatTime(call.startedAt) })}
             {call.endedAt
@@ -322,33 +327,35 @@ function Transcript({
       </div>
 
       {call.errorMessage ? (
-        <div className="border-b border-slate-800 px-4 py-2">
+        <div className="border-b border-red-900/40 px-4 py-2">
           <NoticeBox tone="error">{call.errorMessage}</NoticeBox>
         </div>
       ) : null}
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {call.transcript.length === 0 ? (
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-white/45">
             {live ? t("phone.waitingFirstWords") : t("phone.nothingSaid")}
           </div>
         ) : null}
         {call.transcript.map((turn) => (
           <div
             key={turn.id}
-            className={`rounded-2xl border px-4 py-3 ${
+            className={`rounded-lg border px-4 py-3 ${
               turn.speaker === "agent"
-                ? "border-sky-300/20 bg-sky-400/10"
+                ? "border-red-600/35 bg-red-600/10"
                 : turn.speaker === "callee"
-                  ? "border-slate-700 bg-slate-900/80"
-                  : "border-amber-300/25 bg-amber-400/10"
+                  ? "border-white/10 bg-white/[0.03]"
+                  : "border-dashed border-red-900/50 bg-black/40"
             }`}
           >
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-400">
-              <span>{SPEAKER_LABEL[turn.speaker]}</span>
-              <span>{formatTime(turn.at)}</span>
+            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+              <span className={turn.speaker === "agent" ? "text-red-400" : undefined}>
+                {SPEAKER_LABEL[turn.speaker]}
+              </span>
+              <span className="tabular-nums">{formatTime(turn.at)}</span>
             </div>
-            <div className="mt-1.5 text-sm leading-6 text-slate-100">{turn.text}</div>
+            <div className="mt-1.5 text-sm leading-6 text-white">{turn.text}</div>
           </div>
         ))}
         <div ref={endRef} />
@@ -402,7 +409,7 @@ function InstructionComposer({
 
   if (!available) {
     return (
-      <div className="border-t border-slate-800 px-4 py-3">
+      <div className="border-t border-red-900/40 px-4 py-3">
         <NoticeBox tone="warn">
           {t("phone.noteOff")}
           <span className="font-mono">
@@ -415,7 +422,7 @@ function InstructionComposer({
   }
 
   return (
-    <form onSubmit={send} className="border-t border-slate-800 px-4 py-3">
+    <form onSubmit={send} className="border-t border-red-900/40 px-4 py-3">
       <div className="flex items-end gap-2">
         <textarea
           value={text}
@@ -430,18 +437,18 @@ function InstructionComposer({
           }}
           rows={2}
           placeholder={t("phone.notePlaceholder")}
-          className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-400/60 focus:outline-none"
+          className="min-h-[44px] flex-1 resize-none rounded-md border border-red-900/50 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-white/35 focus:border-red-500/70 focus:outline-none focus:ring-1 focus:ring-red-500/30"
         />
         <button
           type="submit"
           disabled={sending || !text.trim()}
-          className="inline-flex h-[44px] items-center gap-2 rounded-lg border border-sky-300/45 bg-sky-400/18 px-4 text-sm text-sky-50 transition hover:bg-sky-400/28 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800/60 disabled:text-slate-500"
+          className={`h-[44px] ${PRIMARY_BUTTON}`}
         >
           <Send className="h-4 w-4" />
           {sending ? t("phone.noteSending") : t("phone.noteSend")}
         </button>
       </div>
-      <div className="mt-1.5 text-[11px] text-slate-500">
+      <div className="mt-1.5 text-[11px] text-white/45">
         {call.pendingSay ? t("phone.notePending") : t("phone.nextTurnNotice")}
       </div>
       {error ? (
@@ -462,17 +469,17 @@ function InstructionComposer({
  */
 function Recording({ sid }: { sid: string }) {
   return (
-    <div className="border-t border-slate-800 px-4 py-3">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+    <div className="border-t border-red-900/40 px-4 py-3">
+      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
         {t("phone.recordingTitle")}
       </div>
       <audio
         controls
         preload="none"
         src={`/api/telephony/calls/${encodeURIComponent(sid)}/audio`}
-        className="w-full"
+        className="w-full [color-scheme:dark]"
       />
-      <div className="mt-1.5 text-[11px] text-slate-500">
+      <div className="mt-1.5 text-[11px] text-white/45">
         {t("phone.recordingHint")}
       </div>
     </div>
@@ -488,10 +495,10 @@ function NoticeBox({
 }) {
   return (
     <div
-      className={`rounded-xl border px-3 py-2 text-xs ${
+      className={`rounded-md border px-3 py-2 text-xs ${
         tone === "error"
-          ? "border-rose-400/40 bg-rose-500/12 text-rose-100"
-          : "border-amber-300/40 bg-amber-400/12 text-amber-100"
+          ? "border-red-500/50 bg-red-950/40 text-red-400"
+          : "border-orange-400/30 bg-orange-500/[0.07] text-orange-300"
       }`}
     >
       {children}

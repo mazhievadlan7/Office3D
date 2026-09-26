@@ -38,13 +38,20 @@ type AgentCreateWizardModalProps = {
 };
 
 const stepClassName =
-  "rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em]";
+  "rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors";
 
+// HQ field look: black glass with a red-tinted edge that lights up on focus.
+// Labels are mono/uppercase, so the fields reset case and tracking.
 const inputClassName =
-  "h-10 rounded-md border border-border/80 bg-background px-3 text-sm text-foreground outline-none";
+  "h-10 rounded-md border border-red-900/50 bg-black/60 px-3 font-sans text-sm normal-case tracking-normal text-white outline-none transition placeholder:text-white/35 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30 disabled:opacity-60";
 
 const textAreaClassName =
-  "min-h-[180px] w-full resize-y rounded-md border border-border/80 bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none";
+  "min-h-[180px] w-full resize-y rounded-md border border-red-900/50 bg-black/60 px-4 py-3 text-sm normal-case leading-6 tracking-normal text-white outline-none transition placeholder:text-white/35 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30 disabled:opacity-60";
+
+// Padding and size stay out of the note surface: callers set them, and a
+// second padding/size utility would lose to these in Tailwind's CSS order.
+const noteClassName =
+  "rounded-md border border-red-900/40 border-l-2 border-l-red-600/70 bg-red-950/20 text-white/70";
 
 type WizardStepId =
   | "identity"
@@ -118,7 +125,7 @@ const WizardField = ({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) => (
-  <label className="flex flex-col gap-2 text-xs text-muted-foreground">
+  <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55">
     {label}
     <input
       className={inputClassName}
@@ -147,10 +154,10 @@ const WizardTextAreaField = ({
   rows?: number;
   onChange: (value: string) => void;
 }) => (
-  <label className="flex flex-col gap-2 text-xs text-muted-foreground">
+  <label className="flex flex-col gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55">
     {label}
     <textarea
-      className={textAreaClassName}
+      className={`${textAreaClassName} font-sans`}
       value={value}
       placeholder={placeholder}
       rows={rows}
@@ -250,7 +257,7 @@ export function AgentCreateWizardModal({
 
   return (
     <div
-      className="fixed inset-0 z-[140] flex items-center justify-center bg-background/84 p-4"
+      className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={t("wizard.dialogLabel")}
@@ -261,20 +268,26 @@ export function AgentCreateWizardModal({
       }}
     >
       <div
-        className="ui-panel flex h-[min(92vh,980px)] w-full max-w-6xl flex-col overflow-hidden shadow-xs"
+        className="flex h-[min(92vh,980px)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-red-600/35 bg-[#070404]/95 text-white shadow-[0_0_48px_rgba(255,26,26,0.12)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-border/40 px-6 py-5">
+        <div className="border-b border-red-900/40 bg-gradient-to-r from-red-950/30 via-transparent to-transparent px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-mono text-[11px] font-semibold tracking-[0.06em] text-muted-foreground">{t("wizard.title")}</div>
-              <div className="mt-1 text-lg font-semibold text-foreground">{t("wizard.heading")}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{t("wizard.lead")}</div>
+              <div className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-red-400">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,26,26,0.9)]"
+                  aria-hidden="true"
+                />
+                {t("wizard.title")}
+              </div>
+              <div className="mt-1 text-lg font-semibold text-white">{t("wizard.heading")}</div>
+              <div className="mt-1 text-sm text-white/55">{t("wizard.lead")}</div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="ui-btn-ghost px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-md border border-red-900/40 bg-black/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/80 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isWorking}
                 onClick={() => {
                   onClose(createdAgentId);
@@ -283,7 +296,7 @@ export function AgentCreateWizardModal({
               {activeStepIndex > 0 ? (
                 <button
                   type="button"
-                  className="ui-btn-ghost px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-md border border-red-900/40 bg-black/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/80 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isWorking}
                   onClick={() => {
                     const previousStep = wizardSteps[activeStepIndex - 1];
@@ -295,7 +308,7 @@ export function AgentCreateWizardModal({
               ) : null}
               <button
                 type="button"
-                className="ui-btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-md border border-red-500/60 bg-[#e3141c] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition-colors hover:border-red-400/70 hover:bg-[#ff2a2a] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                 disabled={(step === "identity" && !canCreate) || isWorking}
                 onClick={() => {
                   void advanceStep();
@@ -314,25 +327,25 @@ export function AgentCreateWizardModal({
                   key={wizardStep.id}
                   className={`${stepClassName} ${
                     active
-                      ? "border-primary/40 bg-primary/10 text-foreground"
+                      ? "border-red-500/60 bg-red-600/20 text-white shadow-[0_0_10px_rgba(255,26,26,0.2)]"
                       : complete
-                        ? "border-emerald-400/35 bg-emerald-500/10 text-foreground"
-                        : "border-border/45 bg-background/40 text-muted-foreground"
+                        ? "border-red-600/35 bg-red-950/40 text-red-300"
+                        : "border-red-900/40 bg-black/40 text-white/45"
                   }`}
                 >
-                  {index + 1}. {wizardStep.label}
+                  <span className="tabular-nums">{index + 1}.</span> {wizardStep.label}
                 </span>
               );
             })}
           </div>
-          <div className="mt-4 text-sm text-muted-foreground">{activeStep.hint}</div>
+          <div className="mt-4 text-sm text-white/65">{activeStep.hint}</div>
           {statusCopy ? (
-            <div className="mt-4 rounded-md border border-border/45 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <div className={`mt-4 ${noteClassName} px-3 py-2 text-xs leading-5`}>
               {statusCopy}
             </div>
           ) : null}
           {submitError ? (
-            <div className="ui-alert-danger mt-4 rounded-md px-3 py-2 text-xs">
+            <div className="mt-4 rounded-md border border-red-500/50 bg-red-950/40 px-3 py-2 text-xs text-red-400">
               {submitError}
             </div>
           ) : null}
@@ -342,8 +355,8 @@ export function AgentCreateWizardModal({
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
               <section className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">{t("wizard.stepIdentity")}</h3>
-                <div className="text-xs text-muted-foreground">
+                <h3 className="text-sm font-semibold text-white">{t("wizard.stepIdentity")}</h3>
+                <div className="text-xs text-white/55">
                   {t("wizard.confirmNameFirst")}
                 </div>
                 <AgentIdentityFields
@@ -358,7 +371,7 @@ export function AgentCreateWizardModal({
                 />
               </section>
 
-              <div className="mt-6 rounded-xl border border-border/45 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <div className={`mt-6 ${noteClassName} p-4 text-sm leading-6`}>
                 {t("wizard.createNote")}
               </div>
             </div>
@@ -382,7 +395,7 @@ export function AgentCreateWizardModal({
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
                 <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 pb-8">
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">{t("wizard.stepSoul")}</h3>
+                    <h3 className="text-sm font-semibold text-white">{t("wizard.stepSoul")}</h3>
                     <div className="grid gap-4">
                       <WizardTextAreaField
                         label={t("wizard.coreTruths")}
@@ -432,7 +445,7 @@ export function AgentCreateWizardModal({
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
                 <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 pb-8">
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">{t("wizard.stepUser")}</h3>
+                    <h3 className="text-sm font-semibold text-white">{t("wizard.stepUser")}</h3>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <WizardField
                         label={t("wizard.name")}
@@ -501,8 +514,8 @@ export function AgentCreateWizardModal({
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
                 <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 pb-8">
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">{activeStep.label}</h3>
-                    <div className="text-xs text-muted-foreground">{activeStep.hint}</div>
+                    <h3 className="text-sm font-semibold text-white">{activeStep.label}</h3>
+                    <div className="text-xs text-white/55">{activeStep.hint}</div>
                     <textarea
                       className={`${textAreaClassName} min-h-[56vh] font-mono`}
                       value={

@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
 import type { HermesControl } from "@/features/hermes/HermesControlContext";
+import {
+  HQ_BUTTON_DANGER,
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD,
+  HQ_FIELD,
+  HQ_INSET,
+  HQ_LABEL,
+  HQ_TEXT_ON,
+} from "@/features/agents/components/hqFormClasses";
 
 type ProviderRow = {
   slug: string;
@@ -69,14 +78,15 @@ const POPULAR_KEYS = new Set([
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-const CARD = "mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3";
-const LABEL = "mb-1 text-[10px] uppercase tracking-[0.14em] text-red-100/65";
-const INPUT =
-  "w-full rounded-md border border-red-500/10 bg-black/25 px-3 py-2 text-[11px] text-red-100 outline-none transition-colors placeholder:text-red-100/30 focus:border-red-400/30";
-const BUTTON =
-  "rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-100 transition-colors hover:border-red-400/40 hover:bg-red-500/15 disabled:opacity-50";
-const DANGER =
-  "rounded-md border border-red-500/45 bg-red-600/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-red-50 transition-colors hover:border-red-400/70 hover:bg-red-600/30 disabled:opacity-50";
+// The studio settings' look (hqFormClasses): black cards, red edges, white type.
+const CARD = `${HQ_CARD} mt-3 px-4 py-3`;
+const LABEL = `${HQ_LABEL} mb-1.5 text-[10px]`;
+const INPUT = `${HQ_FIELD} w-full px-3 py-2 text-[12px]`;
+const BUTTON = `${HQ_BUTTON_SECONDARY} shrink-0 px-3 py-2 text-[10px]`;
+const DANGER = `${HQ_BUTTON_DANGER} shrink-0 px-3 py-2 text-[10px]`;
+const TITLE = "text-[12px] font-semibold text-white";
+const LEAD = "mt-1 text-[11px] leading-snug text-white/65";
+const MESSAGE = "text-[10px] text-white/70";
 
 function MainModelSection({
   status,
@@ -113,15 +123,15 @@ function MainModelSection({
 
   return (
     <div className={CARD}>
-      <div className="text-[11px] font-medium text-white">{t("hermesModels.mainModelTitle")}</div>
-      <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.mainModelLead")}</div>
+      <div className={TITLE}>{t("hermesModels.mainModelTitle")}</div>
+      <div className={LEAD}>{t("hermesModels.mainModelLead")}</div>
       {status.current?.model ? (
-        <div className="mt-2 font-mono text-[10px] text-red-200/80">
+        <div className={`mt-2 font-mono text-[10px] ${HQ_TEXT_ON}`}>
           {t("hermesModels.currentModel", { provider: status.current.provider ?? "?", model: status.current.model })}
         </div>
       ) : null}
       {usable.length === 0 ? (
-        <div className="mt-2 text-[10px] text-red-200/80">{t("hermesModels.noUsableProviders")}</div>
+        <div className="mt-2 text-[10px] leading-snug text-white/55">{t("hermesModels.noUsableProviders")}</div>
       ) : (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
@@ -159,7 +169,7 @@ function MainModelSection({
         <button type="button" className={BUTTON} disabled={busy || !provider || !model} onClick={() => void save()}>
           {t("settings.save")}
         </button>
-        {message ? <span className="text-[10px] text-white/70">{message}</span> : null}
+        {message ? <span className={MESSAGE}>{message}</span> : null}
       </div>
     </div>
   );
@@ -245,11 +255,11 @@ function SignInSection({ status, control, onChanged }: { status: ProvidersStatus
 
   return (
     <div className={CARD}>
-      <div className="text-[11px] font-medium text-white">{t("hermesModels.signInTitle")}</div>
-      <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.signInLead")}</div>
+      <div className={TITLE}>{t("hermesModels.signInTitle")}</div>
+      <div className={LEAD}>{t("hermesModels.signInLead")}</div>
       <div className="mt-3 space-y-2">
         {rows.map((row) => (
-          <div key={row.id} className="flex items-center justify-between gap-3 rounded-md border border-red-500/10 bg-black/15 px-3 py-2">
+          <div key={row.id} className={`${HQ_INSET} flex items-center justify-between gap-3 px-3 py-2`}>
             <div className="min-w-0">
               <div className="text-[11px] text-white">{row.name}</div>
               <div className="text-[10px] text-white/55">
@@ -271,10 +281,10 @@ function SignInSection({ status, control, onChanged }: { status: ProvidersStatus
         ))}
       </div>
       {session ? (
-        <div className="mt-3 rounded-md border border-red-500/25 bg-red-950/20 px-3 py-3">
+        <div className="mt-3 rounded-md border border-primary/35 bg-primary/10 px-3 py-3">
           <div className="text-[10px] text-white/80">{t("hermesModels.deviceCodeLead")}</div>
           {session.verificationUrl ? (
-            <a href={session.verificationUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-[11px] text-red-200 underline">
+            <a href={session.verificationUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 block break-all text-[11px] underline ${HQ_TEXT_ON} hover:text-white`}>
               {session.verificationUrl}
             </a>
           ) : null}
@@ -287,7 +297,7 @@ function SignInSection({ status, control, onChanged }: { status: ProvidersStatus
           </div>
         </div>
       ) : null}
-      {message ? <div className="mt-2 text-[10px] text-white/70">{message}</div> : null}
+      {message ? <div className={`mt-2 ${MESSAGE}`}>{message}</div> : null}
     </div>
   );
 }
@@ -330,10 +340,10 @@ function KeyEditor({ row, control, onChanged }: { row: KeyRow; control: HermesCo
   };
 
   return (
-    <div className="rounded-md border border-red-500/10 bg-black/15 px-3 py-2">
+    <div className={`${HQ_INSET} px-3 py-2`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] text-red-100">{row.key}</span>
-        <span className={`text-[10px] ${row.isSet ? "text-red-200/80" : "text-white/40"}`}>
+        <span className="font-mono text-[10px] text-white">{row.key}</span>
+        <span className={`text-[10px] ${row.isSet ? HQ_TEXT_ON : "text-white/45"}`}>
           {row.isSet ? t("hermesModels.keySet", { preview: row.preview ?? "" }) : t("hermesModels.keyNotSet")}
         </span>
       </div>
@@ -358,9 +368,9 @@ function KeyEditor({ row, control, onChanged }: { row: KeyRow; control: HermesCo
         ) : null}
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
-        {message ? <span className="text-[10px] text-white/70">{message}</span> : <span />}
+        {message ? <span className={MESSAGE}>{message}</span> : <span />}
         {row.url ? (
-          <a href={row.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-red-200/70 underline">
+          <a href={row.url} target="_blank" rel="noopener noreferrer" className={`text-[10px] underline ${HQ_TEXT_ON} hover:text-white`}>
             {t("hermesModels.whereToGetKey")}
           </a>
         ) : null}
@@ -400,10 +410,10 @@ function KeysSection({
     <div className={CARD}>
       <button type="button" className="flex w-full items-start justify-between gap-3 text-left" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <div>
-          <div className="text-[11px] font-medium text-white">{title}</div>
-          <div className="mt-1 text-[10px] text-white/75">{lead}</div>
+          <div className={TITLE}>{title}</div>
+          <div className={LEAD}>{lead}</div>
         </div>
-        <span className="font-mono text-[10px] text-red-200/70">{t("hermesModels.configuredCount", { count: configured, total: rows.length })}</span>
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-white/65">{t("hermesModels.configuredCount", { count: configured, total: rows.length })}</span>
       </button>
       {open ? (
         <div className="mt-3 space-y-2">
@@ -416,18 +426,18 @@ function KeysSection({
               onChange={(event) => setQuery(event.target.value)}
               className={`${INPUT} min-w-0 flex-1`}
             />
-            <label className="flex items-center gap-1 text-[10px] text-white/60">
-              <input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} />
+            <label className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/65">
+              <input type="checkbox" className="accent-primary [color-scheme:dark]" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} />
               {t("hermesModels.showAll")}
             </label>
           </div>
           {visible.map((row) => (
             <div key={row.key}>
-              {row.providerLabel ? <div className="mb-1 text-[10px] text-red-100/60">{row.providerLabel}</div> : null}
+              {row.providerLabel ? <div className={`${HQ_LABEL} mb-1 text-[9px]`}>{row.providerLabel}</div> : null}
               <KeyEditor row={row} control={control} onChanged={onChanged} />
             </div>
           ))}
-          {visible.length === 0 ? <div className="text-[10px] text-white/50">{t("hermesModels.nothingFound")}</div> : null}
+          {visible.length === 0 ? <div className="text-[10px] text-white/45">{t("hermesModels.nothingFound")}</div> : null}
         </div>
       ) : null}
     </div>
@@ -466,16 +476,16 @@ export function HermesModelsPanel({ control }: { control: HermesControl }) {
 
   return (
     <div>
-      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3">
+      <div className={`${CARD} flex items-center justify-between gap-3`}>
         <div>
-          <div className="text-[11px] font-medium text-white">{t("hermesModels.title")}</div>
-          <div className="mt-1 text-[10px] text-white/75">{t("hermesModels.lead")}</div>
+          <div className={TITLE}>{t("hermesModels.title")}</div>
+          <div className={LEAD}>{t("hermesModels.lead")}</div>
         </div>
         <button type="button" className={BUTTON} disabled={loading} onClick={() => void load()}>
           {loading ? t("settings.loading") : t("hermesModels.refresh")}
         </button>
       </div>
-      {error ? <div className="mt-2 text-[10px] text-red-200/90">{error}</div> : null}
+      {error ? <div className="ui-alert-danger mt-2 rounded-md px-3 py-2 text-[11px]">{error}</div> : null}
       {status ? (
         <>
           <MainModelSection key={`${status.current?.provider}/${status.current?.model}`} status={status} control={control} onChanged={() => void load()} />

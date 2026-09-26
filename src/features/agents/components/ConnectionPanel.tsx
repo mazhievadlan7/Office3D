@@ -2,6 +2,14 @@ import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { X } from "lucide-react";
 import { resolveGatewayStatusBadgeClass, resolveGatewayStatusLabel } from "./colorSemantics";
+import {
+  HQ_BUTTON_DANGER,
+  HQ_BUTTON_PRIMARY,
+  HQ_FIELD,
+  HQ_ICON_BUTTON,
+  HQ_LABEL,
+  hqOptionClass,
+} from "./hqFormClasses";
 import { t } from "@/lib/i18n";
 import { adapterLabel } from "@/lib/i18n/labels";
 
@@ -42,24 +50,14 @@ export const ConnectionPanel = ({
     selectedAdapterType === "local" ||
     selectedAdapterType === "office3d" ||
     selectedAdapterType === "custom";
-  const applyDemoPreset = () => {
-    onAdapterTypeChange("demo");
-  };
-  const applyHermesPreset = () => {
-    onAdapterTypeChange("hermes");
-  };
-  const applyCustomPreset = () => {
-    onAdapterTypeChange("custom");
-  };
-  const applyLocalPreset = () => {
-    onAdapterTypeChange("local");
-  };
-  const applyOffice3dPreset = () => {
-    onAdapterTypeChange("office3d");
-  };
-  const applyOpenClawPreset = () => {
-    onAdapterTypeChange("openclaw");
-  };
+  const backendOptions: ReadonlyArray<readonly [StudioGatewayAdapterType, string]> = [
+    ["demo", t("connection.backendDemo")],
+    ["hermes", t("connection.backendHermes")],
+    ["local", t("connection.backendLocal")],
+    ["office3d", t("connection.backendOffice3d")],
+    ["custom", t("connection.backendCustom")],
+    ["openclaw", t("connection.backendOpenclaw")],
+  ];
   const selectedAdapterHint =
     selectedAdapterType === "openclaw"
       ? t("connection.hintOpenclaw")
@@ -78,13 +76,13 @@ export const ConnectionPanel = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <span
-            className={`ui-chip inline-flex items-center px-3 py-1 font-mono text-[10px] font-semibold tracking-[0.08em] ${resolveGatewayStatusBadgeClass(status)}`}
+            className={`ui-chip inline-flex items-center px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] ${resolveGatewayStatusBadgeClass(status)}`}
             data-status={status}
           >
             {resolveGatewayStatusLabel(status)}
           </span>
           <button
-            className="ui-btn-secondary px-4 py-2 text-xs font-semibold tracking-[0.05em] text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            className={`${isConnected ? HQ_BUTTON_DANGER : HQ_BUTTON_PRIMARY} px-4 py-2 text-[10px]`}
             type="button"
             onClick={isConnected ? onDisconnect : onConnect}
             disabled={isConnecting || !gatewayUrl.trim()}
@@ -94,7 +92,7 @@ export const ConnectionPanel = ({
         </div>
         {onClose ? (
           <button
-            className="ui-btn-ghost inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold tracking-[0.05em] text-foreground"
+            className={`${HQ_ICON_BUTTON} gap-1 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em]`}
             type="button"
             onClick={onClose}
             data-testid="gateway-connection-close"
@@ -106,10 +104,10 @@ export const ConnectionPanel = ({
         ) : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-        <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          {t("connection.upstreamUrl")}
+        <label className="flex flex-col gap-1.5">
+          <span className={`${HQ_LABEL} text-[10px] font-semibold`}>{t("connection.upstreamUrl")}</span>
           <input
-            className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
+            className={`${HQ_FIELD} h-10 px-3.5 font-mono text-[13px]`}
             type="text"
             value={gatewayUrl}
             onChange={(event) => onGatewayUrlChange(event.target.value)}
@@ -117,10 +115,12 @@ export const ConnectionPanel = ({
             spellCheck={false}
           />
         </label>
-        <label className="flex flex-col gap-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted-foreground">
-          {tokenOptional ? t("connection.upstreamTokenOptional") : t("connection.upstreamToken")}
+        <label className="flex flex-col gap-1.5">
+          <span className={`${HQ_LABEL} text-[10px] font-semibold`}>
+            {tokenOptional ? t("connection.upstreamTokenOptional") : t("connection.upstreamToken")}
+          </span>
           <input
-            className="ui-input h-10 rounded-md px-4 font-sans text-sm text-foreground outline-none"
+            className={`${HQ_FIELD} h-10 px-3.5 font-mono text-[13px]`}
             type="password"
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
@@ -129,57 +129,29 @@ export const ConnectionPanel = ({
           />
         </label>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/45">
         <span className="font-mono">{t("settings.selectedBackend", { name: adapterLabel(selectedAdapterType) })}</span>
         <span className="font-mono">{t("settings.activeBackend", { name: adapterLabel(activeAdapterType) })}</span>
         <span>{t("gateway.backendsKeepOwnSettings")}</span>
       </div>
-      <div className="text-[11px] leading-snug text-muted-foreground">
+      <p className="border-l-2 border-primary/70 bg-black/40 py-2 pl-3 pr-2 text-[11px] leading-snug text-white/70">
         {selectedAdapterHint}
-      </div>
+      </p>
       <div className="flex flex-wrap gap-2">
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyDemoPreset}
-        >
-          {t("connection.backendDemo")}
-        </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyHermesPreset}
-        >
-          {t("connection.backendHermes")}
-        </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyLocalPreset}
-        >
-          {t("connection.backendLocal")}
-        </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyOffice3dPreset}
-        >
-          {t("connection.backendOffice3d")}
-        </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyCustomPreset}
-        >
-          {t("connection.backendCustom")}
-        </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyOpenClawPreset}
-        >
-          {t("connection.backendOpenclaw")}
-        </button>
+        {backendOptions.map(([adapterType, label]) => {
+          const selected = selectedAdapterType === adapterType;
+          return (
+            <button
+              key={adapterType}
+              className={`rounded-md border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${hqOptionClass(selected)}`}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onAdapterTypeChange(adapterType)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
       {error ? (
         <p className="ui-alert-danger rounded-md px-4 py-2 text-sm">

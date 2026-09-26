@@ -4,8 +4,36 @@ import type { DragEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 
 import type { AgentState } from "@/features/agents/state/store";
+import {
+  HQ_BADGE,
+  HQ_BADGE_MUTED,
+  HQ_BUTTON_DANGER,
+  HQ_BUTTON_PRIMARY,
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD_BUTTON,
+  HQ_CARD_BUTTON_SELECTED,
+  HQ_DOT_DONE,
+  HQ_DOT_ERROR,
+  HQ_DOT_IDLE,
+  HQ_DOT_LIVE,
+  HQ_DOT_REVIEW,
+  HQ_FIELD,
+  HQ_FIELD_PROSE,
+  HQ_INSET,
+  HQ_LABEL,
+  HQ_META,
+  HQ_NOTICE_ERROR,
+  HQ_PANEL_HEADER,
+  HQ_PANEL_LEAD,
+  HQ_PANEL_TITLE,
+  HQ_SELECT,
+} from "@/features/office/components/panels/hqPanelStyles";
 import type { CronJobSummary } from "@/lib/cron/types";
-import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
+import type {
+  TaskBoardCard,
+  TaskBoardSource,
+  TaskBoardStatus,
+} from "@/features/office/tasks/types";
 import { LOCALE, t } from "@/lib/i18n";
 import { AutonomyBar } from "@/features/hermes/components/AutonomyBar";
 import { MissionBanner } from "@/features/hermes/components/MissionBanner";
@@ -17,6 +45,27 @@ const STATUS_LABELS: Record<TaskBoardStatus, string> = {
   review: t("taskboard.statusReview"),
   done: t("taskboard.statusDone"),
 };
+
+// Each column's dot follows the red → white ramp: live work glows, done is white.
+const STATUS_DOTS: Record<TaskBoardStatus, string> = {
+  todo: HQ_DOT_IDLE,
+  in_progress: HQ_DOT_LIVE,
+  blocked: HQ_DOT_ERROR,
+  review: HQ_DOT_REVIEW,
+  done: HQ_DOT_DONE,
+};
+
+const SOURCE_LABELS: Record<TaskBoardSource, string> = {
+  openclaw_event: t("taskboard.sourceEvent"),
+  office3d_manual: t("taskboard.sourceManual"),
+  playbook: t("taskboard.sourcePlaybook"),
+  fallback_inferred: t("taskboard.sourceInferred"),
+};
+
+// tasks.list comes from the gateway unvalidated: a source we have no phrase
+// for still reads as itself instead of leaving an empty badge.
+const sourceLabel = (source: string) =>
+  (SOURCE_LABELS as Record<string, string | undefined>)[source] ?? source.replaceAll("_", " ");
 
 const STATUS_ORDER: TaskBoardStatus[] = [
   "todo",
@@ -95,29 +144,23 @@ export function TaskBoardView({
   onDeleteCard: (cardId: string) => void;
   onRefreshCronJobs: () => void;
 }) {
+  // Cards name their owner rather than showing a raw agent id.
+  const agentNameById = new Map(agents.map((agent) => [agent.agentId, agent.name || agent.agentId]));
+
   return (
     <section className="flex h-full min-h-0 flex-col bg-transparent text-white">
-      <div className="border-b border-cyan-500/10 bg-[#070b11]/22 px-4 py-3 backdrop-blur-[1px]">
+      <div className={HQ_PANEL_HEADER}>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-cyan-200/80">
-              {title}
-            </div>
-            <div className="mt-1 font-mono text-[11px] text-white/40">{subtitle}</div>
+          <div className="min-w-0">
+            <div className={HQ_PANEL_TITLE}>{title}</div>
+            <div className={HQ_PANEL_LEAD}>{subtitle}</div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onRefreshCronJobs}
-              className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/70 transition-colors hover:border-white/20 hover:text-white"
-            >
-              {cronLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : t("common.refresh")}
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={onRefreshCronJobs} className={HQ_BUTTON_SECONDARY}>
+              <RefreshCw className={`h-3.5 w-3.5 ${cronLoading ? "animate-spin" : ""}`} />
+              {t("common.refresh")}
             </button>
-            <button
-              type="button"
-              onClick={onCreateCard}
-              className="inline-flex items-center gap-1 rounded border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-400/50 hover:text-white"
-            >
+            <button type="button" onClick={onCreateCard} className={HQ_BUTTON_PRIMARY}>
               <Plus className="h-3.5 w-3.5" />
               {t("taskboard.newTask")}
             </button>
@@ -126,14 +169,12 @@ export function TaskBoardView({
         <MissionBanner />
         <AutonomyBar />
         {cronError ? (
-          <div className="mt-2 rounded border border-rose-500/30 bg-rose-500/10 px-3 py-2 font-mono text-[11px] text-rose-100">
-            {cronError}
-          </div>
+          <div className={`mt-2 ${HQ_NOTICE_ERROR}`}>{cronError}</div>
         ) : null}
         {taskCaptureDebug ? (
-          <details className="mt-2 rounded border border-amber-400/20 bg-amber-400/5 px-3 py-2 font-mono text-[11px] text-amber-50">
+          <details className={`mt-2 px-3 py-2 font-mono text-[11px] ${HQ_INSET}`}>
             <summary className="cursor-pointer list-none select-none">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.14em] text-amber-100/75">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.14em] text-white/60">
                 <span>{t("taskboard.captureDebug")}</span>
                 <span>{t("taskboard.statusValue", { value: taskCaptureDebug.lastStatus })}</span>
                 <span>{t("taskboard.visibleCards", { count: taskCaptureDebug.visibleCardCount })}</span>
@@ -172,7 +213,7 @@ export function TaskBoardView({
                 })}
               </div>
               {taskCaptureDebug.sharedTasksError ? (
-                <div className="text-rose-200">
+                <div className="text-red-400">
                   {t("taskboard.storeError", { error: taskCaptureDebug.sharedTasksError })}
                 </div>
               ) : null}
@@ -197,21 +238,22 @@ export function TaskBoardView({
                     if (!cardId) return;
                     onMoveCard(cardId, status);
                   }}
-                  className="flex min-h-[420px] flex-col rounded-xl border border-white/10 bg-black/14 backdrop-blur-[1px]"
+                  className="flex min-h-[420px] flex-col rounded-lg border border-red-900/40 bg-[#070404]/80"
                 >
-                  <div className="border-b border-white/8 px-3 py-3">
+                  <div className="border-b border-red-900/40 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/50">
-                        {STATUS_LABELS[status]}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={STATUS_DOTS[status]} />
+                        <span className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                          {STATUS_LABELS[status]}
+                        </span>
                       </div>
-                      <div className="rounded bg-white/8 px-1.5 py-0.5 font-mono text-[10px] text-white/60">
-                        {cards.length}
-                      </div>
+                      <span className={`${HQ_BADGE} tabular-nums`}>{cards.length}</span>
                     </div>
                   </div>
-                  <div className="flex-1 space-y-2 overflow-y-auto p-3">
+                  <div className="flex-1 space-y-2 overflow-y-auto p-2.5">
                     {cards.length === 0 ? (
-                      <div className="rounded border border-dashed border-white/10 px-3 py-4 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-white/25">
+                      <div className="rounded-md border border-dashed border-red-900/40 px-3 py-5 text-center font-mono text-[10px] uppercase leading-4 tracking-[0.14em] text-white/40">
                         {t("taskboard.dropHere")}
                       </div>
                     ) : (
@@ -239,31 +281,31 @@ export function TaskBoardView({
                               onMoveCard(card.id, STATUS_ORDER[currentIdx - 1]!);
                             }
                           }}
-                          className={`flex w-full flex-col rounded-lg border px-3 py-3 text-left transition-colors ${
-                            selectedCard?.id === card.id
-                              ? "border-cyan-400/35 bg-cyan-500/[0.10]"
-                              : "border-white/8 bg-black/12 hover:border-cyan-400/20 hover:bg-cyan-500/[0.04]"
+                          className={`flex flex-col px-3 py-2.5 ${
+                            selectedCard?.id === card.id ? HQ_CARD_BUTTON_SELECTED : HQ_CARD_BUTTON
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div className="line-clamp-2 text-sm font-medium text-white/90">
+                            <div className="line-clamp-2 min-w-0 break-words text-[13px] font-medium leading-[18px] text-white">
                               {card.title}
                             </div>
-                            <span className="rounded border border-white/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-                              {card.source.replaceAll("_", " ")}
-                            </span>
+                            <span className={HQ_BADGE_MUTED}>{sourceLabel(card.source)}</span>
                           </div>
                           {card.description ? (
-                            <div className="mt-2 line-clamp-3 text-[12px] leading-5 text-white/55">
+                            <div className="mt-1.5 line-clamp-3 break-words text-[12px] leading-[18px] text-white/60">
                               {card.description}
                             </div>
                           ) : null}
-                          <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-white/38">
-                            <span>{card.assignedAgentId ?? t("taskboard.unassigned")}</span>
-                            {card.runId ? <span>{t("taskboard.runLinked")}</span> : null}
-                            {card.playbookJobId ? <span>{t("taskboard.playbookLinked")}</span> : null}
+                          <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/65">
+                            <span className="max-w-full truncate">
+                              {card.assignedAgentId
+                                ? (agentNameById.get(card.assignedAgentId) ?? card.assignedAgentId)
+                                : t("taskboard.unassigned")}
+                            </span>
+                            {card.runId ? <span className="text-red-300">{t("taskboard.runLinked")}</span> : null}
+                            {card.playbookJobId ? <span className="text-red-300">{t("taskboard.playbookLinked")}</span> : null}
                           </div>
-                          <div className="mt-2 font-mono text-[10px] text-white/32">
+                          <div className={`mt-1.5 ${HQ_META}`}>
                             {formatRelativeTime(card.lastActivityAt ?? card.updatedAt)}
                           </div>
                         </button>
@@ -277,22 +319,20 @@ export function TaskBoardView({
         </div>
 
         {selectedCard ? (
-          <aside className="flex min-h-0 flex-col border-l border-white/8 bg-black/25">
-            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
-                {t("taskboard.details")}
-              </div>
+          <aside className="flex min-h-0 flex-col border-l border-red-900/40 bg-[#070404]/90">
+            <div className="flex items-center justify-between gap-2 border-b border-red-900/40 px-4 py-2.5">
+              <div className={HQ_PANEL_TITLE}>{t("taskboard.details")}</div>
               <button
                 type="button"
                 onClick={() => onSelectCard(null)}
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40 hover:text-white/70"
+                className={HQ_BUTTON_SECONDARY}
               >
                 {t("common.close")}
               </button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.title2")}
                 </span>
                 <input
@@ -300,12 +340,12 @@ export function TaskBoardView({
                   onChange={(event) =>
                     onUpdateCard(selectedCard.id, { title: event.target.value })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_FIELD_PROSE}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.description")}
                 </span>
                 <textarea
@@ -314,12 +354,12 @@ export function TaskBoardView({
                   onChange={(event) =>
                     onUpdateCard(selectedCard.id, { description: event.target.value })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={`${HQ_FIELD_PROSE} resize-y`}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.statusLabel")}
                 </span>
                 <select
@@ -327,7 +367,7 @@ export function TaskBoardView({
                   onChange={(event) =>
                     onMoveCard(selectedCard.id, event.target.value as TaskBoardStatus)
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_SELECT}
                 >
                   {STATUS_ORDER.map((status) => (
                     <option key={status} value={status}>
@@ -337,8 +377,8 @@ export function TaskBoardView({
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.assignedAgent")}
                 </span>
                 <select
@@ -348,7 +388,7 @@ export function TaskBoardView({
                       assignedAgentId: event.target.value || null,
                     })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_SELECT}
                 >
                   <option value="">{t("taskboard.unassigned")}</option>
                   {agents.map((agent) => (
@@ -359,8 +399,8 @@ export function TaskBoardView({
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.linkedRun")}
                 </span>
                 <select
@@ -368,7 +408,7 @@ export function TaskBoardView({
                   onChange={(event) =>
                     onUpdateCard(selectedCard.id, { runId: event.target.value || null })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_SELECT}
                 >
                   <option value="">{t("taskboard.noLinkedRun")}</option>
                   {activeRuns.map((run) => (
@@ -379,8 +419,8 @@ export function TaskBoardView({
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.linkedPlaybook")}
                 </span>
                 <select
@@ -390,7 +430,7 @@ export function TaskBoardView({
                       playbookJobId: event.target.value || null,
                     })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_SELECT}
                 >
                   <option value="">{t("taskboard.noLinkedPlaybook")}</option>
                   {cronJobs.map((job) => (
@@ -401,8 +441,8 @@ export function TaskBoardView({
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.channel")}
                 </span>
                 <input
@@ -412,12 +452,12 @@ export function TaskBoardView({
                       channel: event.target.value || null,
                     })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={HQ_FIELD}
                 />
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <label className="flex flex-col gap-1.5">
+                <span className={HQ_LABEL}>
                   {t("taskboard.notes")}
                 </span>
                 <textarea
@@ -431,12 +471,12 @@ export function TaskBoardView({
                         .filter(Boolean),
                     })
                   }
-                  className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+                  className={`${HQ_FIELD_PROSE} resize-y`}
                 />
               </label>
 
-              <div className="space-y-2 rounded border border-white/8 bg-white/[0.03] px-3 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">
-                <div>{t("taskboard.source", { value: selectedCard.source.replaceAll("_", " ") })}</div>
+              <div className={`space-y-1.5 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white/55 ${HQ_INSET}`}>
+                <div>{t("taskboard.source", { value: sourceLabel(selectedCard.source) })}</div>
                 <div>{t("taskboard.created", { value: new Date(selectedCard.createdAt).toLocaleString(LOCALE) })}</div>
                 <div>{t("taskboard.updated", { value: new Date(selectedCard.updatedAt).toLocaleString(LOCALE) })}</div>
               </div>
@@ -444,7 +484,7 @@ export function TaskBoardView({
               <button
                 type="button"
                 onClick={() => onDeleteCard(selectedCard.id)}
-                className="inline-flex items-center gap-2 rounded border border-rose-500/25 bg-rose-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-rose-100 transition-colors hover:border-rose-400/50 hover:text-white"
+                className={`${HQ_BUTTON_DANGER} w-full`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {t("taskboard.delete")}

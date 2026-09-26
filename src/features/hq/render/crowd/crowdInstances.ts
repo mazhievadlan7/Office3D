@@ -65,7 +65,7 @@ export class HqSkinnedCrowd {
   mesh: InstancedMesh;
   private readonly geometry: BufferGeometry;
   private readonly material: Material;
-  private readonly uniforms: HqCrowdUniforms = { hqPalette: { value: null }, hqParams: { value: null } };
+  private readonly uniforms: HqCrowdUniforms = { hqPalette: { value: null } };
   private readonly anim: DataTexture;
   private readonly rig: DataTexture;
   private pass: HqPalettePass;
@@ -99,7 +99,6 @@ export class HqSkinnedCrowd {
   private buildPass(): HqPalettePass {
     const pass = new HqPalettePass(this.anim, this.rig, this.bake.boneCount, this.capacity, this.floatTargets);
     this.uniforms.hqPalette.value = pass.palette;
-    this.uniforms.hqParams.value = pass.params;
     return pass;
   }
 

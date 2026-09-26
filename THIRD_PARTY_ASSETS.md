@@ -2,7 +2,12 @@
 
 ## Данные
 
-- `public/office-assets/data/land-110m.json`, `public/office-assets/data/countries-110m.json` — из пакета [world-atlas](https://github.com/topojson/world-atlas) (лицензия ISC, © Michael Bostock), построены по данным Natural Earth (общественное достояние). Используются для карты мира в штабе.
+- `public/office-assets/data/countries-50m.json` — из пакета [world-atlas](https://github.com/topojson/world-atlas) (лицензия ISC, © Michael Bostock), построен по данным Natural Earth (общественное достояние). Береговые линии и границы стран на карте мира в штабе.
+
+## Изображения
+
+- `public/office-assets/textures/earth-topo-bathy-5400.jpg` — NASA Blue Marble Next Generation с рельефом суши и дна (декабрь 2004), NASA Earth Observatory, общественное достояние: https://visibleearth.nasa.gov/images/73909. Рельеф и глубины на карте мира.
+- `public/office-assets/textures/earth-night-3600.jpg` — NASA Black Marble 2016 (ночные огни), NASA Earth Observatory, общественное достояние: https://earthobservatory.nasa.gov/features/NightLights. Огни городов на ночной стороне карты и на экранах штаба.
 
 ## Модели
 

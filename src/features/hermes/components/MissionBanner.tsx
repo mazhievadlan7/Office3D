@@ -6,6 +6,14 @@ import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type OrgState = { mission: string; missionUpdatedAt: string | null };
 
+// The HQ look (black / red / white) shared with the task board around it.
+const BUTTON_BASE =
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 disabled:cursor-not-allowed disabled:opacity-50";
+const BUTTON_PRIMARY = `${BUTTON_BASE} border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] hover:bg-[#ff2a2a] disabled:hover:bg-[#e3141c]`;
+const BUTTON_SECONDARY = `${BUTTON_BASE} border-red-600/35 bg-black/50 text-white/85 hover:border-red-500/50 hover:bg-red-950/40 hover:text-white`;
+const TITLE =
+  "flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/85 before:h-2.5 before:w-0.5 before:shrink-0 before:rounded-full before:bg-[#e3141c] before:content-['']";
+
 /**
  * The organization's main mission, pinned above the task board. Every agent
  * works toward it: saving rewrites the mission block in each agent's SOUL.md,
@@ -66,22 +74,25 @@ export function MissionBanner() {
   };
 
   return (
-    <div className="mt-3 rounded border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2" data-testid="mission-banner">
+    <div
+      className="mt-3 rounded-md border border-red-600/35 border-l-2 border-l-[#e3141c] bg-[#0b0707] px-3 py-2.5 shadow-[inset_0_0_24px_rgba(255,26,26,0.05)]"
+      data-testid="mission-banner"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-200/80">{t("mission.title")}</div>
+          <div className={TITLE}>{t("mission.title")}</div>
           {editing ? (
             <textarea
               aria-label={t("mission.title")}
-              className="mt-2 min-h-[72px] w-full rounded border border-amber-400/25 bg-black/30 px-2 py-1.5 text-[12px] text-white outline-none focus:border-amber-300/50"
+              className="mt-2 min-h-[72px] w-full resize-y rounded-md border border-red-900/50 bg-black/60 px-2.5 py-2 text-[13px] leading-5 text-white outline-none scheme-dark transition-colors placeholder:text-white/35 focus:border-red-500/70 focus:ring-2 focus:ring-red-500/30"
               value={draft}
               maxLength={8000}
               placeholder={t("mission.placeholder")}
               onChange={(event) => setDraft(event.target.value)}
             />
           ) : (
-            <div className="mt-1 whitespace-pre-wrap text-[12px] leading-snug text-white/90">
-              {org?.mission?.trim() ? org.mission : <span className="text-white/45">{t("mission.empty")}</span>}
+            <div className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-5 text-white">
+              {org?.mission?.trim() ? org.mission : <span className="text-white/50">{t("mission.empty")}</span>}
             </div>
           )}
         </div>
@@ -92,7 +103,7 @@ export function MissionBanner() {
                 type="button"
                 disabled={busy}
                 onClick={() => void save()}
-                className="rounded border border-amber-400/40 bg-amber-400/15 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-50 disabled:opacity-50"
+                className={BUTTON_PRIMARY}
               >
                 {t("settings.save")}
               </button>
@@ -100,7 +111,7 @@ export function MissionBanner() {
                 type="button"
                 disabled={busy}
                 onClick={() => setEditing(false)}
-                className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/70"
+                className={BUTTON_SECONDARY}
               >
                 {t("hermesModels.cancel")}
               </button>
@@ -113,14 +124,14 @@ export function MissionBanner() {
                 setEditing(true);
                 setMessage(null);
               }}
-              className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-100"
+              className={BUTTON_SECONDARY}
             >
               {t("mission.edit")}
             </button>
           )}
         </div>
       </div>
-      {message ? <div className="mt-1 text-[10px] text-white/60">{message}</div> : null}
+      {message ? <div className="mt-1.5 font-mono text-[10px] leading-4 text-white/65">{message}</div> : null}
     </div>
   );
 }

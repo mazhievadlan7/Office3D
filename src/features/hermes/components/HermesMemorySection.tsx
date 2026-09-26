@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_BUTTON_SECONDARY,
+  HQ_FORM_BUTTON_SMALL,
+  HQ_FORM_FIELD,
+  HQ_FORM_HINT,
+  HQ_FORM_INSET,
+  HQ_FORM_SECTION,
+  HQ_FORM_SECTION_TITLE,
+} from "@/features/agents/components/hqFormStyles";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type MemoryTarget = "memory" | "user";
@@ -74,11 +84,11 @@ export function HermesMemorySection({ agentId }: { agentId: string }) {
     setEditing((current) => (current ? { ...current, entries: current.entries.map((entry, i) => (i === index ? value : entry)) } : current));
 
   return (
-    <section className="mt-4 rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="hermes-memory">
-      <div className="text-[11px] font-medium text-foreground">{t("hermesMemory.title")}</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesMemory.lead")}</div>
-      {view?.provider ? <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesMemory.provider", { provider: view.provider })}</div> : null}
-      {view === null ? <div className="mt-3 text-[11px] text-muted-foreground">{t("hermesMemory.loading")}</div> : null}
+    <section className={`mt-4 ${HQ_FORM_SECTION}`} data-testid="hermes-memory">
+      <div className={HQ_FORM_SECTION_TITLE}>{t("hermesMemory.title")}</div>
+      <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesMemory.lead")}</div>
+      {view?.provider ? <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesMemory.provider", { provider: view.provider })}</div> : null}
+      {view === null ? <div className="mt-3 text-[11px] text-white/50">{t("hermesMemory.loading")}</div> : null}
       {view
         ? TARGETS.map((target) => {
             const file = view.targets[target];
@@ -89,31 +99,31 @@ export function HermesMemorySection({ agentId }: { agentId: string }) {
             return (
               <div key={target} className="mt-3" data-testid={`hermes-memory-${target}`}>
                 <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="text-foreground">{target === "memory" ? t("hermesMemory.notes") : t("hermesMemory.aboutYou")}</span>
-                  <span className={over ? "ui-text-danger" : "text-muted-foreground"}>{t("hermesMemory.usage", { used, limit: file.limit })}</span>
+                  <span className="text-white">{target === "memory" ? t("hermesMemory.notes") : t("hermesMemory.aboutYou")}</span>
+                  <span className={`font-mono tabular-nums ${over ? "text-red-400" : "text-white/50"}`}>{t("hermesMemory.usage", { used, limit: file.limit })}</span>
                 </div>
-                {!file.enabled ? <div className="text-[10px] text-amber-700 dark:text-amber-300">{t("hermesMemory.disabled")}</div> : null}
+                {!file.enabled ? <div className="text-[11px] text-orange-300">{t("hermesMemory.disabled")}</div> : null}
                 <div className="mt-1 space-y-1">
-                  {entries.length === 0 && !isEditing ? <div className="text-[11px] text-muted-foreground">{t("hermesMemory.empty")}</div> : null}
+                  {entries.length === 0 && !isEditing ? <div className="text-[11px] text-white/50">{t("hermesMemory.empty")}</div> : null}
                   {entries.map((entry, index) =>
                     isEditing ? (
                       <div key={index} className="flex items-start gap-2">
                         <textarea
-                          className="min-h-[2.5rem] min-w-0 flex-1 ui-input rounded px-2 py-1 text-[11px]"
+                          className={`min-h-[2.5rem] min-w-0 flex-1 ${HQ_FORM_FIELD}`}
                           aria-label={t("hermesMemory.entry", { n: index + 1 })}
                           value={entry}
                           onChange={(event) => setEntry(index, event.target.value)}
                         />
                         <button
                           type="button"
-                          className="ui-btn-secondary shrink-0 px-2 py-0.5 text-[10px]"
+                          className={HQ_FORM_BUTTON_SMALL}
                           onClick={() => setEditing((current) => (current ? { ...current, entries: current.entries.filter((_, i) => i !== index) } : current))}
                         >
                           {t("hermesMemory.remove")}
                         </button>
                       </div>
                     ) : (
-                      <div key={index} className="whitespace-pre-wrap rounded bg-muted/40 px-2 py-1 text-[11px] text-foreground">
+                      <div key={index} className={`whitespace-pre-wrap ${HQ_FORM_INSET} px-2.5 py-1.5 text-[12px] text-white/90`}>
                         {entry}
                       </div>
                     ),
@@ -124,22 +134,22 @@ export function HermesMemorySection({ agentId }: { agentId: string }) {
                     <>
                       <button
                         type="button"
-                        className="ui-btn-secondary px-2 py-1 text-[11px]"
+                        className={HQ_FORM_BUTTON_SECONDARY}
                         onClick={() => setEditing((current) => (current ? { ...current, entries: [...current.entries, ""] } : current))}
                       >
                         {t("hermesMemory.add")}
                       </button>
-                      <button type="button" className="ui-btn-secondary px-2 py-1 text-[11px]" onClick={() => setEditing(null)}>
+                      <button type="button" className={HQ_FORM_BUTTON_SECONDARY} onClick={() => setEditing(null)}>
                         {t("hermesMemory.cancel")}
                       </button>
-                      <button type="button" className="ui-btn-primary px-2 py-1 text-[11px] font-semibold" disabled={busy || over} onClick={() => void save()}>
+                      <button type="button" className={HQ_FORM_BUTTON_PRIMARY} disabled={busy || over} onClick={() => void save()}>
                         {t("hermesMemory.save")}
                       </button>
                     </>
                   ) : (
                     <button
                       type="button"
-                      className="ui-btn-secondary px-2 py-1 text-[11px]"
+                      className={HQ_FORM_BUTTON_SECONDARY}
                       disabled={busy || editing !== null}
                       onClick={() => {
                         setMessage(null);
@@ -155,7 +165,7 @@ export function HermesMemorySection({ agentId }: { agentId: string }) {
           })
         : null}
       {message ? (
-        <div className={`mt-2 text-[11px] ${message.kind === "error" ? "ui-text-danger" : "text-muted-foreground"}`}>{message.text}</div>
+        <div className={`mt-2 text-[11px] ${message.kind === "error" ? "text-red-400" : "text-white/70"}`}>{message.text}</div>
       ) : null}
     </section>
   );

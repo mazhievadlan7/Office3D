@@ -161,19 +161,28 @@ const loginPage = ({ next, error }) => `<!doctype html>
 <meta name="robots" content="noindex">
 <title>Вход в Office3D</title>
 <style>
-  :root { color-scheme: dark; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0d10; color: #e8eaed;
-         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { width: min(360px, calc(100vw - 32px)); }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  p { margin: 0 0 20px; color: #9aa0a6; font-size: 13px; }
-  label { display: block; font-size: 13px; margin-bottom: 6px; }
-  input { box-sizing: border-box; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #3c4043;
-          background: #15181c; color: inherit; font: inherit; }
-  input:focus { outline: 2px solid #22d3ee; outline-offset: 1px; }
-  button { margin-top: 14px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #22d3ee; color: #062329;
-           font: inherit; font-weight: 600; cursor: pointer; }
-  .error { margin: 0 0 14px; padding: 8px 10px; border-radius: 8px; background: #3b1219; color: #fecdd3; font-size: 13px; }
+  /* The HQ look: near-black glass, red edges and accent, white text. */
+  :root { color-scheme: dark; accent-color: #e3141c; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: #ffffff;
+         background: radial-gradient(ellipse at 50% 35%, #1a0607 0%, #050404 60%);
+         font: 15px/1.5 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { box-sizing: border-box; width: min(380px, calc(100vw - 32px)); padding: 26px 24px 24px; border-radius: 12px;
+         border: 1px solid rgb(130 24 26 / 0.55); background: rgb(11 7 7 / 0.92);
+         box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6), 0 24px 60px rgb(0 0 0 / 0.7), 0 0 40px rgb(255 26 26 / 0.08); }
+  h1 { margin: 0 0 6px; font: 700 15px/1.2 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.34em;
+       text-transform: uppercase; text-shadow: 0 0 14px rgb(255 26 26 / 0.55); }
+  p { margin: 0 0 20px; color: rgb(255 255 255 / 0.65); font-size: 13px; }
+  label { display: block; margin-bottom: 6px; color: rgb(255 255 255 / 0.8);
+          font: 600 10px/1.4 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.16em; text-transform: uppercase; }
+  input { box-sizing: border-box; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid rgb(130 24 26 / 0.6);
+          background: rgb(0 0 0 / 0.6); color: inherit; font: inherit; }
+  input:focus { outline: none; border-color: rgb(251 44 54 / 0.8); box-shadow: 0 0 0 3px rgb(251 44 54 / 0.25); }
+  button { margin-top: 16px; width: 100%; padding: 11px; border: 1px solid rgb(255 42 42 / 0.6); border-radius: 8px;
+           background: #e3141c; color: #ffffff; cursor: pointer;
+           font: 600 12px/1.2 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.18em; text-transform: uppercase; }
+  button:hover { background: #ff2a2a; box-shadow: 0 0 14px rgb(255 26 26 / 0.35); }
+  .error { margin: 0 0 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgb(251 44 54 / 0.5);
+           background: rgb(70 8 9 / 0.5); color: #ffa2a2; font-size: 13px; }
 </style>
 </head>
 <body>

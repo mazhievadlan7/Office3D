@@ -160,6 +160,13 @@ services:
       OFFICE3D_GATEWAY_ADAPTER_TYPE: ${OFFICE3D_GATEWAY_ADAPTER_TYPE:-}
       OFFICE3D_GATEWAY_URL: ${OFFICE3D_GATEWAY_URL:-}
       OFFICE3D_GATEWAY_TOKEN: ${OFFICE3D_GATEWAY_TOKEN:-}
+      # Gateway hosts the proxy may reach (comma-separated host names). In
+      # production the proxy refuses every upstream while this is empty, so
+      # set it together with OFFICE3D_GATEWAY_URL; the built-in Hermes does
+      # not need it. CUSTOM_RUNTIME_ALLOWLIST does the same for
+      # /api/runtime/custom and falls back to this list.
+      UPSTREAM_ALLOWLIST: ${UPSTREAM_ALLOWLIST:-}
+      CUSTOM_RUNTIME_ALLOWLIST: ${CUSTOM_RUNTIME_ALLOWLIST:-}
       # Voice (speech recognition and replies).
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}

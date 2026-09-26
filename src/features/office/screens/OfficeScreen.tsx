@@ -414,7 +414,7 @@ const renderOpenClawHighlightedText = (
     part.toLowerCase() === trimmedQuery.toLowerCase() ? (
       <mark
         key={`${part}-${index}`}
-        className="rounded bg-amber-300/25 px-0.5 text-amber-100"
+        className="rounded bg-red-600/35 px-0.5 text-white"
       >
         {part}
       </mark>
@@ -3711,23 +3711,28 @@ export function OfficeScreen({
     <main className="hq-theme relative h-full w-full overflow-hidden bg-black">
       {showGatewayLoadingOverlay ? (
         <div
-          className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/76"
+          className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/80"
           aria-label={t("office.connectingRuntime")}
           role="status"
         >
-          <div className="rounded-xl border border-red-800/50 bg-[#0a0505] px-8 py-6 shadow-2xl">
+          <div className="overflow-hidden rounded-lg border border-border bg-card/95 shadow-[0_0_60px_rgba(0,0,0,0.85),0_0_32px_rgba(255,26,26,0.1)]">
+            <div aria-hidden className="h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
             <RunningAvatarLoader
               size={28}
               trackWidth={76}
               label={t("office.connectingRuntimeLong")}
-              labelClassName="text-red-100/80"
+              className="px-8 py-6"
+              labelClassName="uppercase tracking-[0.16em] text-white/70"
             />
           </div>
         </div>
       ) : null}
       {showGatewayConnectOverlay ? (
-        <div className="pointer-events-auto absolute inset-0 z-50 flex items-start justify-center bg-black/76 px-4 py-10">
-          <div className="w-full max-w-[860px] rounded-2xl border border-red-900/55 bg-[#080404]/98 p-3 shadow-2xl">
+        // Scrolls on its own: on a short window the connect form is taller than
+        // the screen, and the office behind it never scrolls.
+        <div className="pointer-events-auto absolute inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 px-4 py-10">
+          <div className="relative w-full max-w-[860px] overflow-hidden rounded-xl border border-border bg-background/95 p-3 shadow-[0_0_80px_rgba(0,0,0,0.9),0_0_40px_rgba(255,26,26,0.08)]">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
             <GatewayConnectScreen
               gatewayUrl={gatewayUrl}
               token={token}
@@ -3777,19 +3782,20 @@ export function OfficeScreen({
       </section>
 
       {showEmptyFleetBanner ? (
-        <div className="pointer-events-none fixed left-1/2 top-16 z-40 w-full max-w-xl -translate-x-1/2 px-4">
-          <div className="pointer-events-auto rounded-lg border border-amber-400/35 bg-black/80 px-4 py-3 shadow-2xl backdrop-blur">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
+        <div className="pointer-events-none fixed left-1/2 top-[100px] z-40 w-full max-w-xl -translate-x-1/2 px-4">
+          <div className="pointer-events-auto rounded-lg border border-primary/35 bg-black/80 px-4 py-3 shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_24px_rgba(255,26,26,0.12)] backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--status-running-fg)]">
+                  <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary shadow-[0_0_8px_rgba(255,42,42,0.9)]" />
                   {t("office.fleetStatus")}
                 </p>
-                <p className="mt-1 text-sm text-amber-50">{emptyFleetMessage}</p>
+                <p className="mt-1 text-sm text-white">{emptyFleetMessage}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="ui-btn-secondary px-3 py-2 text-xs font-semibold tracking-[0.05em] text-foreground"
+                  className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-foreground shadow-[0_0_14px_rgba(255,26,26,0.25)] transition-colors hover:bg-ring"
                   onClick={() => {
                     handleOpenCreateAgentWizard();
                   }}
@@ -3798,7 +3804,7 @@ export function OfficeScreen({
                 </button>
                 <button
                   type="button"
-                  className="ui-btn-secondary px-3 py-2 text-xs font-semibold tracking-[0.05em] text-foreground"
+                  className="inline-flex items-center justify-center rounded-md border border-primary/35 bg-black/40 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85 transition-colors hover:border-ring/60 hover:bg-primary/15 hover:text-white"
                   onClick={() => {
                     handleOpenCompanyBuilder();
                   }}
@@ -3807,7 +3813,7 @@ export function OfficeScreen({
                 </button>
                 <button
                   type="button"
-                  className="ui-btn-secondary px-3 py-2 text-xs font-semibold tracking-[0.05em] text-foreground"
+                  className="inline-flex items-center justify-center rounded-md border border-primary/35 bg-black/40 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85 transition-colors hover:border-ring/60 hover:bg-primary/15 hover:text-white"
                   onClick={() => {
                     void loadAgents({ forceSettings: true });
                   }}
@@ -3825,7 +3831,7 @@ export function OfficeScreen({
       <HermesUpdateCard />
 
       {deleteAgentStatusLine ? (
-        <div className="pointer-events-none fixed left-1/2 top-5 z-40 -translate-x-1/2 px-4">
+        <div className="pointer-events-none fixed left-1/2 top-[100px] z-40 -translate-x-1/2 px-4">
           <div className="pointer-events-auto rounded-lg border border-red-400/30 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur">
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-red-200/75">
               {t("office.fleetMutation")}
@@ -3925,7 +3931,7 @@ export function OfficeScreen({
         // Above the scene, the HUD and the sidebar, below the chat (z-30); it
         // stops short of the chat button so nothing in it hides behind it.
         <div
-          className="fixed inset-0 z-[25] flex justify-end bg-black/40 px-3 pb-14 pt-3 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[25] flex justify-end bg-black/50 px-3 pb-[70px] pt-3 backdrop-blur-[1px]"
           onClick={(event) => {
             if (event.target === event.currentTarget) setSettingsOpen(false);
           }}
@@ -3933,23 +3939,25 @@ export function OfficeScreen({
           <div
             role="dialog"
             aria-labelledby="office-settings-title"
-            className="flex h-full w-full max-w-[440px] flex-col overflow-hidden rounded border border-red-900/50 bg-[#070404]/96 shadow-2xl"
+            className="relative flex h-full w-full max-w-[440px] flex-col overflow-hidden rounded-lg border border-border bg-background/95 shadow-[0_0_60px_rgba(0,0,0,0.85),0_0_32px_rgba(255,26,26,0.08)]"
           >
-            <div className="flex items-start justify-between gap-3 border-b border-red-500/15 px-4 py-3">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div>
                 <div
                   id="office-settings-title"
-                  className="font-mono text-[10px] font-semibold tracking-[0.28em] text-red-300/80"
+                  className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-white"
                 >
+                  <span aria-hidden className="h-3 w-0.5 rounded-full bg-primary shadow-[0_0_8px_rgba(255,42,42,0.9)]" />
                   {t("office.studioSettings")}
                 </div>
-                <div className="mt-1 text-[11px] text-white/45">{t("office.studioSettingsLead")}</div>
+                <div className="mt-1 text-[11px] leading-snug text-white/55">{t("office.studioSettingsLead")}</div>
               </div>
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
                 aria-label={t("office.closeStudioSettings")}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-500/20 text-red-100/70 transition-colors hover:border-red-400/45 hover:text-red-50"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-primary/35 bg-black/40 text-white/65 transition-colors hover:border-ring/60 hover:bg-primary/15 hover:text-white"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -4084,20 +4092,53 @@ export function OfficeScreen({
       ) : null}
 
       {showOpenClawConsole ? (
-        <section className={`fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-red-500/25 bg-black/78 shadow-2xl backdrop-blur transition-opacity duration-700 ${openClawConsoleCollapsed ? "w-[280px]" : "w-[520px]"} ${hqIntroPlaying ? "pointer-events-none opacity-0 [&_*]:!pointer-events-none" : "pointer-events-auto opacity-100"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-red-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white">
-            <span className="whitespace-nowrap">{t("office.eventConsole")}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="whitespace-nowrap text-[10px] text-white">
-                {t("office.consoleCounts", { agents: state.agents.length })}{" "}
-                {filteredOpenClawLogEntries.length}/{openClawLogEntries.length}
+        // Top left, in the HUD's glass (hq/hud/hudStyle.ts). Collapsed it is
+        // a small status card whose header toggles it; the actions and the log
+        // appear expanded. At most 420px wide, so even expanded it stays clear
+        // of the HUD counters at the top centre on a 1280px screen.
+        <section
+          aria-label={t("office.eventConsole")}
+          className={`fixed left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-red-900/50 bg-black/70 shadow-lg backdrop-blur-sm transition-opacity duration-700 ${openClawConsoleCollapsed ? "w-[280px]" : "w-[420px]"} ${hqIntroPlaying ? "pointer-events-none opacity-0 [&_*]:!pointer-events-none" : "pointer-events-auto opacity-100"}`}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setOpenClawConsoleCollapsed((previous) => !previous)
+            }
+            aria-expanded={!openClawConsoleCollapsed}
+            title={openClawConsoleCollapsed ? t("office.expand") : t("office.minimize")}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-red-950/40"
+          >
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,42,42,0.9)]"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-mono text-[10px] font-semibold uppercase leading-[14px] tracking-[0.16em] text-white">
+                {t("office.eventConsole")}
               </span>
+              <span className="block truncate font-mono text-[10px] leading-[14px] tabular-nums text-white/65">
+                {t("office.consoleCounts", {
+                  agents: state.agents.length,
+                  shown: filteredOpenClawLogEntries.length,
+                  total: openClawLogEntries.length,
+                })}
+              </span>
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={`h-4 w-4 shrink-0 text-white/65 transition-transform ${openClawConsoleCollapsed ? "" : "rotate-180"}`}
+            />
+          </button>
+          {!openClawConsoleCollapsed ? (
+            <>
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-red-900/40 px-3 py-1.5">
               <button
                 type="button"
                 onClick={() => {
                   void handleCopyOpenClawConsoleJson();
                 }}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
+                className="h-6 whitespace-nowrap rounded-md border border-red-900/40 bg-black/40 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:border-red-500/50 hover:bg-red-950/40"
               >
                 {openClawConsoleCopyStatus === "copied"
                   ? t("common.copied")
@@ -4108,32 +4149,20 @@ export function OfficeScreen({
               <button
                 type="button"
                 onClick={handleDownloadOpenClawConsoleJson}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
+                className="h-6 whitespace-nowrap rounded-md border border-red-900/40 bg-black/40 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:border-red-500/50 hover:bg-red-950/40"
               >
                 {t("office.downloadJson")}
               </button>
               <button
                 type="button"
                 onClick={handleClearOpenClawConsole}
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
+                className="h-6 whitespace-nowrap rounded-md border border-red-900/40 bg-black/40 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:border-red-500/50 hover:bg-red-950/40"
               >
                 {t("office.clear")}
               </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenClawConsoleCollapsed((previous) => !previous)
-                }
-                className="whitespace-nowrap rounded border border-red-500/20 px-2 py-0.5 text-[9px] text-white transition-colors hover:border-red-400/45 hover:text-white"
-              >
-                {openClawConsoleCollapsed ? t("office.expand") : t("office.minimize")}
-              </button>
             </div>
-          </div>
-          {!openClawConsoleCollapsed ? (
-            <div className="flex h-[320px] flex-col gap-3 overflow-y-auto bg-[#0a0203]/96 px-3 py-2 font-mono text-[10px] leading-4">
-            <div className="rounded border border-red-500/10 bg-red-950/10 p-2">
-              <div className="flex items-center gap-2">
+            <div className="flex h-[280px] flex-col gap-2 overflow-y-auto border-t border-red-900/40 bg-[#070404]/90 px-3 py-2 font-mono text-[10px] leading-4">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="text"
                   value={openClawConsoleSearch}
@@ -4141,19 +4170,18 @@ export function OfficeScreen({
                     setOpenClawConsoleSearch(event.target.value)
                   }
                   placeholder={t("office.searchLogs")}
-                  className="min-w-0 flex-1 rounded border border-red-500/20 bg-black/35 px-2 py-1 text-[10px] normal-case tracking-normal text-white placeholder:text-white/60 focus:border-red-400/40 focus:outline-none"
+                  className="h-7 min-w-0 flex-1 rounded-md border border-red-900/50 bg-black/60 px-2 text-[11px] normal-case tracking-normal text-white placeholder:text-white/35 focus:border-red-500/70 focus:outline-none focus:ring-1 focus:ring-red-500/30"
                 />
                 {openClawConsoleSearch ? (
                   <button
                     type="button"
                     onClick={() => setOpenClawConsoleSearch("")}
-                    className="rounded border border-red-500/20 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-white transition-colors hover:border-red-400/45 hover:text-white"
+                    className="h-7 whitespace-nowrap rounded-md border border-red-900/40 bg-black/40 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:border-red-500/50 hover:bg-red-950/40"
                   >
                     {t("office.reset")}
                   </button>
                 ) : null}
               </div>
-            </div>
             {openClawLiveStateMatchesSearch ? (
               <div className="rounded border border-red-500/10 bg-red-950/10 p-2">
                 <div className="mb-1 text-[9px] uppercase tracking-[0.16em] text-white">
@@ -4291,18 +4319,23 @@ export function OfficeScreen({
               })
             )}
             </div>
+            </>
           ) : null}
         </section>
       ) : null}
 
+      {/* The chat window floats above the bottom row (the camera bar and the
+          chat button, 62px): left of the open HQ panel (312px at right-3) when
+          both fit, over the wide board or on a narrow screen otherwise. */}
       <div
-        className={`fixed bottom-3 z-30 flex flex-col items-end gap-2 transition-opacity duration-700 ${sidebarOpen ? "right-84" : "right-3"} ${
-          debugEnabled ? "hidden" : ""
-        } ${hqIntroPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
+        className={`fixed bottom-[70px] z-30 flex flex-col items-end transition-opacity duration-700 ${
+          // 1124px = the 780px window + the panel column (332px) + a 12px margin.
+          sidebarOpen && activeSidebarTab !== "kanban" ? "right-3 min-[1124px]:right-[332px]" : "right-3"
+        } ${debugEnabled ? "hidden" : ""} ${hqIntroPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
       >
         {chatOpen && (
           <div
-            className="flex overflow-hidden rounded border border-red-900/50 bg-[#070404] shadow-2xl"
+            className="flex overflow-hidden rounded-lg border border-red-900/50 bg-[#070404] shadow-[0_24px_70px_rgba(0,0,0,0.7),0_0_22px_rgba(255,26,26,0.1)]"
             style={{
               width: chatRosterCollapsed
                 ? "min(680px, calc(100vw - 1.5rem))"
@@ -4311,22 +4344,22 @@ export function OfficeScreen({
             }}
           >
             <div
-              className={`flex shrink-0 flex-col border-r border-white/10 transition-[width] ${
+              className={`flex shrink-0 flex-col border-r border-red-900/40 bg-[#050404] transition-[width] ${
                 chatRosterCollapsed ? "w-12" : "w-52"
               }`}
             >
-              <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+              <div className="flex h-10 items-center justify-between border-b border-red-900/40 px-3">
                 {!chatRosterCollapsed ? (
                   <>
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-widest text-white/60">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65">
                       {t("office.agents")}
                     </span>
-                    <span className="font-mono text-[10px] text-white/40">
+                    <span className="rounded border border-red-900/40 bg-black/40 px-1.5 font-mono text-[10px] tabular-nums text-white">
                       {chatRosterEntries.length}
                     </span>
                   </>
                 ) : (
-                  <span className="mx-auto font-mono text-[10px] text-white/45">
+                  <span className="mx-auto font-mono text-[10px] tabular-nums text-white">
                     {chatRosterEntries.length}
                   </span>
                 )}
@@ -4334,7 +4367,7 @@ export function OfficeScreen({
               <button
                 type="button"
                 onClick={() => setChatRosterCollapsed((current) => !current)}
-                className="mx-2 mt-2 inline-flex items-center justify-center rounded border border-white/10 bg-white/5 px-2 py-2 text-white/65 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                className="mx-2 mt-2 inline-flex items-center justify-center rounded-md border border-red-900/40 bg-black/40 px-2 py-1.5 text-white/65 transition-colors hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
                 aria-label={chatRosterCollapsed ? t("office.expandList") : t("office.collapseList")}
                 title={chatRosterCollapsed ? t("office.expandList") : t("office.collapseList")}
               >
@@ -4344,7 +4377,7 @@ export function OfficeScreen({
                   <ChevronLeft className="h-4 w-4" />
                 )}
               </button>
-              <div className="flex-1 overflow-y-auto">
+              <div className="mt-2 flex-1 overflow-y-auto">
                 {chatRosterCollapsed ? (
                   <div className="flex flex-col items-center gap-2 px-1 py-2">
                     {chatRosterEntries.map((agent) => {
@@ -4354,10 +4387,10 @@ export function OfficeScreen({
                           key={agent.id}
                           type="button"
                           onClick={() => handleOpenAgentChat(agent.id)}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded border font-mono text-[10px] transition ${
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-md border font-mono text-[11px] font-semibold transition-colors ${
                             isSelected
-                              ? "border-red-500/50 bg-red-950/50 text-red-100"
-                              : "border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white/80"
+                              ? "border-red-500/60 bg-red-600/20 text-white shadow-[0_0_14px_rgba(255,26,26,0.25)]"
+                              : "border-red-900/40 bg-black/40 text-white/65 hover:border-red-500/50 hover:bg-red-950/40 hover:text-white"
                           }`}
                           title={agent.name}
                         >
@@ -4367,7 +4400,7 @@ export function OfficeScreen({
                     })}
                   </div>
                 ) : chatRosterEntries.length === 0 ? (
-                  <div className="px-3 py-4 font-mono text-[11px] text-white/30">
+                  <div className="px-3 py-4 font-mono text-[11px] text-white/45">
                     {t("office.noAgentsShort")}
                   </div>
                 ) : (
@@ -4379,20 +4412,22 @@ export function OfficeScreen({
                         key={agent.id}
                         type="button"
                         onClick={() => handleOpenAgentChat(agent.id)}
-                        className={`flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors ${
+                        className={`flex w-full items-center gap-2 border-l-2 px-3 py-2.5 text-left transition-colors ${
                           isSelected
-                            ? "bg-white/10 text-white"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/80"
+                            ? "border-red-500 bg-red-600/20 text-white"
+                            : "border-transparent text-white/65 hover:bg-red-950/40 hover:text-white"
                         }`}
                       >
                         <span
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRunning ? "bg-red-500" : "bg-white/20"}`}
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            isRunning ? "bg-red-500 shadow-[0_0_8px_rgba(255,42,42,0.8)]" : "bg-white/25"
+                          }`}
                         />
                         <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
                           {agent.name}
                         </span>
                         {agent.kind === "remote" ? (
-                          <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.14em] text-red-300/60">
+                          <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.14em] text-red-300/70">
                             {t("office.remote")}
                           </span>
                         ) : null}
@@ -4521,30 +4556,43 @@ export function OfficeScreen({
                   }}
                 />
               ) : (
-                <div className="flex flex-1 items-center justify-center font-mono text-[12px] text-white/30">
+                <div className="flex flex-1 items-center justify-center font-mono text-[12px] text-white/45">
                   {t("office.selectToChat")}
                 </div>
               )}
             </div>
           </div>
         )}
+      </div>
 
+      {/* The chat button, bottom right: the camera bar's glass, padding and
+          button height (hq/hud/hudStyle.ts), so the bottom row reads as one. */}
+      <div
+        className={`fixed bottom-3 right-3 z-30 rounded-lg border border-red-900/50 bg-black/70 p-1.5 shadow-lg backdrop-blur-sm transition-opacity duration-700 ${
+          debugEnabled ? "hidden" : ""
+        } ${hqIntroPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
+      >
         <button
           type="button"
           onClick={() => setChatOpen((prev) => !prev)}
-          className="flex items-center gap-1.5 rounded border border-red-700/50 bg-[#070404]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-white shadow-lg backdrop-blur transition-colors hover:border-red-500/70 hover:bg-red-950/40"
+          aria-expanded={chatOpen}
+          className={`flex h-9 items-center gap-2 rounded-md border px-3 font-mono text-[12px] font-semibold tracking-[0.1em] text-white transition-colors ${
+            chatOpen
+              ? "border-red-500/60 bg-red-600/20 shadow-[0_0_14px_rgba(255,26,26,0.25)]"
+              : "border-red-900/40 bg-black/40 hover:border-red-500/50 hover:bg-red-950/40"
+          }`}
         >
           {chatOpen ? (
             <>
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-4 w-4" />
               <span>{t("office.hideChat")}</span>
             </>
           ) : (
             <>
-              <MessageSquare className="h-3.5 w-3.5" />
+              <MessageSquare className="h-4 w-4" />
               <span>{t("office.chat")}</span>
               {runningCount > 0 ? (
-                <span className="rounded bg-red-500/25 px-1 text-[10px] text-white">
+                <span className="rounded-sm bg-[#e3141c] px-1.5 text-[10px] leading-4 tabular-nums text-white">
                   {runningCount}
                 </span>
               ) : null}
@@ -4553,13 +4601,14 @@ export function OfficeScreen({
         </button>
       </div>
 
+      {/* Above the bottom row (camera bar and chat card, 62px) so it never covers them. */}
       {mainVoiceState !== "idle" || mainVoiceError ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[76px] z-40 flex justify-center">
           <div
             className={`flex min-w-[220px] items-center gap-3 rounded-full border px-4 py-3 font-mono text-[12px] shadow-2xl backdrop-blur ${
               mainVoiceError
                 ? "border-red-500/45 bg-red-950/75 text-red-100"
-                : "border-cyan-400/35 bg-black/70 text-white"
+                : "border-red-900/50 bg-black/70 text-white"
             }`}
           >
             <div
@@ -4567,7 +4616,7 @@ export function OfficeScreen({
                 mainVoiceState === "recording"
                   ? "bg-red-500/25 text-red-200"
                   : mainVoiceState === "transcribing"
-                    ? "bg-cyan-400/20 text-cyan-100"
+                    ? "bg-red-600/20 text-red-100"
                     : "bg-white/10 text-white"
               }`}
             >
@@ -4596,21 +4645,21 @@ export function OfficeScreen({
       ) : null}
 
       {debugEnabled ? (
-        <section className="fixed bottom-3 right-3 z-50 max-h-[45vh] w-[560px] overflow-auto rounded border border-slate-700 bg-black/90 p-3 font-mono text-[11px] text-slate-100">
-          <div className="mb-2 font-semibold text-cyan-300">{t("office.debugTitle")}</div>
-          <div className="mb-2 text-slate-400">
+        <section className="fixed bottom-3 right-3 z-50 max-h-[45vh] w-[560px] overflow-auto rounded border border-red-900/50 bg-black/90 p-3 font-mono text-[11px] text-white/85">
+          <div className="mb-2 font-semibold text-red-300">{t("office.debugTitle")}</div>
+          <div className="mb-2 text-white/55">
             {t("office.debugCounts", { status, agents: state.agents.length })}
           </div>
           {debugRows.length === 0 ? (
-            <div className="text-slate-500">{t("office.noDebug")}</div>
+            <div className="text-white/45">{t("office.noDebug")}</div>
           ) : (
             <div className="space-y-2">
               {debugRows.map((row) => (
                 <div
                   key={row.agentId}
-                  className="rounded border border-slate-800 p-2"
+                  className="rounded border border-red-900/40 p-2"
                 >
-                  <div className="text-cyan-200">
+                  <div className="text-red-200">
                     {row.name} ({row.agentId})
                   </div>
                   <div>
@@ -4621,19 +4670,19 @@ export function OfficeScreen({
                   <div>
                     lastRole={row.lastRole} messages={row.messageCount}
                   </div>
-                  <div className="truncate text-slate-400">
+                  <div className="truncate text-white/55">
                     detectedSession={row.detectedSessionKey || "-"}
                   </div>
-                  <div className="truncate text-slate-400">
+                  <div className="truncate text-white/55">
                     lastText={row.lastText || "-"}
                   </div>
-                  <div className="truncate text-slate-500">
+                  <div className="truncate text-white/45">
                     sessions={row.inspectedSessions || "-"}
                   </div>
-                  <div className="text-slate-500">
+                  <div className="text-white/45">
                     source={row.inferenceSource}
                   </div>
-                  <div className="text-slate-500">at={row.at}</div>
+                  <div className="text-white/45">at={row.at}</div>
                 </div>
               ))}
             </div>

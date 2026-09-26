@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TaskBoardView } from "@/features/office/tasks/TaskBoardView";
 import type { TaskBoardCard } from "@/features/office/tasks/types";
@@ -77,6 +77,8 @@ const createCronJob = (): CronJobSummary => ({
 });
 
 describe("TaskBoardView", () => {
+  afterEach(() => cleanup());
+
   it("routes task edits through callbacks", () => {
     const onCreateCard = vi.fn();
     const onMoveCard = vi.fn();
@@ -137,5 +139,45 @@ describe("TaskBoardView", () => {
     expect(onMoveCard).toHaveBeenCalledWith("task-1", "in_progress");
     expect(onUpdateCard).toHaveBeenCalledWith("task-1", { assignedAgentId: "agent-1" });
     expect(onDeleteCard).toHaveBeenCalledWith("task-1");
+  });
+
+  it("labels a card's source and owner for a reader, not by raw id", () => {
+    const known = createCard({ assignedAgentId: "agent-1" });
+    // tasks.list is not validated, so a source we have no phrase for can arrive.
+    const unknown = createCard({
+      id: "task-2",
+      title: "Gateway task",
+      source: "hermes_board" as TaskBoardCard["source"],
+    });
+
+    render(
+      createElement(TaskBoardView, {
+        title: "Kanban",
+        subtitle: "Track tasks.",
+        agents: [createAgent()],
+        cardsByStatus: {
+          todo: [known, unknown],
+          in_progress: [],
+          blocked: [],
+          review: [],
+          done: [],
+        },
+        selectedCard: null,
+        activeRuns: [],
+        cronJobs: [],
+        cronLoading: false,
+        cronError: null,
+        onCreateCard: vi.fn(),
+        onMoveCard: vi.fn(),
+        onSelectCard: vi.fn(),
+        onUpdateCard: vi.fn(),
+        onDeleteCard: vi.fn(),
+        onRefreshCronJobs: vi.fn(),
+      })
+    );
+
+    expect(screen.getByText("Вручную")).toBeTruthy();
+    expect(screen.getByText("Agent One")).toBeTruthy();
+    expect(screen.getByText("hermes board")).toBeTruthy();
   });
 });

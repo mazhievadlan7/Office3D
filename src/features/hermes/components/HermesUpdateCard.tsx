@@ -118,24 +118,33 @@ export function HermesUpdateCard() {
     }
   };
 
+  // HQ palette: failure is the error red, a rollback the one orange warning,
+  // everything else the resting red edge. The shadow lives here too, so only
+  // one shadow utility ever reaches the card.
   const tone =
     finishedJob?.status === "rollback_failed" || finishedJob?.status === "failed"
-      ? "border-red-400/40"
+      ? "border-red-500/60 shadow-[0_0_24px_rgba(255,26,26,0.25)]"
       : finishedJob?.status === "rolled_back"
-        ? "border-amber-400/40"
-        : "border-cyan-400/35";
+        ? "border-orange-400/40 shadow-2xl"
+        : "border-red-600/35 shadow-2xl";
 
   return (
-    <div className="pointer-events-none fixed right-3 top-16 z-40 w-[360px] max-w-[calc(100vw-1.5rem)]" data-testid="hermes-update">
-      <section className={`pointer-events-auto rounded-lg border ${tone} bg-black/85 px-4 py-3 shadow-2xl backdrop-blur`}>
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200/80">{t("hermesUpdate.title")}</div>
+    <div className="pointer-events-none fixed right-3 top-[160px] z-40 w-[360px] max-w-[calc(100vw-1.5rem)]" data-testid="hermes-update">
+      <section className={`pointer-events-auto rounded-lg border ${tone} bg-black/85 px-4 py-3 backdrop-blur`}>
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-red-400">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,26,26,0.9)] ${view.running ? "animate-pulse" : ""}`}
+            aria-hidden="true"
+          />
+          {t("hermesUpdate.title")}
+        </div>
         {view.running && job ? (
-          <div className="mt-1 text-sm text-white/90">
+          <div className="mt-1 text-sm text-white">
             {t("hermesUpdate.running", { to: job.to })}
-            <div className="mt-1 text-[12px] text-white/60">{stepLabel(job.step)}</div>
+            <div className="mt-1 font-mono text-[11px] text-red-300">{stepLabel(job.step)}</div>
           </div>
         ) : finishedJob ? (
-          <div className="mt-1 text-sm text-white/90">
+          <div className="mt-1 text-sm text-white">
             {finishedJob.status === "done"
               ? t("hermesUpdate.done", { to: finishedJob.to })
               : finishedJob.status === "rolled_back"
@@ -150,7 +159,7 @@ export function HermesUpdateCard() {
             </div>
           </div>
         ) : (
-          <div className="mt-1 text-sm text-white/90">
+          <div className="mt-1 text-sm text-white">
             {t("hermesUpdate.offer", { latest: view.latest ?? "", current: view.current ?? "" })}
             <div className="mt-1 text-[11px] text-white/55">{t("hermesUpdate.offerNote")}</div>
             <div className="mt-2 flex justify-end gap-2">
@@ -173,7 +182,9 @@ export function HermesUpdateCard() {
             </div>
           </div>
         )}
-        {error ? <div className="mt-2 text-[11px] text-red-200">{error}</div> : null}
+        {error ? (
+          <div className="mt-2 rounded-md border border-red-500/50 bg-red-950/40 px-2 py-1 text-[11px] text-red-400">{error}</div>
+        ) : null}
       </section>
     </div>
   );

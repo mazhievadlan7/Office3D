@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
+import { GEO_BORDER_RANGE, GEO_COAST_RANGE, GEO_SHELF_RANGE } from "@/features/hq/render/map/mapGeo";
 import {
   MAP_HOTSPOT_COUNT,
   MAP_LAT_NORTH,
@@ -13,6 +14,12 @@ import {
 // uniform, never a define, so switching it never recompiles a program.
 
 const HOTSPOT_DEFINE = { HOTSPOT_COUNT: MAP_HOTSPOT_COUNT } as const;
+
+/** A number as a GLSL float literal (always with a decimal point or exponent). */
+function glslFloat(value: number): string {
+  const text = String(value);
+  return /[.e]/.test(text) ? text : `${text}.0`;
+}
 
 const COMMON = /* glsl */ `
 float sq(float x) { return x * x; }
@@ -36,6 +43,15 @@ float hqNoise(vec2 p) {
     mix(hqHash(i + vec2(0.0, 1.0)), hqHash(i + vec2(1.0, 1.0)), u.x),
     u.y
   );
+}
+`;
+
+// Anti-aliased periodic line: 1 on lines every "spacing" units of "coord".
+const GRID = /* glsl */ `
+float gridLine(float coord, float spacing, float halfPx) {
+  float w = max(fwidth(coord), 1e-5);
+  float d = abs(fract(coord / spacing + 0.5) - 0.5) * spacing;
+  return 1.0 - smoothstep(halfPx * w, (halfPx + 1.0) * w, d);
 }
 `;
 
@@ -122,6 +138,9 @@ void main() {
 }
 `;
 
+// The glass around the Earth: frame, ruler ticks, the fallback glyph panels.
+// The Earth itself (and its graticule, day and night, scan) is its own surface
+// in front of it (EARTH_FRAGMENT).
 const PANEL_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
@@ -132,7 +151,6 @@ uniform float uFlicker;
 uniform float uScanY;
 uniform float uQuality;
 uniform vec4 uMapRect;
-uniform vec3 uSunDir;
 uniform float uHud;
 uniform vec4 uGeo;
 uniform vec2 uHalf;
@@ -147,13 +165,7 @@ varying vec2 vLocal;
 varying vec3 vViewPos;
 varying vec3 vViewNormal;
 ${COMMON}
-
-// Anti-aliased periodic line: 1 on lines every "spacing" units of "coord".
-float gridLine(float coord, float spacing, float halfPx) {
-  float w = max(fwidth(coord), 1e-5);
-  float d = abs(fract(coord / spacing + 0.5) - 0.5) * spacing;
-  return 1.0 - smoothstep(halfPx * w, (halfPx + 1.0) * w, d);
-}
+${GRID}
 
 float sdBox(vec2 p, vec2 b) {
   vec2 q = abs(p) - b;
@@ -241,32 +253,12 @@ void main() {
   col *= 1.0 - seams * 0.35;
 
   // Red bleed near the bottom of the glass, like an LED wall lighting its trim.
-  col += uDeep * 0.22 * smoothstep(-uHalf.y * 0.2, -uHalf.y, p.y);
+  col += uDeep * 0.22 * (1.0 - smoothstep(-uHalf.y, -uHalf.y * 0.2, p.y));
 
-  // Graticule inside the land rectangle.
+  // Where the land rectangle is, in degrees, for the ruler ticks.
   vec2 mapUv = (p - uMapRect.xy) / (uMapRect.zw - uMapRect.xy);
   float lon = mix(uGeo.x, uGeo.y, mapUv.x);
   float lat = mix(uGeo.z, uGeo.w, mapUv.y);
-  vec2 mapEdge = min(mapUv, 1.0 - mapUv) * (uMapRect.zw - uMapRect.xy);
-  float inMap = smoothstep(0.0, 0.05, min(mapEdge.x, mapEdge.y));
-  float major = max(gridLine(lon, 30.0, 0.5), gridLine(lat, 20.0, 0.5));
-  float minorFade = clamp(1.0 - fwidth(lon) * 1.5, 0.0, 1.0) * step(0.5, uQuality);
-  float minor = max(gridLine(lon, 10.0, 0.35), gridLine(lat, 10.0, 0.35)) * minorFade;
-  float axes = max(gridLine(lon + 180.0, 360.0, 0.8), gridLine(lat + 90.0, 180.0, 0.8));
-  // Lines keep one pixel of width, so thin them out as the map gets small on
-  // screen or the grid would outshine the land.
-  float far = smoothstep(0.25, 1.2, fwidth(lon));
-  float grat = (major * 0.3 + minor * 0.12 + axes * 0.4) * mix(1.0, 0.45, far);
-  // A slow travelling pulse along the graticule keeps the grid alive.
-  // 0.6981 rad/s is 400 cycles per hour, so the wrapped clock never jumps.
-  float pulse = 0.75 + 0.25 * sin(lon * 0.06 - uTime * 0.6981317);
-  col += uDeep * grat * inMap * pulse * (0.8 + 0.4 * uActivity);
-
-  // Real time: the night half of the Earth is darker, the terminator glows.
-  float sunDot = dot(hqMapDir(lon, lat), uSunDir);
-  float nightSide = 1.0 - smoothstep(-0.12, 0.12, sunDot);
-  col *= 1.0 - 0.35 * nightSide * inMap;
-  col += uAccent * exp(-abs(sunDot) * 38.0) * 0.18 * inMap;
 
   vec2 hs = uHalf - vec2(uFrameInset);
 
@@ -321,9 +313,9 @@ void main() {
     + gridLine(lat, 10.0, 0.6) * inSide * latInside;
   col += uAccent * min(ticks, 1.0) * 0.9;
 
-  // The scan line lights the glass as it passes.
+  // The scan line's soft glow on the glass as it passes.
   float ds = p.y - uScanY;
-  col += uAccent * (exp(-abs(ds) * 5.0) * 0.05 + exp(-ds * ds * 9000.0) * 0.7 * inMap);
+  col += uAccent * exp(-abs(ds) * 5.0) * 0.05;
 
   col *= uFlicker;
   gl_FragColor = vec4(col, 1.0);
@@ -353,141 +345,306 @@ export function createPanelMaterial(shared: MapSharedUniforms): THREE.ShaderMate
   });
 }
 
-// ------------------------------------------------------------------ land dots
+// ---------------------------------------------------------------------- earth
 
-const DOTS_VERTEX = /* glsl */ `
+/**
+ * How dark the night side gets (1 = as bright as day), and the twilight: the
+ * night side fades in over EARTH_TWILIGHT of the Sun's height (sin of its
+ * elevation), so the terminator is a wide, soft shading, never a line.
+ */
+export const EARTH_NIGHT_LEVEL = 0.4;
+export const EARTH_TWILIGHT: readonly [number, number] = [-0.25, 0.3];
+/** City lights switch on over this range of the Sun's height. */
+export const EARTH_LIGHTS_ON: readonly [number, number] = [-0.14, 0.1];
+
+// Terrain palette: black ocean with deep red shelves, land from dark maroon
+// through red to a pale warm white on ice, salt flats and snow-capped peaks.
+const EARTH_COLORS = {
+  ocean: "#050203",
+  shelf: "#3a0a0a",
+  landLow: "#2b0808",
+  landMid: "#6e1010",
+  landHigh: "#a82a22",
+  landPeak: "#b89088",
+  cityCore: "#ffe2d8",
+} as const;
+
+const EARTH_VERTEX = /* glsl */ `
 #include <common>
 #include <fog_pars_vertex>
 #include <logdepthbuf_pars_vertex>
-attribute vec4 aDot;
-uniform float uTime;
-uniform float uActivity;
-uniform float uFlicker;
-uniform float uScanY;
-uniform float uDotSize;
-uniform float uRipple;
-uniform float uReveal;
-uniform vec4 uMapRect;
-uniform vec4 uHotspots[HOTSPOT_COUNT];
-uniform vec3 uSunDir;
 varying vec2 vUv;
-varying float vBright;
-varying float vHot;
-varying float vCity;
-${COMMON}
+varying vec2 vLocal;
+varying vec3 vViewPos;
+varying vec3 vViewNormal;
 void main() {
-  vec2 mp = mix(uMapRect.xy, uMapRect.zw, aDot.xy);
-  float seed = aDot.w;
-
-  // Real time: where the Sun is up right now the land is bright; on the night
-  // side it dims and a share of the dots glow as city lights.
-  vec3 dir = hqMapDir(mix(${MAP_LON_WEST.toFixed(1)}, ${MAP_LON_EAST.toFixed(1)}, aDot.x),
-                      mix(${MAP_LAT_SOUTH.toFixed(1)}, ${MAP_LAT_NORTH.toFixed(1)}, aDot.y));
-  float sunDot = dot(dir, uSunDir);
-  float day = smoothstep(-0.1, 0.15, sunDot);
-  float cityOn = step(0.78, fract(seed * 13.7 + 0.31));
-  float twinkle = 0.75 + 0.25 * sin(uTime * (1.5 + seed * 4.0) + seed * 57.0);
-
-  // Two octaves of slow drifting noise give the matrix its uneven brightness.
-  float n1 = hqNoise(mp * 0.42 + vec2(uTime * 0.045, -uTime * 0.02));
-  float n2 = hqNoise(mp * 1.9 - vec2(uTime * 0.12, uTime * 0.05));
-  float b = (0.22 + 0.62 * n1 * n1 + 0.2 * n2) * mix(0.65, 1.0, seed);
-
-  // Horizontal scan line sweeping down with a fading trail above it.
-  float ds = mp.y - uScanY;
-  float scan = exp(-ds * ds * 60.0) * 1.6 + step(0.0, ds) * exp(-ds * 2.2) * 0.35;
-
-  // A few dots twinkle.
-  float tw = step(0.94, seed) * pow(0.5 + 0.5 * sin(uTime * (1.1 + seed * 3.0) + seed * 97.0), 18.0);
-
-  // Hotspots: steady glow, a repeating ripple, and a big ring when an arc lands.
-  float hot = 0.0;
-  for (int i = 0; i < HOTSPOT_COUNT; i++) {
-    vec4 h = uHotspots[i];
-    float d = distance(mp, h.xy);
-    float ph = fract(uTime * 0.2 + h.z);
-    float ring = (1.0 - ph) * exp(-sq((d - ph * uRipple) / (uDotSize * 1.8)));
-    float glow = exp(-sq(d / (uDotSize * 2.6)));
-    float fr = (1.0 - h.w) * uRipple * 1.7;
-    float flash = h.w * exp(-sq((d - fr) / (uDotSize * 2.4)));
-    hot += ring * 0.7 + glow * 1.6 + flash * 2.6;
-  }
-
-  // Boot-up reveal: the land wipes in from the top with a bright leading edge.
-  float edgeV = 1.0 - aDot.y;
-  float reveal = smoothstep(edgeV, edgeV + 0.06, uReveal * 1.1);
-  float revealEdge = exp(-sq((uReveal * 1.1 - edgeV) * 18.0)) * step(uReveal, 0.999);
-
-  vHot = hot;
-  float terminator = exp(-abs(sunDot) * 16.0) * 0.55;
-  vBright = ((b * mix(0.42, 1.0, day) * (0.8 + 0.4 * uActivity) + scan + tw * 2.2 + terminator) * uFlicker + revealEdge * 2.0) * reveal;
-  vCity = cityOn * (1.0 - day) * twinkle * (0.9 + 0.5 * uActivity) * reveal;
-
-  float size = uDotSize * mix(0.55, 1.0, aDot.z) * (1.0 + min(hot, 1.6) * 0.22) * reveal;
-  vUv = position.xy + 0.5;
-  // Lit dots lift off the glass a few millimetres for a touch of parallax.
-  vec3 pos = vec3(mp + position.xy * size, min(hot + scan * 0.3, 2.0) * 0.012);
-  vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+  vUv = uv;
+  // The plane is built in display-local metres (see HqWorldMap).
+  vLocal = position.xy;
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  vViewPos = mvPosition.xyz;
+  vViewNormal = normalize(normalMatrix * vec3(0.0, 0.0, 1.0));
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
 }
 `;
 
-const DOTS_FRAGMENT = /* glsl */ `
+const EARTH_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
+uniform float uTime;
+uniform float uActivity;
+uniform float uFlicker;
+uniform float uScanY;
+uniform float uReveal;
+uniform float uQuality;
+uniform vec4 uMapRect;
+uniform vec4 uHotspots[HOTSPOT_COUNT];
+uniform vec3 uSunDir;
+uniform sampler2D uGeoMap;
+uniform sampler2D uDayMap;
+uniform sampler2D uNightMap;
+uniform float uDayMix;
+uniform float uNightMix;
+uniform float uSpot;
+uniform vec2 uHalf;
+uniform vec3 uBase;
+uniform vec3 uGlass;
+uniform vec3 uEdge;
 uniform vec3 uAccent;
 uniform vec3 uDeep;
-uniform vec3 uHot;
-uniform vec3 uCity;
+uniform vec3 uOcean;
+uniform vec3 uShelf;
+uniform vec3 uLandLow;
+uniform vec3 uLandMid;
+uniform vec3 uLandHigh;
+uniform vec3 uLandPeak;
+uniform vec3 uCityCore;
 varying vec2 vUv;
-varying float vBright;
-varying float vHot;
-varying float vCity;
-${FOG_KEEP}
+varying vec2 vLocal;
+varying vec3 vViewPos;
+varying vec3 vViewNormal;
+${COMMON}
+${GRID}
+
+const float HQ_LON_W = ${glslFloat(MAP_LON_WEST)};
+const float HQ_LON_E = ${glslFloat(MAP_LON_EAST)};
+const float HQ_LAT_S = ${glslFloat(MAP_LAT_SOUTH)};
+const float HQ_LAT_N = ${glslFloat(MAP_LAT_NORTH)};
+const float HQ_COAST_RANGE = ${glslFloat(GEO_COAST_RANGE)};
+const float HQ_SHELF_RANGE = ${glslFloat(GEO_SHELF_RANGE)};
+const float HQ_BORDER_RANGE = ${glslFloat(GEO_BORDER_RANGE)};
+const float HQ_NIGHT_LEVEL = ${glslFloat(EARTH_NIGHT_LEVEL)};
+const float HQ_TWILIGHT_0 = ${glslFloat(EARTH_TWILIGHT[0])};
+const float HQ_TWILIGHT_1 = ${glslFloat(EARTH_TWILIGHT[1])};
+const float HQ_LIGHTS_0 = ${glslFloat(EARTH_LIGHTS_ON[0])};
+const float HQ_LIGHTS_1 = ${glslFloat(EARTH_LIGHTS_ON[1])};
+// Pitch of the display's LED pixels, metres (seen only up close).
+const float HQ_LED_PITCH = 0.006;
+
+// Relief for the look without imagery: domain-warped ridged value noise.
+float hqRidge(vec2 p) {
+  float n = 1.0 - abs(hqNoise(p) * 2.0 - 1.0);
+  return n * n;
+}
+float hqRelief(vec2 p) {
+  vec2 warp = vec2(hqNoise(p * 0.5 + vec2(3.1, 1.7)), hqNoise(p * 0.5 + vec2(7.7, 4.3)));
+  p += (warp - 0.5) * 0.6;
+  float s = 0.0;
+  float a = 0.55;
+  // Each octave is turned about 37 degrees so the value noise's grid never shows as streaks.
+  mat2 turn = mat2(1.6, 1.2, -1.2, 1.6);
+  for (int i = 0; i < 4; i++) {
+    s += a * hqRidge(p);
+    p = turn * p + vec2(1.3, 2.9);
+    a *= 0.48;
+  }
+  return s;
+}
+
+vec3 hqLandRamp(float t) {
+  vec3 c = mix(uLandLow, uLandMid, smoothstep(0.0, 0.45, t));
+  c = mix(c, uLandHigh, smoothstep(0.42, 0.8, t));
+  return mix(c, uLandPeak, smoothstep(0.8, 1.0, t));
+}
+
 void main() {
   #include <logdepthbuf_fragment>
-  // Round SDF dot with a one-pixel edge centred on the rim at any zoom. When a
-  // dot shrinks below a few pixels the ramp widens and alpha settles near its
-  // mean coverage, so far-away land keeps its brightness without shimmering.
-  float r = length(vUv - 0.5) * 2.0;
-  float aa = max(fwidth(r), 1e-4);
-  float a = clamp((1.0 - r) / aa + 0.5, 0.0, 1.0);
-  if (a <= 0.001) discard;
-  float core = 1.0 - smoothstep(0.0, 0.75, r);
-  float lum = vBright + vHot;
-  // Most dots stay deep red; only lit ones (scan, hotspots) reach full red and
-  // then warm up past 1 for the bloom.
-  vec3 col = mix(uDeep * 2.4, uAccent, smoothstep(0.3, 1.4, lum)) * lum * 0.85;
-  col += uHot * smoothstep(1.3, 3.5, lum) * lum * 0.45 * core;
-  col += uCity * vCity * (0.6 + 1.4 * core);
-  col *= hqFogKeep();
-  gl_FragColor = vec4(col, a);
+  vec2 mapUv = vUv;
+  // Every map texture keeps north on its first row.
+  vec2 tuv = vec2(mapUv.x, 1.0 - mapUv.y);
+  float lon = mix(HQ_LON_W, HQ_LON_E, mapUv.x);
+  float lat = mix(HQ_LAT_S, HQ_LAT_N, mapUv.y);
+
+  // Boot-up reveal: the Earth wipes in from the top behind a bright edge.
+  float edgeV = 1.0 - mapUv.y;
+  float wipe = uReveal * 1.1;
+  float reveal = smoothstep(edgeV, edgeV + 0.06, wipe);
+  float revealEdge = exp(-sq((wipe - edgeV) * 18.0)) * step(0.0005, uReveal) * step(uReveal, 0.999);
+
+  // Vector data (mapGeo.ts): distances in degrees to the coast and borders.
+  vec4 geo = texture2D(uGeoMap, tuv);
+  float coastD = (geo.r - 0.5) * (2.0 * HQ_COAST_RANGE);
+  float shelfD = geo.g * geo.g * HQ_SHELF_RANGE;
+  float borderD = geo.b * HQ_BORDER_RANGE;
+  // Degrees per pixel along the field: every line below stays one pixel wide.
+  float coastW = max(fwidth(coastD), 1e-4);
+  float land = smoothstep(-0.5 * coastW, 0.5 * coastW, coastD);
+  float landShown = land * reveal;
+
+  // Day imagery: its luma is albedo with NASA's shaded relief and bathymetry;
+  // the gap to a blurrier mip is a high-pass that brings the relief out.
+  float dayL = texture2D(uDayMap, tuv).r;
+  float dayMean = texture2D(uDayMap, tuv, 3.0).r;
+  float relief = dayL - dayMean;
+  float imgLand = clamp(dayL * 1.05 + relief * 1.8, 0.0, 1.0);
+  float imgSea = clamp((dayL - 0.07) * 2.2 + relief * 1.2, 0.0, 1.0);
+
+  // Without imagery: noise relief lit from the north-west, lowlands along the
+  // coasts, and seas that deepen away from them. Skipped once imagery is in.
+  float procLand = 0.0;
+  float procSea = 0.0;
+  if (uDayMix < 0.999) {
+    vec2 q = vec2(lon, lat) * 0.075;
+    float h0 = hqRelief(q);
+    float hx = hqRelief(q + vec2(0.035, 0.0));
+    float hy = hqRelief(q + vec2(0.0, 0.035));
+    float shade = clamp(0.5 - ((hx - h0) * -0.6 + (hy - h0) * 0.8) * 9.0, 0.0, 1.0);
+    float inland = smoothstep(0.1, 5.0, shelfD);
+    procLand = clamp(0.1 + 0.42 * h0 * h0 * inland + (shade - 0.5) * 0.55 * (0.4 + 0.6 * inland) + 0.06 * inland, 0.0, 1.0);
+    procSea = 0.62 * exp(-shelfD * 1.4) + 0.2 * exp(-shelfD * 0.25);
+  }
+  float landT = mix(procLand, imgLand, uDayMix);
+  float seaT = mix(procSea, imgSea, uDayMix) * reveal;
+
+  vec3 col = mix(mix(uOcean, uShelf, seaT * seaT), hqLandRamp(landT), landShown);
+
+  // Real time: the Sun lights the day side; the night side dims through a
+  // wide, soft twilight. Deliberately no line or band at the terminator.
+  float sunDot = dot(hqMapDir(lon, lat), uSunDir);
+  float daylight = smoothstep(HQ_TWILIGHT_0, HQ_TWILIGHT_1, sunDot);
+  col *= mix(HQ_NIGHT_LEVEL, 1.0, daylight) * (0.94 + 0.12 * clamp(sunDot, 0.0, 1.0));
+  float dim = mix(0.6, 1.0, daylight);
+
+  // Coastline: a crisp one-pixel line with a soft glow out to sea.
+  float coastLine = 1.0 - smoothstep(0.4 * coastW, 1.2 * coastW, abs(coastD));
+  float seaGlow = (1.0 - land) * exp(-shelfD * 1.8);
+  float rim = land * exp(-shelfD * 3.0);
+  col += uAccent * (coastLine * 0.75 + seaGlow * 0.07 + rim * 0.05) * reveal * dim;
+
+  // Land borders, fainter than the coast.
+  float borderW = max(fwidth(borderD), 1e-4);
+  float border = (1.0 - smoothstep(0.35 * borderW, 1.1 * borderW, borderD)) * land;
+  col += uAccent * border * 0.16 * reveal * dim;
+
+  // City lights on the night side: NASA's Black Marble when it is here,
+  // otherwise the metro glows broken into towns by noise.
+  vec2 gq = mapUv * vec2(720.0, 272.0);
+  float grainOn = clamp(1.6 - fwidth(gq.x) * 1.2, 0.0, 1.0);
+  float grain = mix(0.6, 0.2 + 1.4 * hqNoise(gq) * hqNoise(gq * 2.3 + 5.1), grainOn);
+  float city = mix(geo.a * grain, texture2D(uNightMap, tuv).r, uNightMix);
+  city = min(city, 1.2) * smoothstep(-0.05, 0.02, coastD) * reveal;
+  float nightSide = 1.0 - smoothstep(HQ_LIGHTS_0, HQ_LIGHTS_1, sunDot);
+  // A slow shimmer; 0.6981 rad/s is 400 cycles per hour, so the wrapped clock never jumps.
+  float shimmer = 0.9 + 0.1 * sin(uTime * 0.6981317 + hqNoise(mapUv * vec2(90.0, 34.0)) * 6.2831853);
+  float lightsOn = mix(0.04, 1.0, nightSide) * shimmer * (0.85 + 0.3 * uActivity);
+  col += (uAccent * city * 1.3 + uCityCore * smoothstep(0.5, 1.0, city) * 1.1) * lightsOn;
+
+  // Graticule, fainter over land; a slow pulse travels along it.
+  float major = max(gridLine(lon, 30.0, 0.5), gridLine(lat, 20.0, 0.5));
+  float minorFade = clamp(1.0 - fwidth(lon) * 1.5, 0.0, 1.0) * step(0.5, uQuality);
+  float minor = max(gridLine(lon, 10.0, 0.35), gridLine(lat, 10.0, 0.35)) * minorFade;
+  // Lines keep one pixel of width, so thin them out as the map gets small on screen.
+  float far = smoothstep(0.25, 1.2, fwidth(lon));
+  float grat = (major * 0.5 + minor * 0.18) * mix(1.0, 0.45, far) * mix(1.0, 0.5, landShown);
+  float pulse = 0.85 + 0.15 * sin(lon * 0.06 - uTime * 0.6981317);
+  col += uDeep * grat * pulse * (0.45 + 0.15 * uActivity);
+
+  // Under each live marker, only a faint local glow on the surface: no
+  // ripples or landing rings, which read as clutter on a realistic Earth.
+  float hot = 0.0;
+  float reach = uSpot * 6.0;
+  for (int i = 0; i < HOTSPOT_COUNT; i++) {
+    vec2 dv = vLocal - uHotspots[i].xy;
+    float d2 = dot(dv, dv);
+    if (d2 > reach * reach) continue;
+    hot += exp(-d2 / sq(uSpot * 2.2));
+  }
+  col += uAccent * hot * 0.22 * (0.8 + 0.4 * uActivity) * smoothstep(0.85, 1.0, uReveal);
+
+  // The scan: a thin line sweeping down that briefly lifts what it passes.
+  float ds = vLocal.y - uScanY;
+  float scanW = max(fwidth(vLocal.y) * 1.2, 0.004);
+  float scanTrail = step(0.0, ds) * exp(-ds * 2.4);
+  col *= 1.0 + scanTrail * 0.4 * reveal;
+  col += uAccent * (exp(-sq(ds / scanW)) * 0.5 + revealEdge * 0.9);
+
+  // The display's own structure, seen only up close: LED pixels (once they
+  // span a couple of screen pixels, so they never shimmer; brightness-neutral
+  // on average) and the half-metre module seams the rest of the glass has.
+  // From across the room the seams would lay a tile grid over the Earth.
+  vec2 cell = vLocal / HQ_LED_PITCH;
+  float ledOn = clamp(1.0 - max(fwidth(cell.x), fwidth(cell.y)) * 2.0, 0.0, 1.0);
+  vec2 wave = 0.5 - 0.5 * cos(cell * 6.2831853);
+  col *= 1.0 + ledOn * 0.9 * (wave.x * wave.y - 0.25);
+  float seamNear = 1.0 - smoothstep(0.004, 0.01, max(fwidth(vLocal.x), fwidth(vLocal.y)));
+  float seams = max(gridLine(vLocal.x, 0.5, 0.35), gridLine(vLocal.y, 0.5, 0.35)) * seamNear;
+  col *= 1.0 - seams * 0.35;
+
+  // Melt the edges into the glass around the map (the panel's own gradient and bleed).
+  float gy = clamp(vLocal.y / uHalf.y * 0.5 + 0.5, 0.0, 1.0);
+  float bleed = 1.0 - smoothstep(-uHalf.y, -uHalf.y * 0.2, vLocal.y);
+  vec3 glass = mix(uBase, uGlass * 0.32, gy * 0.8) + uDeep * 0.22 * bleed;
+  col += uDeep * 0.12 * bleed;
+  vec2 edge = min(mapUv, 1.0 - mapUv) * (uMapRect.zw - uMapRect.xy);
+  col = mix(glass, col, smoothstep(0.0, 0.05, min(edge.x, edge.y)));
+
+  // Glass on top: the same fresnel sheen and reflection streak as the panel.
+  vec3 V = normalize(-vViewPos);
+  float fres = pow(1.0 - clamp(abs(dot(normalize(vViewNormal), V)), 0.0, 1.0), 4.0);
+  float streak = smoothstep(0.55, 1.0, sin((vLocal.x * 0.18 + vLocal.y * 0.32) - V.x * 2.2 + 1.3));
+  col += uEdge * (fres * 0.45 + streak * 0.035);
+
+  col *= uFlicker;
+  gl_FragColor = vec4(col, 1.0);
   ${FRAG_OUTPUT}
+  #include <fog_fragment>
 }
 `;
 
-export function createDotsMaterial(shared: MapSharedUniforms): THREE.ShaderMaterial {
+export type EarthMaps = { geo: THREE.Texture; day: THREE.Texture; night: THREE.Texture };
+
+export function createEarthMaterial(shared: MapSharedUniforms, maps: EarthMaps): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    name: "HqMapDots",
+    name: "HqMapEarth",
     defines: { ...HOTSPOT_DEFINE },
     uniforms: withShared(shared, {
-      uDotSize: { value: 0.05 },
-      uRipple: { value: 0.8 },
-      uCity: { value: new THREE.Color("#ff9a6a").multiplyScalar(1.6) },
+      uGeoMap: { value: maps.geo },
+      uDayMap: { value: maps.day },
+      uNightMap: { value: maps.night },
+      uDayMix: { value: 0 },
+      uNightMix: { value: 0 },
+      uSpot: { value: 0.04 },
+      uHalf: { value: new THREE.Vector2(1, 1) },
+      uBase: { value: color(HQ_THEME.background) },
+      uGlass: { value: color(HQ_THEME.glass) },
+      uEdge: { value: color(HQ_THEME.glassEdge) },
       uAccent: { value: color(HQ_THEME.accent) },
       uDeep: { value: color(HQ_THEME.accentDeep) },
-      uHot: { value: color(HQ_THEME.ledWarm) },
+      uOcean: { value: color(EARTH_COLORS.ocean) },
+      uShelf: { value: color(EARTH_COLORS.shelf) },
+      uLandLow: { value: color(EARTH_COLORS.landLow) },
+      uLandMid: { value: color(EARTH_COLORS.landMid) },
+      uLandHigh: { value: color(EARTH_COLORS.landHigh) },
+      uLandPeak: { value: color(EARTH_COLORS.landPeak) },
+      uCityCore: { value: color(EARTH_COLORS.cityCore) },
     }),
-    vertexShader: DOTS_VERTEX,
-    fragmentShader: DOTS_FRAGMENT,
+    vertexShader: EARTH_VERTEX,
+    fragmentShader: EARTH_FRAGMENT,
     fog: true,
     toneMapped: false,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
   });
 }
 
@@ -503,13 +660,11 @@ uniform vec4 uHotspots[HOTSPOT_COUNT];
 uniform float uReveal;
 varying vec2 vUv;
 varying float vPhase;
-varying float vFlash;
 void main() {
   vec4 h = uHotspots[int(aIndex + 0.5)];
-  float s = uSize * (1.0 + h.w * 0.6) * smoothstep(0.85, 1.0, uReveal);
+  float s = uSize * smoothstep(0.85, 1.0, uReveal);
   vUv = position.xy + 0.5;
   vPhase = h.z;
-  vFlash = h.w;
   vec4 mvPosition = modelViewMatrix * vec4(h.xy + position.xy * s, 0.01, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
@@ -529,7 +684,6 @@ uniform vec3 uSoft;
 uniform vec3 uHot;
 varying vec2 vUv;
 varying float vPhase;
-varying float vFlash;
 ${FOG_KEEP}
 float ringAt(float r, float radius, float width) {
   float x = (r - radius) / width;
@@ -541,21 +695,19 @@ void main() {
   float r = length(q);
   float aa = max(fwidth(r), 1e-4);
   if (r > 1.0) discard;
-  float core = 1.0 - smoothstep(0.075 - aa, 0.075 + aa, r);
-  float halo = exp(-r * r * 60.0);
-  float ph = fract(uTime * 0.55 + vPhase);
-  float pulse = ringAt(r, 0.14 + ph * 0.7, 0.03 + aa) * (1.0 - ph);
-  float steady = ringAt(r, 0.2, 0.012 + aa) * 0.6;
-  float flash = ringAt(r, 0.2 + (1.0 - vFlash) * 0.75, 0.05) * vFlash;
-  // Four short crosshair ticks outside the steady ring.
+  // A small crisp point with a thin ring and crosshair ticks, breathing
+  // softly: a target marker, not a glowing orb.
+  float core = 1.0 - smoothstep(0.1 - aa, 0.1 + aa, r);
+  float halo = exp(-r * r * 140.0);
+  float breath = 0.8 + 0.2 * sin(uTime * 1.6 + vPhase * 6.2831853);
+  float steady = ringAt(r, 0.34, 0.018 + aa) * 0.55;
   vec2 aq = abs(q);
-  float crosshair = (step(aq.y, 0.012 + aa) * step(0.27, aq.x) * step(aq.x, 0.38)
-    + step(aq.x, 0.012 + aa) * step(0.27, aq.y) * step(aq.y, 0.38)) * 0.7;
+  float crosshair = (step(aq.y, 0.02 + aa) * step(0.46, aq.x) * step(aq.x, 0.66)
+    + step(aq.x, 0.02 + aa) * step(0.46, aq.y) * step(aq.y, 0.66)) * 0.45;
   float energy = 0.75 + 0.5 * uActivity;
-  vec3 col = uHot * core * 7.0
-    + uSoft * halo * 1.4
-    + uAccent * (pulse * 1.8 + steady + crosshair) * energy
-    + mix(uAccent, uHot, 0.4) * flash * 4.0;
+  vec3 col = uHot * core * 3.2 * breath
+    + uSoft * halo * 0.5
+    + uAccent * (steady + crosshair) * energy;
   col *= uFlicker * hqFogKeep();
   gl_FragColor = vec4(col, 1.0);
   ${FRAG_OUTPUT}
@@ -578,136 +730,6 @@ export function createHotspotMaterial(shared: MapSharedUniforms): THREE.ShaderMa
     toneMapped: false,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-}
-
-// ----------------------------------------------------------------------- arcs
-
-const ARC_VERTEX = /* glsl */ `
-#include <common>
-#include <fog_pars_vertex>
-#include <logdepthbuf_pars_vertex>
-attribute vec4 aEnds;
-attribute vec4 aTiming;
-uniform float uTime;
-uniform float uWidth;
-uniform float uLift;
-uniform vec4 uMapRect;
-varying float vT;
-varying float vSide;
-varying float vLife;
-varying float vLen;
-
-vec3 arcAt(vec2 a, vec2 b, vec2 c, float lift, float t) {
-  vec2 p = mix(mix(a, c, t), mix(c, b, t), t);
-  return vec3(p, 0.02 + sin(PI * t) * lift);
-}
-
-void main() {
-  float t = position.x;
-  float side = position.y;
-  vT = t;
-  vSide = side;
-  vLife = -1.0;
-  vLen = 1.0;
-  if (aTiming.y <= 0.0) {
-    // Free slot: collapse every vertex outside the clip volume.
-    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-    return;
-  }
-  vec2 a = mix(uMapRect.xy, uMapRect.zw, aEnds.xy);
-  vec2 b = mix(uMapRect.xy, uMapRect.zw, aEnds.zw);
-  vec2 d = b - a;
-  float len = max(length(d), 1e-3);
-  vec2 n = vec2(-d.y, d.x) / len;
-  vec2 c = 0.5 * (a + b) + n * len * aTiming.z;
-  float lift = len * uLift;
-  vec3 p = arcAt(a, b, c, lift, t);
-  vec3 tangent = arcAt(a, b, c, lift, min(t + 0.004, 1.0)) - arcAt(a, b, c, lift, max(t - 0.004, 0.0));
-
-  // Screen-facing ribbon: offset across the tangent and the view ray.
-  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-  vec3 tv = (modelViewMatrix * vec4(tangent, 0.0)).xyz;
-  vec3 across = cross(tv, mvPosition.xyz);
-  float al = length(across);
-  across = al > 1e-8 ? across / al : vec3(0.0, 1.0, 0.0);
-  float taper = 0.55 + 0.45 * smoothstep(0.0, 0.06, t) * smoothstep(1.0, 0.94, t);
-  mvPosition.xyz += across * side * uWidth * taper;
-
-  vLife = (uTime - aTiming.x) / aTiming.y;
-  vLen = len * (1.0 + abs(aTiming.z)) + lift;
-  gl_Position = projectionMatrix * mvPosition;
-  #include <logdepthbuf_vertex>
-  #include <fog_vertex>
-}
-`;
-
-const ARC_FRAGMENT = /* glsl */ `
-#include <common>
-#include <fog_pars_fragment>
-#include <logdepthbuf_pars_fragment>
-uniform float uTime;
-uniform float uTail;
-uniform float uSmooth;
-uniform float uFade;
-uniform float uIntensity;
-uniform vec3 uAccent;
-uniform vec3 uDeep;
-uniform vec3 uHot;
-varying float vT;
-varying float vSide;
-varying float vLife;
-varying float vLen;
-${FOG_KEEP}
-void main() {
-  #include <logdepthbuf_fragment>
-  float behind = vLife - vT;
-  if (behind < 0.0) discard;
-  // Soft ribbon edges (hard on low quality).
-  float e = 1.0 - abs(vSide);
-  float edge = mix(step(0.35, e), e * e * (3.0 - 2.0 * e), uSmooth);
-  // Comet tail behind the head, then a faint dashed trail that fades out after
-  // the arc lands.
-  float tail = mix(step(behind, uTail), 1.0 - smoothstep(0.0, uTail, behind), uSmooth);
-  float after = max(vLife - 1.0, 0.0);
-  float fadeOut = 1.0 - smoothstep(0.0, uFade, after - uTail * 0.5);
-  float fadeIn = mix(1.0, smoothstep(0.0, 0.08, vLife), uSmooth);
-  float along = vT * vLen;
-  float dashPhase = fract(along * 4.0 - uTime * 1.6);
-  float dash = smoothstep(0.0, 0.08, dashPhase) * (1.0 - smoothstep(0.42, 0.5, dashPhase));
-  float trail = 0.16 + 0.22 * dash;
-  float headGlow = exp(-behind * vLen * 14.0) * (1.0 - smoothstep(1.0, 1.04, vLife));
-  vec3 col = uDeep * 2.4 * trail
-    + uAccent * tail * 1.5 * (1.0 - smoothstep(1.0, 1.0 + uTail, vLife) * 0.6)
-    + uHot * headGlow * 6.0;
-  col *= edge * fadeOut * fadeIn * uIntensity * hqFogKeep();
-  gl_FragColor = vec4(col, 1.0);
-  ${FRAG_OUTPUT}
-}
-`;
-
-export function createArcMaterial(shared: MapSharedUniforms): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
-    name: "HqMapArcs",
-    uniforms: withShared(shared, {
-      uWidth: { value: 0.02 },
-      uLift: { value: 0.07 },
-      uTail: { value: 0.32 },
-      uSmooth: { value: 1 },
-      uFade: { value: 0.5 },
-      uIntensity: { value: 1 },
-      uAccent: { value: color(HQ_THEME.accent) },
-      uDeep: { value: color(HQ_THEME.accentDeep) },
-      uHot: { value: color(HQ_THEME.ledWarm) },
-    }),
-    vertexShader: ARC_VERTEX,
-    fragmentShader: ARC_FRAGMENT,
-    fog: true,
-    toneMapped: false,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
   });
 }
@@ -791,3 +813,6 @@ export function createGlowMaterial(shared: MapSharedUniforms, mode: 0 | 1): THRE
     polygonOffsetUnits: -2,
   });
 }
+
+/** For tests: the GLSL of the surfaces that draw day and night. */
+export const MAP_SHADER_SOURCES = { panel: PANEL_FRAGMENT, earth: EARTH_FRAGMENT } as const;

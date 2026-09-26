@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
+import {
+  HQ_FORM_BUTTON_PRIMARY,
+  HQ_FORM_HINT,
+  HQ_FORM_SECTION,
+  HQ_FORM_SECTION_TITLE,
+  HQ_FORM_SELECT,
+} from "@/features/agents/components/hqFormStyles";
 import { useHermesControl } from "@/features/hermes/HermesControlContext";
 
 type ModelOption = { id: string; name: string; provider: string };
@@ -58,13 +65,13 @@ export function HermesAgentModelSection({ agentId }: { agentId: string }) {
   };
 
   return (
-    <section className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3" data-testid="agent-settings-hermes-model">
-      <div className="text-[11px] font-medium text-foreground">{t("hermesModels.agentModelTitle")}</div>
-      <div className="mt-1 text-[10px] text-muted-foreground">{t("hermesModels.agentModelLead")}</div>
+    <section className={HQ_FORM_SECTION} data-testid="agent-settings-hermes-model">
+      <div className={HQ_FORM_SECTION_TITLE}>{t("hermesModels.agentModelTitle")}</div>
+      <div className={`mt-1.5 ${HQ_FORM_HINT}`}>{t("hermesModels.agentModelLead")}</div>
       <div className="mt-3 flex items-center gap-2">
         <select
           aria-label={t("hermesModels.agentModelTitle")}
-          className="ui-input h-10 min-w-0 flex-1 rounded px-2 text-[11px]"
+          className={`h-10 min-w-0 flex-1 ${HQ_FORM_SELECT}`}
           value={choice}
           onChange={(event) => setChoice(event.target.value)}
         >
@@ -78,14 +85,14 @@ export function HermesAgentModelSection({ agentId }: { agentId: string }) {
         </select>
         <button
           type="button"
-          className="ui-btn-primary h-10 px-3 text-[11px] font-semibold"
+          className={`h-10 ${HQ_FORM_BUTTON_PRIMARY}`}
           disabled={busy || !choice || choice === current}
           onClick={() => void save()}
         >
           {t("settings.save")}
         </button>
       </div>
-      {message ? <div className="mt-2 text-[11px] text-muted-foreground">{message}</div> : null}
+      {message ? <div className="mt-2 text-[11px] text-white/70">{message}</div> : null}
     </section>
   );
 }

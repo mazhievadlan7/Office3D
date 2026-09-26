@@ -83,9 +83,18 @@ export const listGatewayTasks = async (
   client: GatewayClient,
   params: { includeArchived?: boolean } = {}
 ): Promise<GatewayTasksListResult> => {
-  return client.call<GatewayTasksListResult>("tasks.list", {
+  const result = await client.call<Partial<GatewayTasksListResult> | null>("tasks.list", {
     includeArchived: params.includeArchived ?? true,
   });
+  // The reply is not validated upstream: a backend that answers an unknown
+  // method with an empty object must read as "no tasks", not break the board.
+  const tasks = Array.isArray(result?.tasks)
+    ? result.tasks.filter(
+        (task): task is GatewayTaskRecord =>
+          Boolean(task) && typeof task.id === "string" && task.id.length > 0,
+      )
+    : [];
+  return { tasks, authoritative: result?.authoritative === true };
 };
 
 export const createGatewayTask = async (

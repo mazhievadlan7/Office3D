@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import type { HermesControl } from "@/features/hermes/HermesControlContext";
+import {
+  HQ_BUTTON_SECONDARY,
+  HQ_CARD,
+  HQ_DOT_OFF,
+  HQ_DOT_ON,
+} from "@/features/agents/components/hqFormClasses";
 
 type CheckRow = {
   id: string;
@@ -21,11 +27,12 @@ type Health = {
   configProblems: string[];
 };
 
+// A problem is the one lit red dot; «in order» stays calm white.
 const dot: Record<CheckRow["status"], string> = {
   ok: "bg-white/85",
-  checking: "animate-pulse bg-red-300/70",
-  problem: "bg-red-500",
-  unknown: "bg-white/30",
+  checking: `animate-pulse ${HQ_DOT_ON}`,
+  problem: HQ_DOT_ON,
+  unknown: HQ_DOT_OFF,
 };
 
 const statusText = (status: CheckRow["status"]) =>
@@ -85,43 +92,45 @@ export function SystemHealthSection({ control }: { control: HermesControl }) {
     });
 
   return (
-    <div className="mt-3 rounded-lg border border-red-500/10 bg-black/20 px-4 py-3" data-testid="system-health">
+    <div className={`${HQ_CARD} mt-3 px-4 py-3`} data-testid="system-health">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] font-medium text-white">{t("systemHealth.title")}</div>
-          <div className="mt-1 text-[10px] text-white/75">{t("systemHealth.lead")}</div>
+          <div className="text-[12px] font-semibold text-white">{t("systemHealth.title")}</div>
+          <div className="mt-1 text-[11px] leading-snug text-white/65">{t("systemHealth.lead")}</div>
         </div>
-        <button type="button" className="ui-btn-secondary shrink-0 px-2 py-1 text-[10px]" disabled={busy} onClick={() => void run(() => load(true))}>
+        <button type="button" className={`${HQ_BUTTON_SECONDARY} shrink-0 px-3 py-1.5 text-[10px]`} disabled={busy} onClick={() => void run(() => load(true))}>
           {t("systemHealth.refresh")}
         </button>
       </div>
       <div className="mt-3 space-y-1.5">
-        {health === null ? <div className="text-[11px] text-white/50">{t("systemHealth.loading")}</div> : null}
+        {health === null ? <div className="text-[11px] text-white/45">{t("systemHealth.loading")}</div> : null}
         {health?.checks.map((check) => (
           <div key={check.id} className="flex items-start gap-2 text-[11px]" data-testid={`system-health-${check.id}`}>
             <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dot[check.status]}`} aria-hidden />
             <span className="min-w-0">
               <span className="text-white/90">{check.label}</span>
-              <span className="ml-2 text-white/50">{statusText(check.status)}</span>
+              <span className={`ml-2 font-mono text-[10px] uppercase tracking-[0.12em] ${check.status === "problem" ? "text-[var(--status-running-fg)]" : "text-white/45"}`}>
+                {statusText(check.status)}
+              </span>
               {check.detail ? <span className="block truncate text-white/55">{check.detail}</span> : null}
             </span>
           </div>
         ))}
       </div>
       {health ? (
-        <div className="mt-3 text-[10px] text-white/60">
+        <div className="mt-3 text-[10px] leading-snug text-white/55">
           {health.channels.length ? t("systemHealth.channels", { channels: health.channels.join(", ") }) : t("systemHealth.noChannels")}
           {" "}
           {health.heartbeat ? t("systemHealth.heartbeatOn") : t("systemHealth.heartbeatOff")}
         </div>
       ) : null}
-      {health?.configProblems.length ? <div className="mt-1 text-[10px] text-red-200">{health.configProblems.join(" ")}</div> : null}
+      {health?.configProblems.length ? <div className="ui-text-danger mt-1 text-[10px]">{health.configProblems.join(" ")}</div> : null}
       <div className="mt-2 flex justify-end">
-        <button type="button" className="ui-btn-secondary px-2 py-1 text-[10px]" disabled={busy} onClick={() => void test()}>
+        <button type="button" className={`${HQ_BUTTON_SECONDARY} px-3 py-1.5 text-[10px]`} disabled={busy} onClick={() => void test()}>
           {t("systemHealth.test")}
         </button>
       </div>
-      {message ? <div className={`mt-2 text-[11px] ${message.kind === "error" ? "text-red-200" : "text-white/70"}`}>{message.text}</div> : null}
+      {message ? <div className={`mt-2 text-[11px] ${message.kind === "error" ? "ui-text-danger" : "text-white/70"}`}>{message.text}</div> : null}
     </div>
   );
 }

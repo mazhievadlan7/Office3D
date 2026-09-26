@@ -3,6 +3,21 @@
 import { useMemo, useState } from "react";
 
 import type { AgentState } from "@/features/agents/state/store";
+import {
+  HQ_BADGE,
+  HQ_CARD_BUTTON,
+  HQ_DOT_DONE,
+  HQ_DOT_ERROR,
+  HQ_DOT_LIVE,
+  HQ_EMPTY,
+  HQ_LABEL,
+  HQ_META,
+  HQ_PANEL_HEADER,
+  HQ_PANEL_LEAD,
+  HQ_PANEL_TITLE,
+  HQ_SELECT,
+  HQ_VALUE,
+} from "@/features/office/components/panels/hqPanelStyles";
 import type { RunRecord, RunTriggerKind } from "@/features/office/hooks/useRunLog";
 import { t } from "@/lib/i18n";
 import { formatDurationShort } from "@/lib/text/duration";
@@ -47,25 +62,20 @@ export function HistoryPanel({
   }, [agentFilter, runs, triggerFilter]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-cyan-500/10 px-4 py-3">
-        <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/70">
-          {t("history.title")}
-        </div>
-        <div className="mt-1 font-mono text-[11px] text-white/40">
-          {t("history.lead")}
-        </div>
+    // A container so the filters and run facts reflow in the narrow rail.
+    <section className="@container flex h-full min-h-0 flex-col">
+      <div className={HQ_PANEL_HEADER}>
+        <div className={HQ_PANEL_TITLE}>{t("history.title")}</div>
+        <div className={HQ_PANEL_LEAD}>{t("history.lead")}</div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 border-b border-cyan-500/10 px-4 py-3">
-        <label className="flex flex-col gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            {t("history.agent")}
-          </span>
+      <div className="grid shrink-0 grid-cols-1 gap-2 border-b border-red-900/40 px-3 py-3 @2xs:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className={HQ_LABEL}>{t("history.agent")}</span>
           <select
             value={agentFilter}
             onChange={(event) => setAgentFilter(event.target.value)}
-            className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+            className={HQ_SELECT}
           >
             <option value="all">{t("history.allAgents")}</option>
             {agents.map((agent) => (
@@ -76,14 +86,12 @@ export function HistoryPanel({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">
-            {t("history.trigger")}
-          </span>
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className={HQ_LABEL}>{t("history.trigger")}</span>
           <select
             value={triggerFilter}
             onChange={(event) => setTriggerFilter(event.target.value as "all" | RunTriggerKind)}
-            className="rounded border border-white/10 bg-black/50 px-2 py-2 font-mono text-[11px] text-white/80 outline-none"
+            className={HQ_SELECT}
           >
             <option value="all">{t("history.allTriggers")}</option>
             <option value="user">{t("history.triggerUser")}</option>
@@ -93,56 +101,49 @@ export function HistoryPanel({
         </label>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {filteredRuns.length === 0 ? (
-          <div className="px-2 py-6 font-mono text-[11px] text-white/35">
-            {t("history.empty")}
-          </div>
+          <div className={HQ_EMPTY}>{t("history.empty")}</div>
         ) : (
           filteredRuns.map((run) => {
             const isRunning = run.endedAt === null;
+            const isError = !isRunning && run.outcome === "error";
             return (
               <button
                 key={run.runId}
                 type="button"
                 onClick={() => onSelectAgent(run.agentId)}
-                className="mb-2 flex w-full flex-col rounded border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/[0.05]"
+                className={`${HQ_CARD_BUTTON} flex flex-col px-3 py-2.5`}
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      isRunning
-                        ? "bg-amber-400"
-                        : run.outcome === "error"
-                          ? "bg-rose-400"
-                          : "bg-emerald-400"
-                    }`}
-                  />
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
+                  <span className={isRunning ? HQ_DOT_LIVE : isError ? HQ_DOT_ERROR : HQ_DOT_DONE} />
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
                     {run.agentName}
                   </span>
-                  <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-cyan-200">
-                    {TRIGGER_LABELS[run.trigger]}
-                  </span>
+                  <span className={HQ_BADGE}>{TRIGGER_LABELS[run.trigger]}</span>
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/38">
-                  <div>
-                    <div>{t("history.started")}</div>
-                    <div className="mt-1 text-[11px] text-white/75">{formatClockTime(run.startedAt)}</div>
+                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-2">
+                  <div className="min-w-0 max-w-full">
+                    <div className={HQ_META}>{t("history.started")}</div>
+                    <div className={`mt-1 ${HQ_VALUE}`}>{formatClockTime(run.startedAt)}</div>
                   </div>
-                  <div>
-                    <div>{t("history.duration")}</div>
-                    <div className="mt-1 text-[11px] text-white/75">
+                  <div className="min-w-0 max-w-full">
+                    <div className={HQ_META}>{t("history.duration")}</div>
+                    <div className={`mt-1 truncate ${HQ_VALUE}`}>
                       {formatDuration(run.startedAt, run.endedAt)}
                     </div>
                   </div>
-                  <div>
-                    <div>{t("history.outcome")}</div>
-                    <div className="mt-1 text-[11px] text-white/75">
+                  <div className="min-w-0 max-w-full">
+                    <div className={HQ_META}>{t("history.outcome")}</div>
+                    <div
+                      className={`mt-1 truncate font-mono text-[11px] ${
+                        isRunning ? "text-red-300" : isError ? "text-red-400" : "text-white"
+                      }`}
+                    >
                       {isRunning
                         ? t("history.outcomeRunning")
-                        : run.outcome === "error"
+                        : isError
                           ? t("history.outcomeError")
                           : t("history.outcomeCompleted")}
                     </div>

@@ -8,6 +8,13 @@ import { useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Wifi, WifiOff } from "lucide-react";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { t } from "@/lib/i18n";
+import {
+  HQ_BUTTON_PRIMARY,
+  HQ_FIELD,
+  HQ_ICON_BUTTON,
+  HQ_INSET,
+  HQ_LABEL,
+} from "@/features/agents/components/hqFormClasses";
 
 export type ConnectStepProps = {
   gatewayUrl: string;
@@ -35,11 +42,11 @@ export const ConnectStep = ({
   if (connected) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/20">
-          <CheckCircle2 className="h-6 w-6 text-amber-300" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-primary/15 shadow-[0_0_24px_rgba(255,26,26,0.3)]">
+          <CheckCircle2 className="h-6 w-6 text-primary" />
         </div>
         <p className="text-sm font-semibold text-white">{t("onboarding.connected")}</p>
-        <p className="text-xs text-white/60">
+        <p className="text-xs text-white/65">
           {t("onboarding.connectedLead")}
         </p>
       </div>
@@ -48,33 +55,33 @@ export const ConnectStep = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2.5">
-        <WifiOff className="h-4 w-4 text-white/40" />
-        <p className="text-xs text-white/60">{t("onboarding.notConnected")}</p>
+      <div className={`${HQ_INSET} flex items-center gap-2 px-3 py-2.5`}>
+        <WifiOff className="h-4 w-4 text-primary/80" />
+        <p className="text-xs text-white/65">{t("onboarding.notConnected")}</p>
       </div>
 
       <div className="space-y-3">
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium text-white/80">
+          <span className={`${HQ_LABEL} text-[10px] font-semibold`}>
             {t("onboarding.gatewayUrl")}
           </span>
           <input
-            className="h-9 rounded-md border border-white/10 bg-white/5 px-3 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-400/50"
+            className={`${HQ_FIELD} h-9 px-3 font-mono text-[13px]`}
             type="text"
             value={gatewayUrl}
             onChange={(e) => onGatewayUrlChange(e.target.value)}
-            placeholder="ws://localhost:18789 or wss://your-host"
+            placeholder="ws://localhost:18789"
             spellCheck={false}
           />
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium text-white/80">
+          <span className={`${HQ_LABEL} text-[10px] font-semibold`}>
             {t("onboarding.gatewayToken")}
           </span>
           <div className="relative">
             <input
-              className="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 pr-9 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-400/50"
+              className={`${HQ_FIELD} h-9 w-full px-3 pr-9 font-mono text-[13px]`}
               type={showToken ? "text" : "password"}
               value={token}
               onChange={(e) => onTokenChange(e.target.value)}
@@ -83,7 +90,7 @@ export const ConnectStep = ({
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-1 my-auto flex h-7 w-7 items-center justify-center rounded text-white/50 hover:text-white"
+              className={`${HQ_ICON_BUTTON} absolute inset-y-0 right-1 my-auto h-7 w-7`}
               onClick={() => setShowToken((prev) => !prev)}
               aria-label={showToken ? t("onboarding.hideToken") : t("onboarding.showToken")}
             >
@@ -98,7 +105,7 @@ export const ConnectStep = ({
 
         <button
           type="button"
-          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-4 text-xs font-semibold text-[#1a1206] transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${HQ_BUTTON_PRIMARY} h-9 w-full px-4 text-[10px]`}
           onClick={onConnect}
           disabled={connecting || !gatewayUrl.trim()}
         >
@@ -117,22 +124,22 @@ export const ConnectStep = ({
       </div>
 
       {error ? (
-        <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <p className="ui-alert-danger rounded-md px-3 py-2 text-xs">
           {error}
         </p>
       ) : null}
 
-      <div className="space-y-1.5 text-[11px] text-white/40">
+      <div className="space-y-1.5 text-[11px] text-white/45">
         <p>
-          <strong className="text-white/60">{t("onboarding.hintLocal")}</strong> {t("onboarding.use")}{" "}
-          <code className="text-white/50">ws://localhost:18789</code>
+          <strong className="text-white/70">{t("onboarding.hintLocal")}</strong> {t("onboarding.use")}{" "}
+          <code className="text-white/65">ws://localhost:18789</code>
         </p>
         <p>
-          <strong className="text-white/60">{t("onboarding.hintTailscale")}</strong> {t("onboarding.use")}{" "}
-          <code className="text-white/50">wss://your-host.ts.net</code>
+          <strong className="text-white/70">{t("onboarding.hintTailscale")}</strong> {t("onboarding.use")}{" "}
+          <code className="text-white/65">wss://your-host.ts.net</code>
         </p>
         <p>
-          <strong className="text-white/60">{t("onboarding.hintSsh")}</strong> {t("onboarding.hintSshLead")}
+          <strong className="text-white/70">{t("onboarding.hintSsh")}</strong> {t("onboarding.hintSshLead")}
         </p>
       </div>
     </div>

@@ -355,6 +355,12 @@
     background-image: none;
     opacity: 0;
   }
+
+  /* Hint text in any field that sets no placeholder colour of its own
+     (a placeholder:* class still wins; this is the base layer). */
+  ::placeholder {
+    color: var(--input-placeholder, color-mix(in oklab, currentcolor 50%, transparent));
+  }
 }
 
 button:not(:disabled),
@@ -366,58 +372,178 @@ summary,
   cursor: pointer;
 }
 
-/* The HQ view: black surfaces with red accents, matching the 3D scene
-   (HQ_THEME in src/features/hq/core/config.ts). Set on the office screen in
-   HQ mode, so every token-based panel inside it follows. */
+/* The HQ: the app's one and only look. Near-black surfaces with a faint red
+   tint, red accents, white text, matching the 3D scene (HQ_THEME in
+   src/features/hq/core/config.ts). Set on <html> next to .dark (layout.tsx),
+   so modals and popovers portaled into <body> follow too, and declared after
+   .dark with the same specificity, so every token here wins. It redefines
+   every colour token of :root/.dark (tests/unit/hqThemeTokens.test.ts keeps
+   it that way); radii, fonts and spacing stay shared.
+   Tailwind red scale used below: red-300 #ffa2a2, red-400 #ff6467,
+   red-500 #fb2c36, red-600 #e7000b, red-700 #c10007, red-900 #82181a,
+   red-950 #460809. The only non-red hue is orange-300 for "needs approval". */
 .hq-theme {
+  color-scheme: dark;
+  accent-color: #e3141c;
+
   --neutral-tint-rgb: rgb(168 70 70);
   --neutral-tint: #a84646;
+
   --background: #050404;
-  --foreground: rgb(252 242 242 / 0.96);
+  --foreground: #ffffff;
   --card: #0b0707;
-  --card-foreground: rgb(252 242 242 / 0.96);
+  --card-foreground: #ffffff;
   --popover: #0b0707;
-  --popover-foreground: rgb(252 242 242 / 0.94);
+  --popover-foreground: #ffffff;
   --primary: #e3141c;
   --primary-foreground: #ffffff;
-  --muted-foreground: rgb(255 196 196 / 0.7);
-  --accent-foreground: rgb(252 242 242 / 0.94);
-  --border: rgb(255 48 48 / 0.22);
-  --input: rgb(255 48 48 / 0.16);
+  --secondary: #140909;
+  --secondary-foreground: #ffffff;
+  --muted: #1d0c0d;
+  --muted-foreground: rgb(255 255 255 / 0.65);
+  /* red-950/40: the hover wash of menus, rows and ghost buttons. */
+  --accent: rgb(70 8 9 / 0.4);
+  --accent-foreground: #ffffff;
+  --destructive: #fb2c36;
+  --destructive-foreground: #ffffff;
+  /* red-900/40 at rest, red-900/50 around fields. */
+  --border: rgb(130 24 26 / 0.4);
+  --input: rgb(130 24 26 / 0.5);
   --ring: #ff2a2a;
+
+  /* Charts: one red to white ramp, no second hue. */
+  --chart-1: #e3141c;
+  --chart-2: #ff4d4f;
+  --chart-3: #ff8a8c;
+  --chart-4: #ffc4c5;
+  --chart-5: #ffffff;
+
   --sidebar: #070505;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #e3141c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(70 8 9 / 0.4);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(130 24 26 / 0.4);
   --sidebar-ring: #ff2a2a;
+  --sidebar-card-bg: #0b0707;
+  --sidebar-card-border: rgb(130 24 26 / 0.4);
+  --sidebar-input-bg: rgb(0 0 0 / 0.6);
+  --sidebar-input-border: rgb(130 24 26 / 0.5);
+  --sidebar-control-off: #1d0c0c;
+  --sidebar-control-on: #e3141c;
+
+  --panel: #0b0707;
+  --panel-border: rgb(130 24 26 / 0.4);
+  --shadow-color: #000000;
+  --shadow-opacity: 0.5;
   --surface-0: #050404;
   --surface-1: #0b0707;
   --surface-2: #140909;
   --surface-3: #1d0c0c;
-  --surface-selected: #2a0d0e;
-  --surface-selected-border: #7a151a;
-  --status-running-bg: rgb(255 26 26 / 0.16);
-  --status-running-border: rgb(255 42 42 / 0.45);
-  --status-running-fg: #ffb3b3;
-  --status-connected-bg: rgb(255 26 26 / 0.14);
-  --status-connected-border: rgb(255 42 42 / 0.4);
-  --status-connected-fg: #ffc2c2;
-  --status-connecting-bg: rgb(255 60 40 / 0.14);
-  --status-connecting-border: rgb(255 70 50 / 0.4);
-  --status-connecting-fg: #ffc7bd;
-  --status-approval-bg: rgb(255 60 40 / 0.16);
-  --status-approval-border: rgb(255 70 50 / 0.45);
-  --status-approval-fg: #ffc7bd;
+  /* Selected: red-600/20 flattened onto the card, with a red-500/60 edge. */
+  --surface-selected: #34070a;
+  --surface-selected-border: rgb(251 44 54 / 0.6);
+  --elev-overlay-1: rgb(255 255 255 / 0.03);
+  --elev-overlay-2: rgb(255 255 255 / 0.05);
+  --elev-overlay-3: rgb(255 255 255 / 0.08);
+  --elev-edge-1: rgb(130 24 26 / 0.45);
+  --elev-edge-2: rgb(231 0 11 / 0.35);
+
+  --plane-workspace-bg: #070404;
+  --plane-workspace-border: rgb(130 24 26 / 0.4);
+  --plane-sidepanel-bg: #070404;
+  --plane-sidepanel-border: rgb(130 24 26 / 0.4);
+  --plane-card-bg: #0b0707;
+  --plane-card-border: rgb(130 24 26 / 0.4);
+
+  --chat-surface-bg: #070404;
+  --chat-assistant-bg: #0f0909;
+  --chat-assistant-border: rgb(130 24 26 / 0.6);
+  --chat-user-bg: #1a0a0b;
+  --chat-user-border: rgb(193 0 7 / 0.4);
+  --chat-user-header-bg: rgb(193 0 7 / 0.14);
+
+  --action-bg: #e3141c;
+  --action-bg-hover: #ff2a2a;
+  --action-border: rgb(255 42 42 / 0.6);
+  --action-fg: #ffffff;
+
+  /* Errors: red-400 text on red-950/40 inside a red-500/50 edge. */
+  --danger-soft-bg: rgb(70 8 9 / 0.4);
+  --danger-soft-border: rgb(251 44 54 / 0.5);
+  --danger-soft-fg: #ff6467;
+
+  /* Statuses are told apart by weight, not hue: white for idle, red-300 for
+     running, white with a red dot for connected. Never green or teal. */
+  --status-idle-bg: rgb(255 255 255 / 0.04);
+  --status-idle-border: rgb(255 255 255 / 0.14);
+  --status-idle-fg: rgb(255 255 255 / 0.72);
+  --status-running-bg: rgb(227 20 28 / 0.16);
+  --status-running-border: rgb(251 44 54 / 0.45);
+  --status-running-fg: #ffa2a2;
+  --status-error-bg: rgb(70 8 9 / 0.4);
+  --status-error-border: rgb(251 44 54 / 0.5);
+  --status-error-fg: #ff6467;
+  --status-connecting-bg: rgb(255 255 255 / 0.05);
+  --status-connecting-border: rgb(255 162 162 / 0.3);
+  --status-connecting-fg: #ffd4d4;
+  --status-connected-bg: rgb(227 20 28 / 0.12);
+  --status-connected-border: rgb(251 44 54 / 0.4);
+  --status-connected-fg: #ffffff;
+  --status-disconnected-bg: rgb(255 255 255 / 0.04);
+  --status-disconnected-border: rgb(255 255 255 / 0.14);
+  --status-disconnected-fg: rgb(255 255 255 / 0.55);
+  --status-approval-bg: rgb(255 105 0 / 0.1);
+  --status-approval-border: rgb(255 184 106 / 0.45);
+  --status-approval-fg: #ffb86a;
+
   --command-bg: #070303;
-  --command-border: rgb(122 21 26 / 0.7);
-  --command-fg: rgb(255 236 236 / 0.96);
+  --command-border: rgb(130 24 26 / 0.6);
+  --command-fg: #ffffff;
+  --command-copy-bg: #140909;
+  --command-copy-hover-bg: #2a0d0e;
+  --command-copy-border: rgb(130 24 26 / 0.6);
+  --model-control-border: rgb(231 0 11 / 0.45);
+
+  /* HQ-only extras; the rules that read them fall back to the old look. */
+  --status-connected-dot: #ff2a2a;
+  --hover-bg: rgb(70 8 9 / 0.4);
+  --hover-border: rgb(251 44 54 / 0.5);
+  --hover-ring: inset 0 0 0 1px rgb(251 44 54 / 0.5);
+  --action-glow: 0 0 14px rgb(255 26 26 / 0.25);
+  --input-placeholder: rgb(255 255 255 / 0.35);
+  --scrollbar-thumb: rgb(130 24 26 / 0.75);
+  --scrollbar-thumb-hover: rgb(193 0 7 / 0.85);
 }
 
+/* In the base layer so a field's own selection:* or bg-* class still wins
+   (unlayered, these would beat every Tailwind utility). */
+@layer base {
+  /* Selected text is red in the HQ. Literal colours: ::selection does not
+     reliably see custom properties in every engine. */
+  ::selection {
+    background: rgb(227 20 28 / 0.45);
+    color: #ffffff;
+  }
+
+  /* Native dropdown rows follow the popover surface (color-scheme alone
+     leaves them grey on some platforms). */
+  option,
+  optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+}
+
+/* Thin scrollbars everywhere, thumb from the theme (dark red in the HQ). */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--foreground) 11%, var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 11%, var(--border))) transparent;
 }
 
 .dark * {
-  scrollbar-color: color-mix(in oklch, var(--foreground) 34%, var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 34%, var(--border))) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -430,21 +556,21 @@ summary,
 }
 
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 11%, var(--border));
+  background: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 11%, var(--border)));
   border-radius: 999px;
   border: 2px solid transparent;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 17%, var(--border));
+  background: var(--scrollbar-thumb-hover, color-mix(in oklch, var(--foreground) 17%, var(--border)));
 }
 
 .dark *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 36%, var(--border));
+  background: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 36%, var(--border)));
 }
 
 .dark *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 46%, var(--border));
+  background: var(--scrollbar-thumb-hover, color-mix(in oklch, var(--foreground) 46%, var(--border)));
 }
 
 textarea {
@@ -499,7 +625,7 @@ textarea:focus::-webkit-scrollbar {
   box-shadow: none;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--border) 60%, transparent) transparent;
+  scrollbar-color: var(--scrollbar-thumb, color-mix(in oklch, var(--border) 60%, transparent)) transparent;
 }
 
 .sidebar-shell {
@@ -540,7 +666,7 @@ textarea:focus::-webkit-scrollbar {
   border: 1px solid var(--sidebar-card-border);
   border-radius: var(--radius-card);
   background: var(--sidebar-card-bg);
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
 }
 
 .sidebar-input {
@@ -726,7 +852,7 @@ textarea:focus::-webkit-scrollbar {
   border: 1px solid var(--sidebar-card-border);
   border-radius: var(--radius-card);
   background: var(--sidebar-card-bg);
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
 }
 
 .dark .ui-card,
@@ -735,7 +861,7 @@ textarea:focus::-webkit-scrollbar {
   background: var(--plane-card-bg);
   box-shadow:
     inset 0 1px 0 var(--elev-overlay-1),
-    0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 1px 2px color-mix(in oklch, var(--shadow-color) 10%, transparent);
 }
 
 .ui-menu-popover {
@@ -747,7 +873,7 @@ textarea:focus::-webkit-scrollbar {
   background: var(--surface-selected);
   box-shadow:
     inset 0 0 0 1px color-mix(in oklch, var(--primary) 38%, transparent),
-    0 1px 2px color-mix(in oklch, var(--foreground) 7%, transparent);
+    0 1px 2px color-mix(in oklch, var(--shadow-color) 7%, transparent);
 }
 
 .dark .ui-card-selected {
@@ -756,7 +882,7 @@ textarea:focus::-webkit-scrollbar {
   box-shadow:
     inset 0 0 0 1px color-mix(in oklch, var(--primary) 48%, transparent),
     inset 0 1px 0 var(--elev-overlay-2),
-    0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 1px 2px color-mix(in oklch, var(--shadow-color) 10%, transparent);
 }
 
 .ui-card-select-indicator {
@@ -806,7 +932,7 @@ textarea:focus::-webkit-scrollbar {
 
   .dark .ui-input::placeholder,
   .dark .sidebar-input::placeholder {
-    color: color-mix(in oklch, white 58%, var(--muted-foreground) 42%);
+    color: var(--input-placeholder, color-mix(in oklch, white 58%, var(--muted-foreground) 42%));
   }
 }
 
@@ -831,9 +957,14 @@ textarea:focus::-webkit-scrollbar {
   transition: filter 180ms ease;
 }
 
-.ui-btn-primary:hover,
-.sidebar-btn-primary:hover {
+/* :not(:disabled) because this rule is unlayered and would otherwise beat
+   the layered disabled:hover reset below (a dead button must not light up).
+   Inside :where() it adds no specificity, so a later modifier on the same
+   button (.ui-btn-danger:hover) still wins the hover, as it always did. */
+.ui-btn-primary:hover:where(:not(:disabled)),
+.sidebar-btn-primary:hover:where(:not(:disabled)) {
   background: var(--action-bg-hover);
+  box-shadow: var(--action-glow, none);
   filter: none;
 }
 
@@ -878,8 +1009,9 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .ui-btn-secondary:hover {
-  border-color: color-mix(in oklch, var(--border) 62%, var(--foreground) 38%);
-  background: color-mix(in oklch, var(--surface-2) 90%, transparent);
+  border-color: var(--hover-border, color-mix(in oklch, var(--border) 62%, var(--foreground) 38%));
+  background: var(--hover-bg, color-mix(in oklch, var(--surface-2) 90%, transparent));
+  color: var(--foreground);
 }
 
 .ui-btn-ghost,
@@ -899,7 +1031,7 @@ textarea:focus::-webkit-scrollbar {
 
 .ui-btn-ghost:hover,
 .sidebar-btn-ghost:hover {
-  background: color-mix(in oklch, var(--surface-2) 96%, transparent);
+  background: var(--hover-bg, color-mix(in oklch, var(--surface-2) 96%, transparent));
   box-shadow: var(--shadow-2xs);
 }
 
@@ -932,7 +1064,7 @@ textarea:focus::-webkit-scrollbar {
   border: 1px solid color-mix(in oklch, var(--border) 74%, transparent);
   background: color-mix(in oklch, var(--surface-1) 92%, var(--surface-2));
   color: color-mix(in oklch, var(--foreground) 80%, var(--muted-foreground) 20%);
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 14%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 14%, transparent);
   opacity: 0.92;
 }
 
@@ -941,7 +1073,7 @@ textarea:focus::-webkit-scrollbar {
   opacity: 1;
   background: color-mix(in oklch, var(--surface-1) 98%, var(--surface-2));
   color: color-mix(in oklch, var(--foreground) 92%, var(--muted-foreground) 8%);
-  box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground) 18%, transparent);
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--shadow-color) 18%, transparent);
 }
 
 .ui-topbar {
@@ -963,13 +1095,13 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .ui-topbar .ui-btn-icon:hover {
-  background: color-mix(in oklch, var(--surface-2) 72%, transparent);
+  background: var(--hover-bg, color-mix(in oklch, var(--surface-2) 72%, transparent));
   box-shadow: none;
 }
 
 .ui-btn-icon:hover {
-  background: color-mix(in oklch, var(--surface-2) 98%, transparent);
-  box-shadow: var(--shadow-2xs);
+  background: var(--hover-bg, color-mix(in oklch, var(--surface-2) 98%, transparent));
+  box-shadow: var(--hover-ring, var(--shadow-2xs));
   color: color-mix(in oklch, var(--foreground) 88%, var(--muted-foreground) 12%);
 }
 
@@ -1091,7 +1223,7 @@ textarea:focus::-webkit-scrollbar {
 .ui-chat-user-card {
   border: 1px solid var(--chat-user-border);
   background: var(--chat-user-bg);
-  box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground) 8%, transparent);
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--shadow-color) 8%, transparent);
 }
 
 .ui-chat-assistant-card {
@@ -1106,7 +1238,7 @@ textarea:focus::-webkit-scrollbar {
   padding: 1rem 1.2rem;
   box-shadow:
     inset 0 1px 0 var(--elev-overlay-2),
-    0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 1px 2px color-mix(in oklch, var(--shadow-color) 10%, transparent);
 }
 
 .ui-chat-thinking {
@@ -1133,11 +1265,11 @@ textarea:focus::-webkit-scrollbar {
 
 .ui-scroll {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--border) 60%, transparent) transparent;
+  scrollbar-color: var(--scrollbar-thumb, color-mix(in oklch, var(--border) 60%, transparent)) transparent;
 }
 
 .dark .ui-scroll {
-  scrollbar-color: color-mix(in oklch, var(--foreground) 36%, var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 36%, var(--border))) transparent;
 }
 
 .ui-scroll::-webkit-scrollbar {
@@ -1147,15 +1279,15 @@ textarea:focus::-webkit-scrollbar {
 
 .ui-scroll::-webkit-scrollbar-thumb {
   border-radius: 9999px;
-  background: color-mix(in oklch, var(--border) 58%, transparent);
+  background: var(--scrollbar-thumb, color-mix(in oklch, var(--border) 58%, transparent));
 }
 
 .dark .ui-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 34%, var(--border));
+  background: var(--scrollbar-thumb, color-mix(in oklch, var(--foreground) 34%, var(--border)));
 }
 
 .dark .ui-scroll::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 44%, var(--border));
+  background: var(--scrollbar-thumb-hover, color-mix(in oklch, var(--foreground) 44%, var(--border)));
 }
 
 .lucide {
@@ -1231,7 +1363,7 @@ textarea:focus::-webkit-scrollbar {
 .ui-control-important {
   border-color: var(--model-control-border);
   background: color-mix(in oklch, var(--surface-1) 80%, var(--surface-2));
-  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 8%, transparent);
 }
 
 .ui-alert-danger {
@@ -1299,6 +1431,8 @@ textarea:focus::-webkit-scrollbar {
 
 .ui-btn-danger:hover {
   background: color-mix(in oklch, var(--destructive) 20%, transparent);
+  /* Stays red: .ui-btn-secondary:hover (same weight, earlier) whitens text. */
+  color: var(--danger-soft-fg);
 }
 
 .ui-btn-icon-danger {
@@ -1325,7 +1459,7 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .ui-dot-status-connected {
-  background: var(--status-connected-fg);
+  background: var(--status-connected-dot, var(--status-connected-fg));
 }
 
 .ui-command-surface {
@@ -1374,7 +1508,7 @@ textarea:focus::-webkit-scrollbar {
   animation-delay: 320ms;
 }
 
-:where(button, input, textarea, select, [role="button"], summary):focus-visible {
+:where(a, button, input, textarea, select, [role="button"], summary):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   box-shadow: none !important;
