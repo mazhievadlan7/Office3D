@@ -22,6 +22,7 @@ import {
   pick,
   type TermLine,
 } from "./screenText";
+import { HQ_DEFAULT_TIME_ZONE, hqTimeZone, hqWallClock } from "@/features/hq/core/hqTime";
 
 /**
  * Canvas 2D painters for the HQ's screens: a small drawing toolkit and one
@@ -37,6 +38,8 @@ export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 export type HqScreenFeed = {
   /** Wall clock, ms since the epoch (the worker sets it to the time of each paint). */
   clock: number;
+  /** The HQ's IANA time zone (hqTime.ts); the worker adopts it for its clocks. */
+  timeZone: string;
   /** How many feeds the hub has built, one history sample each: a phase that moves with `history`. */
   sample: number;
   total: number;
@@ -63,6 +66,7 @@ export type HqTeamStat = {
 
 export const EMPTY_FEED: HqScreenFeed = {
   clock: 0,
+  timeZone: HQ_DEFAULT_TIME_ZONE,
   sample: 0,
   total: 0,
   working: 0,
@@ -273,12 +277,13 @@ export function series(n: number, t: number, seed: number, rate = 1): number[] {
   return out;
 }
 
+/** The HQ's wall time (Moscow), hh:mm:ss. */
 export function clockText(ms: number, withMs = false): string {
-  const d = new Date(ms);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return withMs ? `${hh}:${mm}:${ss}.${String(d.getMilliseconds()).padStart(3, "0")}` : `${hh}:${mm}:${ss}`;
+  const d = hqWallClock(ms);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+  return withMs ? `${hh}:${mm}:${ss}.${String(d.getUTCMilliseconds()).padStart(3, "0")}` : `${hh}:${mm}:${ss}`;
 }
 
 function nameAt(feed: HqScreenFeed, k: number): string {
@@ -704,8 +709,13 @@ const lock: AppPainter = (p, t, _seed, feed) => {
   p.setFont(64, 200, SANS);
   p.text(clockText(feed.clock).slice(0, 5), w / 2, h / 2 + 8, INK.white, "center");
   p.setFont(12, 500, SANS);
-  const d = new Date(feed.clock);
-  p.text(d.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" }), w / 2, h / 2 + 34, INK.mid, "center");
+  p.text(
+    new Date(feed.clock).toLocaleDateString("ru-RU", { timeZone: hqTimeZone(), weekday: "long", day: "numeric", month: "long" }),
+    w / 2,
+    h / 2 + 34,
+    INK.mid,
+    "center",
+  );
   p.setFont(10, 700, SANS);
   p.text("ШТАБ AM7  •  ЭКРАН ЗАБЛОКИРОВАН", w / 2, h - 22, INK.dim, "center");
   p.ring(w / 2, h / 2 - 60, 12, (t * 0.2) % 1, 2, INK.hot);

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_STATUS_CODE, type HqAgentInput } from "@/features/hq/core/types";
+import { hqTimeZone } from "@/features/hq/core/hqTime";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { EMPTY_FEED, Painter, type Ctx2D, type HqScreenFeed, type HqTeamStat } from "./screenPaint";
 import {
@@ -365,7 +366,7 @@ export class HqScreenHub {
     const ago = this.teamWorking[0];
     teams.forEach((team, f) => (team.workingAgo = ago[f] ?? team.working));
     this.sample++;
-    return { clock, sample: this.sample, total, working, idle, error, names, events: this.events.slice(), history: this.history.slice(), teams };
+    return { clock, timeZone: hqTimeZone(), sample: this.sample, total, working, idle, error, names, events: this.events.slice(), history: this.history.slice(), teams };
   }
 
   dispose(): void {

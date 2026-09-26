@@ -198,6 +198,51 @@ describe("studio settings normalization", () => {
     );
   });
 
+  it("drops the removed company builder fields from saved office preferences", () => {
+    // settings.json files written before the company builder was removed still carry these keys.
+    const legacyCompanyFields = {
+      companyName: "Orbit Labs",
+      companyPrompt: "Build a small agency.",
+      companyImprovedBrief: "A small agency.",
+      companySummary: "Three roles.",
+      companyGeneratedAt: "2026-04-01T10:00:00.000Z",
+      companyRoleTitles: ["CEO", "Designer"],
+      companyPlanJson: "{\"companyName\":\"Orbit Labs\",\"roles\":[]}",
+    };
+    const normalized = normalizeStudioSettings({
+      office: {
+        "ws://localhost:18789": {
+          title: "Orbit Control",
+          remoteOfficeEnabled: true,
+          remoteOfficeLabel: "Second floor",
+          remoteOfficeToken: "remote-token",
+          ...legacyCompanyFields,
+        },
+      },
+    });
+
+    const office = normalized.office["ws://localhost:18789"];
+    expect(office).toEqual(
+      expect.objectContaining({
+        title: "Orbit Control",
+        remoteOfficeEnabled: true,
+        remoteOfficeLabel: "Second floor",
+        remoteOfficeToken: "remote-token",
+      }),
+    );
+    for (const key of Object.keys(legacyCompanyFields)) {
+      expect(office).not.toHaveProperty(key);
+    }
+
+    const merged = mergeStudioSettings(normalized, {
+      office: { "ws://localhost:18789": { title: "Orbit HQ" } },
+    });
+    expect(merged.office["ws://localhost:18789"]).toEqual({
+      ...office,
+      title: "Orbit HQ",
+    });
+  });
+
   it("creates default per-floor runtime state", () => {
     const normalized = normalizeStudioSettings(null);
 

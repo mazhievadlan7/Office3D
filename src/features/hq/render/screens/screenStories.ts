@@ -1,6 +1,7 @@
 import { plural, type PluralForms } from "@/lib/i18n/plural";
 import { subsolarPoint } from "@/features/hq/render/map/sun";
 import type { HqScreenFeed } from "./screenPaint";
+import { hqWallClock } from "@/features/hq/core/hqTime";
 
 /**
  * What the big screens say, derived from the floor feed and the real clock:
@@ -42,14 +43,15 @@ export function decimal(v: number, digits = 1): string {
   return v.toFixed(digits).replace(".", ",").replace("-", "−");
 }
 
+// Times and dates on the screens are the HQ's wall time (Moscow).
 export function hhmm(ms: number): string {
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const d = hqWallClock(ms);
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 export function hhmmss(ms: number): string {
-  const d = new Date(ms);
-  return `${hhmm(ms)}:${String(d.getSeconds()).padStart(2, "0")}`;
+  const d = hqWallClock(ms);
+  return `${hhmm(ms)}:${String(d.getUTCSeconds()).padStart(2, "0")}`;
 }
 
 const WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
@@ -57,8 +59,8 @@ const MONTHS = ["января", "февраля", "марта", "апреля", 
 
 /** «пятница, 25 сентября» */
 export function longDate(ms: number): string {
-  const d = new Date(ms);
-  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const d = hqWallClock(ms);
+  return `${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 // --- news ---------------------------------------------------------------------------------------

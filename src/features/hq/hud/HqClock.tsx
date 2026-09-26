@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
+import {
+  getHqTimeZoneServerSnapshot,
+  getHqTimeZoneSnapshot,
+  subscribeHqTimeZone,
+} from "@/features/hq/core/hqLocationZone";
 import { t, type TranslationKey } from "@/lib/i18n";
 
-// The clock follows the viewer: the browser's time zone (from the device's
-// location settings), Moscow when the browser reports none or plain UTC.
-const DEFAULT_ZONE = "Europe/Moscow";
+// The clock follows the viewer's real location (hqLocationZone.ts), Moscow
+// until a position is known; the screens and TVs use the same zone.
 
 // City names for the zones people are most likely in; any other zone shows
 // its IANA city (Europe/Lisbon -> Lisbon).
@@ -38,16 +42,6 @@ const ZONE_CITY: Record<string, TranslationKey> = {
   "America/New_York": "hqClock.cityNewYork",
   "Asia/Tokyo": "hqClock.cityTokyo",
 };
-
-function viewerZone(): string {
-  try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (zone && zone !== "UTC" && !zone.startsWith("Etc/")) return zone;
-  } catch {
-    // An old engine without time zone support: Moscow.
-  }
-  return DEFAULT_ZONE;
-}
 
 function cityName(zone: string): string {
   const key = ZONE_CITY[zone];
@@ -81,14 +75,14 @@ function dateLine(format: Intl.DateTimeFormat, now: Date): string {
 const subscribeNothing = () => () => {};
 
 /**
- * Local time where the viewer is (Moscow by default), with the date and weekday.
+ * Local time where the viewer is (Moscow until the location is known), with the date and weekday.
  * Content only: the card around it belongs to whoever places it (the HQ's
  * top-right block). The server and the first client render show dashes, so
  * the server's clock and time zone never clash with the viewer's on hydration.
  */
 export function HqClock({ className = "" }: { className?: string }) {
   const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
-  const zone = useMemo(() => viewerZone(), []);
+  const zone = useSyncExternalStore(subscribeHqTimeZone, getHqTimeZoneSnapshot, getHqTimeZoneServerSnapshot);
   const format = useMemo(() => formatters(zone), [zone]);
   const [now, setNow] = useState(() => new Date());
 

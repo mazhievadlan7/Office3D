@@ -37,6 +37,7 @@ import {
 } from "./screenStories";
 import { makeRng, pick } from "./screenText";
 import { subsolarPoint } from "@/features/hq/render/map/sun";
+import { hqUtcOffsetLabel, hqWallClock } from "@/features/hq/core/hqTime";
 
 /**
  * AM7's office screens and the map wall's side panels, in the same broadcast
@@ -100,7 +101,7 @@ function backdrop(p: Painter, glowX: number, glowY: number, glowR: number): void
 }
 
 function shiftName(clock: number): string {
-  const hour = new Date(clock).getHours();
+  const hour = hqWallClock(clock).getUTCHours();
   return hour >= 7 && hour < 19 ? "дневная" : "ночная";
 }
 
@@ -128,9 +129,7 @@ export function paintExecMonitor(p: Painter, t: number, feed: HqScreenFeed): voi
   chip("СВЯЗЬ · ОНЛАЙН", true);
   chip(`АГЕНТОВ ${feed.total}`, false);
   chip(`СМЕНА ${shiftName(feed.clock).toUpperCase()}`, false);
-  const offset = -new Date(feed.clock).getTimezoneOffset();
-  const offsetText = `${Math.floor(Math.abs(offset) / 60)}${Math.abs(offset) % 60 ? `:${String(Math.abs(offset) % 60).padStart(2, "0")}` : ""}`;
-  label(p, `UTC${offset >= 0 ? "+" : "−"}${offsetText}`, w - 190, 33, TV.white45, 12, "right");
+  label(p, hqUtcOffsetLabel(feed.clock), w - 190, 33, TV.white45, 12, "right");
   clockBlock(p, w - 20, 4, feed.clock, 0.95);
 
   // A. The team: three rings.

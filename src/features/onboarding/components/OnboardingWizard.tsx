@@ -19,7 +19,6 @@ import { WelcomeStep } from "@/features/onboarding/components/WelcomeStep";
 import { PrerequisitesStep } from "@/features/onboarding/components/PrerequisitesStep";
 import { ConnectStep } from "@/features/onboarding/components/ConnectStep";
 import { AgentsStep } from "@/features/onboarding/components/AgentsStep";
-import { CompanyStep } from "@/features/onboarding/components/CompanyStep";
 import { CompleteStep } from "@/features/onboarding/components/CompleteStep";
 import {
   HQ_BUTTON_PRIMARY,
@@ -43,12 +42,6 @@ export type OnboardingWizardProps = {
   onConnect: () => void;
   /** Called when the user finishes or dismisses the wizard. */
   onComplete: () => void;
-  /** Opens the reusable company builder. */
-  onOpenCompanyBuilder: () => void;
-  initialStep?: OnboardingStepId;
-  initialCompletedSteps?: OnboardingStepId[];
-  createdCompanyName?: string | null;
-  companyCreated?: boolean;
   /** Connection error message, if any. */
   connectionError: string | null;
   /** Whether we're currently connecting. */
@@ -64,17 +57,12 @@ export const OnboardingWizard = ({
   onTokenChange,
   onConnect,
   onComplete,
-  onOpenCompanyBuilder,
-  initialStep = "welcome",
-  initialCompletedSteps,
-  createdCompanyName = null,
-  companyCreated = false,
   connectionError,
   connecting,
 }: OnboardingWizardProps) => {
-  const [currentStep, setCurrentStep] = useState<OnboardingStepId>(initialStep);
+  const [currentStep, setCurrentStep] = useState<OnboardingStepId>("welcome");
   const [completedSteps, setCompletedSteps] = useState<Set<OnboardingStepId>>(
-    () => new Set(initialCompletedSteps ?? []),
+    () => new Set(),
   );
 
   const stepIndex = useMemo(() => getStepIndex(currentStep), [currentStep]);
@@ -134,21 +122,8 @@ export const OnboardingWizard = ({
         );
       case "agents":
         return <AgentsStep agentCount={agentCount} connected={gatewayConnected} />;
-      case "company":
-        return (
-          <CompanyStep
-            connected={gatewayConnected}
-            agentCount={agentCount}
-            onOpenCompanyBuilder={onOpenCompanyBuilder}
-          />
-        );
       case "complete":
-        return (
-          <CompleteStep
-            companyCreated={companyCreated}
-            companyName={createdCompanyName}
-          />
-        );
+        return <CompleteStep />;
       default:
         return null;
     }

@@ -43,7 +43,9 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()",
+    // geolocation for this origin only: the HQ clock follows the viewer's
+    // location (the position is turned into a time zone in the browser).
+    value: "camera=(), microphone=(self), geolocation=(self), browsing-topics=()",
   },
   {
     key: "Cross-Origin-Resource-Policy",

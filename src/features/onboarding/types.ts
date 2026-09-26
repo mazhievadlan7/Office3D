@@ -13,7 +13,6 @@ export type OnboardingStepId =
   | "prerequisites"
   | "connect"
   | "agents"
-  | "company"
   | "complete";
 
 export type OnboardingStep = {
@@ -58,12 +57,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: "agents",
     title: t("onboarding.stepAgents"),
     description: t("onboarding.stepAgentsLead"),
-    skippable: true,
-  },
-  {
-    id: "company",
-    title: t("onboarding.stepCompany"),
-    description: t("onboarding.stepCompanyLead"),
     skippable: true,
   },
   {

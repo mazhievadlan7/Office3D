@@ -1,6 +1,7 @@
 import { loadEarth } from "./screenGlobe";
 import { EMPTY_FEED, Painter, type HqScreenFeed } from "./screenPaint";
 import { SCREEN_SURFACES, surfacePeriod } from "./screenSurfaces";
+import { setHqTimeZone } from "@/features/hq/core/hqTime";
 
 /**
  * Paints the HQ's screens off the main thread. Every surface of
@@ -89,7 +90,11 @@ function tick(): void {
 scope.onmessage = (event: MessageEvent<Incoming>) => {
   const message = event.data;
   if (message.type === "ack") inFlight[message.index] = 0;
-  else if (message.type === "feed") feed = message.feed;
+  else if (message.type === "feed") {
+    feed = message.feed;
+    // The worker has its own copy of the HQ's time module: keep its zone in step.
+    setHqTimeZone(feed.timeZone);
+  }
   else if (message.type === "slowdown") slowdown = message.value;
   else if (message.type === "views") {
     const t = now();

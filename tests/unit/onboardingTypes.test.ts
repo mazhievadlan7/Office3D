@@ -7,6 +7,16 @@ import {
 } from "@/features/onboarding/types";
 
 describe("ONBOARDING_STEPS", () => {
+  it("runs welcome, prerequisites, connect, agents, complete", () => {
+    expect(ONBOARDING_STEPS.map((s) => s.id)).toEqual([
+      "welcome",
+      "prerequisites",
+      "connect",
+      "agents",
+      "complete",
+    ]);
+  });
+
   it("has at least 3 steps", () => {
     expect(ONBOARDING_STEPS.length).toBeGreaterThanOrEqual(3);
   });
@@ -43,11 +53,8 @@ describe("getStepIndex", () => {
     expect(getStepIndex("connect")).toBe(idx);
   });
 
-  it("includes the company step before completion", () => {
-    const companyIndex = getStepIndex("company");
-    const completeIndex = getStepIndex("complete");
-    expect(companyIndex).toBeGreaterThan(getStepIndex("agents"));
-    expect(companyIndex).toBe(completeIndex - 1);
+  it("puts the agents step right before completion", () => {
+    expect(getStepIndex("agents")).toBe(getStepIndex("complete") - 1);
   });
 });
 

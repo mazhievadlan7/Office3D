@@ -20,7 +20,6 @@ type HQSidebarProps = {
   onTabChange: (tab: HQSidebarTab) => void;
   onOpenMarketplace: () => void;
   onAddAgent?: () => void;
-  onOpenCompanyBuilder?: () => void;
   inboxPanel: ReactNode;
   historyPanel: ReactNode;
   kanbanPanel: ReactNode;
@@ -59,7 +58,6 @@ export function HQSidebar({
   onTabChange,
   onOpenMarketplace,
   onAddAgent,
-  onOpenCompanyBuilder,
   inboxPanel,
   historyPanel,
   kanbanPanel,
@@ -143,7 +141,7 @@ export function HQSidebar({
             <p className="mt-1 font-mono text-[11px] leading-4 text-white/65">
               {analyticsOnly ? t("hq.analyticsLead") : t("hq.hqLead")}
             </p>
-            {railOnly || onAddAgent || onOpenCompanyBuilder ? (
+            {railOnly || onAddAgent ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {!railOnly && onAddAgent ? (
                   <button
@@ -152,15 +150,6 @@ export function HQSidebar({
                     className={`${actionButtonClass} rounded-md border border-red-500/60 bg-[#e3141c] text-white shadow-[0_0_14px_rgba(255,26,26,0.25)] transition-colors hover:border-red-400 hover:bg-[#ff2a2a]`}
                   >
                     {t("hq.addAgent")}
-                  </button>
-                ) : null}
-                {!railOnly && onOpenCompanyBuilder ? (
-                  <button
-                    type="button"
-                    onClick={onOpenCompanyBuilder}
-                    className={`${actionButtonClass} ${hqHudButtonClass(false)}`}
-                  >
-                    {t("hq.buildCompany")}
                   </button>
                 ) : null}
                 {railOnly ? (

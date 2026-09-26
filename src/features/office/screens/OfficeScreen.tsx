@@ -32,7 +32,6 @@ import {
   type StudioSettingsLoadOptions,
 } from "@/lib/studio/coordinator";
 import {
-  resolveOfficePreferencePublic,
   resolveStudioActiveFloorId,
   type StudioGatewayAdapterType,
 } from "@/lib/studio/settings";
@@ -88,11 +87,7 @@ import {
   applyCreateAgentBootstrapPermissions,
   CREATE_AGENT_DEFAULT_PERMISSIONS,
 } from "@/features/agents/operations/createAgentBootstrapOperation";
-import {
-  deleteAgentRecordViaStudio,
-  deleteAgentViaStudio,
-  trashAgentStateViaStudio,
-} from "@/features/agents/operations/deleteAgentOperation";
+import { deleteAgentRecordViaStudio } from "@/features/agents/operations/deleteAgentOperation";
 import { planAgentSettingsMutation } from "@/features/agents/operations/agentSettingsMutationWorkflow";
 import {
   executeHistorySyncCommands,
@@ -133,23 +128,6 @@ import {
   HQSidebar,
   type HQSidebarTab,
 } from "@/features/office/components/HQSidebar";
-import { CompanyBuilderModal } from "@/features/company-builder/components/CompanyBuilderModal";
-import {
-  buildGenerateCompanyPlanPrompt,
-  buildImproveCompanyBriefPrompt,
-  buildStoredCompanySnapshot,
-  parseCompanyPlanFromAssistantText,
-} from "@/features/company-builder/planning";
-import {
-  buildCompanyRolePermissionsDraft,
-  resolveCompanyPlanningAgent,
-  runOpenClawPlanningPrompt,
-} from "@/features/company-builder/operations/companyBuilderGateway";
-import { runCompanyBootstrapOperation } from "@/features/company-builder/operations/companyBootstrapOperation";
-import type {
-  CompanyBuilderInput,
-  CompanyBuilderPlan,
-} from "@/features/company-builder/types";
 import { AnalyticsPanel } from "@/features/office/components/panels/AnalyticsPanel";
 import { HistoryPanel } from "@/features/office/components/panels/HistoryPanel";
 import { CallFeedModal } from "@/features/office/components/panels/CallFeedModal";
@@ -204,7 +182,7 @@ import {
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
-import { matchesPhrase, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { messageRoleLabel } from "@/lib/i18n/labels";
 
 // The 3D HQ is client-only: three.js and its loaders never run on the server.
@@ -896,18 +874,6 @@ export function OfficeScreen({
   const [createAgentModalError, setCreateAgentModalError] = useState<string | null>(
     null,
   );
-  const [companyBuilderOpen, setCompanyBuilderOpen] = useState(false);
-  const [companyBuilderNonce, setCompanyBuilderNonce] = useState(0);
-  const [companyBuilderBusy, setCompanyBuilderBusy] = useState(false);
-  const [companyBuilderError, setCompanyBuilderError] = useState<string | null>(null);
-  const [companyBuilderStatusLine, setCompanyBuilderStatusLine] = useState<string | null>(null);
-  const [companyBuilderInput, setCompanyBuilderInput] = useState<CompanyBuilderInput>({
-    businessDescription: "",
-    improvedBrief: "",
-  });
-  const [lastCompanyPlan, setLastCompanyPlan] = useState<CompanyBuilderPlan | null>(null);
-  const [companyCreatedSignal, setCompanyCreatedSignal] = useState(0);
-  const [createdCompanyName, setCreatedCompanyName] = useState<string | null>(null);
   const [createAgentBlock, setCreateAgentBlock] =
     useState<CreateAgentBlockState | null>(null);
   const [deleteAgentBlock, setDeleteAgentBlock] =
@@ -1105,14 +1071,10 @@ export function OfficeScreen({
   const showOnboardingWizard = showOnboarding || forceShowOnboarding;
   const handleOpenOnboarding = useCallback(() => {
     resetOnboarding();
-    setCompanyCreatedSignal(0);
-    setCreatedCompanyName(null);
     setForceShowOnboarding(true);
   }, [resetOnboarding]);
   const handleCompleteOnboarding = useCallback(() => {
     completeOnboarding();
-    setCompanyCreatedSignal(0);
-    setCreatedCompanyName(null);
     setForceShowOnboarding(false);
   }, [completeOnboarding]);
 
@@ -1210,49 +1172,6 @@ export function OfficeScreen({
     (options?: StudioSettingsLoadOptions) => settingsCoordinator.loadSettings(options),
     [settingsCoordinator],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    const gatewayKey = gatewayUrl.trim();
-    if (!gatewayKey) {
-      setCompanyBuilderInput({
-        businessDescription: "",
-        improvedBrief: "",
-      });
-      setLastCompanyPlan(null);
-      return;
-    }
-    void (async () => {
-      try {
-        const settings = await loadStudioSettings({ maxAgeMs: 30_000 });
-        if (!settings || cancelled) return;
-        const officePreference = resolveOfficePreferencePublic(settings, gatewayKey);
-        setCompanyBuilderInput({
-          businessDescription: officePreference.companyPrompt,
-          improvedBrief: officePreference.companyImprovedBrief,
-        });
-        if (officePreference.companyPlanJson.trim()) {
-          try {
-            setLastCompanyPlan(
-              JSON.parse(officePreference.companyPlanJson) as CompanyBuilderPlan,
-            );
-          } catch (error) {
-            console.error("Failed to parse saved company plan.", error);
-            setLastCompanyPlan(null);
-          }
-        } else {
-          setLastCompanyPlan(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to load company builder preference.", error);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [gatewayUrl, loadStudioSettings]);
 
   const loadAgents = useCallback(async (options?: {
     forceSettings?: boolean;
@@ -1425,304 +1344,12 @@ export function OfficeScreen({
     setCreateAgentWizardNonce((current) => current + 1);
     setCreateAgentWizardOpen(true);
   }, []);
-  const plannerAgent = useMemo(
-    () =>
-      resolveCompanyPlanningAgent({
-        agents: state.agents,
-        preferredAgentId: selectedChatAgentId ?? state.selectedAgentId,
-      }),
-    [selectedChatAgentId, state.agents, state.selectedAgentId],
-  );
-  const persistCompanyBuilderSnapshot = useCallback(
-    (input: CompanyBuilderInput, plan: CompanyBuilderPlan) => {
-      const gatewayKey = gatewayUrl.trim();
-      if (!gatewayKey) return;
-      const snapshot = buildStoredCompanySnapshot({
-        prompt: input.businessDescription,
-        improvedBrief: input.improvedBrief,
-        plan,
-      });
-      settingsCoordinator.schedulePatch(
-        {
-          office: {
-            [gatewayKey]: {
-              companyName: snapshot.companyName,
-              companyPrompt: snapshot.prompt,
-              companyImprovedBrief: snapshot.improvedBrief,
-              companySummary: snapshot.summary,
-              companyGeneratedAt: snapshot.generatedAt,
-              companyRoleTitles: snapshot.roleTitles,
-              companyPlanJson: snapshot.planJson,
-            },
-          },
-        },
-        0,
-      );
-      setCompanyBuilderInput(input);
-      setLastCompanyPlan(plan);
-    },
-    [gatewayUrl, settingsCoordinator],
-  );
-  const handleOpenCompanyBuilder = useCallback(() => {
-    setCompanyBuilderError(null);
-    setCompanyBuilderStatusLine(null);
-    setCreatedCompanyName(null);
-    setCompanyBuilderNonce((current) => current + 1);
-    setCompanyBuilderOpen(true);
-  }, []);
-  const handleCloseCompanyBuilder = useCallback(() => {
-    if (companyBuilderBusy) return;
-    setCompanyBuilderOpen(false);
-    setCompanyBuilderError(null);
-    setCompanyBuilderStatusLine(null);
-  }, [companyBuilderBusy]);
-  const handleClearCompanyBuilder = useCallback(() => {
-    const gatewayKey = gatewayUrl.trim();
-    setCompanyBuilderInput({
-      businessDescription: "",
-      improvedBrief: "",
-    });
-    setLastCompanyPlan(null);
-    setCompanyBuilderError(null);
-    setCompanyBuilderStatusLine(null);
-    if (!gatewayKey) return;
-    settingsCoordinator.schedulePatch(
-      {
-        office: {
-          [gatewayKey]: {
-            companyName: "",
-            companyPrompt: "",
-            companyImprovedBrief: "",
-            companySummary: "",
-            companyGeneratedAt: "",
-            companyRoleTitles: [],
-            companyPlanJson: "",
-          },
-        },
-      },
-      0,
-    );
-  }, [gatewayUrl, settingsCoordinator]);
-  const runCompanyBuilderAiTask = useCallback(
-    async (prompt: string, statusText: string) => {
-      if (status !== "connected") {
-        throw new Error(t("office.companyNeedsRuntime"));
-      }
-      const livePlannerAgent = resolveCompanyPlanningAgent({
-        agents: stateRef.current.agents,
-        preferredAgentId: selectedChatAgentId ?? state.selectedAgentId,
-      });
-      if (!livePlannerAgent) {
-        throw new Error(t("office.companyNeedsAgent"));
-      }
-      setCompanyBuilderStatusLine(statusText);
-      return runOpenClawPlanningPrompt({
-        client,
-        dispatch,
-        agent: livePlannerAgent,
-        getAgent: (agentId) =>
-          stateRef.current.agents.find((entry) => entry.agentId === agentId) ?? null,
-        prompt,
-      });
-    },
-    [client, dispatch, selectedChatAgentId, state.selectedAgentId, status],
-  );
-  const handleImproveCompanyBrief = useCallback(
-    async (brief: string) => {
-      setCompanyBuilderBusy(true);
-      setCompanyBuilderError(null);
-      try {
-        const improvedBrief = await runCompanyBuilderAiTask(
-          buildImproveCompanyBriefPrompt(brief),
-          t("office.improvingBrief"),
-        );
-        setCompanyBuilderInput((current) => ({
-          ...current,
-          businessDescription: brief,
-          improvedBrief,
-        }));
-        return improvedBrief;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : t("office.improveBriefFailed");
-        setCompanyBuilderError(message);
-        throw error;
-      } finally {
-        setCompanyBuilderBusy(false);
-        setCompanyBuilderStatusLine(null);
-      }
-    },
-    [runCompanyBuilderAiTask],
-  );
-  const handleGenerateCompanyPlan = useCallback(
-    async (brief: string) => {
-      setCompanyBuilderBusy(true);
-      setCompanyBuilderError(null);
-      try {
-        const response = await runCompanyBuilderAiTask(
-          buildGenerateCompanyPlanPrompt(brief),
-          t("office.generatingPlan"),
-        );
-        const parsedPlan = parseCompanyPlanFromAssistantText(response);
-        const nextInput: CompanyBuilderInput = {
-          businessDescription: companyBuilderInput.businessDescription,
-          improvedBrief: brief === companyBuilderInput.businessDescription ? "" : brief,
-        };
-        persistCompanyBuilderSnapshot(nextInput, parsedPlan);
-        return parsedPlan;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : t("office.generatePlanFailed");
-        setCompanyBuilderError(message);
-        throw error;
-      } finally {
-        setCompanyBuilderBusy(false);
-        setCompanyBuilderStatusLine(null);
-      }
-    },
-    [companyBuilderInput.businessDescription, persistCompanyBuilderSnapshot, runCompanyBuilderAiTask],
-  );
   const clearDeletedAgentUiState = useCallback((agentId: string) => {
     setSelectedChatAgentId((current) => (current === agentId ? null : current));
     setAgentEditorAgentId((current) => (current === agentId ? null : current));
     setCallFeedDraft((current) => (current?.agentId === agentId ? null : current));
     setMessagingDraft((current) => (current?.agentId === agentId ? null : current));
   }, []);
-  const handleCreateCompanyFromPlan = useCallback(
-    async (params: { input: CompanyBuilderInput; plan: CompanyBuilderPlan }) => {
-      if (status !== "connected") {
-        const message = t("office.createCompanyNeedsRuntime");
-        setCompanyBuilderError(message);
-        throw new Error(message);
-      }
-      const existingAgentIds = stateRef.current.agents.map((entry) => entry.agentId);
-      const shouldSkipWorkspaceCleanupError = (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        return (
-          message.includes("Permission denied") ||
-          message.includes("OPENCLAW_GATEWAY_SSH_TARGET") ||
-          matchesPhrase(message, "libSsh.invalidGatewayUrl") ||
-          matchesPhrase(message, "libSsh.gatewayUrlMissing")
-        );
-      };
-      const logDeleteError = (message: string, error: unknown) => {
-        if (
-          message.startsWith("Failed to move agent workspace/state into trash.") &&
-          shouldSkipWorkspaceCleanupError(error)
-        ) {
-          return;
-        }
-        console.error(message, error);
-      };
-      setCompanyBuilderBusy(true);
-      setCompanyBuilderError(null);
-      try {
-        await runCompanyBootstrapOperation({
-          input: params.input,
-          plan: params.plan,
-          existingAgentIds,
-          deleteExistingAgent: async (agentId) => {
-            try {
-              await deleteAgentViaStudio({
-                client,
-                agentId,
-                logError: logDeleteError,
-              });
-            } catch (error) {
-              if (!shouldSkipWorkspaceCleanupError(error)) {
-                throw error;
-              }
-              await deleteAgentRecordViaStudio({
-                client,
-                agentId,
-                logError: logDeleteError,
-              });
-            }
-          },
-          clearReusedAgentState: async (agentId) => {
-            try {
-              await trashAgentStateViaStudio({ agentId });
-            } catch (error) {
-              if (!shouldSkipWorkspaceCleanupError(error)) {
-                throw error;
-              }
-            }
-          },
-          renameAgent: async (agentId, name) => {
-            await renameGatewayAgent({ client, agentId, name });
-            dispatch({ type: "updateAgent", agentId, patch: { name } });
-          },
-          onExistingAgentDeleted: (agentId) => {
-            clearDeletedAgentUiState(agentId);
-            dispatch({ type: "removeAgent", agentId });
-          },
-          createAgent: async (name) => createGatewayAgent({ client, name }),
-          writeAgentFiles: async (agentId, files) => {
-            await writeGatewayAgentFiles({
-              client,
-              agentId,
-              files,
-            });
-          },
-          saveAvatar: (agentId) => {
-            handleAvatarProfileSave(
-              agentId,
-              createDefaultAgentAvatarProfile(randomUUID()),
-            );
-          },
-          loadAgents: () => loadAgents({ forceSettings: true }),
-          findAgentById: (agentId) => {
-            const liveAgent =
-              stateRef.current.agents.find((entry) => entry.agentId === agentId) ?? null;
-            if (!liveAgent?.sessionKey) return null;
-            return {
-              agentId: liveAgent.agentId,
-              sessionKey: liveAgent.sessionKey,
-            };
-          },
-          resetAgentSession: async (_agentId, sessionKey) => {
-            await client.call("sessions.reset", { key: sessionKey });
-          },
-          applyPermissions: async (agentId, sessionKey, commandMode) => {
-            await applyCreateAgentBootstrapPermissions({
-              client,
-              agentId,
-              sessionKey,
-              draft: buildCompanyRolePermissionsDraft(commandMode),
-              loadAgents: () => loadAgents({ forceSettings: true }),
-            });
-          },
-          persistSnapshot: persistCompanyBuilderSnapshot,
-          setOfficeTitle,
-          selectAgent: (agentId) => {
-            focusLocalAgent(agentId);
-          },
-          setStatusLine: setCompanyBuilderStatusLine,
-        });
-        setCreatedCompanyName(params.plan.companyName);
-        setCompanyCreatedSignal((current) => current + 1);
-        setCompanyBuilderOpen(false);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : t("office.createCompanyFailed");
-        setCompanyBuilderError(message);
-        throw error;
-      } finally {
-        setCompanyBuilderBusy(false);
-      }
-    },
-    [
-      clearDeletedAgentUiState,
-      client,
-      dispatch,
-      focusLocalAgent,
-      handleAvatarProfileSave,
-      loadAgents,
-      persistCompanyBuilderSnapshot,
-      setOfficeTitle,
-      status,
-    ],
-  );
   const createAgentStatusLine = useMemo(() => {
     if (!createAgentBlock) return null;
     if (createAgentBlock.phase === "queued") {
@@ -3806,15 +3433,6 @@ export function OfficeScreen({
                   type="button"
                   className="inline-flex items-center justify-center rounded-md border border-primary/35 bg-black/40 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85 transition-colors hover:border-ring/60 hover:bg-primary/15 hover:text-white"
                   onClick={() => {
-                    handleOpenCompanyBuilder();
-                  }}
-                >
-                  {t("office.buildCompany")}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-md border border-primary/35 bg-black/40 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/85 transition-colors hover:border-ring/60 hover:bg-primary/15 hover:text-white"
-                  onClick={() => {
                     void loadAgents({ forceSettings: true });
                   }}
                 >
@@ -3852,7 +3470,6 @@ export function OfficeScreen({
           onTabChange={setActiveSidebarTab}
           onOpenMarketplace={() => setMarketplaceOpen(true)}
           onAddAgent={handleOpenCreateAgentWizard}
-          onOpenCompanyBuilder={handleOpenCompanyBuilder}
           inboxPanel={
             <InboxPanel
               agents={state.agents}
@@ -4066,7 +3683,6 @@ export function OfficeScreen({
 
       {showOnboardingWizard ? (
         <OnboardingWizard
-          key={companyCreatedSignal > 0 ? `onboarding-company-created-${companyCreatedSignal}` : "onboarding-default"}
           gatewayConnected={status === "connected"}
           agentCount={state.agents.length}
           gatewayUrl={gatewayUrl}
@@ -4077,15 +3693,6 @@ export function OfficeScreen({
             void connect();
           }}
           onComplete={handleCompleteOnboarding}
-          onOpenCompanyBuilder={handleOpenCompanyBuilder}
-          initialStep={companyCreatedSignal > 0 ? "complete" : "welcome"}
-          initialCompletedSteps={
-            companyCreatedSignal > 0
-              ? ["welcome", "prerequisites", "connect", "agents", "company", "complete"]
-              : undefined
-          }
-          createdCompanyName={createdCompanyName}
-          companyCreated={companyCreatedSignal > 0}
           connectionError={gatewayError}
           connecting={status === "connecting"}
         />
@@ -4729,23 +4336,6 @@ export function OfficeScreen({
         onClose={handleCloseCreateAgentWizard}
         onCreateAgent={handleCreateAgentFromIdentity}
         onFinishWizard={handleFinishCreateAgentAvatar}
-      />
-      <CompanyBuilderModal
-        key={`company-builder-${companyBuilderNonce}`}
-        open={companyBuilderOpen}
-        connected={status === "connected"}
-        agentCount={state.agents.length}
-        plannerAgentName={plannerAgent?.name ?? null}
-        busy={companyBuilderBusy}
-        error={companyBuilderError}
-        statusLine={companyBuilderStatusLine}
-        initialInput={companyBuilderInput}
-        initialPlan={lastCompanyPlan}
-        onClose={handleCloseCompanyBuilder}
-        onClear={handleClearCompanyBuilder}
-        onImproveBrief={handleImproveCompanyBrief}
-        onGeneratePlan={handleGenerateCompanyPlan}
-        onCreateCompany={handleCreateCompanyFromPlan}
       />
     </main>
     </HermesControlProvider>
