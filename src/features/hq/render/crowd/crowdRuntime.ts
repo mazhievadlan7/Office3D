@@ -12,6 +12,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
+import { HQ_PLACE } from "@/features/hq/core/types";
 import type { HqAgentFrame, HqAgentInput } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { HQ_LEAD_SCALE, isSeatedClip } from "./clipTable";
@@ -54,6 +55,9 @@ const _statusColors = [
 ];
 const _selected = new Color(HQ_THEME.statusSelected);
 const _hover = new Color(HQ_THEME.accentSoft);
+// A warm amber ring marks a hacker who is on the cyber-range from their desk,
+// so the drill is visible across the floor, not only on hover.
+const _cyber = new Color(0xffb020);
 
 type Character = {
   source: HqCharacterSource;
@@ -266,6 +270,11 @@ export class HqCrowdRuntime {
       decals.pushBlob(f.x[i], y, f.z[i], isSeatedClip(f.clip[i]) ? 0.52 : 0.44);
       if (statusRings && i !== selected && i !== hovered) {
         decals.pushRing(f.x[i], y + 0.002, f.z[i], 0.5, _statusColors[f.status[i]] ?? _statusColors[1], 0.06, RING_STATUS, 0);
+      }
+      // On the cyber-range from the desk: an amber pulse so the drill shows
+      // across the floor (every quality tier), not only on hover.
+      if (f.place[i] === HQ_PLACE.cyberrange && i !== selected && i !== hovered) {
+        decals.pushRing(f.x[i], y + 0.004, f.z[i], 0.58, _cyber, 0.75, RING_HOVER, 0);
       }
     }
     if (hovered >= 0 && hovered !== selected && visible[hovered] === 1) {

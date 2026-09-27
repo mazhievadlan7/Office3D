@@ -92,16 +92,23 @@ const D_SPOT = 3; // a social spot slot
 const D_VISIT = 4; // the lead standing by someone's desk
 const D_LOUNGE = 5; // sit on a lounge seat
 
-const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server", "cyberrange"];
+const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server"];
 const K_COFFEE = 0;
 const K_MAP = 1;
 const K_LOUNGE = 2;
 const K_MEETING = 3;
 const K_SERVER = 4;
-const K_CYBER = 5;
-// Seconds spent at each kind of spot (a cyber-range drill runs a while).
-const STAY_MIN = [20, 15, 30, 30, 15, 35];
-const STAY_MAX = [45, 35, 60, 90, 30, 80];
+// Seconds spent at each kind of spot.
+const STAY_MIN = [20, 15, 30, 30, 15];
+const STAY_MAX = [45, 35, 60, 90, 30];
+
+// The cyber-range is not a place agents walk to: a working hacker enters it
+// from their own workstation, seated, for a while, then drops back to normal
+// work. RANGE_MIN/MAX is a session's length; NEXT_MIN/MAX the gap between them.
+const RANGE_MIN = 40;
+const RANGE_MAX = 80;
+const RANGE_NEXT_MIN = 300;
+const RANGE_NEXT_MAX = 600;
 
 class Agent {
   readonly id: string;
@@ -177,12 +184,21 @@ class Agent {
   talkToggleAt = 0;
   visitTarget: Agent | null = null;
   visitor: Agent | null = null;
+  /** Cyber-range from the workstation: on it now, until when, and when next. */
+  onRange = false;
+  rangeUntil = 0;
+  nextRange = 0;
 
   constructor(id: string, seed: number) {
     this.id = id;
-    this.rng = new HqRng(mixSeed(seed, hashString(id)));
+    const idHash = hashString(id) >>> 0;
+    this.rng = new HqRng(mixSeed(seed, idHash));
     this.speed = HQ_WALK_SPEED * this.rng.range(0.93, 1.07);
     this.clipTime = this.rng.range(0, 3);
+    // Stagger who is first eligible for the cyber-range from the id hash (not
+    // the rng, so the crowd's seeded behaviour is untouched) — otherwise every
+    // hacker would enter at once when the office fills up.
+    this.nextRange = idHash % (RANGE_NEXT_MAX + 1);
   }
 }
 
@@ -560,6 +576,8 @@ export class HqSimulation {
       if (status === IDLE && agent.status !== IDLE) {
         agent.nextOuting = this.time + agent.rng.range(30, 200);
       }
+      // The cyber-range only makes sense while the hacker is working.
+      if (status !== WORKING) agent.onRange = false;
       agent.status = status;
       agent.name = typeof input.name === "string" ? input.name : "";
       agent.roleFamily = hqRoleFamily(input.role);
@@ -848,6 +866,21 @@ export class HqSimulation {
       return;
     }
     if (a.seat >= 0) {
+      // Cyber-range: a working hacker enters it from their own workstation,
+      // stays seated for a session, then drops back to ordinary work.
+      if (a.status === WORKING && a.place === D_SEAT && a.mode === M_SEATED) {
+        if (a.onRange) {
+          if (now >= a.rangeUntil) {
+            a.onRange = false;
+            a.nextRange = now + a.rng.range(RANGE_NEXT_MIN, RANGE_NEXT_MAX);
+          }
+        } else if (now >= a.nextRange) {
+          a.onRange = true;
+          a.rangeUntil = now + a.rng.range(RANGE_MIN, RANGE_MAX);
+        }
+      } else if (a.onRange) {
+        a.onRange = false;
+      }
       if (a.spot >= 0) {
         if (a.status !== IDLE) this.releaseSpot(a);
         else if (a.place === D_SPOT && a.mode === M_STAND && now >= a.leaveAt) {
@@ -1065,7 +1098,7 @@ export class HqSimulation {
   private markStandingSlots(): void {
     const layout = this.layout;
     const spots = layout.socialSpots;
-    const rooms: HqRect[] = [...layout.meetingRooms, layout.cyberRange, layout.lounge, layout.serverRoom, layout.am7Office];
+    const rooms: HqRect[] = [...layout.meetingRooms, layout.lounge, layout.serverRoom, layout.am7Office];
     const inside = (r: HqRect, x: number, z: number, margin: number) =>
       x >= r.x0 + margin && x <= r.x1 - margin && z >= r.z0 + margin && z <= r.z1 - margin;
     const props = layout.props;
@@ -1129,7 +1162,7 @@ export class HqSimulation {
     let best = -1;
     let bestScore = Infinity;
     const mid = (cap - 1) / 2;
-    const line = this.spotKind[spot] === K_MAP || this.spotKind[spot] === K_SERVER || this.spotKind[spot] === K_CYBER;
+    const line = this.spotKind[spot] === K_MAP || this.spotKind[spot] === K_SERVER;
     for (let s = 0; s < cap; s++) {
       if (this.spotAgents[base + s] || !this.slotOk[base + s]) continue;
       const score = line ? Math.abs(s - mid) : s;
@@ -1174,18 +1207,7 @@ export class HqSimulation {
     let kind = forcedKind;
     if (kind < 0) {
       const r = a.rng.next();
-      kind =
-        r < 0.28
-          ? K_COFFEE
-          : r < 0.5
-            ? K_MAP
-            : r < 0.68
-              ? K_LOUNGE
-              : r < 0.76
-                ? K_MEETING
-                : r < 0.84
-                  ? K_SERVER
-                  : K_CYBER;
+      kind = r < 0.35 ? K_COFFEE : r < 0.65 ? K_MAP : r < 0.85 ? K_LOUNGE : r < 0.95 ? K_MEETING : K_SERVER;
       // A lounge break is taken sitting down when a seat is free.
       if (kind === K_LOUNGE && this.reserveLoungeSeat(a)) return true;
     }
@@ -1216,7 +1238,7 @@ export class HqSimulation {
     const fx = Math.sin(s.rotY);
     const fz = Math.cos(s.rotY);
     const kind = this.spotKind[spot];
-    if (kind === K_MAP || kind === K_SERVER || kind === K_CYBER) {
+    if (kind === K_MAP || kind === K_SERVER) {
       // Side by side, facing the spot's direction; extra rows stand behind.
       const offset = (k - (cap - 1) / 2) * 0.85 + (ring % 2) * 0.42;
       this.tmpX = s.x - fz * offset - fx * ring * 0.9;
@@ -1706,12 +1728,8 @@ export class HqSimulation {
       } else {
         const spot = this.layout.socialSpots[a.placeSpot];
         const kind = this.spotKind[a.placeSpot];
-        // Line spots (the map, the server room, the cyber-range) face the
-        // spot's direction — toward the wall/rigs — not its centre point.
         want =
-          kind === K_MAP || kind === K_SERVER || kind === K_CYBER
-            ? spot.rotY
-            : Math.atan2(spot.x - a.x, spot.z - a.z);
+          kind === K_MAP || kind === K_SERVER ? spot.rotY : Math.atan2(spot.x - a.x, spot.z - a.z);
       }
     } else if (a.place === D_VISIT && a.visitTarget) {
       const s = a.visitTarget.placeSeat >= 0 ? a.visitTarget.placeSeat : a.placeSeat;
@@ -1834,14 +1852,14 @@ export class HqSimulation {
       f.lookWeight[i] = a.lookW;
       f.status[i] = a.status;
       f.lead[i] = a.lead ? 1 : 0;
-      // Display place for the hover card: the cyber-range and the lounge name
-      // themselves; everywhere else the status label speaks for the agent.
-      f.place[i] =
-        a.place === D_LOUNGE
+      // Display place for the hover card: a hacker who is on the cyber-range
+      // (entered from their own workstation) or on a lounge break names it;
+      // everywhere else the status label speaks for the agent.
+      f.place[i] = a.onRange
+        ? HQ_PLACE.cyberrange
+        : a.place === D_LOUNGE
           ? HQ_PLACE.lounge
-          : a.place === D_SPOT && this.spotKind[a.placeSpot] === K_CYBER
-            ? HQ_PLACE.cyberrange
-            : HQ_PLACE.none;
+          : HQ_PLACE.none;
       if (a.lead) leadStatus = a.status;
     }
     this.leadStatus = leadStatus;

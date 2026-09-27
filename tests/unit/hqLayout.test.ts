@@ -316,12 +316,9 @@ describe.each(HQ_CAPACITIES)("generateHqLayout(%i)", (capacity) => {
     }
     expect(layout.partitions.some((s) => s.kind === "glass-door" && Math.abs(s.az - office.z1) < 1e-6)).toBe(true);
 
-    expect(layout.meetingRooms).toHaveLength(1);
-    for (const room of [...layout.meetingRooms, layout.cyberRange, layout.serverRoom, layout.lounge])
-      expect(room.x0).toBeCloseTo(b.x0);
+    expect(layout.meetingRooms).toHaveLength(2);
+    for (const room of [...layout.meetingRooms, layout.serverRoom, layout.lounge]) expect(room.x0).toBeCloseTo(b.x0);
     expect(layout.serverRoom.z1).toBeLessThanOrEqual(layout.meetingRooms[0].z0 + 1e-6);
-    expect(layout.meetingRooms[0].z1).toBeLessThanOrEqual(layout.cyberRange.z0 + 1e-6);
-    expect(layout.cyberRange.z1).toBeLessThanOrEqual(layout.lounge.z0 + 1e-6);
     expect(layout.lounge.z1).toBeCloseTo(b.z1);
     for (const room of layout.meetingRooms) {
       const kinds = layout.props.filter((p) => insideRect(p, room)).map((p) => p.kind);
@@ -370,12 +367,8 @@ describe.each(HQ_CAPACITIES)("generateHqLayout(%i)", (capacity) => {
       expect(Math.abs(s.x - layout.mapWall.x)).toBeLessThan(layout.mapWall.width / 2);
     }
     expect(byKind("lounge").length).toBeGreaterThanOrEqual(1);
-    expect(byKind("meeting")).toHaveLength(1);
+    expect(byKind("meeting")).toHaveLength(2);
     expect(byKind("server")).toHaveLength(1);
-    expect(byKind("cyberrange")).toHaveLength(1);
-    for (const s of byKind("cyberrange")) {
-      expect(Math.sin(s.rotY)).toBeCloseTo(-1); // facing the target rigs on the west wall
-    }
   });
 
   it("links every desk, the lead desk and every social spot to the entrance", () => {
@@ -541,7 +534,7 @@ describe.each(HQ_CAPACITIES)("generateHqLayout(%i)", (capacity) => {
       z = Math.max(seg.az, seg.bz);
     }
     expect(z).toBeCloseTo(lounge.z1, 3);
-    // North side: the cyber-range's south glass (the room just above the lounge).
+    // North side: the meeting room's south glass.
     expect(
       layout.partitions.some(
         (seg) =>

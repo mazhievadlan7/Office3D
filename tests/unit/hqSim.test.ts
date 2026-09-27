@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { HqClip } from "@/features/hq/core/config";
 import { HQ_PROP_FOOTPRINT, generateHqLayout } from "@/features/hq/core/layout";
 import { HqSimulation } from "@/features/hq/core/sim";
+import { HQ_PLACE } from "@/features/hq/core/types";
 import type { HqAgentInput, HqAgentStatus, HqLayout } from "@/features/hq/core/types";
 
 const HEAD_SEATED = 1.22;
@@ -288,5 +289,53 @@ describe("HqSimulation determinism and budget", () => {
     for (let step = 0; step < frames; step++) sim.update(1 / 60);
     const perFrame = (performance.now() - t0) / frames;
     expect(perFrame).toBeLessThan(4);
+  });
+});
+
+describe("HqSimulation cyber-range from the workstation", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 11 });
+  sim.setAgents(team(120, () => "working"));
+  const DT = 0.1;
+  const CY = HQ_PLACE.cyberrange;
+  const WORKING = 0; // HQ_STATUS_CODE.working
+  const everOnRange = new Set<string>();
+  let maxConcurrent = 0;
+  let nonWorkingOnRange = 0;
+  let walkingOnRange = 0;
+  {
+    for (let step = 0; step < 5000; step++) {
+      sim.update(DT); // ~8 simulated minutes
+      const f = sim.frame;
+      let concurrent = 0;
+      for (let i = 0; i < f.count; i++) {
+        if (f.place[i] !== CY) continue;
+        concurrent++;
+        everOnRange.add(f.ids[i]);
+        if (f.status[i] !== WORKING) nonWorkingOnRange++;
+        // A hacker on the range is seated at their own desk, never walking.
+        if (f.clip[i] === HqClip.Walk) walkingOnRange++;
+      }
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+    }
+  }
+
+  it("sends a rotating share of working hackers onto the range from their desks", () => {
+    expect(everOnRange.size).toBeGreaterThan(10);
+    expect(maxConcurrent).toBeGreaterThan(3);
+  });
+
+  it("keeps the range for working, seated hackers only", () => {
+    expect(nonWorkingOnRange).toBe(0);
+    expect(walkingOnRange).toBe(0);
+  });
+
+  it("drops every hacker off the range the moment they stop working", () => {
+    sim.setAgents(team(120, () => "idle"));
+    sim.update(DT);
+    const f = sim.frame;
+    let stillOn = 0;
+    for (let i = 0; i < f.count; i++) if (f.place[i] === CY) stillOn++;
+    expect(stillOn).toBe(0);
   });
 });

@@ -340,7 +340,7 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
   const podsD = rows * HQ_POD_DEPTH + gapZ.reduce((a, b) => a + b, 0);
 
   const W = westW + aisle + podsW + aisle;
-  // The west column (server room, meeting room, cyber-range, lounge) needs ~27 m.
+  // The west column (server room, two meeting rooms, lounge) needs ~27 m.
   const D = Math.max(plazaD + aisle + podsD + aisle, plazaD + 27);
   const x0 = -W / 2;
   const x1 = W / 2;
@@ -381,24 +381,13 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
   const serverL = Math.max(6, colLen * 0.24);
   const meetL = Math.max(5.5, colLen * 0.2);
   const serverRoom: HqRect = { x0: round3(x0), z0: round3(colZ0), x1: round3(x0 + westW), z1: round3(colZ0 + serverL) };
-  // The west column, north→south: server room, one meeting room, the
-  // cyber-range (a training bay), then the lounge fills the rest. The
-  // cyber-range takes the slot a second meeting room used to hold.
-  const meetingRooms: HqRect[] = [
-    {
-      x0: round3(x0),
-      z0: round3(colZ0 + serverL),
-      x1: round3(x0 + westW),
-      z1: round3(colZ0 + serverL + meetL),
-    },
-  ];
-  const cyberRange: HqRect = {
+  const meetingRooms: HqRect[] = [0, 1].map((i) => ({
     x0: round3(x0),
-    z0: round3(colZ0 + serverL + meetL),
+    z0: round3(colZ0 + serverL + meetL * i),
     x1: round3(x0 + westW),
-    z1: round3(colZ0 + serverL + meetL * 2),
-  };
-  const lounge: HqRect = { x0: round3(x0), z0: cyberRange.z1, x1: round3(x0 + westW), z1: round3(z1) };
+    z1: round3(colZ0 + serverL + meetL * (i + 1)),
+  }));
+  const lounge: HqRect = { x0: round3(x0), z0: meetingRooms[1].z1, x1: round3(x0 + westW), z1: round3(z1) };
 
   const mapCx = (x0 + ox0) / 2;
   const mapW = Math.min(MAP_MAX_WIDTH, W * MAP_SHARE, ox0 - x0 - 2);
@@ -612,21 +601,6 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     westLine.add(cz);
     nav.link(node, nav.node(westAisleX, cz));
   });
-  // Cyber-range: a training bay. Target rigs (blinking pillars and monoliths)
-  // line the west wall; hackers drill at a row of stations facing them. Same
-  // glass-and-door shell as a meeting room, so aisles reach it through the door.
-  {
-    const room = cyberRange;
-    const cz = (room.z0 + room.z1) / 2;
-    addProp("data_monolith", room.x0 + 0.4, room.z0 + 0.7, HALF_PI);
-    addProp("data_monolith", room.x0 + 0.4, cz, HALF_PI);
-    addProp("data_monolith", room.x0 + 0.4, room.z1 - 0.7, HALF_PI);
-    pushWallWithDoor(partitions, doorX, room.z0, doorX, room.z1, cz - room.z0);
-    pushWallWithDoor(partitions, room.x0, room.z1, doorX, room.z1, null);
-    const node = addSpot("cyberrange", doorX - 2.2, cz, -HALF_PI, 6);
-    westLine.add(cz);
-    nav.link(node, nav.node(westAisleX, cz));
-  }
   // Lounge: smoked glass like the meeting rooms, a door per way in. Coffee
   // bar on the west wall between two data monoliths, then seating groups.
   const loungeSeats: HqSeat[] = [];
@@ -772,7 +746,6 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     leadDesk,
     am7Office,
     meetingRooms,
-    cyberRange,
     lounge,
     serverRoom,
     mapWall,

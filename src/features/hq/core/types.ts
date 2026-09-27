@@ -95,7 +95,7 @@ export type HqLoungeGroup = {
   tableZ: number;
 };
 
-export type HqSocialSpotKind = "coffee" | "map" | "lounge" | "meeting" | "server" | "cyberrange";
+export type HqSocialSpotKind = "coffee" | "map" | "lounge" | "meeting" | "server";
 
 export type HqSocialSpot = {
   kind: HqSocialSpotKind;
@@ -133,8 +133,6 @@ export type HqLayout = {
   leadDesk: HqDesk;
   am7Office: HqRect;
   meetingRooms: HqRect[];
-  /** The cyber-range: a training bay where hackers drill against target rigs. */
-  cyberRange: HqRect;
   lounge: HqRect;
   serverRoom: HqRect;
   mapWall: HqMapWall;
