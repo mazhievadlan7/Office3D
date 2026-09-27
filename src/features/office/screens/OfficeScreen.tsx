@@ -135,6 +135,7 @@ import { InboxPanel } from "@/features/office/components/panels/InboxPanel";
 import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPanel";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
+import { AegisContourPanel } from "@/features/aegis/AegisContourPanel";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
 import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
 import { useOfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
@@ -3540,6 +3541,7 @@ export function OfficeScreen({
               }}
             />
           }
+          contourPanel={<AegisContourPanel />}
         />
         </div>
       ) : null}

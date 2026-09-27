@@ -10,7 +10,8 @@ export type HQSidebarTab =
   | "history"
   | "kanban"
   | "playbooks"
-  | "analytics";
+  | "analytics"
+  | "contour";
 
 type HQSidebarProps = {
   open: boolean;
@@ -25,6 +26,7 @@ type HQSidebarProps = {
   kanbanPanel: ReactNode;
   playbooksPanel: ReactNode;
   analyticsPanel: ReactNode;
+  contourPanel: ReactNode;
 };
 
 const TAB_LABELS: Record<HQSidebarTab, string> = {
@@ -33,6 +35,7 @@ const TAB_LABELS: Record<HQSidebarTab, string> = {
   kanban: t("hq.tabKanban"),
   playbooks: t("hq.tabPlaybooks"),
   analytics: t("hq.tabAnalytics"),
+  contour: t("hq.contour"),
 };
 
 const PRIMARY_TABS: HQSidebarTab[] = ["inbox", "history", "kanban", "playbooks"];
@@ -63,9 +66,11 @@ export function HQSidebar({
   kanbanPanel,
   playbooksPanel,
   analyticsPanel,
+  contourPanel,
 }: HQSidebarProps) {
   const analyticsOnly = activeTab === "analytics";
-  const railOnly = analyticsOnly;
+  const contourOnly = activeTab === "contour";
+  const railOnly = analyticsOnly || contourOnly;
   const activePanel =
     activeTab === "inbox"
       ? inboxPanel
@@ -75,23 +80,27 @@ export function HQSidebar({
           ? kanbanPanel
         : activeTab === "playbooks"
           ? playbooksPanel
-          : analyticsPanel;
+          : activeTab === "contour"
+            ? contourPanel
+            : analyticsPanel;
+  const railTitle = contourOnly ? t("hq.contourTitle") : t("hq.analyticsTitle");
+  const railLead = contourOnly ? t("hq.contourLead") : t("hq.analyticsLead");
   const boardLikeWidth = activeTab === "kanban";
 
   return (
     <aside className="pointer-events-none fixed bottom-[70px] right-3 top-3 z-20 flex flex-col items-end gap-2">
       <div className={`pointer-events-auto w-[312px] shrink-0 ${HQ_HUD_GLASS}`}>
         <HqClock className="px-3.5 pb-2 pt-2.5" />
-        <nav aria-label={t("hq.navLabel")} className="flex gap-1 border-t border-red-900/40 p-1.5">
+        <nav aria-label={t("hq.navLabel")} className="grid grid-cols-2 gap-1 border-t border-red-900/40 p-1.5">
           <button
             type="button"
             onClick={() => {
-              // «Открыть штаб» opens the HQ itself, not analytics left over
+              // «Открыть штаб» opens the HQ itself, not a rail view left over
               // from the last visit.
-              if (!open && analyticsOnly) onTabChange("inbox");
+              if (!open && railOnly) onTabChange("inbox");
               onToggle();
             }}
-            className={navButtonClass(open && !analyticsOnly)}
+            className={navButtonClass(open && !railOnly)}
             aria-expanded={open}
             aria-label={open ? t("hq.collapseLabel") : t("hq.openLabel")}
           >
@@ -121,6 +130,20 @@ export function HQSidebar({
           >
             {t("hq.analyticsTitle")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              onTabChange("contour");
+              if (!open) {
+                onToggle();
+              }
+            }}
+            className={navButtonClass(open && contourOnly)}
+            aria-pressed={open && contourOnly}
+            aria-label={t("hq.openContourLabel")}
+          >
+            {t("hq.contour")}
+          </button>
         </nav>
       </div>
 
@@ -136,10 +159,10 @@ export function HQSidebar({
                 aria-hidden="true"
                 className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(255,42,42,0.9)]"
               />
-              {analyticsOnly ? t("hq.analyticsTitle") : t("hq.hqTitle")}
+              {railOnly ? railTitle : t("hq.hqTitle")}
             </div>
             <p className="mt-1 font-mono text-[11px] leading-4 text-white/65">
-              {analyticsOnly ? t("hq.analyticsLead") : t("hq.hqLead")}
+              {railOnly ? railLead : t("hq.hqLead")}
             </p>
             {railOnly || onAddAgent ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
