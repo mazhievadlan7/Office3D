@@ -14,14 +14,17 @@ import type {
   AegisAuditIntegrity,
   AegisEgress,
   AegisEngagement,
+  AegisGovernance,
   AegisKillSwitch,
   AegisOverview,
+  AegisRule,
   AegisVerifyInstructions,
   AegisVerifyMethod,
   AegisVerifyResult,
 } from "@/lib/aegis/types";
 // The kernel is JSDoc-typed CommonJS; allowJs lets it import cleanly.
 import { createAegisCore } from "../../../server/aegis/index.js";
+import { RULES, composeSystemPrompt } from "../../../server/aegis/governance.js";
 
 type AegisKernel = ReturnType<typeof createAegisCore>;
 
@@ -114,6 +117,13 @@ export const egressFor = (id: string): AegisEgress => {
   const core = kernel();
   const allow = core.egressAllowlist(id) as Omit<AegisEgress, "nftables">;
   return { ...allow, nftables: core.renderEgressNftables(id) as string };
+};
+
+/** The first-order rules, and the system-prompt block every agent carries —
+ *  pinned to one engagement's scope when an id is given. */
+export const governance = (engagementId?: string): AegisGovernance => {
+  const engagement = engagementId ? (kernel().engagements.get(engagementId) as AegisEngagement | null) : null;
+  return { rules: RULES as AegisRule[], prompt: composeSystemPrompt({ engagement }) };
 };
 
 /** A refusal shaped like the kernel's, so aegisErrorStatus maps it to a status. */

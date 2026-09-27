@@ -86,6 +86,12 @@ export type AegisOverview = {
   audit: AegisAuditIntegrity;
 };
 
+/** A first-order governance rule (RULE_0…RULE_5) carried by every agent. */
+export type AegisRule = { id: string; title: string; text: string };
+export type AegisGovernance = { rules: AegisRule[]; prompt: string };
+
+export type AegisPreflightDecision = { allowed: boolean; decision: string; reason: string; assetId: string | null };
+
 /** What the operator places to prove control of an asset. */
 export type AegisVerifyInstructions = { token: string; challenge: string; wellKnownPath: string };
 

@@ -9,6 +9,7 @@ import type {
   AegisEgress,
   AegisEngagement,
   AegisOverview,
+  AegisRule,
   AegisStatus,
   AegisVerifyInstructions,
   AegisVerifyMethod,
@@ -75,8 +76,19 @@ export function AegisContourPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [operator, setOperator] = useState("");
+  const [rules, setRules] = useState<AegisRule[]>([]);
+  const [showRules, setShowRules] = useState(false);
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedId;
+
+  useEffect(() => {
+    api
+      .fetchGovernance()
+      .then((value) => setRules(value.rules))
+      .catch(() => {
+        // the rules are reference chrome; the panel works without them
+      });
+  }, []);
 
   useEffect(() => {
     try {
@@ -248,6 +260,30 @@ export function AegisContourPanel() {
             </ul>
           )}
         </Section>
+
+        {/* The first-order rules every agent carries (RULE_0…RULE_5). */}
+        {rules.length > 0 ? (
+          <Section title={t("aegis.rulesTitle")}>
+            <button
+              type="button"
+              className="font-mono text-[10px] text-red-300 transition-colors hover:text-red-200"
+              onClick={() => setShowRules((prev) => !prev)}
+            >
+              {showRules ? t("aegis.rulesHide") : t("aegis.rulesShow", { count: rules.length })}
+            </button>
+            {showRules ? (
+              <ul className="mt-1.5 space-y-1.5">
+                {rules.map((rule) => (
+                  <li key={rule.id} className="font-mono text-[10px] leading-tight">
+                    <span className="text-red-300">{rule.id}</span>{" "}
+                    <span className="text-white/85">{rule.title}</span>
+                    <span className="mt-0.5 block text-white/50">{rule.text}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Section>
+        ) : null}
       </div>
     </div>
   );

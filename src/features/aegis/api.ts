@@ -7,6 +7,7 @@ import type {
   AegisAuditIntegrity,
   AegisEgress,
   AegisEngagement,
+  AegisGovernance,
   AegisKillSwitch,
   AegisOverview,
   AegisVerifyInstructions,
@@ -68,6 +69,9 @@ export const fetchAudit = async (
   const data = await fetch(`/api/aegis/audit${query ? `?${query}` : ""}`, { cache: "no-store" }).then(readJson);
   return { entries: (data.entries as AegisAuditEntry[]) ?? [], integrity: data.integrity as AegisAuditIntegrity };
 };
+
+export const fetchGovernance = (): Promise<AegisGovernance> =>
+  fetch("/api/aegis/governance", { cache: "no-store" }).then(readJson) as Promise<AegisGovernance>;
 
 export const fetchVerifyInstructions = (id: string): Promise<AegisVerifyInstructions> =>
   fetch(`/api/aegis/engagements/${encodeURIComponent(id)}/verify`, { cache: "no-store" }).then(
