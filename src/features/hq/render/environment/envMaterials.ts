@@ -104,22 +104,24 @@ export function createEnvMaterials(): EnvMaterials {
     ],
   });
 
+  // Satin, not mirror: a glossy trim or pane mirrors the high key light into a
+  // white hotspot that the bloom blows up and that slides with the camera.
   const metal = new THREE.MeshStandardMaterial({
     color: HQ_THEME.metal,
-    roughness: 0.3,
-    metalness: 0.85,
-    envMapIntensity: 1.1,
+    roughness: 0.58,
+    metalness: 0.6,
+    envMapIntensity: 0.45,
   });
   metal.name = "hq-metal";
 
   const glass = new THREE.MeshStandardMaterial({
     color: HQ_THEME.glass,
-    roughness: 0.04,
-    metalness: 0.1,
+    roughness: 0.42,
+    metalness: 0.05,
     transparent: true,
     opacity: 0.18,
     depthWrite: false,
-    envMapIntensity: 1.3,
+    envMapIntensity: 0.5,
   });
   glass.name = "hq-glass";
   patchMaterial(glass, {

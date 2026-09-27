@@ -239,8 +239,9 @@ export function createFallbackMaterials(uniforms: PropUniforms, screen: THREE.Ma
   const led = new THREE.MeshBasicMaterial({ color: themeColor(HQ_THEME.accent, GLOW.led), toneMapped: false });
   led.name = "hq-fallback-led";
   return {
-    body: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.metal, roughness: 0.35, metalness: 0.7 }), "body"),
-    dark: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.deskTop, roughness: 0.3, metalness: 0.25 }), "dark"),
+    // Satin, not glossy: no white key-light hotspots that follow the camera.
+    body: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.metal, roughness: 0.6, metalness: 0.5, envMapIntensity: 0.4 }), "body"),
+    dark: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.deskTop, roughness: 0.8, metalness: 0.1, envMapIntensity: 0.3 }), "dark"),
     cushion: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.wallPanel, roughness: 0.92, metalness: 0 }), "cushion"),
     foliage: named(new THREE.MeshStandardMaterial({ color: HQ_THEME.glass, roughness: 0.8, metalness: 0, flatShading: true }), "foliage"),
     led: patchBlink(led, uniforms),

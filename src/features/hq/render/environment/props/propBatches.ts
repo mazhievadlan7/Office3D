@@ -129,6 +129,8 @@ function glbParts(
           owned.materials.push(glow);
         }
         material = glow;
+      } else {
+        satin(original);
       }
       const part = byMaterial.get(material) ?? { material, geometries: [] };
       part.geometries.push(geometry);
@@ -136,6 +138,27 @@ function glbParts(
     }
   });
   return [...byMaterial.values()];
+}
+
+/**
+ * The props GLB ships gloss black, chrome and near-mirror glass. Under the high
+ * key light they mirrored white hotspots that the bloom blew up and that slid
+ * with the camera. Clamp plain surfaces to a satin finish (in place, idempotent);
+ * screens and emissive parts keep their own materials.
+ */
+function satin(material: THREE.Material): void {
+  const m = material as THREE.MeshStandardMaterial;
+  if (!m.isMeshStandardMaterial) return;
+  m.roughness = Math.max(m.roughness, 0.62);
+  m.roughnessMap = null;
+  m.metalness = Math.min(m.metalness, 0.5);
+  m.envMapIntensity = Math.min(m.envMapIntensity, 0.35);
+  const physical = m as THREE.MeshPhysicalMaterial;
+  if (physical.isMeshPhysicalMaterial) {
+    physical.clearcoat = 0;
+    physical.sheen = 0;
+  }
+  m.needsUpdate = true;
 }
 
 /**

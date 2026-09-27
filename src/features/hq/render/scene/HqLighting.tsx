@@ -109,7 +109,6 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
 
   useFrame(({ camera, gl }) => {
     const light = keyRef.current;
-    const fog = fogRef.current;
     if (!light) return;
     frameIndex.current += 1;
     if (quality === "medium" && (frameIndex.current & 1) === 0) gl.shadowMap.needsUpdate = true;
@@ -135,19 +134,16 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
     let maxU = -Infinity;
     let minL = Infinity;
     let maxL = -Infinity;
-    let centreDistance = 0;
     const eye = camera.position;
-    for (let c = 0; c < NDC_X.length; c += 1) {
+    // Only the four screen corners; the shadow frustum wraps what the camera
+    // sees. Illumination itself is camera-independent (see the fixed fog below).
+    for (let c = 0; c < 4; c += 1) {
       _ray.set(NDC_X[c], NDC_Y[c], 0.5).unproject(camera).sub(eye).normalize();
       if (_ray.y < -1e-3) {
         _hit.copy(_ray).multiplyScalar(-eye.y / _ray.y).add(eye);
       } else {
         // Above the horizon: take a far point along the ground direction.
         _hit.set(_ray.x, 0, _ray.z).normalize().multiplyScalar(1e4).add(eye);
-      }
-      if (c === 4) {
-        centreDistance = _hit.distanceTo(eye);
-        continue;
       }
       _hit.x = Math.min(x1 + margin, Math.max(x0 - margin, _hit.x));
       _hit.z = Math.min(z1 + margin, Math.max(z0 - margin, _hit.z));
@@ -165,11 +161,6 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
       }
     }
 
-    if (fog) {
-      // Depth haze that scales with how far out the camera is.
-      fog.near = centreDistance * 0.85;
-      fog.far = centreDistance * 2.6 + 18;
-    }
     if (!light.castShadow) return;
     const size = light.shadow.mapSize.x;
     // Quantise the extent to 2 m steps and the centre to whole texels, so
@@ -207,19 +198,23 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
   return (
     <>
       <color attach="background" args={[HQ_THEME.background]} />
-      <fog ref={fogRef} attach="fog" args={[HQ_THEME.fog, 30, 120]} />
-      <hemisphereLight args={["#a8b0c2", "#1c1416", 2.9]} />
-      {/* Soft fill from the camera side so hooded figures read against the dark floor. */}
-      <directionalLight position={[18, 26, 30]} color="#dfe6f2" intensity={1.3} />
-      {/* A second fill from the far (north-west) side so the back of the hall is
-          lit too, not only the desks nearest the camera. */}
-      <directionalLight position={[-16, 24, -30]} color="#cdd6ea" intensity={1.0} />
+      {/* Fixed, distant fog — the same everywhere, so brightness never follows
+          the camera; the whole hall reads lit, not just what you look at. */}
+      <fog ref={fogRef} attach="fog" args={[HQ_THEME.fog, 90, 320]} />
+      {/* A faint red atmosphere only: the floor is meant to read black with red
+          circuit traces, not a red wash. */}
+      <ambientLight color={HQ_THEME.accent} intensity={0.3} />
+      <hemisphereLight args={["#aeb4c4", "#141014", 2.4]} />
+      {/* Bright, even fills from both ends so desks and hooded figures read
+          across the whole hall — same brightness near and far. */}
+      <directionalLight position={[18, 26, 30]} color="#e9dede" intensity={1.15} />
+      <directionalLight position={[-16, 24, -30]} color="#d8d2e0" intensity={1.05} />
       <primitive object={keyTarget} />
       <primitive object={am7Target} />
       <directionalLight
         ref={keyRef}
         color={KEY_COLOR}
-        intensity={4.6}
+        intensity={3.6}
         target={keyTarget}
         castShadow={shadowsOn}
         shadow-mapSize={[SHADOW_MAP_SIZE[quality], SHADOW_MAP_SIZE[quality]]}
@@ -254,12 +249,14 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
         ceiling strip, a red glow from the map side and a faint cool fill.
         Rendered once into a cube map; glossy floors and screens pick it up.
       */}
-      <Environment frames={1} resolution={256} environmentIntensity={1.2}>
-        <Lightformer form="rect" intensity={4} color="#fff4e8" scale={[14, 0.8, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
-        <Lightformer form="rect" intensity={3} color={HQ_THEME.statusSelected} scale={[10, 0.6, 1]} position={[0, 6, 3]} rotation-x={Math.PI / 2} />
-        <Lightformer form="rect" intensity={0.8} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
-        <Lightformer form="rect" intensity={0.6} color={HQ_THEME.accentSoft} scale={[8, 2, 1]} position={[-9, 2, 0]} rotation-y={Math.PI / 2} />
-        <Lightformer form="rect" intensity={1.4} color="#c8d2e6" scale={[10, 4, 1]} position={[9, 3, 6]} rotation-y={-Math.PI / 2} />
+      <Environment frames={1} resolution={256} environmentIntensity={0.9}>
+        {/* All red / near-black: glossy surfaces reflect red, never a white glare
+            that follows the camera. */}
+        <Lightformer form="rect" intensity={2.4} color={HQ_THEME.accent} scale={[16, 1.4, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={1.5} color={HQ_THEME.accentSoft} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
+        <Lightformer form="rect" intensity={1.1} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, 9]} rotation-y={Math.PI} />
+        <Lightformer form="rect" intensity={0.5} color="#241c20" scale={[8, 3, 1]} position={[9, 3, 0]} rotation-y={-Math.PI / 2} />
+        <Lightformer form="rect" intensity={0.5} color="#241c20" scale={[8, 3, 1]} position={[-9, 3, 0]} rotation-y={Math.PI / 2} />
       </Environment>
     </>
   );

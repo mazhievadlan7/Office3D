@@ -3,7 +3,6 @@
 import { memo, useEffect, useMemo, type MutableRefObject } from "react";
 import { MeshStandardMaterial, PlaneGeometry } from "three";
 
-import { HQ_THEME } from "../../core/config";
 import type { HqSimulation } from "../../core/sim";
 import type { HqAgentInput, HqLayout } from "../../core/types";
 import { HqCrowd } from "../crowd/HqCrowd";
@@ -27,7 +26,7 @@ function FallbackFloor({ layout }: { layout: HqLayout }) {
   const { x0, z0, x1, z1 } = layout.bounds;
   const geometry = useMemo(() => new PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2), [x0, z0, x1, z1]);
   const material = useMemo(
-    () => new MeshStandardMaterial({ color: HQ_THEME.floor, roughness: 0.32, metalness: 0.1 }),
+    () => new MeshStandardMaterial({ color: "#050506", roughness: 1, metalness: 0 }),
     [],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);

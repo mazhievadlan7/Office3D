@@ -97,6 +97,33 @@ type Chunk = {
 };
 
 const noRaycast = () => {};
+
+/**
+ * The workstation GLB ships a glossy black desk (roughness 0.16) and polished
+ * metal. Under the high key light those mirrored a white hotspot that the bloom
+ * spread over the desk, and since the near desks switch to the full-detail LOD
+ * it followed the camera around the hall. Force a matte, non-reflective finish
+ * on the model's own materials (in place, so it is idempotent across remounts).
+ */
+function matte(
+  material: THREE.Material | undefined,
+  roughness: number,
+  metalness: number,
+): THREE.Material | undefined {
+  const std = material as THREE.MeshStandardMaterial | undefined;
+  if (!std || !std.isMeshStandardMaterial) return material;
+  std.roughness = Math.max(std.roughness, roughness);
+  std.roughnessMap = null;
+  std.metalness = Math.min(std.metalness, metalness);
+  std.envMapIntensity = Math.min(std.envMapIntensity, 0.2);
+  const physical = std as THREE.MeshPhysicalMaterial;
+  if (physical.isMeshPhysicalMaterial) {
+    physical.clearcoat = 0;
+    physical.sheen = 0;
+  }
+  std.needsUpdate = true;
+  return std;
+}
 const cameraPosition = new THREE.Vector3();
 const viewProjection = new THREE.Matrix4();
 const frustum = new THREE.Frustum();
@@ -132,9 +159,9 @@ export class WorkstationBatchSet {
     for (let i = 0; i < desks.length; i += 1) this.seeds[i] = deskSeed(i);
 
     const lit: Record<WsGroup, THREE.Material> = {
-      desk: source.materials.desk ?? materials.desk,
-      metal: source.materials.metal ?? materials.metal,
-      chair: source.materials.chair ?? materials.chair,
+      desk: matte(source.materials.desk, 0.95, 0.05) ?? materials.desk,
+      metal: matte(source.materials.metal, 0.7, 0.35) ?? materials.metal,
+      chair: matte(source.materials.chair, 0.85, 0.05) ?? materials.chair,
       screen: materials.screen,
       led: materials.led,
       glass: materials.glass,

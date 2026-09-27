@@ -164,7 +164,9 @@ describe("HqSimulation lounge breaks", () => {
     let standingInLounge = 0;
     let seatedMax = 0;
     const lounge = layout.lounge;
-    for (let step = 0; step < 6000; step++) {
+    // Twenty simulated minutes: the wider lounge has more seats, so filling
+    // every one takes longer than it used to.
+    for (let step = 0; step < 12000; step++) {
       busy.update(DT);
       if (step % 10 !== 0) continue;
       const f = busy.frame;

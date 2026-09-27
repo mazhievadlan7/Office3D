@@ -264,27 +264,35 @@ export function createWorkstationMaterials(screens: HqScreenHub | null): Worksta
   };
   led.customProgramCacheKey = () => "hq-ws-led-2";
 
+  // Monitor glass: matte and non-reflective. A glossy pane mirrored the high key
+  // light into a hotspot above 1, which the bloom spread into a white glow over
+  // the desks at the mirror angle — so it followed the camera around the hall.
   const glass = new THREE.MeshStandardMaterial({
     name: "hq-ws-glass",
     color: HQ_THEME.glass,
-    roughness: 0.06,
-    metalness: 0.1,
+    roughness: 0.9,
+    metalness: 0,
+    envMapIntensity: 0,
     transparent: true,
     opacity: 0.2,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+  // Matte desks and frames: a glossy top mirrors the key light into a white
+  // hotspot that slides with the camera. Rough + low env keeps them even.
   const desk = new THREE.MeshStandardMaterial({
     name: "hq-ws-desk",
     color: HQ_THEME.deskTop,
-    roughness: 0.3,
-    metalness: 0.3,
+    roughness: 1,
+    metalness: 0,
+    envMapIntensity: 0.1,
   });
   const metal = new THREE.MeshStandardMaterial({
     name: "hq-ws-metal",
     color: HQ_THEME.metal,
-    roughness: 0.38,
-    metalness: 0.85,
+    roughness: 0.72,
+    metalness: 0.25,
+    envMapIntensity: 0.15,
   });
   const chair = new THREE.MeshStandardMaterial({
     name: "hq-ws-chair",

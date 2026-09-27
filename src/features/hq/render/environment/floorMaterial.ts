@@ -131,33 +131,62 @@ float hqTone = 0.84 + 0.3 * hqR1;
 vec3 hqEmissiveExtra = vec3(0.0);
 vec3 hqBase = diffuseColor.rgb;
 
+// Every zone shares one look: a truly black, matte hacker floor with a sparse
+// red circuit. Zones differ only by their red accents and how dense the
+// circuit is, so the rooms still read as rooms.
+float hqCircCell = 1.1;
+float hqCircSeed = 3.7;
 if (hqZone == 1) {
-  hqTone *= 0.55;
-  hqRough = 0.12 + 0.06 * hqR2;
-  hqGloss = 1.25;
-  hqGrout *= 0.6;
-  // Thin red inlay tracing the office outline.
+  // AM7's office: a finer circuit and a red inlay tracing the office outline.
+  hqCircCell = 0.7;
+  hqCircSeed = 17.3;
   float hqInlay = hqLine(abs(hqRectEdge(hqXZ, uHqAm7) - 0.32), 0.008, hqAA);
   hqEmissiveExtra += uHqAccent * hqInlay * 1.4;
-} else if (hqZone == 2 || hqZone == 3) {
-  // Carpet: no grout, fine fibre noise, matte and darker than the stone.
-  hqGrout = 0.0;
-  hqTone = hqZone == 2 ? 0.46 : 0.52;
-  hqStone = hqNoise(hqXZ * 38.0) * hqDetail * 0.8 + hqNoise(hqXZ * 3.0) * 0.4;
-  hqRough = 0.9;
-  hqGloss = 0.1;
-  hqSpecular = 0.3;
-  if (hqZone == 3) {
-    // Rug: a darker woven border band with a thin red thread inside it.
-    hqTone *= mix(0.65, 1.0, smoothstep(0.2, 0.24, hqRugEdge));
-    hqEmissiveExtra += uHqAccent * hqLine(abs(hqRugEdge - 0.3), 0.006, hqAA) * 0.5;
-  }
+} else if (hqZone == 2) {
+  // Meeting rooms: a medium circuit.
+  hqCircCell = 0.9;
+  hqCircSeed = 29.1;
+} else if (hqZone == 3) {
+  // Rug: a thin red thread inside its border.
+  hqCircCell = 0.8;
+  hqCircSeed = 41.7;
+  hqEmissiveExtra += uHqAccent * hqLine(abs(hqRugEdge - 0.3), 0.006, hqAA) * 0.5;
 } else if (hqZone == 4) {
-  // Raised floor: slightly lighter satin tiles, a dim red glow in the joints.
-  hqTone = 1.15 + 0.12 * hqR1;
-  hqRough = 0.36 + 0.1 * hqR2;
-  hqGloss = 0.7;
+  // Server room: a dim red glow in the raised-floor joints.
+  hqCircCell = 0.9;
+  hqCircSeed = 53.9;
   hqEmissiveExtra += uHqAccent * hqLine(hqEdge, 0.004, hqAA) * mix(0.08, 0.22, hqDetail);
+}
+
+// Black and matte, with no specular at all: a dielectric still mirrors ~4 % of
+// the light whatever its colour, and under the bright even lighting that alone
+// lifted a near-black floor to grey. Near-zero albedo and no grout grid.
+hqBase = vec3(0.0025, 0.0022, 0.003);
+hqStone = 0.0;
+hqTone = 1.0;
+hqGrout = 0.0;
+hqRough = 1.0;
+hqGloss = 0.0;
+hqSpecular = 0.0;
+{
+  // A sparse printed-circuit look: most of the floor stays black. Traces run in
+  // long segments (three cells at a time) on a line that is offset per row or
+  // column, so it never reads as a regular grid, and a small pad marks where a
+  // horizontal and a vertical run cross. Dim, below the bloom: crisp, no glow.
+  float hqC = hqCircCell;
+  vec2 hqCl = floor(hqXZ / hqC);
+  vec2 hqF = hqXZ - hqCl * hqC;
+  float hqRowOff = (0.2 + 0.6 * hqHash12(vec2(hqCl.y, hqCircSeed))) * hqC;
+  float hqColOff = (0.2 + 0.6 * hqHash12(vec2(hqCl.x, hqCircSeed + 7.0))) * hqC;
+  float hqHOn = step(hqHash12(vec2(floor(hqCl.x / 3.0), hqCl.y + hqCircSeed * 3.1)), 0.26);
+  float hqVOn = step(hqHash12(vec2(hqCl.x + hqCircSeed * 5.3, floor(hqCl.y / 3.0))), 0.18);
+  float hqHLine = hqHOn * hqLine(abs(hqF.y - hqRowOff), 0.012, hqAA);
+  float hqVLine = hqVOn * hqLine(abs(hqF.x - hqColOff), 0.012, hqAA);
+  vec2 hqPd = abs(hqF - vec2(hqColOff, hqRowOff));
+  float hqPad = hqHOn * hqVOn * hqLine(max(hqPd.x, hqPd.y), 0.032, hqAA);
+  // Dimmer far off rather than gone, so the pattern still reads across the hall.
+  float hqFade = 0.5 + 0.5 * hqDetail;
+  hqEmissiveExtra += uHqAccent * ((hqHLine + hqVLine) * 0.24 + hqPad * 0.8) * hqFade;
 }
 
 hqBase *= hqTone * (0.9 + 0.2 * hqStone);
@@ -173,27 +202,10 @@ reflectedLight.directSpecular *= hqSpecular;
 reflectedLight.indirectSpecular *= hqSpecular;
 `;
 
-// Fake reflections: taps pushed away from the camera across the floor pick up
-// glow from lights further back, which is where a glossy floor would mirror
-// them. Tap distance scales with (horizontal distance / camera height), the
-// geometry of a reflection off a plane.
+// No floor glow / reflections at all: the floor is black and matte, its only
+// light is the red hacker traces baked into hqEmissiveExtra above.
 const FRAGMENT_EMISSIVE = /* glsl */ `
-{
-  vec3 hqToCam = cameraPosition - vHqWorld;
-  float hqCamH = max(hqToCam.y, 0.5);
-  float hqFlat = max(length(hqToCam.xz), 1e-3);
-  vec2 hqAway = -hqToCam.xz / hqFlat;
-  float hqReach = clamp(hqFlat / hqCamH, 0.15, 3.0);
-  vec3 hqRefl = hqGlowTap(hqXZ, 0.12) * 0.5;
-  hqRefl += hqGlowTap(hqXZ + hqAway * (0.3 * hqReach), 0.22) * 0.42;
-  hqRefl += hqGlowTap(hqXZ + hqAway * (0.8 * hqReach), 0.42) * 0.32;
-  hqRefl += hqGlowTap(hqXZ + hqAway * (1.6 * hqReach), 0.8) * 0.2;
-  hqRefl += hqGlowTap(hqXZ + hqAway * (2.9 * hqReach), 1.4) * 0.12;
-  float hqFresnel = 0.6 + 0.4 * pow(1.0 - clamp(hqCamH / length(hqToCam), 0.0, 1.0), 2.0);
-  float hqSheen = hqGloss * clamp(1.35 - roughnessFactor * 1.6, 0.1, 1.2);
-  totalEmissiveRadiance += hqRefl * (uHqGlowStrength * hqSheen * hqFresnel * (1.0 - hqGrout));
-  totalEmissiveRadiance += hqEmissiveExtra;
-}
+totalEmissiveRadiance += hqEmissiveExtra;
 `;
 
 export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; uniforms: FloorUniforms } {
@@ -201,7 +213,9 @@ export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; u
     uHqGlowMap: { value: null },
     uHqGlowRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     uHqGlowPpm: { value: 1 },
-    uHqGlowStrength: { value: 0.4 },
+    // The even (view-independent) floor glow strength: red under the LEDs and
+    // screens, the same from any camera angle.
+    uHqGlowStrength: { value: 0.55 },
     uHqOrigin: { value: new THREE.Vector2() },
     uHqTile: { value: FLOOR_TILE },
     uHqGrout: { value: themeColor(HQ_THEME.floorGrout) },
@@ -215,9 +229,11 @@ export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; u
   };
   const material = new THREE.MeshStandardMaterial({
     color: HQ_THEME.floor,
-    roughness: 0.25,
+    // Black and matte: no environment reflection and a very rough lobe, so the
+    // floor never mirrors the lights into a white glare that follows the view.
+    roughness: 0.95,
     metalness: 0,
-    envMapIntensity: 0.85,
+    envMapIntensity: 0,
   });
   material.name = "hq-floor";
   patchMaterial(material, {
