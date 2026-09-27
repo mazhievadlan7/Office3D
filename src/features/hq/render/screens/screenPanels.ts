@@ -162,7 +162,7 @@ export function paintExecMonitor(p: Painter, t: number, feed: HqScreenFeed): voi
   arrow(c, delta >= 0, ax + 24, ay + 322, 5, delta >= 0 ? TV.white : TV.redSoft);
   p.setFont(13, 500, SANS);
   p.text(`${signedPoints(delta)} п.п. за минуту · всего агентов ${feed.total}`, ax + 36, ay + 322, TV.white65);
-  label(p, `Отделов ${Math.max(1, feed.teams.filter((tm) => tm.total > 0).length)} · смена ${shiftName(feed.clock)}`, ax + 18, ay + ah - 18, TV.white45, 11);
+  label(p, `Операций ${Math.max(1, feed.teams.filter((tm) => tm.total > 0).length)} · смена ${shiftName(feed.clock)}`, ax + 18, ay + ah - 18, TV.white45, 11);
 
   // B. Activity (the real working share) and the departments.
   const bx = 456;
@@ -177,7 +177,7 @@ export function paintExecMonitor(p: Painter, t: number, feed: HqScreenFeed): voi
   const dy = ay + 236;
   const dh = ah - 236;
   glassCard(p, bx, dy, bw, dh);
-  label(p, "Отделы · в работе сейчас", bx + 18, dy + 28, TV.white45, 12);
+  label(p, "Операции · в работе сейчас", bx + 18, dy + 28, TV.white45, 12);
   const rows = teamRows(feed, 8);
   const cellW = (bw - 36) / Math.max(4, rows.length);
   rows.forEach((r, i) => {
@@ -291,7 +291,7 @@ export function paintExecWall(p: Painter, t: number, feed: HqScreenFeed): void {
   const bh = h - by - 24;
   const half = (cw - 10) / 2;
   glassCard(p, kx, by, half, bh);
-  label(p, "Отделы", kx + 16, by + 24, TV.white45, 10);
+  label(p, "Операции", kx + 16, by + 24, TV.white45, 10);
   teamRows(feed, 4).forEach((r, i) => {
     const y = by + 50 + i * 30;
     const v = r.total > 0 ? r.working / r.total : 0;
@@ -328,7 +328,7 @@ export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
   // KPI tiles, 2 x 2.
   const share = workingShare(feed);
   const tiles: Array<[string, number, string, boolean]> = [
-    ["Агентов в сети", feed.total, `${Math.max(1, feed.teams.filter((tm) => tm.total > 0).length)} отделов`, false],
+    ["Агентов в сети", feed.total, `${Math.max(1, feed.teams.filter((tm) => tm.total > 0).length)} операций`, false],
     ["В работе", feed.working, `${Math.round(share * 100)}% штаба`, false],
     ["Ожидают", feed.idle, feed.total > 0 ? `${Math.round((feed.idle / feed.total) * 100)}% штаба` : "нет данных", false],
     ["Ошибки", feed.error, feed.total > 0 ? `${decimal((feed.error / feed.total) * 100)}% штаба` : "нет данных", feed.error > 0],
@@ -377,7 +377,7 @@ export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
   const dx = 1380;
   const dw = w - dx - 40;
   glassCard(p, dx, fy, dw, fh, { radius: 10 });
-  label(p, "Загрузка отделов", dx + 22, fy + 38, TV.white45, 15);
+  label(p, "Активность операций", dx + 22, fy + 38, TV.white45, 15);
   const rows = teamRows(feed, 7);
   const rowH = Math.min(52, (fh - 150) / rows.length);
   rows.forEach((r, i) => {

@@ -81,6 +81,8 @@ export class HqCrowdRuntime {
   private readonly want = new Int32Array(MAX_HEROES + 3);
   private readonly score = new Float32Array(MAX_HEROES + 3);
   private readonly forced = new Int32Array(3);
+  /** Agents that get a nameplate: only the one under the pointer. */
+  private readonly labelWant = new Int32Array(1);
   private frame: HqAgentFrame | null = null;
   /** Bound once so the label pass can ask for head heights without a closure per frame. */
   private readonly headY = (i: number): number => {
@@ -274,8 +276,12 @@ export class HqCrowdRuntime {
     }
     decals.end(time);
 
-    // 5. Nameplates for heroes, hovered, selected and AM7.
-    this.labels.update(f, this.want, wantCount, sim, agents, visible, this.headY, selected, hovered, camera, viewportHeight, dt);
+    // 5. Nameplate: only the agent under the pointer — a name lights up on
+    // hover, never on camera proximity, and the selection is shown by the
+    // floor ring instead of a lingering label.
+    let labelCount = 0;
+    if (hovered >= 0 && visible[hovered] === 1) this.labelWant[labelCount++] = hovered;
+    this.labels.update(f, this.labelWant, labelCount, sim, agents, visible, this.headY, selected, hovered, camera, viewportHeight, dt);
   }
 
   dispose(): void {

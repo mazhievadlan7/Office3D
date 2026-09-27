@@ -39,6 +39,17 @@ describe("desk monitors", () => {
     expect(hqRoleFamily("Astronaut")).toBe(HQ_ROLE_FAMILY.generic);
   });
 
+  it("maps hacker operations to a monitor family so desks stay varied", () => {
+    expect(hqRoleFamily("Разведка")).toBe(HQ_ROLE_FAMILY.research);
+    expect(hqRoleFamily("Веб и API")).toBe(HQ_ROLE_FAMILY.builder);
+    expect(hqRoleFamily("Сеть")).toBe(HQ_ROLE_FAMILY.devops);
+    expect(hqRoleFamily("Идентификация")).toBe(HQ_ROLE_FAMILY.analyst);
+    expect(hqRoleFamily("Облако")).toBe(HQ_ROLE_FAMILY.design);
+    expect(hqRoleFamily("Реверс")).toBe(HQ_ROLE_FAMILY.qa);
+    expect(hqRoleFamily("Эксплуатация")).toBe(HQ_ROLE_FAMILY.analyst);
+    expect(hqRoleFamily("Отчётность")).toBe(HQ_ROLE_FAMILY.writer);
+  });
+
   it("has a painter for every app layer", () => {
     for (const app of HQ_SCREEN_APPS) expect(typeof APP_PAINTERS[app], app).toBe("function");
     expect(Object.keys(APP_PAINTERS)).toHaveLength(HQ_SCREEN_APPS.length);
@@ -165,8 +176,8 @@ describe("the news channel's rundown", () => {
     expect(newsStories(feedOf({ working: 21 })).find((s) => s.tag === "ГЛАВНОЕ")?.title).toBe("В штабе 21 агент в работе из 300");
     // The minute's trend, from the per-second history.
     expect(stories.find((s) => s.tag === "ДИНАМИКА")?.title).toMatch(/выросла/);
-    // The busiest staffed department.
-    expect(stories.find((s) => s.tag === "ОТДЕЛЫ")?.title).toContain("Разработка");
+    // The busiest kind of operation in progress.
+    expect(stories.find((s) => s.tag === "ОПЕРАЦИИ")?.title).toContain("Веб и API");
     // Old errors are not breaking news any more.
     expect(newsStories(feedOf({ events: [{ at: NOW - 600_000, name: "Vex", status: 2 }] }))[0].tag).not.toBe("СРОЧНО");
   });

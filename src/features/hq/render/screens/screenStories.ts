@@ -16,7 +16,7 @@ const AGENTS: PluralForms = ["агент", "агента", "агентов"];
 export const STATUS_WORD = ["в работе", "ожидает", "ошибка"] as const;
 
 /** Role family names (HQ_ROLE_FAMILY order) for the screens. */
-export const TEAM_NAMES = ["Общий отдел", "Исследования", "Разработка", "Аналитика", "Дизайн", "DevOps", "Тестирование", "Тексты и план"] as const;
+export const TEAM_NAMES = ["Оперативный штаб", "Разведка", "Веб и API", "Сеть", "Идентификация", "Облако", "Реверс", "Отчётность"] as const;
 /** Short ticker codes, same order. */
 export const TEAM_CODES = ["ОБЩ", "ИССЛ", "РАЗР", "АНЛТ", "ДИЗН", "DVOP", "ТЕСТ", "ТЕКС"] as const;
 
@@ -65,7 +65,7 @@ export function longDate(ms: number): string {
 
 // --- news ---------------------------------------------------------------------------------------
 export type NewsStory = {
-  /** The category box: СРОЧНО, ГЛАВНОЕ, ШТАБ, ОТДЕЛЫ, ДИНАМИКА. */
+  /** The category box: СРОЧНО, ГЛАВНОЕ, ШТАБ, ОПЕРАЦИИ, ДИНАМИКА. */
   tag: string;
   title: string;
   sub: string;
@@ -134,9 +134,9 @@ export function newsStories(feed: HqScreenFeed): NewsStory[] {
   if (busiest >= 0) {
     const team = feed.teams[busiest];
     out.push({
-      tag: "ОТДЕЛЫ",
+      tag: "ОПЕРАЦИИ",
       title: `«${TEAM_NAMES[busiest]}» загружен на ${Math.round(best * 100)}%`,
-      sub: `${team.working} из ${team.total} ${plural(team.total, AGENTS)} отдела в работе`,
+      sub: `${team.working} из ${team.total} ${plural(team.total, AGENTS)} в работе`,
       hot: false,
     });
   }

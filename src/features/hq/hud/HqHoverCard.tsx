@@ -53,10 +53,9 @@ export function HqHoverCard({
         const box = boxRef.current;
         if (!agent || !box) return;
         if (nameRef.current) nameRef.current.textContent = agent.name;
-        if (metaRef.current) {
-          const role = agent.role?.trim();
-          metaRef.current.textContent = role ? `${statusLabel(agent.status)} · ${role}` : statusLabel(agent.status);
-        }
+        // Live state only: «работает» while on a task, «ожидает» when idle —
+        // never the static operation glued on ("ожидает · Разведка" was wrong).
+        if (metaRef.current) metaRef.current.textContent = statusLabel(agent.status);
         if (dotRef.current) dotRef.current.style.backgroundColor = STATUS_COLOR[agent.status];
         if (leadRef.current) leadRef.current.style.display = isHqLeadAgent(agent) ? "" : "none";
         place(x, y);

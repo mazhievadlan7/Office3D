@@ -886,7 +886,7 @@ export function paintMarkets(p: Painter, t: number, feed: HqScreenFeed): void {
   const dy = 70;
   const dw = w - dx - 28;
   glassCard(p, dx, dy, dw, ch, { opacity: 0.88 });
-  label(p, "Отделы", dx + 16, dy + 26, TV.white45, 10.5);
+  label(p, "Операции", dx + 16, dy + 26, TV.white45, 10.5);
   label(p, "в работе · 1 мин", dx + dw - 16, dy + 26, TV.white45, 10, "right");
   const rows = feed.teams
     .map((team, i): { name: string; team: HqTeamStat } => ({ name: TEAM_NAMES[i], team }))

@@ -1842,7 +1842,6 @@ export const ru = {
   "office.loadingShort": "Загрузка…",
   "office.localAgent": "Локальный агент",
   "office.mainAgent": "Главный агент",
-  "office.mainAgentName": "Главный",
   "office.mainNotFound": "Главный агент не найден.",
   "office.minimize": "Свернуть",
   "office.noAgentsInOffice": "Шлюз подключён, но в офис не загружено ни одного агента.",

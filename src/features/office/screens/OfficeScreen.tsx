@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic, X } from "lucide-react";
 import type { HqAgentInput } from "@/features/hq/core/types";
+import { HQ_LEAD_AGENT_NAME } from "@/features/hq/core/config";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
@@ -214,10 +215,10 @@ const createDemoMainAgentSeed = (): {
   showThinkingTraces: boolean;
 } => ({
   agentId: MAIN_AGENT_ID,
-  name: t("office.mainAgentName"),
+  name: HQ_LEAD_AGENT_NAME,
   runtimeName: t("office.demoRuntime"),
-  identityName: t("office.mainAgentName"),
-  sessionDisplayName: t("office.mainAgentName"),
+  identityName: HQ_LEAD_AGENT_NAME,
+  sessionDisplayName: HQ_LEAD_AGENT_NAME,
   role: "assistant",
   sessionKey: DEMO_MAIN_SESSION_KEY,
   avatarSeed: MAIN_AGENT_ID,

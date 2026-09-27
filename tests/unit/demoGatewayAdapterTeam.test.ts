@@ -130,12 +130,12 @@ describe("demo team", () => {
     resetDemoState({ agentCount: 5 });
     const list = await call("agents.list");
     expect(list.defaultId).toBe("main");
-    expect(list.agents[0]).toMatchObject({ id: "main", name: "AM7", role: "Руководитель" });
+    expect(list.agents[0]).toMatchObject({ id: "main", name: "AM7", role: "Главный хакер" });
     expect(list.agents.slice(1).map((agent: Loose) => agent.role)).toEqual([
-      "Исследования",
-      "Разработка",
-      "Аналитика",
-      "Данные",
+      "Разведка",
+      "Веб и API",
+      "Сеть",
+      "Идентификация",
     ]);
 
     // The office never deletes its main agent; neither does the gateway.
@@ -170,12 +170,12 @@ describe("demo team", () => {
 
   it("answers in Russian, in character", () => {
     resetDemoState({ agentCount: 12 });
-    const [lead, research, , , , , , qa] = buildDemoTeam(12);
-    expect(buildDemoReply(lead, "Привет!")).toContain("AM7, руководитель штаба");
-    expect(buildDemoReply(lead, "привет")).toContain("Команда: 12 агентов");
-    expect(buildDemoReply(lead, "Подготовь план релиза.")).toContain("Задача: Подготовь план релиза. Распределю");
-    expect(buildDemoReply(research, "Изучи рынок")).toContain("направление «Исследования»");
-    expect(buildDemoReply(qa, "Посмотри форму")).toContain("«Тестирование»");
+    const [lead, recon, , , , , , exploit] = buildDemoTeam(12);
+    expect(buildDemoReply(lead, "Привет!")).toContain("AM7, главный хакер штаба");
+    expect(buildDemoReply(lead, "привет")).toContain("В строю 12 агентов");
+    expect(buildDemoReply(lead, "Подготовь план операции.")).toContain("Задача: Подготовь план операции. Распределю");
+    expect(buildDemoReply(recon, "Изучи периметр")).toContain("профиль «Разведка»");
+    expect(buildDemoReply(exploit, "Посмотри узел")).toContain("«Эксплуатация»");
     expect(buildDemoReply({ id: "x", name: "Гость", role: "" }, "Помоги")).toContain("Гость на связи.");
   });
 
