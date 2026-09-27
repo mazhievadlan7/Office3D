@@ -4,7 +4,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 
 import { t } from "@/lib/i18n";
 import { HQ_LEAD_AGENT_IDS, HQ_LEAD_AGENT_NAME, HQ_THEME } from "../core/config";
-import type { HqAgentInput, HqAgentStatus } from "../core/types";
+import { HQ_PLACE, type HqAgentInput, type HqAgentStatus } from "../core/types";
 import type { HqHoverSink } from "../render/scene/HqPicking";
 
 const STATUS_COLOR: Record<HqAgentStatus, string> = {
@@ -19,6 +19,15 @@ const statusLabel = (status: HqAgentStatus): string =>
     : status === "error"
       ? t("hqScene.statusError")
       : t("hqScene.statusIdle");
+
+// The bottom line: a place the agent is at overrides the status label, so a
+// hacker drilling on the range reads «на киберполигоне», not «работает».
+const metaLabel = (status: HqAgentStatus, place: number): string =>
+  place === HQ_PLACE.cyberrange
+    ? t("hqScene.placeCyberrange")
+    : place === HQ_PLACE.lounge
+      ? t("hqScene.placeLounge")
+      : statusLabel(status);
 
 export const isHqLeadAgent = (agent: Pick<HqAgentInput, "id" | "name">): boolean =>
   (HQ_LEAD_AGENT_IDS as readonly string[]).includes(agent.id.toLowerCase()) ||
@@ -48,14 +57,14 @@ export function HqHoverCard({
       if (box) box.style.transform = `translate3d(${Math.round(x + 16)}px, ${Math.round(y + 18)}px, 0)`;
     };
     const sink: HqHoverSink = {
-      show: (agentId, x, y) => {
+      show: (agentId, x, y, placeCode) => {
         const agent = agentsRef.current.find((entry) => entry.id === agentId);
         const box = boxRef.current;
         if (!agent || !box) return;
         if (nameRef.current) nameRef.current.textContent = agent.name;
-        // Live state only: «работает» while on a task, «ожидает» when idle —
-        // never the static operation glued on ("ожидает · Разведка" was wrong).
-        if (metaRef.current) metaRef.current.textContent = statusLabel(agent.status);
+        // Live state only: «работает» while on a task, «ожидает» when idle,
+        // «на киберполигоне» when drilling — never the static operation glued on.
+        if (metaRef.current) metaRef.current.textContent = metaLabel(agent.status, placeCode);
         if (dotRef.current) dotRef.current.style.backgroundColor = STATUS_COLOR[agent.status];
         if (leadRef.current) leadRef.current.style.display = isHqLeadAgent(agent) ? "" : "none";
         place(x, y);

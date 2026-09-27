@@ -8,7 +8,8 @@ import type { HqSimulation } from "../../core/sim";
 
 /** What picking tells the HUD's hover card; implemented outside the Canvas. */
 export type HqHoverSink = {
-  show: (agentId: string, x: number, y: number) => void;
+  /** `place` is the agent's HQ_PLACE (where it is), for the card's bottom line. */
+  show: (agentId: string, x: number, y: number, place: number) => void;
   move: (x: number, y: number) => void;
   hide: () => void;
 };
@@ -132,8 +133,12 @@ export function HqPicking({
     if (id !== previous) {
       hoveredIdRef.current = id;
       gl.domElement.style.cursor = id ? "pointer" : "";
-      if (id) sink?.show(id, state.x, state.y);
-      else sink?.hide();
+      if (id) {
+        const sim = simRef.current;
+        const index = sim ? sim.indexOf(id) : -1;
+        const place = sim && index >= 0 ? sim.frame.place[index] : 0;
+        sink?.show(id, state.x, state.y, place);
+      } else sink?.hide();
     } else if (id && state.moved) {
       sink?.move(state.x, state.y);
     }

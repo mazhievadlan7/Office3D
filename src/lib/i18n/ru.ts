@@ -1132,6 +1132,8 @@ export const ru = {
   "hqScene.leadBadge": "Руководитель",
   "hqScene.messageLead": "Написать AM7",
   "hqScene.messageLeadTitle": "Открыть чат с руководителем штаба",
+  "hqScene.placeCyberrange": "на киберполигоне",
+  "hqScene.placeLounge": "в зоне отдыха",
   "hqScene.statusError": "ошибка",
   "hqScene.statusIdle": "ожидает",
   "hqScene.statusWorking": "работает",

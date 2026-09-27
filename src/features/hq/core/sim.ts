@@ -30,6 +30,7 @@ import { hqRoleFamily } from "./roles";
 import { findPath, navNodeCount, nearestNode } from "./nav";
 import { HqRng, hashString, mixSeed } from "./rng";
 import {
+  HQ_PLACE,
   HQ_STATUS_CODE,
   type HqAgentFrame,
   type HqAgentInput,
@@ -91,15 +92,16 @@ const D_SPOT = 3; // a social spot slot
 const D_VISIT = 4; // the lead standing by someone's desk
 const D_LOUNGE = 5; // sit on a lounge seat
 
-const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server"];
+const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server", "cyberrange"];
 const K_COFFEE = 0;
 const K_MAP = 1;
 const K_LOUNGE = 2;
 const K_MEETING = 3;
 const K_SERVER = 4;
-// Seconds spent at each kind of spot.
-const STAY_MIN = [20, 15, 30, 30, 15];
-const STAY_MAX = [45, 35, 60, 90, 30];
+const K_CYBER = 5;
+// Seconds spent at each kind of spot (a cyber-range drill runs a while).
+const STAY_MIN = [20, 15, 30, 30, 15, 35];
+const STAY_MAX = [45, 35, 60, 90, 30, 80];
 
 class Agent {
   readonly id: string;
@@ -474,6 +476,7 @@ export class HqSimulation {
       lookWeight: new Float32Array(0),
       status: new Uint8Array(0),
       lead: new Uint8Array(0),
+      place: new Uint8Array(0),
     };
   }
 
@@ -713,6 +716,7 @@ export class HqSimulation {
       f.lookWeight = new Float32Array(n);
       f.status = new Uint8Array(n);
       f.lead = new Uint8Array(n);
+      f.place = new Uint8Array(n);
     }
     if (this.hashItems.length < n) {
       this.hashItems = new Int32Array(n);
@@ -1061,7 +1065,7 @@ export class HqSimulation {
   private markStandingSlots(): void {
     const layout = this.layout;
     const spots = layout.socialSpots;
-    const rooms: HqRect[] = [...layout.meetingRooms, layout.lounge, layout.serverRoom, layout.am7Office];
+    const rooms: HqRect[] = [...layout.meetingRooms, layout.cyberRange, layout.lounge, layout.serverRoom, layout.am7Office];
     const inside = (r: HqRect, x: number, z: number, margin: number) =>
       x >= r.x0 + margin && x <= r.x1 - margin && z >= r.z0 + margin && z <= r.z1 - margin;
     const props = layout.props;
@@ -1125,7 +1129,7 @@ export class HqSimulation {
     let best = -1;
     let bestScore = Infinity;
     const mid = (cap - 1) / 2;
-    const line = this.spotKind[spot] === K_MAP || this.spotKind[spot] === K_SERVER;
+    const line = this.spotKind[spot] === K_MAP || this.spotKind[spot] === K_SERVER || this.spotKind[spot] === K_CYBER;
     for (let s = 0; s < cap; s++) {
       if (this.spotAgents[base + s] || !this.slotOk[base + s]) continue;
       const score = line ? Math.abs(s - mid) : s;
@@ -1170,7 +1174,18 @@ export class HqSimulation {
     let kind = forcedKind;
     if (kind < 0) {
       const r = a.rng.next();
-      kind = r < 0.35 ? K_COFFEE : r < 0.65 ? K_MAP : r < 0.85 ? K_LOUNGE : r < 0.95 ? K_MEETING : K_SERVER;
+      kind =
+        r < 0.28
+          ? K_COFFEE
+          : r < 0.5
+            ? K_MAP
+            : r < 0.68
+              ? K_LOUNGE
+              : r < 0.76
+                ? K_MEETING
+                : r < 0.84
+                  ? K_SERVER
+                  : K_CYBER;
       // A lounge break is taken sitting down when a seat is free.
       if (kind === K_LOUNGE && this.reserveLoungeSeat(a)) return true;
     }
@@ -1201,7 +1216,7 @@ export class HqSimulation {
     const fx = Math.sin(s.rotY);
     const fz = Math.cos(s.rotY);
     const kind = this.spotKind[spot];
-    if (kind === K_MAP || kind === K_SERVER) {
+    if (kind === K_MAP || kind === K_SERVER || kind === K_CYBER) {
       // Side by side, facing the spot's direction; extra rows stand behind.
       const offset = (k - (cap - 1) / 2) * 0.85 + (ring % 2) * 0.42;
       this.tmpX = s.x - fz * offset - fx * ring * 0.9;
@@ -1815,6 +1830,14 @@ export class HqSimulation {
       f.lookWeight[i] = a.lookW;
       f.status[i] = a.status;
       f.lead[i] = a.lead ? 1 : 0;
+      // Display place for the hover card: the cyber-range and the lounge name
+      // themselves; everywhere else the status label speaks for the agent.
+      f.place[i] =
+        a.place === D_LOUNGE
+          ? HQ_PLACE.lounge
+          : a.place === D_SPOT && this.spotKind[a.placeSpot] === K_CYBER
+            ? HQ_PLACE.cyberrange
+            : HQ_PLACE.none;
       if (a.lead) leadStatus = a.status;
     }
     this.leadStatus = leadStatus;

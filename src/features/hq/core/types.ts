@@ -95,7 +95,7 @@ export type HqLoungeGroup = {
   tableZ: number;
 };
 
-export type HqSocialSpotKind = "coffee" | "map" | "lounge" | "meeting" | "server";
+export type HqSocialSpotKind = "coffee" | "map" | "lounge" | "meeting" | "server" | "cyberrange";
 
 export type HqSocialSpot = {
   kind: HqSocialSpotKind;
@@ -133,6 +133,8 @@ export type HqLayout = {
   leadDesk: HqDesk;
   am7Office: HqRect;
   meetingRooms: HqRect[];
+  /** The cyber-range: a training bay where hackers drill against target rigs. */
+  cyberRange: HqRect;
   lounge: HqRect;
   serverRoom: HqRect;
   mapWall: HqMapWall;
@@ -150,6 +152,13 @@ export type HqLayout = {
 };
 
 export type HqAgentStatus = "working" | "idle" | "error";
+
+/**
+ * Where an agent currently is, for the hover card. `none` means "use the
+ * status label"; the others name a place that overrides it («на киберполигоне»).
+ */
+export const HQ_PLACE = { none: 0, lounge: 1, cyberrange: 2 } as const;
+export type HqPlace = (typeof HQ_PLACE)[keyof typeof HQ_PLACE];
 
 /** What the scene receives per agent from the app. */
 export type HqAgentInput = {
@@ -189,6 +198,8 @@ export type HqAgentFrame = {
   status: Uint8Array;
   /** 1 for the lead agent (AM7). */
   lead: Uint8Array;
+  /** HQ_PLACE of the agent: where it is, for the hover card (0 = use status). */
+  place: Uint8Array;
 };
 
 export type HqClipId = HqClip;
