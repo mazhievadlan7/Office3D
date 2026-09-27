@@ -157,7 +157,7 @@ type Tier = { westW: number; officeW: number; officeD: number };
 // West column width and AM7 office size grow with the hall.
 const TIERS: Record<HqCapacity, Tier> = {
   100: { westW: 8, officeW: 9, officeD: 8 },
-  300: { westW: 9, officeW: 11, officeD: 9 },
+  300: { westW: 11, officeW: 11, officeD: 9 },
   1000: { westW: 11, officeW: 13, officeD: 10 },
 };
 

@@ -208,9 +208,12 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
     <>
       <color attach="background" args={[HQ_THEME.background]} />
       <fog ref={fogRef} attach="fog" args={[HQ_THEME.fog, 30, 120]} />
-      <hemisphereLight args={["#a8b0c2", "#1c1416", 2.4]} />
+      <hemisphereLight args={["#a8b0c2", "#1c1416", 2.9]} />
       {/* Soft fill from the camera side so hooded figures read against the dark floor. */}
       <directionalLight position={[18, 26, 30]} color="#dfe6f2" intensity={1.3} />
+      {/* A second fill from the far (north-west) side so the back of the hall is
+          lit too, not only the desks nearest the camera. */}
+      <directionalLight position={[-16, 24, -30]} color="#cdd6ea" intensity={1.0} />
       <primitive object={keyTarget} />
       <primitive object={am7Target} />
       <directionalLight
