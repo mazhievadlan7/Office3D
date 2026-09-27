@@ -30,6 +30,8 @@ export const ru = {
   "aegis.authorize": "Авторизовать",
   "aegis.back": "Назад",
   "aegis.complete": "Завершить",
+  "aegis.copied": "Скопировано",
+  "aegis.copy": "Копировать",
   "aegis.create": "Создать",
   "aegis.egress": "Egress-фильтр (белый список)",
   "aegis.egressCounts": "Домены: {domains} · IPv4: {ipv4} · IPv6: {ipv6}",
@@ -74,6 +76,10 @@ export const ru = {
   "aegis.subdomains": "С поддоменами",
   "aegis.value": "Значение",
   "aegis.valuePh": "напр. example.com, 10.0.0.0/24, https://…",
+  "aegis.verifyFail": "не подтверждён",
+  "aegis.verifyHow": "TXT-запись на домене или файл {path}",
+  "aegis.verifyOk": "подтверждён",
+  "aegis.verifyTitle": "Проверка владения",
 
   // --- Файлы агента ----------------------------------------------------------
   "agentFiles.hintAgents": "Рабочие инструкции, приоритеты и правила.",

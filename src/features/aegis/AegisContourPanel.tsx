@@ -10,6 +10,9 @@ import type {
   AegisEngagement,
   AegisOverview,
   AegisStatus,
+  AegisVerifyInstructions,
+  AegisVerifyMethod,
+  AegisVerifyResult,
 } from "@/lib/aegis/types";
 import { t, type TranslationKey } from "@/lib/i18n";
 
@@ -45,6 +48,17 @@ const ghostBtn =
   "rounded border border-red-900/50 bg-black/40 px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white/80 transition-colors enabled:hover:border-red-500/50 enabled:hover:bg-red-950/40 enabled:hover:text-white disabled:opacity-40";
 const dangerBtn =
   "rounded border border-red-500/50 bg-red-950/50 px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-red-200 transition-colors enabled:hover:border-red-400/70 enabled:hover:bg-red-900/50 disabled:opacity-40";
+
+const VerifyBtn = ({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) => (
+  <button
+    type="button"
+    disabled={busy}
+    onClick={onClick}
+    className="rounded border border-red-900/50 bg-black/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.08em] text-white/70 transition-colors enabled:hover:border-red-500/50 enabled:hover:text-white disabled:opacity-40"
+  >
+    {busy ? "…" : label}
+  </button>
+);
 
 const Section = ({ title, children }: { title: React.ReactNode; children: React.ReactNode }) => (
   <section className="rounded-lg border border-red-900/40 bg-black/40 p-3">
@@ -330,6 +344,51 @@ function EngagementDetail({
   const [letterRef, setLetterRef] = useState("");
   const [signer, setSigner] = useState("");
   const [showNft, setShowNft] = useState(false);
+  const [instr, setInstr] = useState<AegisVerifyInstructions | null>(null);
+  const [verifyResults, setVerifyResults] = useState<Record<string, AegisVerifyResult>>({});
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!isDraft) return;
+    let alive = true;
+    api
+      .fetchVerifyInstructions(engagement.id)
+      .then((value) => {
+        if (alive) setInstr(value);
+      })
+      .catch(() => {
+        // instructions are optional chrome; the panel still works without them
+      });
+    return () => {
+      alive = false;
+    };
+  }, [engagement.id, isDraft]);
+
+  const doVerify = async (assetId: string, method: AegisVerifyMethod) => {
+    setVerifying(`${assetId}:${method}`);
+    try {
+      const result = await api.runVerify(engagement.id, assetId, method);
+      setVerifyResults((prev) => ({ ...prev, [assetId]: result }));
+    } catch {
+      // a failed check just leaves the badge unset
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  const copyToken = () => {
+    if (!instr) return;
+    navigator.clipboard
+      ?.writeText(instr.challenge)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // clipboard may be blocked; the token is visible to copy by hand
+      });
+  };
 
   return (
     <Section
@@ -428,6 +487,54 @@ function EngagementDetail({
         </form>
       ) : null}
 
+      {/* Ownership proof (Authorization Gateway) */}
+      {isDraft && engagement.assets.length > 0 && instr ? (
+        <div className="mt-2.5 border-t border-red-900/40 pt-2.5">
+          <div className={labelClass}>{t("aegis.verifyTitle")}</div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <code className="min-w-0 flex-1 truncate rounded bg-black/60 px-1.5 py-1 font-mono text-[9px] text-red-200">{instr.challenge}</code>
+            <button
+              type="button"
+              className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-white/50 transition-colors hover:text-white"
+              onClick={copyToken}
+            >
+              {copied ? t("aegis.copied") : t("aegis.copy")}
+            </button>
+          </div>
+          <p className="mt-1 font-mono text-[9px] leading-tight text-white/40">{t("aegis.verifyHow", { path: instr.wellKnownPath })}</p>
+          <ul className="mt-1.5 space-y-1">
+            {engagement.assets.map((asset) => {
+              const result = verifyResults[asset.id];
+              const canDns = asset.kind === "domain" || (asset.kind === "url" && !asset.isIpHost);
+              const canFile = asset.kind !== "cidr";
+              return (
+                <li key={asset.id} className="flex items-center justify-between gap-1.5">
+                  <span className="min-w-0 truncate font-mono text-[10px] text-white/70">{asset.value}</span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    {result ? (
+                      <span
+                        className={`font-mono text-[9px] ${
+                          result.ok && !result.informational ? "text-red-300" : result.informational ? "text-white/50" : "text-white/40"
+                        }`}
+                      >
+                        {result.ok && !result.informational
+                          ? t("aegis.verifyOk")
+                          : result.informational
+                            ? result.detail.registrar || "WHOIS"
+                            : t("aegis.verifyFail")}
+                      </span>
+                    ) : null}
+                    {canDns ? <VerifyBtn label="DNS" busy={verifying === `${asset.id}:dns`} onClick={() => void doVerify(asset.id, "dns")} /> : null}
+                    {canFile ? <VerifyBtn label="Файл" busy={verifying === `${asset.id}:file`} onClick={() => void doVerify(asset.id, "file")} /> : null}
+                    {canDns ? <VerifyBtn label="WHOIS" busy={verifying === `${asset.id}:whois`} onClick={() => void doVerify(asset.id, "whois")} /> : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       {/* Authorization + activation (the manual legal gate) */}
       {isDraft ? (
         <form
@@ -435,8 +542,16 @@ function EngagementDetail({
           onSubmit={(event) => {
             event.preventDefault();
             if (!letterRef.trim() || !(signer.trim() || operator.trim())) return;
+            const verified = Object.entries(verifyResults)
+              .filter(([, r]) => r.ok && !r.informational)
+              .map(([assetId, r]) => ({ assetId, method: r.method, value: r.assetValue }));
             void run(() =>
-              api.engagementOp(engagement.id, { op: "authorize", letterRef: letterRef.trim(), signer: (signer.trim() || operator.trim()) }),
+              api.engagementOp(engagement.id, {
+                op: "authorize",
+                letterRef: letterRef.trim(),
+                signer: signer.trim() || operator.trim(),
+                ...(verified.length ? { verification: { verified } } : {}),
+              }),
             );
           }}
         >

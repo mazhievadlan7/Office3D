@@ -9,6 +9,9 @@ import type {
   AegisEngagement,
   AegisKillSwitch,
   AegisOverview,
+  AegisVerifyInstructions,
+  AegisVerifyMethod,
+  AegisVerifyResult,
 } from "@/lib/aegis/types";
 
 const readJson = async (response: Response): Promise<Record<string, unknown>> => {
@@ -43,7 +46,7 @@ export const createEngagement = async (input: { name: string; note?: string }): 
 export type EngagementOp =
   | { op: "addAsset"; asset: unknown }
   | { op: "removeAsset"; assetId: string }
-  | { op: "authorize"; letterRef: string; signer: string }
+  | { op: "authorize"; letterRef: string; signer: string; verification?: unknown }
   | { op: "activate"; by: string; confirm: boolean }
   | { op: "stop"; by: string; reason: string }
   | { op: "reactivate"; by: string }
@@ -65,3 +68,16 @@ export const fetchAudit = async (
   const data = await fetch(`/api/aegis/audit${query ? `?${query}` : ""}`, { cache: "no-store" }).then(readJson);
   return { entries: (data.entries as AegisAuditEntry[]) ?? [], integrity: data.integrity as AegisAuditIntegrity };
 };
+
+export const fetchVerifyInstructions = (id: string): Promise<AegisVerifyInstructions> =>
+  fetch(`/api/aegis/engagements/${encodeURIComponent(id)}/verify`, { cache: "no-store" }).then(
+    readJson,
+  ) as Promise<AegisVerifyInstructions>;
+
+export const runVerify = async (
+  id: string,
+  assetId: string,
+  method: AegisVerifyMethod,
+): Promise<AegisVerifyResult> =>
+  ((await post(`/api/aegis/engagements/${encodeURIComponent(id)}/verify`, { assetId, method }).then(readJson))
+    .result as AegisVerifyResult);

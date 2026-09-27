@@ -85,3 +85,26 @@ export type AegisOverview = {
   engagements: AegisEngagementSummary[];
   audit: AegisAuditIntegrity;
 };
+
+/** What the operator places to prove control of an asset. */
+export type AegisVerifyInstructions = { token: string; challenge: string; wellKnownPath: string };
+
+export type AegisVerifyMethod = "dns" | "file" | "whois";
+
+export type AegisVerifyResult = {
+  method: AegisVerifyMethod;
+  assetId: string | null;
+  assetValue: string | null;
+  ok: boolean;
+  informational: boolean;
+  detail: {
+    ok?: boolean;
+    reason?: string;
+    name?: string;
+    url?: string;
+    registrar?: string | null;
+    org?: string | null;
+    updated?: string | null;
+  };
+  checkedAt: number;
+};

@@ -17,6 +17,7 @@ const { createAuditLog } = require("./audit");
 const { createEngagementManager } = require("./engagement");
 const { createPreflight, createRateLimiter } = require("./preflight");
 const { compileAllowlist, renderNftables } = require("./egress");
+const { createVerifier } = require("./verify");
 
 /**
  * @param {object} options
@@ -55,10 +56,16 @@ const createAegisCore = ({ dataDir, now = () => Date.now(), logError = () => {},
     isDestructive,
   });
 
+  // The authorization gateway: proof-of-ownership checks before an engagement
+  // may be authorized (DNS / file / WHOIS). It contacts only the operator's
+  // own declared assets and holds no offensive capability.
+  const verifier = createVerifier({ dataDir, now, logError });
+
   return {
     engagements,
     preflight,
     audit,
+    verifier,
     /** Compile the egress firewall allowlist for an active engagement. */
     egressAllowlist: (engagementId) => compileAllowlist(store.getEngagement(engagementId)),
     renderEgressNftables: (engagementId) => renderNftables(compileAllowlist(store.getEngagement(engagementId))),

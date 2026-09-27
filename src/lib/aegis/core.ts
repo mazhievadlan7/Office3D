@@ -16,6 +16,9 @@ import type {
   AegisEngagement,
   AegisKillSwitch,
   AegisOverview,
+  AegisVerifyInstructions,
+  AegisVerifyMethod,
+  AegisVerifyResult,
 } from "@/lib/aegis/types";
 // The kernel is JSDoc-typed CommonJS; allowJs lets it import cleanly.
 import { createAegisCore } from "../../../server/aegis/index.js";
@@ -111,6 +114,37 @@ export const egressFor = (id: string): AegisEgress => {
   const core = kernel();
   const allow = core.egressAllowlist(id) as Omit<AegisEgress, "nftables">;
   return { ...allow, nftables: core.renderEgressNftables(id) as string };
+};
+
+/** A refusal shaped like the kernel's, so aegisErrorStatus maps it to a status. */
+const aegisFail = (code: string, message: string): never => {
+  const error = new Error(message) as Error & { name: string; code: string };
+  error.name = "AegisError";
+  error.code = code;
+  throw error;
+};
+
+export const verifyInstructions = (engagementId: string): AegisVerifyInstructions => {
+  const core = kernel();
+  return {
+    token: core.verifier.token(engagementId),
+    challenge: core.verifier.challenge(engagementId),
+    wellKnownPath: core.verifier.wellKnownPath,
+  };
+};
+
+/** Runs one ownership check for one asset the engagement actually holds. */
+export const runVerification = (
+  engagementId: string,
+  assetId: string,
+  method: AegisVerifyMethod,
+): Promise<AegisVerifyResult> => {
+  const core = kernel();
+  const engagement = core.engagements.get(engagementId) as AegisEngagement | null;
+  if (!engagement) aegisFail("NOT_FOUND", `Engagement не найден: ${engagementId}.`);
+  const asset = engagement!.assets.find((item) => item.id === assetId);
+  if (!asset) aegisFail("NOT_FOUND", `Актив не найден: ${assetId}.`);
+  return core.verifier.check({ engagementId, method, asset: asset! }) as Promise<AegisVerifyResult>;
 };
 
 /** For the Phase-1 execution plane: the single gate every active action passes. */
