@@ -133,14 +133,16 @@ export function HqPicking({
     if (id !== previous) {
       hoveredIdRef.current = id;
       gl.domElement.style.cursor = id ? "pointer" : "";
-      if (id) {
-        const sim = simRef.current;
-        const index = sim ? sim.indexOf(id) : -1;
-        const place = sim && index >= 0 ? sim.frame.place[index] : 0;
-        sink?.show(id, state.x, state.y, place);
-      } else sink?.hide();
-    } else if (id && state.moved) {
-      sink?.move(state.x, state.y);
+      if (!id) sink?.hide();
+    }
+    if (id) {
+      // Refresh every frame so status, place and position stay live while the
+      // pointer rests on an agent whose state (working→idle, or off to the
+      // cyber-range) changes without moving out from under the cursor.
+      const sim = simRef.current;
+      const index = sim ? sim.indexOf(id) : -1;
+      const place = sim && index >= 0 ? sim.frame.place[index] : 0;
+      sink?.show(id, state.x, state.y, place);
     }
     state.moved = false;
   });

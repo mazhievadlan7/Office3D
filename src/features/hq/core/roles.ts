@@ -23,10 +23,10 @@ const RULES: ReadonlyArray<readonly [RegExp, HqRoleFamily]> = [
   // operation they run. Each maps to a monitor family so desks stay varied.
   [/развед|recon|osint|поверхн|периметр/i, HQ_ROLE_FAMILY.research],
   [/веб|web|\bapi\b|прилож/i, HQ_ROLE_FAMILY.builder],
-  [/сет[ьи]|network|порт|шлюз/i, HQ_ROLE_FAMILY.devops],
+  [/сет[ьи]|network|шлюз/i, HQ_ROLE_FAMILY.devops],
   [/идентиф|доступ|учётн|identity|access|парол/i, HQ_ROLE_FAMILY.analyst],
   [/облак|cloud/i, HQ_ROLE_FAMILY.design],
-  [/реверс|reverse|песочниц|сборк|бинар/i, HQ_ROLE_FAMILY.qa],
+  [/реверс|reverse|песочниц|бинар/i, HQ_ROLE_FAMILY.qa],
   [/эксплуат|exploit|payload|уязвим|находк/i, HQ_ROLE_FAMILY.analyst],
   [/отчёт|отчет|reporting|сводк|рекомендац/i, HQ_ROLE_FAMILY.writer],
   // Office-created agents can carry any role: match the old vocabulary too.

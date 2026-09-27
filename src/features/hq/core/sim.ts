@@ -1706,8 +1706,12 @@ export class HqSimulation {
       } else {
         const spot = this.layout.socialSpots[a.placeSpot];
         const kind = this.spotKind[a.placeSpot];
+        // Line spots (the map, the server room, the cyber-range) face the
+        // spot's direction — toward the wall/rigs — not its centre point.
         want =
-          kind === K_MAP || kind === K_SERVER ? spot.rotY : Math.atan2(spot.x - a.x, spot.z - a.z);
+          kind === K_MAP || kind === K_SERVER || kind === K_CYBER
+            ? spot.rotY
+            : Math.atan2(spot.x - a.x, spot.z - a.z);
       }
     } else if (a.place === D_VISIT && a.visitTarget) {
       const s = a.visitTarget.placeSeat >= 0 ? a.visitTarget.placeSeat : a.placeSeat;

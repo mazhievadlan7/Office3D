@@ -340,7 +340,7 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
   const podsD = rows * HQ_POD_DEPTH + gapZ.reduce((a, b) => a + b, 0);
 
   const W = westW + aisle + podsW + aisle;
-  // The west column (server room, two meeting rooms, lounge) needs ~27 m.
+  // The west column (server room, meeting room, cyber-range, lounge) needs ~27 m.
   const D = Math.max(plazaD + aisle + podsD + aisle, plazaD + 27);
   const x0 = -W / 2;
   const x1 = W / 2;

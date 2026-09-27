@@ -541,7 +541,7 @@ describe.each(HQ_CAPACITIES)("generateHqLayout(%i)", (capacity) => {
       z = Math.max(seg.az, seg.bz);
     }
     expect(z).toBeCloseTo(lounge.z1, 3);
-    // North side: the meeting room's south glass.
+    // North side: the cyber-range's south glass (the room just above the lounge).
     expect(
       layout.partitions.some(
         (seg) =>
