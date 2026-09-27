@@ -136,6 +136,7 @@ import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPan
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { SkillsMarketplaceModal } from "@/features/office/components/panels/SkillsMarketplaceModal";
 import { AegisContourPanel } from "@/features/aegis/AegisContourPanel";
+import { CombatConsole } from "@/features/combat/CombatConsole";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
 import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
 import { useOfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
@@ -888,6 +889,7 @@ export function OfficeScreen({
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [combatOpen, setCombatOpen] = useState(false);
   // The HQ's opening fly-through: the console and sidebar tabs step aside for it.
   const [hqIntroPlaying, setHqIntroPlaying] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
@@ -3388,6 +3390,7 @@ export function OfficeScreen({
           runtimeStatus={{ adapter: activeAdapterType, status }}
           settingsOpen={settingsOpen}
           onOpenSettings={() => setSettingsOpen((open) => !open)}
+          onOpenCombat={() => setCombatOpen(true)}
           onIntroChange={setHqIntroPlaying}
         />
         {jukeboxOpen ? (
@@ -3544,6 +3547,10 @@ export function OfficeScreen({
           contourPanel={<AegisContourPanel />}
         />
         </div>
+      ) : null}
+
+      {combatOpen ? (
+        <CombatConsole agents={state.agents} runLog={runLog} onClose={() => setCombatOpen(false)} />
       ) : null}
 
       {settingsOpen ? (

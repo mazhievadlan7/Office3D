@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Crosshair, Crown, Globe, Maximize2, MessageSquare, Settings } from "lucide-react";
+import { Crosshair, Crown, Globe, Maximize2, MessageSquare, Radar, Settings } from "lucide-react";
 
 import { t } from "@/lib/i18n";
 import { adapterLabel, gatewayStatusLabel } from "@/lib/i18n/labels";
@@ -130,6 +130,7 @@ export function HqHud({
   canFollow,
   onCameraPreset,
   onMessageLead,
+  onOpenCombat,
   runtime,
   settingsOpen,
   onOpenSettings,
@@ -140,6 +141,8 @@ export function HqHud({
   onCameraPreset: (preset: HqCameraPreset) => void;
   /** Opens the chat with the lead agent (AM7); hidden when there is none. */
   onMessageLead?: () => void;
+  /** Opens the combat console (the dense operations screen); hidden without it. */
+  onOpenCombat?: () => void;
   /** The connected backend, shown as a chip next to the settings button. */
   runtime?: HqRuntimeStatus | null;
   settingsOpen?: boolean;
@@ -210,6 +213,12 @@ export function HqHud({
           </BarButton>
 
           <Divider />
+          {onOpenCombat ? (
+            <BarButton label={t("hqScene.combat")} title={t("hqScene.combatTitle")} onClick={onOpenCombat}>
+              <Radar className="h-4 w-4" />
+              <span className="hidden xl:inline">{t("hqScene.combat")}</span>
+            </BarButton>
+          ) : null}
           {onMessageLead ? (
             <BarButton label={t("hqScene.messageLead")} title={t("hqScene.messageLeadTitle")} onClick={onMessageLead}>
               <MessageSquare className="h-4 w-4" />

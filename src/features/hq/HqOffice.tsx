@@ -33,6 +33,8 @@ export type HqOfficeProps = {
   settingsOpen?: boolean;
   /** Toggles the office settings from the HUD. */
   onOpenSettings?: () => void;
+  /** Opens the combat console from the HUD's camera bar. */
+  onOpenCombat?: () => void;
   /** True while the opening fly-through plays, so the screen can hide its own panels. */
   onIntroChange?: (playing: boolean) => void;
 };
@@ -110,6 +112,7 @@ export function HqOffice({
   runtimeStatus = null,
   settingsOpen = false,
   onOpenSettings,
+  onOpenCombat,
   onIntroChange,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
@@ -308,6 +311,7 @@ export function HqOffice({
           canFollow={canFollow}
           onCameraPreset={handleCameraPreset}
           onMessageLead={leadId && onAgentSelect ? () => onAgentSelect(leadId) : undefined}
+          onOpenCombat={onOpenCombat}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}
