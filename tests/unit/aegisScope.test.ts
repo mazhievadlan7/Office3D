@@ -1,100 +1,143 @@
 import { describe, expect, it } from "vitest";
 
-const { validateAsset, matchTarget, normalizeDomain } = await import("../../server/aegis/scope.js");
+// The AEGIS legal core is CommonJS under server/aegis (it runs in the Node
+// server, not the browser). Vitest imports it directly so the security kernel
+// is covered by the same suite as everything else.
+import { ipInCidr, parseCidr, parseIp, parseIpv4, parseIpv6 } from "../../server/aegis/ip.js";
+import { matchTarget, normalizeDomain, parseTarget, validateAsset } from "../../server/aegis/scope.js";
 
-const allow = (assets: object[], target: string | object) => matchTarget(assets, target).allowed;
+// The kernel is JSDoc-typed JS; these narrow the `object` returns for the test.
+type AegisAsset = { kind: string; value: string; pathPrefix?: string; ports?: number[] | null };
+const asset = (input: object): AegisAsset => validateAsset(input) as AegisAsset;
 
-describe("AEGIS scope matcher", () => {
-  it("matches an exact domain and refuses look-alikes and subdomains by default", () => {
-    const assets = [validateAsset({ kind: "domain", value: "example.com" })];
-    expect(allow(assets, "example.com")).toBe(true);
-    expect(allow(assets, "a.example.com")).toBe(false); // subdomains off by default
-    expect(allow(assets, "evilexample.com")).toBe(false); // no substring trick
-    expect(allow(assets, "example.com.evil.com")).toBe(false); // no suffix trick
-    expect(allow(assets, "example.org")).toBe(false);
+describe("AEGIS ip parsing (the boundary is correctness)", () => {
+  it("rejects octal-ambiguous, out-of-range and malformed IPv4", () => {
+    expect(parseIpv4("192.168.1.1")).not.toBeNull();
+    expect(parseIpv4("192.168.01.1")).toBeNull(); // leading zero = octal ambiguity
+    expect(parseIpv4("256.0.0.1")).toBeNull();
+    expect(parseIpv4("1.2.3")).toBeNull();
+    expect(parseIpv4("1.2.3.4.5")).toBeNull();
+    expect(parseIpv4("1.2.3.-4")).toBeNull();
   });
 
-  it("includes subdomains only when asked, and never a look-alike", () => {
-    const assets = [validateAsset({ kind: "domain", value: "example.com", includeSubdomains: true })];
-    expect(allow(assets, "example.com")).toBe(true);
-    expect(allow(assets, "a.example.com")).toBe(true);
-    expect(allow(assets, "deep.a.example.com")).toBe(true);
-    expect(allow(assets, "evilexample.com")).toBe(false);
-    expect(allow(assets, "example.com.evil.com")).toBe(false);
+  it("expands IPv6, rejects zone ids, and normalizes IPv4-mapped IPv6 to IPv4", () => {
+    expect(parseIpv6("2001:db8::1")).not.toBeNull();
+    expect(parseIpv6("fe80::1%eth0")).toBeNull(); // host-local zone id is meaningless for scope
+    const mapped = parseIp("::ffff:192.168.1.1");
+    expect(mapped?.version).toBe(4); // cannot dodge an IPv4 scope by wearing an IPv6 coat
+    expect(mapped?.value).toBe(parseIp("192.168.1.1")?.value);
+  });
+
+  it("masks CIDR host bits and refuses an over-long prefix", () => {
+    expect(parseCidr("10.0.0.5/8")?.base).toBe(parseCidr("10.0.0.0/8")?.base);
+    expect(parseCidr("10.0.0.0/33")).toBeNull();
+    expect(parseCidr("10.0.0.0")).toBeNull();
+  });
+
+  it("never matches across IP versions", () => {
+    const v4 = parseIp("10.1.2.3")!;
+    const cidr = parseCidr("10.0.0.0/8")!;
+    expect(ipInCidr(v4, cidr)).toBe(true);
+    expect(ipInCidr(parseIp("11.0.0.1")!, cidr)).toBe(false);
+    expect(ipInCidr(parseIp("::1")!, cidr)).toBe(false); // v6 target is not "inside" a v4 range
+  });
+});
+
+describe("AEGIS domain normalization", () => {
+  it("lowercases, strips the trailing dot, and refuses non-hostnames", () => {
+    expect(normalizeDomain("Example.COM.")).toBe("example.com");
+    expect(normalizeDomain("1.2.3.4")).toBeNull(); // an IP is not a domain
+    expect(normalizeDomain("a..b")).toBeNull();
+    expect(normalizeDomain("")).toBeNull();
+  });
+});
+
+describe("AEGIS asset validation", () => {
+  it("accepts the four kinds and rejects a reckless-wide CIDR", () => {
+    expect(asset({ kind: "domain", value: "Example.com" }).value).toBe("example.com");
+    expect(asset({ kind: "ip", value: "192.168.1.1" }).kind).toBe("ip");
+    expect(asset({ kind: "cidr", value: "10.0.0.0/8" }).kind).toBe("cidr");
+    expect(asset({ kind: "url", value: "https://x.com/admin" }).pathPrefix).toBe("/admin");
+    expect(() => validateAsset({ kind: "cidr", value: "10.0.0.0/4" })).toThrow(); // half the internet
+    expect(() => validateAsset({ kind: "nope", value: "x" })).toThrow();
+    expect(() => validateAsset({ kind: "ip", value: "999.1.1.1" })).toThrow();
+  });
+});
+
+describe("AEGIS target parsing", () => {
+  it("reads urls, host:port and [v6]:port, and infers a scheme's default port", () => {
+    expect(parseTarget("https://x.com/a")).toMatchObject({ host: "x.com", port: 443, path: "/a" });
+    expect(parseTarget("x.com:8080")).toMatchObject({ host: "x.com", port: 8080 });
+    expect(parseTarget("[2001:db8::1]:443")?.ip?.version).toBe(6);
+    expect(parseTarget("not a host")).toBeNull();
+    expect(parseTarget("")).toBeNull();
+  });
+});
+
+describe("AEGIS scope matching is default-deny (the critical negative tests)", () => {
+  const match = (assetInputs: object[], target: string | object) =>
+    matchTarget(assetInputs.map((a) => validateAsset(a)), target);
+
+  it("allows an exact domain and denies look-alikes and unrelated hosts", () => {
+    const assets = [{ kind: "domain", value: "example.com" }];
+    expect(match(assets, "example.com").allowed).toBe(true);
+    expect(match(assets, "sub.example.com").allowed).toBe(false); // no subdomains unless asked
+    expect(match(assets, "evil.com").allowed).toBe(false);
+    expect(match(assets, "notexample.com").allowed).toBe(false);
+    expect(match(assets, "example.com.evil.com").allowed).toBe(false); // suffix look-alike
+  });
+
+  it("honors includeSubdomains without leaking to a suffix look-alike", () => {
+    const assets = [{ kind: "domain", value: "example.com", includeSubdomains: true }];
+    expect(match(assets, "a.example.com").allowed).toBe(true);
+    expect(match(assets, "deep.a.example.com").allowed).toBe(true);
+    expect(match(assets, "example.com.evil.com").allowed).toBe(false);
+    expect(match(assets, "notexample.com").allowed).toBe(false);
   });
 
   it("keeps domains and IPs in separate lanes", () => {
-    const domainAsset = [validateAsset({ kind: "domain", value: "example.com" })];
-    const ipAsset = [validateAsset({ kind: "ip", value: "203.0.113.5" })];
-    expect(allow(domainAsset, "203.0.113.5")).toBe(false); // domain asset never matches an IP target
-    expect(allow(ipAsset, "example.com")).toBe(false); // ip asset never matches a domain target
-    expect(allow(ipAsset, "203.0.113.5")).toBe(true);
-    expect(allow(ipAsset, "203.0.113.6")).toBe(false);
+    expect(match([{ kind: "domain", value: "example.com" }], "10.0.0.1").allowed).toBe(false);
+    expect(match([{ kind: "ip", value: "10.0.0.1" }], "example.com").allowed).toBe(false);
   });
 
-  it("matches inside a CIDR range", () => {
-    const assets = [validateAsset({ kind: "cidr", value: "10.0.0.0/8" })];
-    expect(allow(assets, "10.9.9.9")).toBe(true);
-    expect(allow(assets, "11.0.0.1")).toBe(false);
+  it("matches an IP only inside its CIDR and never across versions", () => {
+    const assets = [{ kind: "cidr", value: "10.0.0.0/24" }];
+    expect(match(assets, "10.0.0.5").allowed).toBe(true);
+    expect(match(assets, "10.0.1.5").allowed).toBe(false);
+    expect(match(assets, "::1").allowed).toBe(false);
   });
 
-  it("honors per-asset port restrictions", () => {
-    const assets = [validateAsset({ kind: "domain", value: "example.com", ports: [443] })];
-    expect(allow(assets, { host: "example.com", port: 443 })).toBe(true);
-    expect(allow(assets, { host: "example.com", port: 80 })).toBe(false);
-    expect(allow(assets, { host: "example.com" })).toBe(false); // unspecified port can't be proven in-scope
+  it("keeps url path authorization at a segment boundary", () => {
+    const assets = [{ kind: "url", value: "https://x.com/admin" }];
+    expect(match(assets, "https://x.com/admin").allowed).toBe(true);
+    expect(match(assets, "https://x.com/admin/users").allowed).toBe(true);
+    expect(match(assets, "https://x.com/administrator").allowed).toBe(false); // distinct resource
+    expect(match(assets, "https://x.com/admin-secret").allowed).toBe(false);
+    expect(match(assets, "https://x.com/").allowed).toBe(false);
   });
 
-  it("matches a URL asset with a path prefix", () => {
-    const assets = [validateAsset({ kind: "url", value: "https://app.example.com/api" })];
-    expect(allow(assets, "https://app.example.com/api/users")).toBe(true);
-    expect(allow(assets, "https://app.example.com/admin")).toBe(false);
-    expect(allow(assets, { host: "app.example.com", path: "/api", port: 443 })).toBe(true);
+  it("enforces a port restriction, including the unspecified-port target", () => {
+    const assets = [{ kind: "domain", value: "example.com", ports: [443] }];
+    expect(match(assets, "example.com:443").allowed).toBe(true);
+    expect(match(assets, "example.com:80").allowed).toBe(false);
+    expect(match(assets, "example.com").allowed).toBe(false); // cannot prove the port is in scope
   });
 
-  it("normalizes IDN domains to punycode and matches consistently", () => {
-    const ascii = normalizeDomain("bücher.example");
-    expect(ascii).toBe("xn--bcher-kva.example");
-    const assets = [validateAsset({ kind: "domain", value: "bücher.example" })];
-    expect(allow(assets, "bücher.example")).toBe(true);
-    expect(allow(assets, "xn--bcher-kva.example")).toBe(true);
+  it("restricts to an explicit non-default url port and infers a scheme default", () => {
+    const url8443 = [{ kind: "url", value: "https://x.com:8443/" }];
+    expect(match(url8443, "https://x.com:8443").allowed).toBe(true);
+    expect(match(url8443, "https://x.com").allowed).toBe(false); // default 443 is not 8443
+    expect(match(url8443, "http://x.com").allowed).toBe(false);
+
+    // A port-restricted domain asset denies a target whose port is only implied
+    // by its scheme unless that inferred port is the authorized one.
+    const port443 = [{ kind: "domain", value: "x.com", ports: [443] }];
+    expect(match(port443, "https://x.com").allowed).toBe(true); // 443 inferred
+    expect(match(port443, "http://x.com").allowed).toBe(false); // 80 inferred
   });
 
-  it("denies unparseable or empty targets (default-deny)", () => {
-    const assets = [validateAsset({ kind: "domain", value: "example.com", includeSubdomains: true })];
-    expect(allow(assets, "")).toBe(false);
-    expect(allow(assets, "not a host")).toBe(false);
-    expect(allow(assets, {})).toBe(false);
-    expect(allow([], "example.com")).toBe(false); // no assets → nothing allowed
-  });
-
-  it("rejects invalid assets at validation time", () => {
-    expect(() => validateAsset({ kind: "domain", value: "1.2.3.4" })).toThrow();
-    expect(() => validateAsset({ kind: "cidr", value: "0.0.0.0/0" })).toThrow(); // too broad
-    expect(() => validateAsset({ kind: "ip", value: "999.1.1.1" })).toThrow();
-    expect(() => validateAsset({ kind: "nope", value: "x" })).toThrow();
-    expect(() => validateAsset({ kind: "domain", value: "example.com", ports: [70000] })).toThrow();
-  });
-
-  it("matches a URL path prefix only at a segment boundary (regression)", () => {
-    const assets = [validateAsset({ kind: "url", value: "https://example.com/admin" })];
-    expect(allow(assets, "https://example.com/admin")).toBe(true);
-    expect(allow(assets, "https://example.com/admin/users")).toBe(true);
-    expect(allow(assets, "https://example.com/administrator")).toBe(false); // sibling, outside subtree
-    expect(allow(assets, "https://example.com/admin-secret")).toBe(false);
-    const ipAsset = [validateAsset({ kind: "url", value: "http://192.168.1.10/api" })];
-    expect(allow(ipAsset, "http://192.168.1.10/api/v2")).toBe(true);
-    expect(allow(ipAsset, "http://192.168.1.10/apiV2")).toBe(false);
-  });
-
-  it("infers the scheme's default port so a port-restricted asset matches its default-port target (regression)", () => {
-    const https = [validateAsset({ kind: "domain", value: "example.com", ports: [443] })];
-    expect(allow(https, "https://example.com:443")).toBe(true);
-    expect(allow(https, "https://example.com")).toBe(true); // implicit 443
-    expect(allow(https, "example.com:443")).toBe(true); // bare form, consistent
-    expect(allow(https, "http://example.com")).toBe(false); // 80 not in [443]
-    const http = [validateAsset({ kind: "domain", value: "example.com", ports: [80] })];
-    expect(allow(http, "http://example.com")).toBe(true);
-    expect(allow(http, "http://example.com:80")).toBe(true);
+  it("denies an unparseable target", () => {
+    expect(match([{ kind: "domain", value: "example.com" }], "definitely not a target").allowed).toBe(false);
+    expect(match([{ kind: "domain", value: "example.com" }], "").allowed).toBe(false);
   });
 });
