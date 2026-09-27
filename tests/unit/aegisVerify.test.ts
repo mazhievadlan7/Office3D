@@ -14,7 +14,7 @@ const tmp = () => {
 afterEach(() => {
   for (const dir of dirs.splice(0)) {
     try {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     } catch {
       // best effort
     }
