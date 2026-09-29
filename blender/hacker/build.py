@@ -37,9 +37,11 @@ import pose  # noqa: E402
 import rig  # noqa: E402
 
 CLIP_ORDER = ["idle", "walk", "sit_type", "sit_idle", "talk", "stand_type"]
-# Clips added after the original eight, built last in this order (Push = HQ_CLIPS code 8).
-# The GLB lists actions by name either way; the app looks clips up by name.
-CLIP_LAST = ["push"]
+# Clips added after the original eight, built last in HQ_CLIPS code order (Push = 8,
+# then the living-workstation clips 9..17). The GLB lists actions by name either
+# way; the app looks clips up by name.
+CLIP_LAST = ["push", "sit_type2", "sit_read", "sit_stretch", "sit_lean_back", "sit_turn_l", "sit_turn_r",
+             "sit_show_screen", "stand_look_over", "stand_listen"]
 
 
 def parse_args():

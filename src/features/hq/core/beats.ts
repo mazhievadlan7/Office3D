@@ -113,32 +113,112 @@ export function reactionDelay(rng: HqRng): number {
   return rng.range(REACTION_MIN, REACTION_MAX);
 }
 
-/** What a free (idle) hacker at their own desk does next. */
-export const BEAT_IDLE = 0; // SitIdle: leaning back from the screen, scrolling
-export const BEAT_TYPE = 1; // SitType: typing anyway (chat, notes)
-export const BEAT_VISIT = 2; // over to a working colleague's shoulder
+// --- What a hacker at their own desk does next (wave 1: the living-workstation clips) ---
 
-// Weights [idle, type, visit·social]. On duty (a mission) nobody wanders: help only.
-const DESK_WEIGHTS = [60, 30, 6] as const;
-const DUTY_WEIGHTS = [70, 30, 3] as const;
+/** Beats. The sim turns each into an act and the act into a clip. */
+export const BEAT_IDLE = 0; // SitIdle: leaning back from the screen, the mouse
+export const BEAT_TYPE = 1; // SitType / SitType2 (the agent's own variant)
+export const BEAT_VISIT = 2; // over to a working colleague's shoulder (StandLookOver; the host SitShowScreen)
+export const BEAT_READ = 3; // SitRead: reading, scrolling, a hand to the brow
+export const BEAT_LEAN = 4; // SitLeanBack: leaning back to think
+export const BEAT_TURN = 5; // SitTurnL/R: a word with the neighbour, both seated
+export const BEAT_STRETCH = 6; // SitStretch: once, then back to the keys
+export const BEAT_COUNT = 7;
 
-/** Picks a free hacker's next beat at their own desk. */
-export function pickDeskBeat(duty: boolean, social: number, rng: HqRng): number {
-  const w = duty ? DUTY_WEIGHTS : DESK_WEIGHTS;
-  const visit = w[2] * social;
-  const r = rng.next() * (w[0] + w[1] + visit);
-  if (r < w[0]) return BEAT_IDLE;
-  if (r < w[0] + w[1]) return BEAT_TYPE;
-  return BEAT_VISIT;
+/**
+ * Weights per beat (index = BEAT_*). TURN and VISIT are multiplied by the
+ * agent's `social`. Working: mostly typing, reading, now and then leaning
+ * back, a word with the neighbour or a stretch. Free: sitting back, reading,
+ * thinking, talking, a visit. On duty (a mission) only work: typing and
+ * reading, a short word with the neighbour, a free hacker's short help.
+ */
+const WORK_WEIGHTS: readonly number[] = [0, 55, 0, 25, 6, 6, 4];
+const FREE_WEIGHTS: readonly number[] = [30, 0, 7, 15, 15, 15, 6];
+const DUTY_WORK_WEIGHTS: readonly number[] = [0, 80, 0, 15, 0, 5, 0];
+const DUTY_FREE_WEIGHTS: readonly number[] = [0, 30, 3, 70, 0, 5, 0];
+
+export function beatWeights(working: boolean, duty: boolean): readonly number[] {
+  if (duty) return working ? DUTY_WORK_WEIGHTS : DUTY_FREE_WEIGHTS;
+  return working ? WORK_WEIGHTS : FREE_WEIGHTS;
 }
 
-/** Seconds until the next beat, never under BEAT_MIN. */
-export function beatPause(duty: boolean, fidget: number, rng: HqRng): number {
-  const base = duty ? rng.range(20, 50) : rng.range(15, 45);
+/** Picks a hacker's next beat at their own desk. Allocation-free. */
+export function pickBeat(working: boolean, duty: boolean, social: number, rng: HqRng): number {
+  const w = beatWeights(working, duty);
+  let total = 0;
+  for (let b = 0; b < BEAT_COUNT; b++) total += b === BEAT_TURN || b === BEAT_VISIT ? w[b] * social : w[b];
+  let r = rng.next() * total;
+  for (let b = 0; b < BEAT_COUNT; b++) {
+    const wb = b === BEAT_TURN || b === BEAT_VISIT ? w[b] * social : w[b];
+    if (r < wb) return b;
+    r -= wb;
+  }
+  return working ? BEAT_TYPE : duty ? BEAT_READ : BEAT_IDLE;
+}
+
+/**
+ * How long a timed beat lasts (seconds): reading, leaning back, a word with
+ * the neighbour (short on duty). Typing and sitting idle last until the next
+ * beat (0 here); a stretch is one pass of its clip (the sim times it).
+ */
+export function beatSeconds(beat: number, working: boolean, duty: boolean, rng: HqRng): number {
+  switch (beat) {
+    case BEAT_READ:
+      return working ? rng.range(20, 60) : rng.range(20, 50);
+    case BEAT_LEAN:
+      return working ? rng.range(15, 40) : rng.range(20, 60);
+    case BEAT_TURN:
+      return duty ? rng.range(6, 12) : working ? rng.range(10, 25) : rng.range(20, 45);
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Seconds until the next beat, never under BEAT_MIN: working 25-70 s, free
+ * 15-45 s (on duty 20-50 s), times the agent's fidget.
+ */
+export function beatPause(duty: boolean, fidget: number, rng: HqRng, working = false): number {
+  const base = duty ? rng.range(20, 50) : working ? rng.range(25, 70) : rng.range(15, 45);
   const f = fidget > 0 ? fidget : 1;
   const t = base * f;
   return t < BEAT_MIN ? BEAT_MIN : t;
 }
+
+/** A stretch is not repeated by the same hacker within this many seconds. */
+export const STRETCH_GAP = 480;
+
+/** Concurrent limits over the hall: leaning back, stretching, seated pairs (fewer on duty). */
+export function leanLimit(agents: number): number {
+  return Math.max(1, Math.floor(0.08 * agents));
+}
+export function stretchLimit(agents: number): number {
+  return Math.max(1, Math.floor(0.015 * agents));
+}
+export function pairLimit(agents: number, duty: boolean): number {
+  return Math.max(1, Math.floor((duty ? 0.015 : 0.04) * agents));
+}
+
+/**
+ * After a mission some hackers breathe out (a stretch or a lean back) as
+ * their first beat off duty: this share of them.
+ */
+export const EXHALE_SHARE = 0.35;
+
+/**
+ * How a hacker listens standing (a briefing, a spot's speaker), from the id
+ * hash: 0 StandListen (45%), 1 StandListen at a slower tempo (25%), 2 Idle
+ * (30%). Hash-derived, so it draws nothing from the generators.
+ */
+export const LISTEN_PLAIN = 0;
+export const LISTEN_SLOW = 1;
+export const LISTEN_IDLE = 2;
+export function listenStyle(idHash: number): number {
+  const k = (idHash >>> 11) % 100;
+  return k < 45 ? LISTEN_PLAIN : k < 70 ? LISTEN_SLOW : LISTEN_IDLE;
+}
+/** Tempo factor of the LISTEN_SLOW listeners' StandListen. */
+export const LISTEN_SLOW_TEMPO = 0.86;
 
 /** Seconds a colleague stays at the shoulder (short help during a mission). */
 export function peerVisitSeconds(duty: boolean, rng: HqRng): number {
@@ -290,4 +370,45 @@ export function guestNearby(nb: HqDeskNeighbourhood, guests: Uint8Array, desk: n
   const hi = p + spacing < s1 - 1 ? p + spacing : s1 - 1;
   for (let k = lo; k <= hi; k++) if (guests[nb.rowDesks[k]] > 0) return true;
   return false;
+}
+
+// --- Seated neighbours --------------------------------------------------------------------------
+
+/**
+ * For every desk, the desk of the neighbour sitting beside it in the same row
+ * on the sitter's left (+X in the workstation frame, `left`) and right
+ * (`right`), -1 when there is none (the row's end): the next desk along the
+ * row, 1.2-2.0 m to that side, less than 0.4 m ahead or behind, facing the
+ * same way within ~30 deg. The seated pair clips turn to exactly that side.
+ */
+export function seatedNeighbours(
+  desks: ReadonlyArray<{ x: number; z: number; rotY: number }>,
+  nb: HqDeskNeighbourhood,
+): { left: Int32Array; right: Int32Array } {
+  const n = desks.length;
+  const left = new Int32Array(n).fill(-1);
+  const right = new Int32Array(n).fill(-1);
+  for (let d = 0; d < n; d++) {
+    const r = nb.row[d];
+    const s0 = nb.rowStart[r];
+    const s1 = nb.rowStart[r + 1];
+    const k = s0 + nb.pos[d];
+    const c = Math.cos(desks[d].rotY);
+    const sn = Math.sin(desks[d].rotY);
+    for (const kk of [k - 1, k + 1]) {
+      if (kk < s0 || kk >= s1) continue;
+      const e = nb.rowDesks[kk];
+      const dx = desks[e].x - desks[d].x;
+      const dz = desks[e].z - desks[d].z;
+      // Into d's workstation frame (sim.ts `local`, inverted): +X is the sitter's left, +Z ahead.
+      const lx = dx * c - dz * sn;
+      const lz = dx * sn + dz * c;
+      let dr = desks[e].rotY - desks[d].rotY;
+      dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+      if (Math.abs(lx) < 1.2 || Math.abs(lx) > 2.0 || Math.abs(lz) > 0.4 || Math.abs(dr) > 0.55) continue;
+      if (lx > 0) left[d] = e;
+      else right[d] = e;
+    }
+  }
+  return { left, right };
 }

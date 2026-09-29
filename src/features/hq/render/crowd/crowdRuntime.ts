@@ -20,7 +20,7 @@ import { HqCrowdHeroes } from "./crowdHeroes";
 import { HqCapsuleCrowd, HqSkinnedCrowd } from "./crowdInstances";
 import { HqCrowdLabels } from "./crowdLabels";
 import { createHeroMaterials } from "./crowdMaterials";
-import { bakeCharacter, findSkinnedMesh, type HqSkinBake } from "./skinBake";
+import { findSkinnedMesh, startBake, type HqSkinBake, type HqSkinBaker } from "./skinBake";
 import { pickHeroes } from "./stableSlots";
 
 /**
@@ -39,6 +39,12 @@ export type HqCrowdSim = {
 export type HqCharacterSource = { scene: Object3D; animations: AnimationClip[] };
 
 const HERO_COUNT: Record<HqQuality, number> = { high: 24, medium: 12, low: 4 };
+/**
+ * Loading a character is spread over frames: baking the clips and building
+ * the hero rigs take about this long per frame (ms), so a load never stalls
+ * the scene; the figures stand in until it is done (a fraction of a second).
+ */
+const LOAD_BUDGET_MS = 4;
 const MAX_HEROES = 24;
 // Bounding sphere of one agent for culling, centred at chest height.
 const CULL_RADIUS = 1.25;
@@ -62,12 +68,24 @@ type Character = {
   heroMaterials: { normal: Material; lead: Material };
 };
 
+/** A character being loaded over several frames. */
+type PendingCharacter = {
+  source: HqCharacterSource;
+  baker: HqSkinBaker;
+  bake: HqSkinBake | null;
+  heroes: HqCrowdHeroes | null;
+  heroMaterials: { normal: Material; lead: Material } | null;
+};
+
 export class HqCrowdRuntime {
   readonly root = new Group();
   private readonly decals: HqCrowdDecals;
   private readonly capsules: HqCapsuleCrowd;
   private readonly labels: HqCrowdLabels;
   private character: Character | null = null;
+  private pending: PendingCharacter | null = null;
+  /** A source without a skinned mesh: not tried again. */
+  private failed: HqCharacterSource | null = null;
   private quality: HqQuality = "high";
 
   private readonly frustum = new Frustum();
@@ -100,34 +118,68 @@ export class HqCrowdRuntime {
     this.root.add(this.decals.blobs, this.decals.rings, this.capsules.mesh, this.labels.root);
   }
 
-  /** Whether `source` is what the crowd currently draws with. */
+  /** Whether `source` is what the crowd currently draws with (or has given up on). */
   hasCharacter(source: HqCharacterSource | null): boolean {
-    return (this.character?.source ?? null) === source;
+    return (this.character?.source ?? null) === source || (source !== null && source === this.failed);
   }
 
   /**
-   * Switches between the GLB character and the capsule stand-in. Baking is
-   * synchronous (tens of ms, cached per GLTF) and happens once per load.
+   * Switches between the GLB character and the capsule stand-in. Call it
+   * every frame until hasCharacter(source): the clips are baked and the hero
+   * rigs built LOAD_BUDGET_MS at a time (the bake is cached per GLTF), and
+   * whatever was drawn before stays on screen until the new one is complete.
    */
   setCharacter(source: HqCharacterSource | null, renderer: WebGLRenderer): void {
     if (this.hasCharacter(source)) return;
-    this.dropCharacter();
-    if (!source) return;
-    const bake = bakeCharacter(source.scene, source.animations);
-    const mesh = findSkinnedMesh(source.scene);
-    if (!bake || !mesh) {
-      console.warn("HQ character has no skinned mesh; drawing stand-in figures.");
+    if (!source) {
+      this.dropPending();
+      this.dropCharacter();
       return;
     }
+    const mesh = findSkinnedMesh(source.scene);
+    if (!this.pending || this.pending.source !== source) {
+      this.dropPending();
+      const baker = mesh ? startBake(source.scene, source.animations) : null;
+      if (!baker || !mesh) {
+        console.warn("HQ character has no skinned mesh; drawing stand-in figures.");
+        this.failed = source;
+        this.dropCharacter();
+        return;
+      }
+      this.pending = { source, baker, bake: null, heroes: null, heroMaterials: null };
+    }
+    const p = this.pending;
+    if (!mesh) return;
+    const t0 = performance.now();
+    if (!p.bake) {
+      p.bake = p.baker.step(LOAD_BUDGET_MS);
+      if (!p.bake) return;
+    }
+    if (!p.heroes || !p.heroMaterials) {
+      p.heroMaterials = createHeroMaterials(mesh.material);
+      p.heroes = new HqCrowdHeroes(source.scene, p.bake, p.heroMaterials, MAX_HEROES, false);
+    }
+    if (!p.heroes.grow(Math.max(0.5, LOAD_BUDGET_MS - (performance.now() - t0)))) return;
+
+    // Complete: swap it in.
+    this.pending = null;
+    this.dropCharacter();
     // Half floats still hold the palette to about a millimetre at room scale.
     const floatTargets = renderer.extensions.has("EXT_color_buffer_float");
-    const crowd = new HqSkinnedCrowd(mesh.geometry, mesh.material, bake, this.capacity, floatTargets);
+    const crowd = new HqSkinnedCrowd(mesh.geometry, mesh.material, p.bake, this.capacity, floatTargets);
     crowd.mesh.receiveShadow = this.quality === "high";
-    const heroMaterials = createHeroMaterials(mesh.material);
-    const heroes = new HqCrowdHeroes(source.scene, bake, heroMaterials, MAX_HEROES);
-    this.character = { source, bake, crowd, heroes, heroMaterials };
-    this.root.add(crowd.mesh, heroes.root);
+    this.character = { source, bake: p.bake, crowd, heroes: p.heroes, heroMaterials: p.heroMaterials };
+    this.root.add(crowd.mesh, p.heroes.root);
     this.capsules.hide();
+  }
+
+  private dropPending(): void {
+    const p = this.pending;
+    if (!p) return;
+    this.pending = null;
+    p.heroes?.dispose();
+    p.heroMaterials?.normal.dispose();
+    p.heroMaterials?.lead.dispose();
   }
 
   private dropCharacter(): void {
@@ -280,6 +332,7 @@ export class HqCrowdRuntime {
   }
 
   dispose(): void {
+    this.dropPending();
     this.dropCharacter();
     this.decals.dispose();
     this.capsules.dispose();

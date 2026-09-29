@@ -6,13 +6,19 @@ import {
   helpVisitLimit,
   peerVisitLimit,
 } from "@/features/hq/core/beats";
-import { HQ_CLIP_INFO, HQ_SHOULDER, HqClip } from "@/features/hq/core/config";
+import { HQ_CLIP_INFO, HQ_CLIPS, HQ_SHOULDER, HqClip } from "@/features/hq/core/config";
 import { HQ_PROP_FOOTPRINT, generateHqLayout, seatToWorld } from "@/features/hq/core/layout";
 import { HqSimulation } from "@/features/hq/core/sim";
 import { HQ_PLACE } from "@/features/hq/core/types";
 import type { HqAgentInput, HqAgentStatus, HqLayout } from "@/features/hq/core/types";
+import { isSeatedClip, isTypingClip } from "@/features/hq/render/crowd/clipTable";
 
 const HEAD_SEATED = 1.22;
+
+/** Seated at the desk in one of its acts (typing, reading, leaning back, ...), not getting up or down. */
+const AT_WORK = (clip: number) => isSeatedClip(clip) && clip !== HqClip.SitDown;
+/** Standing still: idle, talking, listening, or at someone's shoulder. */
+const STANDING_CLIPS: number[] = [HqClip.Idle, HqClip.Talk, HqClip.StandListen, HqClip.StandLookOver];
 const TABLE_LOOK_Y = 0.45;
 
 function team(count: number, status: (i: number) => HqAgentStatus): HqAgentInput[] {
@@ -152,7 +158,7 @@ describe("HqSimulation lounge breaks", () => {
     const f = sim.frame;
     for (let i = 0; i < f.count; i++) {
       expect(seatOf(layout, f.x[i], f.z[i]), f.ids[i]).toBe(-1);
-      expect(f.clip[i], f.ids[i]).toBe(HqClip.SitType);
+      expect(AT_WORK(f.clip[i]), `${f.ids[i]} ${HQ_CLIPS[f.clip[i]]}`).toBe(true);
     }
     // And the seats are free again: a new idle spell fills them.
     sim.setAgents(team(160, () => "idle"));
@@ -216,7 +222,7 @@ describe("HqSimulation standing places", () => {
   sim.setAgents(team(layout.desks.length + 120, (i) => (i % 4 === 0 ? "working" : "idle")));
   const lounge = layout.lounge;
   const inLounge = (x: number, z: number) => x > lounge.x0 && x < lounge.x1 && z > lounge.z0 && z < lounge.z1;
-  const standing = (clip: number) => clip === HqClip.Idle || clip === HqClip.Talk;
+  const standing = (clip: number) => STANDING_CLIPS.includes(clip);
   const approaches = layout.loungeSeats.map((s) => s.approach);
   const atApproach = (x: number, z: number) => approaches.some((a) => Math.abs(a.x - x) < 0.05 && Math.abs(a.z - z) < 0.05);
   const bumps: string[] = [];
@@ -431,7 +437,8 @@ describe("HqSimulation briefing", () => {
       if (i === li) continue;
       const desk = layout.desks.find((d) => Math.hypot(d.approach.x - f.x[i], d.approach.z - f.z[i]) < 0.05);
       expect(desk, `${f.ids[i]} at ${f.x[i].toFixed(2)},${f.z[i].toFixed(2)}`).toBeDefined();
-      expect(f.clip[i]).toBe(HqClip.Idle);
+      // Listening: StandListen or Idle (per agent), never talking.
+      expect([HqClip.Idle, HqClip.StandListen]).toContain(f.clip[i]);
       expect(f.place[i]).toBe(HQ_PLACE.briefing);
       // Turned to the lead.
       const toLead = Math.atan2(f.x[li] - f.x[i], f.z[li] - f.z[i]);
@@ -486,11 +493,15 @@ describe("HqSimulation briefing", () => {
     expect(backOnIsland).toBe(true);
     const f = sim.frame;
     let typing = 0;
+    let atWork = 0;
     for (let i = 0; i < f.count; i++) {
       expect(f.place[i] === HQ_PLACE.briefing || f.place[i] === HQ_PLACE.podium).toBe(false);
-      if (f.clip[i] === HqClip.SitType) typing++;
+      if (isTypingClip(f.clip[i])) typing++;
+      if (AT_WORK(f.clip[i])) atWork++;
     }
-    expect(typing).toBeGreaterThan(80);
+    // Back at their desks; still on duty (the mission outlasts the briefing), so mostly typing.
+    expect(atWork).toBeGreaterThan(130);
+    expect(typing).toBeGreaterThan(70);
   });
 
   it("ends by itself when its time is up", () => {
@@ -502,8 +513,7 @@ describe("HqSimulation briefing", () => {
 
 // --- Living workstations ----------------------------------------------------------
 
-const SEATED_LOOP = (clip: number) => clip === HqClip.SitType || clip === HqClip.SitIdle;
-const STANDING = (clip: number) => clip === HqClip.Idle || clip === HqClip.Talk;
+const STANDING = (clip: number) => STANDING_CLIPS.includes(clip);
 
 /** Desk index per 0.1 m cell of its shoulder place, to find guests fast. */
 function shoulderIndex(layout: HqLayout) {
@@ -555,7 +565,8 @@ describe("HqSimulation living workstations: nobody in lockstep", () => {
   const f = sim.frame;
   const n = f.count;
   const li = f.ids.indexOf("am7");
-  const typingAtStart = Array.from(f.clip).filter((c, i) => i !== li && c === HqClip.SitType).length;
+  const atWorkAtStart = Array.from(f.clip).filter((c, i) => i !== li && AT_WORK(c)).length;
+  const typingAtStart = Array.from(f.clip).filter((c, i) => i !== li && isTypingClip(c)).length;
 
   // The call: when each hacker starts to get up.
   sim.startBriefing(600);
@@ -585,16 +596,18 @@ describe("HqSimulation living workstations: nobody in lockstep", () => {
     const t0 = Float32Array.from(f.clipTime);
     const c0 = Uint8Array.from(f.clip);
     sim.update(DT);
-    const dur = HQ_CLIP_INFO.SitType.duration;
     for (let i = 0; i < n; i++) {
-      if (i === li || c0[i] !== HqClip.SitType || f.clip[i] !== HqClip.SitType || f.blend[i] < 1) continue;
-      phase.push(f.clipTime[i]);
+      if (i === li || !isTypingClip(c0[i]) || f.clip[i] !== c0[i] || f.blend[i] < 1) continue;
+      const dur = HQ_CLIP_INFO[HQ_CLIPS[c0[i]]].duration;
+      phase.push(f.clipTime[i] / dur);
       rate.push((((f.clipTime[i] - t0[i]) % dur) + dur) % dur / DT);
     }
   }
 
   it("gets the floor up one by one, 0.15-1.4 s after the call", () => {
-    expect(typingAtStart).toBe(150);
+    // Everyone was at their desk, most typing (the rest reading, thinking, talking to a neighbour).
+    expect(atWorkAtStart).toBe(150);
+    expect(typingAtStart).toBeGreaterThan(90);
     const times = Array.from(rise).filter((_, i) => i !== li);
     expect(times.every((t) => t > 0)).toBe(true);
     expect(Math.min(...times)).toBeGreaterThanOrEqual(0.15 - 1e-6);
@@ -615,9 +628,10 @@ describe("HqSimulation living workstations: nobody in lockstep", () => {
     expect(Math.max(...times) - Math.min(...times)).toBeGreaterThan(0.9);
   });
 
-  it("types out of step: every loop starts at its own frame and plays at its own tempo", () => {    expect(phase.length).toBeGreaterThan(120);
-    // A tenth-of-a-second histogram of where in the 3.2 s loop everyone is.
-    const buckets = new Set(phase.map((t) => Math.floor(t * 10)));
+  it("types out of step: every loop starts at its own frame and plays at its own tempo", () => {
+    expect(phase.length).toBeGreaterThan(100);
+    // A 1/32-of-a-loop histogram of where in their typing loop everyone is.
+    const buckets = new Set(phase.map((t) => Math.floor(t * 32)));
     expect(buckets.size).toBeGreaterThanOrEqual(26);
     const rounded = new Set(rate.map((r) => Math.round(r * 100)));
     expect(rounded.size).toBeGreaterThan(8);
@@ -639,10 +653,11 @@ describe("HqSimulation living workstations: nobody in lockstep", () => {
     // Out of the mission, typing is back at each agent's own 0.92-1.08.
     sim.update(DT);
     const t0 = Float32Array.from(f.clipTime);
+    const c0 = Uint8Array.from(f.clip);
     sim.update(DT);
-    const dur = HQ_CLIP_INFO.SitType.duration;
     for (let i = 0; i < n; i++) {
-      if (i === li || f.clip[i] !== HqClip.SitType || f.blend[i] < 1) continue;
+      if (i === li || !isTypingClip(f.clip[i]) || f.clip[i] !== c0[i] || f.blend[i] < 1) continue;
+      const dur = HQ_CLIP_INFO[HQ_CLIPS[f.clip[i]]].duration;
       const r = ((((f.clipTime[i] - t0[i]) % dur) + dur) % dur) / DT;
       expect(r).toBeGreaterThan(0.91);
       expect(r).toBeLessThan(1.09);
@@ -679,12 +694,21 @@ describe("HqSimulation living workstations: spots, shoulders and desks", () => {
   let leadAtShoulder = 0;
   const visits = new Set<string>();
   const wasGuest = new Int32Array(n).fill(-1);
-  // Idle hackers at their own desk: when their seated loop last changed.
+  // Hackers at their own desk: when their seated act last changed, and what they did.
   const lastSwitch = new Float64Array(n).fill(-1);
   const lastLoop = new Int32Array(n).fill(-1);
   let shortestBeat = Infinity;
-  const idleTyping = new Set<string>();
-  const idleLeaning = new Set<string>();
+  const idleActs = new Map<number, Set<string>>();
+  const workActs = new Map<number, Set<string>>();
+  const seen = (m: Map<number, Set<string>>, clip: number, id: string) => {
+    let set = m.get(clip);
+    if (!set) m.set(clip, (set = new Set()));
+    set.add(id);
+  };
+  let pairFrames = 0;
+  let lonelyTurns = 0;
+  let pairsInStep = 0;
+  let hostsShowing = 0;
   {
     const talkAt = new Int32Array(layout.socialSpots.length);
     for (let step = 0; step < 9000; step++) {
@@ -707,7 +731,9 @@ describe("HqSimulation living workstations: spots, shoulders and desks", () => {
         if (g >= 0) {
           guestDesks.push(g);
           const host = agentAt[g];
-          if (host < 0 || !(f.clip[host] === HqClip.SitType || f.clip[host] === HqClip.SitDown)) hostNotAtWork++;
+          // The host is at work at the screen (showing it once the guest is there).
+          if (host < 0 || !(AT_WORK(f.clip[host]) || f.clip[host] === HqClip.SitDown)) hostNotAtWork++;
+          if (host >= 0 && f.clip[host] === HqClip.SitShowScreen && clip === HqClip.StandLookOver) hostsShowing++;
           if (i === li) leadAtShoulder++;
           else {
             guests++;
@@ -715,17 +741,46 @@ describe("HqSimulation living workstations: spots, shoulders and desks", () => {
           }
         }
         wasGuest[i] = g;
-        // Beats of the free hackers at their own desks.
+        // Beats at their own desks (a stretch is a one-shot gesture inside a beat).
         const d = deskOf.get(f.ids[i]);
         const atDesk = d !== undefined && Math.hypot(layout.desks[d].x - f.x[i], layout.desks[d].z - f.z[i]) < 0.02;
-        if (i !== li && f.status[i] === 1 && atDesk && SEATED_LOOP(clip)) {
-          if (clip === HqClip.SitType) idleTyping.add(f.ids[i]);
-          else idleLeaning.add(f.ids[i]);
+        if (i !== li && atDesk && AT_WORK(clip)) {
+          seen(f.status[i] === 1 ? idleActs : workActs, clip, f.ids[i]);
+          if (clip === HqClip.SitStretch || clip === HqClip.SitShowScreen) continue;
           if (lastLoop[i] >= 0 && lastLoop[i] !== clip) {
             if (lastSwitch[i] >= 0) shortestBeat = Math.min(shortestBeat, t - lastSwitch[i]);
             lastSwitch[i] = t;
           }
           lastLoop[i] = clip;
+          // A seated pair: turned toward each other; one talks while the other listens.
+          const [h0, h1] = HQ_CLIP_INFO.SitTurnL.hold!;
+          if (clip === HqClip.SitTurnL && d !== undefined && f.blend[i] >= 1 && f.clipTime[i] > h0 + 0.1 && f.clipTime[i] < h1 - 0.1) {
+            let partner = -1;
+            for (let j = 0; j < n; j++) {
+              if (f.clip[j] !== HqClip.SitTurnR) continue;
+              const e = deskOf.get(f.ids[j]);
+              if (e === undefined || Math.hypot(layout.desks[e].x - f.x[j], layout.desks[e].z - f.z[j]) > 0.02) continue;
+              // j sits on i's left (+X of i's workstation frame), the desk beside it.
+              const dx = layout.desks[e].x - layout.desks[d].x;
+              const dz = layout.desks[e].z - layout.desks[d].z;
+              const r = layout.desks[d].rotY;
+              const lx = dx * Math.cos(r) - dz * Math.sin(r);
+              const lz = dx * Math.sin(r) + dz * Math.cos(r);
+              if (lx > 1.2 && lx < 2.1 && Math.abs(lz) < 0.4) partner = j;
+            }
+            if (partner < 0) lonelyTurns++;
+            else {
+              pairFrames++;
+              const j = partner;
+              const [t0, t1] = HQ_CLIP_INFO.SitTurnL.talkWindow!;
+              const talkI = f.clipTime[i] >= t0 && f.clipTime[i] < t1;
+              const talkJ = f.clipTime[j] >= t0 && f.clipTime[j] < t1;
+              // Away from the turn boundaries (the one who starts may be a frame ahead).
+              const clear = (x: number) => Math.min(Math.abs(x - h0), Math.abs(x - t1), Math.abs(x - h1)) > 0.15;
+              const holding = f.clipTime[j] > h0 && f.clipTime[j] < h1 && clear(f.clipTime[i]) && clear(f.clipTime[j]);
+              if (holding && talkI === talkJ) pairsInStep++;
+            }
+          }
         } else {
           lastLoop[i] = -1;
           lastSwitch[i] = -1;
@@ -759,12 +814,46 @@ describe("HqSimulation living workstations: spots, shoulders and desks", () => {
     expect(leadAtShoulder).toBeGreaterThan(50);
   });
 
-  it("switches free hackers between leaning back and typing, never faster than the minimum beat", () => {
-    expect(idleTyping.size).toBeGreaterThan(20);
-    expect(idleLeaning.size).toBeGreaterThan(20);
+  it("varies what everyone does at their desk, never switching faster than the minimum beat", () => {
+    const count = (m: Map<number, Set<string>>, clip: number) => m.get(clip)?.size ?? 0;
+    // Free: sitting back, reading, thinking, talking, stretching.
+    expect(count(idleActs, HqClip.SitIdle)).toBeGreaterThan(20);
+    expect(count(idleActs, HqClip.SitRead)).toBeGreaterThan(10);
+    expect(count(idleActs, HqClip.SitLeanBack)).toBeGreaterThan(5);
+    expect(count(idleActs, HqClip.SitTurnL) + count(idleActs, HqClip.SitTurnR)).toBeGreaterThan(5);
+    // Working: both typing variants, reading, a word with the neighbour, showing the screen to a guest.
+    expect(count(workActs, HqClip.SitType)).toBeGreaterThan(20);
+    expect(count(workActs, HqClip.SitType2)).toBeGreaterThan(20);
+    expect(count(workActs, HqClip.SitRead)).toBeGreaterThan(20);
+    expect(count(workActs, HqClip.SitTurnL) + count(workActs, HqClip.SitTurnR)).toBeGreaterThan(5);
+    expect(count(workActs, HqClip.SitShowScreen)).toBeGreaterThan(3);
+    // A free hacker never types outside a mission.
+    expect(count(idleActs, HqClip.SitType) + count(idleActs, HqClip.SitType2)).toBe(0);
     expect(shortestBeat).toBeGreaterThanOrEqual(6 - DT - 1e-6);
   });
+
+  it("turns seated neighbours to each other, one talking while the other listens", () => {
+    expect(pairFrames).toBeGreaterThan(100);
+    // Turned to the left: the neighbour on that side is turned back (SitTurnR)...
+    expect(lonelyTurns).toBeLessThan(0.02 * pairFrames);
+    // ...and half a loop apart: never both talking or both listening.
+    expect(pairsInStep).toBe(0);
+  });
+
+  it("has the host show the screen while the guest looks over the shoulder", () => {
+    expect(hostsShowing).toBeGreaterThan(50);
+  });
 });
+
+/** What a free hacker at their desk may do on duty: read, type, a short word with the neighbour. */
+const DUTY_CLIPS: number[] = [
+  HqClip.SitRead,
+  HqClip.SitType,
+  HqClip.SitType2,
+  HqClip.SitTurnL,
+  HqClip.SitTurnR,
+  HqClip.SitDown,
+];
 
 describe("HqSimulation mission mode", () => {
   const layout = generateHqLayout(300);
@@ -835,7 +924,7 @@ describe("HqSimulation mission mode", () => {
         away++;
         if (STANDING(f.clip[i]) && spotNear(layout, f.x[i], f.z[i]) >= 0) atSpots++;
         if (STANDING(f.clip[i]) && shoulderOf(f.x[i], f.z[i]) >= 0) helping++;
-      } else if (f.status[i] === 1 && !(SEATED_LOOP(f.clip[i]) || f.clip[i] === HqClip.SitDown)) {
+      } else if (f.status[i] === 1 && !DUTY_CLIPS.includes(f.clip[i])) {
         idleOffDuty++;
       }
     }

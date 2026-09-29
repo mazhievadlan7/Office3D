@@ -3,9 +3,9 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Vector3 } from "three";
-import { HqClip } from "@/features/hq/core/config";
 import type { HqSimulation } from "@/features/hq/core/sim";
 import { HQ_PLACE } from "@/features/hq/core/types";
+import { isSpeakingClip, isTypingClip } from "@/features/hq/render/crowd/clipTable";
 import { chatterLine } from "./chatterLines";
 import { HqAudio, type HqAudioSource, type HqVoice } from "./hqAudio";
 
@@ -132,7 +132,7 @@ export function HqSoundscape({
       const { near, dist } = scratch.current;
       let count = 0;
       for (let i = 0; i < f.count && count < near.length; i++) {
-        if (f.clip[i] !== HqClip.SitType) continue;
+        if (!isTypingClip(f.clip[i])) continue;
         const dx = f.x[i] - cx;
         const dy = KEYBOARD_Y - cy;
         const dz = f.z[i] - cz;
@@ -224,7 +224,7 @@ export function HqSoundscape({
         const i = indexOfId(idIndex, f.ids, t.id);
         const gone =
           i < 0 ||
-          f.clip[i] !== HqClip.Talk ||
+          !isSpeakingClip(f.clip[i], f.clipTime[i]) ||
           f.place[i] === HQ_PLACE.podium ||
           (f.x[i] - cx) ** 2 + (HEAD_Y - cy) ** 2 + (f.z[i] - cz) ** 2 > TALK_RANGE * TALK_RANGE;
         if (gone) {
@@ -235,7 +235,7 @@ export function HqSoundscape({
       }
       for (let i = 0; i < f.count; i++) {
         // AM7 briefing from the podium speaks with his real voice: no murmur, no chatter lines.
-        if (f.clip[i] !== HqClip.Talk || f.place[i] === HQ_PLACE.podium) continue;
+        if (!isSpeakingClip(f.clip[i], f.clipTime[i]) || f.place[i] === HQ_PLACE.podium) continue;
         const d = (f.x[i] - cx) ** 2 + (HEAD_Y - cy) ** 2 + (f.z[i] - cz) ** 2;
         if (d > TALK_RANGE * TALK_RANGE) continue;
         const id = f.ids[i];

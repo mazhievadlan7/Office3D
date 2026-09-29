@@ -50,7 +50,26 @@ export const POD = {
 
 // Character clips exported from blender/hacker (action names in the GLB).
 // New clips go at the end so existing codes never change.
-export const HQ_CLIPS = ["Idle", "Walk", "Run", "SitDown", "SitType", "SitIdle", "Talk", "Present", "Push"] as const;
+export const HQ_CLIPS = [
+  "Idle",
+  "Walk",
+  "Run",
+  "SitDown",
+  "SitType",
+  "SitIdle",
+  "Talk",
+  "Present",
+  "Push",
+  "SitType2",
+  "SitRead",
+  "SitStretch",
+  "SitLeanBack",
+  "SitTurnL",
+  "SitTurnR",
+  "SitShowScreen",
+  "StandLookOver",
+  "StandListen",
+] as const;
 export type HqClipName = (typeof HQ_CLIPS)[number];
 // Clip codes used in HqAgentFrame.clip; HQ_CLIPS[code] is the action name.
 export const HqClip = {
@@ -70,6 +89,25 @@ export const HqClip = {
   // lane and carries the cart HQ_ARCHIVE_CART.reach ahead of it. Played
   // backward while the cart is pulled out of its bay.
   Push: 8,
+  // Living workstations (blender/hacker/anims/*.py; the sim picks them per beat, core/beats.ts).
+  /** Typing, another rhythm and more mouse than SitType. */
+  SitType2: 9,
+  /** Reading line by line, scrolling; a hand comes up to rub the brow. */
+  SitRead: 10,
+  /** One shot from SitType's first frame back to it: arms up, back arched, hands behind the head. */
+  SitStretch: 11,
+  /** Intro, held loop, outro: leaning back into the chair, hands behind the head, thinking. */
+  SitLeanBack: 12,
+  /** Intro, held loop (talk half, listen half), outro: turned to the neighbour on the left. */
+  SitTurnL: 13,
+  /** SitTurnL mirrored: turned to the neighbour on the right. */
+  SitTurnR: 14,
+  /** Intro, held loop, outro: a host showing their screen to a guest at the shoulder. */
+  SitShowScreen: 15,
+  /** Intro, held loop, outro: the guest at HQ_SHOULDER, hand on the chair back, pointing now and then. */
+  StandLookOver: 16,
+  /** Standing, hands clasped, nodding: listeners at a spot or a briefing. */
+  StandListen: 17,
 } as const;
 export type HqClip = (typeof HqClip)[keyof typeof HqClip];
 export const HQ_CLIP_FPS = 30;
@@ -90,7 +128,17 @@ export type HqClipInfo = {
    * uses HQ_BLEND_TIME instead, so the feet never slide through a long fade.
    */
   blend: number;
+  /**
+   * [start, end] seconds of a held loop inside a one-shot clip (intro, hold,
+   * outro): the sim wraps the time inside it while the act lasts, then plays
+   * the outro through. Both ends are the same pose, standing still.
+   */
+  hold?: readonly [number, number];
+  /** [start, end] seconds within the clip in which the agent is speaking (default: all of it when `talk`). */
+  talkWindow?: readonly [number, number];
 };
+/** Frames at 30 fps to seconds. */
+const sec = (frames: number) => frames / 30;
 // Durations in seconds and native locomotion speeds (m/s). The GLB is the
 // source of truth; the scene checks these against the loaded clips in dev.
 export const HQ_CLIP_INFO: Record<HqClipName, HqClipInfo> = {
@@ -105,13 +153,54 @@ export const HQ_CLIP_INFO: Record<HqClipName, HqClipInfo> = {
   Present: { duration: 168 / 30, loop: true, speed: 0, seated: false, typing: false, talk: true, blend: 0.5 },
   // 32 frames, stride 1.12 m: 1.05 m/s, the same foot timing as Walk.
   Push: { duration: 32 / 30, loop: true, speed: 1.12 / (32 / 30), seated: false, typing: false, talk: false, blend: 0.28 },
+  SitType2: { duration: sec(120), loop: true, speed: 0, seated: true, typing: true, talk: false, blend: 0.6 },
+  SitRead: { duration: sec(180), loop: true, speed: 0, seated: true, typing: false, talk: false, blend: 0.7 },
+  // Starts and ends on SitType's first frame: short fades.
+  SitStretch: { duration: sec(150), loop: false, speed: 0, seated: true, typing: false, talk: false, blend: 0.45 },
+  // Intro / hold / outro clips start and end on SitIdle's first frame (StandLookOver: Idle's).
+  SitLeanBack: { duration: sec(180), loop: false, speed: 0, seated: true, typing: false, talk: false, blend: 0.5, hold: [sec(30), sec(150)] },
+  SitTurnL: {
+    duration: sec(144),
+    loop: false,
+    speed: 0,
+    seated: true,
+    typing: false,
+    talk: true,
+    blend: 0.5,
+    hold: [sec(16), sec(128)],
+    talkWindow: [sec(16), sec(72)],
+  },
+  SitTurnR: {
+    duration: sec(144),
+    loop: false,
+    speed: 0,
+    seated: true,
+    typing: false,
+    talk: true,
+    blend: 0.5,
+    hold: [sec(16), sec(128)],
+    talkWindow: [sec(16), sec(72)],
+  },
+  SitShowScreen: { duration: sec(144), loop: false, speed: 0, seated: true, typing: false, talk: false, blend: 0.5, hold: [sec(16), sec(128)] },
+  StandLookOver: {
+    duration: sec(180),
+    loop: false,
+    speed: 0,
+    seated: false,
+    typing: false,
+    talk: true,
+    blend: 0.4,
+    hold: [sec(20), sec(164)],
+    talkWindow: [sec(40), sec(72)],
+  },
+  StandListen: { duration: sec(150), loop: true, speed: 0, seated: false, typing: false, talk: false, blend: 0.5 },
 };
 
 /**
  * Bumped whenever a model under public/office-assets/models is rebuilt, so
  * browsers and proxies holding the old file fetch the new one.
  */
-const HQ_MODELS_VERSION = "2026-09-28e";
+const HQ_MODELS_VERSION = "2026-09-29a";
 export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;
@@ -141,11 +230,11 @@ export const HQ_PUSH_GRIP = { reach: 0.4, height: 0.97, halfSpan: 0.2, holdFrame
  * a colleague dropping by), in the workstation's local frame (origin = chair
  * centre, the sitter faces +Z, +X is the sitter's left): behind the sitter's
  * right shoulder, clear of the chair back (z -0.25..-0.31) and 1 m from the
- * neighbour's chair. `hand` is where a future StandLookOver clip rests its
- * left hand: the chair back's right top corner. The guest faces the centre
- * monitor.
+ * neighbour's chair. `hand` is where StandLookOver rests its left palm: on
+ * the chair back's right top corner (blender/hacker/anims/stand_look_over.py
+ * GRIP_CHAIR; its check() measures it). The guest faces the centre monitor.
  */
-export const HQ_SHOULDER = { x: -0.55, z: -0.42, hand: { x: -0.2, y: 1.02, z: -0.29 } } as const;
+export const HQ_SHOULDER = { x: -0.55, z: -0.42, hand: { x: -0.19, y: 1.1, z: -0.325 } } as const;
 
 // Crossfade between locomotion clips (and into or out of them), seconds.
 // Other clips fade over their own HQ_CLIP_INFO[...].blend.

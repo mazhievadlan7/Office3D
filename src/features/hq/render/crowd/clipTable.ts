@@ -19,6 +19,16 @@ const CLIP_FALLBACKS: Record<HqClipName, readonly HqClipName[]> = {
   Talk: ["Idle"],
   Present: ["Talk", "Idle"],
   Push: ["Walk", "Idle"],
+  // Living workstations: an older character file plays the nearest pose it has.
+  SitType2: ["SitType", "SitIdle", "Idle"],
+  SitRead: ["SitIdle", "SitType", "Idle"],
+  SitStretch: ["SitIdle", "SitType", "Idle"],
+  SitLeanBack: ["SitIdle", "SitType", "Idle"],
+  SitTurnL: ["SitIdle", "SitType", "Idle"],
+  SitTurnR: ["SitIdle", "SitType", "Idle"],
+  SitShowScreen: ["SitIdle", "SitType", "Idle"],
+  StandLookOver: ["Idle"],
+  StandListen: ["Idle"],
 };
 
 export const HQ_CLIP_COUNT = HQ_CLIPS.length;
@@ -32,6 +42,30 @@ const SEATED = Uint8Array.from(HQ_CLIPS, (name) => (HQ_CLIP_INFO[name].seated ? 
 /** Seated clips, used for label height, capsule height and blob size. */
 export function isSeatedClip(code: number): boolean {
   return SEATED[code] === 1;
+}
+
+const TYPING = Uint8Array.from(HQ_CLIPS, (name) => (HQ_CLIP_INFO[name].typing ? 1 : 0));
+const TALK_FROM = Float32Array.from(HQ_CLIPS, (name) => {
+  const info = HQ_CLIP_INFO[name];
+  return info.talk ? (info.talkWindow ? info.talkWindow[0] : 0) : Infinity;
+});
+const TALK_TO = Float32Array.from(HQ_CLIPS, (name) => {
+  const info = HQ_CLIP_INFO[name];
+  return info.talk ? (info.talkWindow ? info.talkWindow[1] : Infinity) : -Infinity;
+});
+
+/** Hands on the keys (key clicks): HQ_CLIP_INFO[...].typing. */
+export function isTypingClip(code: number): boolean {
+  return TYPING[code] === 1;
+}
+
+/**
+ * Whether an agent playing clip `code` at `seconds` is speaking (voices,
+ * chatter captions): a talk clip, inside its talk window when it has one
+ * (the seated pair clips talk in their first half and listen in the second).
+ */
+export function isSpeakingClip(code: number, seconds: number): boolean {
+  return seconds >= TALK_FROM[code] && seconds < TALK_TO[code];
 }
 
 /** Blender exports actions as "Idle" or "Armature|Idle"; compare the last part, case-insensitively. */
