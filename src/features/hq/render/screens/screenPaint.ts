@@ -23,6 +23,7 @@ import {
   type TermLine,
 } from "./screenText";
 import { HQ_DEFAULT_TIME_ZONE, hqTimeZone, hqWallClock } from "@/features/hq/core/hqTime";
+import type { HqOperation } from "@/features/hq/core/operation";
 
 /**
  * Canvas 2D painters for the HQ's screens: a small drawing toolkit and one
@@ -56,6 +57,11 @@ export type HqScreenFeed = {
   teams: readonly HqTeamStat[];
   /** AM7's briefing on the video wall (HqScreenHub.setBriefing), or null for the usual panels. */
   briefing: HqScreenBriefing | null;
+  /**
+   * The «ХОД ЗАДАЧИ» tracker after a briefing (HqScreenHub.setOperation), or
+   * null. Painted only when there is no briefing (the briefing has priority).
+   */
+  operation: HqScreenOperation | null;
 };
 
 /** What a briefing puts on the video wall: the task, the goal and the plan, as given. */
@@ -63,6 +69,15 @@ export type HqBriefingText = { task: string; goal: string; plan: string };
 
 /** A briefing as the screens paint it; `id` grows whenever its text changes. */
 export type HqScreenBriefing = HqBriefingText & { id: number };
+
+/**
+ * The tracked operation the hook publishes (with `rev` growing on every
+ * change), as the wall paints it. The operation's string identity moves to
+ * `key`; `id` is the wall's numeric paint id, from the same counter as a
+ * briefing's, so the hub knows which picture is on the GPU.
+ */
+export type HqOperationSnapshot = HqOperation & { rev: number };
+export type HqScreenOperation = Omit<HqOperation, "id"> & { key: string; rev: number; id: number };
 
 export type HqTeamStat = {
   total: number;
@@ -85,6 +100,7 @@ export const EMPTY_FEED: HqScreenFeed = {
   history: [],
   teams: [],
   briefing: null,
+  operation: null,
 };
 
 // Like real software on a dark theme: neutral near-black chrome, light grey

@@ -1,6 +1,7 @@
 import { HQ_SCREEN_APPS } from "./screenApps";
 import { paintMarkets, paintMusic, paintNews } from "./screenBroadcast";
 import { paintBriefingBanner, paintBriefingPlan, paintBriefingTask } from "./screenBriefing";
+import { paintOperationBanner, paintOperationPlan, paintOperationTask } from "./screenOperation";
 import { APP_PAINTERS, type HqScreenFeed, type Painter } from "./screenPaint";
 import { paintExecMonitor, paintExecWall, paintMapLeft, paintMapRight } from "./screenPanels";
 
@@ -84,7 +85,10 @@ export type ScreenSurface = {
   /** Seconds between repaints while none of its screens is in view. */
   idlePeriod?: number;
   view?: ScreenView;
-  /** Shows the briefing when there is one: repainted at once when it changes. */
+  /**
+   * Shows a special screen (a briefing or the operation tracker) over its
+   * usual content: repainted at once when that screen's id changes.
+   */
   briefing?: boolean;
   /** Painted only while this holds (otherwise its picture is not shown either). */
   when?: (feed: HqScreenFeed) => boolean;
@@ -134,7 +138,10 @@ export const SCREEN_SURFACES: readonly ScreenSurface[] = [
     h: MAP_H,
     period: 0.25,
     briefing: true,
-    paint: (p, t, feed) => (feed.briefing ? paintBriefingTask(p, t, feed.briefing) : paintMapLeft(p, t, feed)),
+    // Paint order: briefing first (it has priority), then the operation
+    // tracker, then the usual data panel.
+    paint: (p, t, feed) =>
+      feed.briefing ? paintBriefingTask(p, t, feed.briefing) : feed.operation ? paintOperationTask(p, t, feed.operation, feed.clock) : paintMapLeft(p, t, feed),
   },
   {
     target: { kind: "single", id: "mapRight" },
@@ -142,7 +149,8 @@ export const SCREEN_SURFACES: readonly ScreenSurface[] = [
     h: MAP_H,
     period: 0.2,
     briefing: true,
-    paint: (p, t, feed) => (feed.briefing ? paintBriefingPlan(p, t, feed.briefing) : paintMapRight(p, t, feed)),
+    paint: (p, t, feed) =>
+      feed.briefing ? paintBriefingPlan(p, t, feed.briefing) : feed.operation ? paintOperationPlan(p, t, feed.operation) : paintMapRight(p, t, feed),
   },
   {
     target: { kind: "single", id: "mapBanner" },
@@ -150,9 +158,10 @@ export const SCREEN_SURFACES: readonly ScreenSurface[] = [
     h: BANNER_H,
     period: 0.25,
     briefing: true,
-    when: (feed) => feed.briefing !== null,
+    when: (feed) => feed.briefing !== null || feed.operation !== null,
     paint: (p, t, feed) => {
       if (feed.briefing) paintBriefingBanner(p, t, feed.briefing);
+      else if (feed.operation) paintOperationBanner(p, t, feed.operation);
     },
   },
 ];

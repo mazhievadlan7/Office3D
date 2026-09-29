@@ -73,19 +73,38 @@ export const HqClip = {
 } as const;
 export type HqClip = (typeof HqClip)[keyof typeof HqClip];
 export const HQ_CLIP_FPS = 30;
+export type HqClipInfo = {
+  /** Seconds. */
+  duration: number;
+  loop: boolean;
+  /** Native locomotion speed (m/s); > 0 marks a distance-driven clip (Walk, Run, Push). */
+  speed: number;
+  /** Played sitting (label and capsule height, blob size). */
+  seated: boolean;
+  /** Hands on the keyboard (key clicks). */
+  typing: boolean;
+  /** Speaking (voices, subtitles). */
+  talk: boolean;
+  /**
+   * Crossfade into this clip, seconds. Anything to or from a locomotion clip
+   * uses HQ_BLEND_TIME instead, so the feet never slide through a long fade.
+   */
+  blend: number;
+};
 // Durations in seconds and native locomotion speeds (m/s). The GLB is the
 // source of truth; the scene checks these against the loaded clips in dev.
-export const HQ_CLIP_INFO: Record<HqClipName, { duration: number; loop: boolean; speed: number }> = {
-  Idle: { duration: 120 / 30, loop: true, speed: 0 },
-  Walk: { duration: 32 / 30, loop: true, speed: 1.4 / (32 / 30) },
-  Run: { duration: 20 / 30, loop: true, speed: 2.4 / (20 / 30) },
-  SitDown: { duration: 40 / 30, loop: false, speed: 0 },
-  SitType: { duration: 96 / 30, loop: true, speed: 0 },
-  SitIdle: { duration: 150 / 30, loop: true, speed: 0 },
-  Talk: { duration: 144 / 30, loop: true, speed: 0 },
-  Present: { duration: 168 / 30, loop: true, speed: 0 },
+export const HQ_CLIP_INFO: Record<HqClipName, HqClipInfo> = {
+  Idle: { duration: 120 / 30, loop: true, speed: 0, seated: false, typing: false, talk: false, blend: 0.4 },
+  Walk: { duration: 32 / 30, loop: true, speed: 1.4 / (32 / 30), seated: false, typing: false, talk: false, blend: 0.28 },
+  Run: { duration: 20 / 30, loop: true, speed: 2.4 / (20 / 30), seated: false, typing: false, talk: false, blend: 0.28 },
+  SitDown: { duration: 40 / 30, loop: false, speed: 0, seated: true, typing: false, talk: false, blend: 0.35 },
+  // Seated pose changes fade slowly (0.5-0.8 s): hands leave and find the keyboard.
+  SitType: { duration: 96 / 30, loop: true, speed: 0, seated: true, typing: true, talk: false, blend: 0.6 },
+  SitIdle: { duration: 150 / 30, loop: true, speed: 0, seated: true, typing: false, talk: false, blend: 0.75 },
+  Talk: { duration: 144 / 30, loop: true, speed: 0, seated: false, typing: false, talk: true, blend: 0.45 },
+  Present: { duration: 168 / 30, loop: true, speed: 0, seated: false, typing: false, talk: true, blend: 0.5 },
   // 32 frames, stride 1.12 m: 1.05 m/s, the same foot timing as Walk.
-  Push: { duration: 32 / 30, loop: true, speed: 1.12 / (32 / 30) },
+  Push: { duration: 32 / 30, loop: true, speed: 1.12 / (32 / 30), seated: false, typing: false, talk: false, blend: 0.28 },
 };
 
 /**
@@ -117,7 +136,19 @@ export const HQ_ARCHIVE_CART = { length: 1.153, width: 0.625, reach: 1.02, nose:
 // when he stops. Must match push.py (GRIP_X, GRIP_Y, GRIP_Z).
 export const HQ_PUSH_GRIP = { reach: 0.4, height: 0.97, halfSpan: 0.2, holdFrame: 9 } as const;
 
-// Crossfade between clips, seconds.
+/**
+ * Where a guest stands to look over a seated hacker's shoulder (AM7's visits,
+ * a colleague dropping by), in the workstation's local frame (origin = chair
+ * centre, the sitter faces +Z, +X is the sitter's left): behind the sitter's
+ * right shoulder, clear of the chair back (z -0.25..-0.31) and 1 m from the
+ * neighbour's chair. `hand` is where a future StandLookOver clip rests its
+ * left hand: the chair back's right top corner. The guest faces the centre
+ * monitor.
+ */
+export const HQ_SHOULDER = { x: -0.55, z: -0.42, hand: { x: -0.2, y: 1.02, z: -0.29 } } as const;
+
+// Crossfade between locomotion clips (and into or out of them), seconds.
+// Other clips fade over their own HQ_CLIP_INFO[...].blend.
 export const HQ_BLEND_TIME = 0.28;
 export const HQ_WALK_SPEED = 1.31;
 export const HQ_AGENT_RADIUS = 0.32;

@@ -14,6 +14,7 @@ import {
   type HqCapacity,
 } from "./core/config";
 import { generateHqLayout } from "./core/layout";
+import { MISSION_MAX_DEFAULT } from "./core/beats";
 import { HqSimulation } from "./core/sim";
 import { hqSoundOn, saveHqSoundOn } from "./core/soundPreference";
 import type { HqAgentInput, HqArchiveEvent } from "./core/types";
@@ -30,6 +31,7 @@ import {
 import { useMaintenanceFeed } from "./maintenance/useMaintenanceFeed";
 import { HqSoundscape, type HqSubtitleSink } from "./render/audio/HqSoundscape";
 import type { HqCameraApi, HqCameraMode } from "./render/scene/HqCameraRig";
+import type { HqOperationSnapshot } from "./render/screens/screenPaint";
 import type { HqHoverSink } from "./render/scene/HqPicking";
 import { HqScene } from "./render/scene/HqScene";
 import { HQ_CAMERA, type HqCameraPreset } from "./render/scene/cameraMath";
@@ -59,6 +61,20 @@ export type HqOfficeProps = {
    * standing at their desks. Null when there is none.
    */
   briefing?: HqBriefing | null;
+  /**
+   * Mission mode («боевая задача»): true from a briefing until the screen
+   * judges the work done (or its time limit). No breaks, the away walk back,
+   * AM7 makes rounds. A briefing starts one in the sim by itself; this ends it.
+   */
+  mission?: boolean;
+  /** The «ХОД ЗАДАЧИ» tracker for the video wall, or null (a briefing keeps priority). */
+  operation?: HqOperationSnapshot | null;
+  /** Whether there is an operation the wall switch can show. */
+  wallAvailable?: boolean;
+  /** The wall switch: true shows the operation, false the usual panels. */
+  wallShowsOperation?: boolean;
+  /** Flips the wall between the operation and the panels; the switch is hidden without it. */
+  onToggleWall?: () => void;
   /**
    * AM7 has reached his spot behind the tribune for this briefing (once per
    * briefing): the screen starts his answer out loud from there.
@@ -170,6 +186,11 @@ export function HqOffice({
   onOpenCombat,
   onIntroChange,
   briefing = null,
+  mission = false,
+  operation = null,
+  wallAvailable = false,
+  wallShowsOperation = true,
+  onToggleWall,
   onLeadAtTribune,
   onArchiveEvent,
 }: HqOfficeProps) {
@@ -374,6 +395,22 @@ export function HqOffice({
     if (mode.current !== "follow") camera.current?.goTo("briefing");
     return () => sim.endBriefing();
   }, [briefingId, layout, namespace]);
+  // Mission mode follows the screen: on (again, which only moves its end
+  // later) while it holds, off when the work is done. Declared after the
+  // briefing so a briefing's own start comes first. A new sim (another floor)
+  // picks it up too. Never ended with the briefing: it outlasts it.
+  useEffect(() => {
+    const sim = simRef.current;
+    if (!sim) return;
+    if (mission) sim.startMission(MISSION_MAX_DEFAULT);
+    else sim.endMission();
+  }, [mission, layout, namespace]);
+  // The «ХОД ЗАДАЧИ» tracker reaches the scene through a ref (read each
+  // frame), so its snapshots never re-render the memoised scene tree.
+  const operationRef = useRef<HqOperationSnapshot | null>(operation);
+  useEffect(() => {
+    operationRef.current = operation;
+  }, [operation]);
   // What the video wall shows: a stable object while the texts stay the same,
   // so the memoised scene does not re-render when only `speaking` flips.
   const briefingTask = briefing?.task ?? null;
@@ -528,6 +565,7 @@ export function HqOffice({
             onSelect={handleSelect}
             onFocus={handleFocus}
             briefing={briefingScene}
+            operationRef={operationRef}
             onClipsChange={handleClipsChange}
             archiveBytes={archiveBytes}
           />
@@ -548,6 +586,9 @@ export function HqOffice({
           onOpenCombat={onOpenCombat}
           soundOn={soundOn}
           onToggleSound={toggleSound}
+          wallAvailable={wallAvailable}
+          wallShowsOperation={wallShowsOperation}
+          onToggleWall={onToggleWall}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}

@@ -158,6 +158,8 @@ import { useRemoteOfficePresence } from "@/features/office/hooks/useRemoteOffice
 import { useOfficeSkillsMarketplace } from "@/features/office/hooks/useOfficeSkillsMarketplace";
 import { useOfficeStandupController } from "@/features/office/hooks/useOfficeStandupController";
 import { useRunLog } from "@/features/office/hooks/useRunLog";
+import { useHqOperation } from "@/features/office/hooks/useHqOperation";
+import { isHqMissionOver, noteHqMissionRuns, type HqMissionTrack } from "@/features/office/hooks/hqMission";
 import { useTaskBoardController } from "@/features/office/tasks/useTaskBoardController";
 import {
   OnboardingWizard,
@@ -2864,12 +2866,34 @@ export function OfficeScreen({
   useEffect(() => {
     hqBriefingRef.current = hqBriefing;
   }, [hqBriefing]);
-  const startHqBriefing = useCallback((task: string) => {
+  // The operation the briefing opened, for the «ХОД ЗАДАЧИ» wall: its id, the
+  // task and AM7's first answer. It outlives the briefing (the wall tracks the
+  // work after the floor has sat down) and is replaced by the next one.
+  const [hqOperationSource, setHqOperationSource] = useState<{
+    id: string;
+    task: string;
+    reply: string;
+    /** When the command went out (ms): the operation starts here, before the first send. */
+    at: number;
+  } | null>(null);
+  // Mission mode in the HQ («боевая задача»): from the briefing until at least
+  // 90% of the runs the command started have finished, or ten minutes
+  // (hqMission.ts). Never judged by how many agents are working.
+  const [hqMission, setHqMission] = useState<HqMissionTrack | null>(null);
+  // The HUD's wall switch: the operation tracker ("auto") or the usual panels.
+  const [hqWallMode, setHqWallMode] = useState<"auto" | "panels">("auto");
+  const startHqBriefing = useCallback((task: string): string => {
     briefingSpokeRef.current = false;
     pendingBriefingSpeechRef.current = null;
-    const next: HqBriefing = { id: `briefing-${Date.now().toString(36)}`, task, reply: "", speaking: false };
+    const startedAt = Date.now();
+    const next: HqBriefing = { id: `briefing-${startedAt.toString(36)}`, task, reply: "", speaking: false };
     hqBriefingRef.current = next;
     setHqBriefing(next);
+    setHqOperationSource({ id: next.id, task, reply: "", at: startedAt });
+    setHqMission({ id: next.id, startedAt, addressed: null, sentAt: null });
+    // A new operation always shows on the wall, whatever the last one was set to.
+    setHqWallMode("auto");
+    return next.id;
   }, []);
   useEffect(() => {
     // AM7's answer is spoken while the voice plays and the answer has arrived.
@@ -2904,6 +2928,48 @@ export function OfficeScreen({
     return () => window.clearTimeout(timer);
   }, [hqBriefing, hqArrivedId, voiceRepliesEnabled, voiceRepliesLoaded]);
 
+  // The team a command to everyone is sent to (the local agents, AM7 included).
+  const hqTeamAgents = useMemo(
+    () => state.agents.filter((agent) => !isRemoteOfficeAgentId(agent.agentId)),
+    [state.agents],
+  );
+  // The mission ends once the runs are (nearly) all done, or at its time
+  // limit: checked once a second, on the latest runs and agents.
+  const hqMissionInputsRef = useRef({ mission: hqMission, runLog, agents: hqTeamAgents });
+  // Addressed agents seen running since the command (per mission): the store
+  // clears runStartedAt when a run ends, so the run-state fallback needs this
+  // latch to ever count a finished run (hqMission.ts, noteHqMissionRuns).
+  const hqMissionSeenRef = useRef<{ id: string; seen: Set<string> } | null>(null);
+  useEffect(() => {
+    hqMissionInputsRef.current = { mission: hqMission, runLog, agents: hqTeamAgents };
+    if (!hqMission) return;
+    if (hqMissionSeenRef.current?.id !== hqMission.id) hqMissionSeenRef.current = { id: hqMission.id, seen: new Set() };
+    noteHqMissionRuns(hqMission, hqTeamAgents, hqMissionSeenRef.current.seen);
+  }, [hqMission, runLog, hqTeamAgents]);
+  const hqMissionId = hqMission?.id ?? null;
+  useEffect(() => {
+    if (!hqMissionId) return;
+    const timer = window.setInterval(() => {
+      const { mission, runLog: runs, agents } = hqMissionInputsRef.current;
+      if (!mission || mission.id !== hqMissionId) return;
+      const seen = hqMissionSeenRef.current?.id === mission.id ? hqMissionSeenRef.current.seen : undefined;
+      if (!isHqMissionOver(mission, runs, agents, Date.now(), seen)) return;
+      setHqMission((current) => (current && current.id === hqMissionId ? null : current));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [hqMissionId]);
+  // The «ХОД ЗАДАЧИ» tracker on the video wall, built only from real events.
+  const hqOperation = useHqOperation({
+    agents: hqTeamAgents,
+    runLog,
+    briefing: hqOperationSource,
+    leadAgentId: MAIN_AGENT_ID,
+  });
+  const hqWallOperation = hqWallMode === "panels" ? null : hqOperation;
+  const toggleHqWall = useCallback(() => {
+    setHqWallMode((mode) => (mode === "panels" ? "auto" : "panels"));
+  }, []);
+
   // After a sign-in the server leaves a short-lived hq_greet cookie (the name
   // to greet, server/access-gate.js): once the team has loaded, the HQ system
   // (not an agent) greets the operator by name, out loud only — the date and
@@ -2930,16 +2996,25 @@ export function OfficeScreen({
     async (payload: VoiceSendPayload) => {
       const transcript = await transcribeVoicePayload(payload);
       if (!transcript) return;
-      startHqBriefing(transcript);
-      const team = state.agents.filter((agent) => !isRemoteOfficeAgentId(agent.agentId));
-      if (team.length === 0) throw new Error(t("office.targetNotFound"));
-      for (const agent of team) {
-        const note =
-          agent.agentId === MAIN_AGENT_ID ? t("office.addressAllNoteMain") : t("office.addressAllNoteMember");
-        await handleChatSend(agent.agentId, agent.sessionKey, `${transcript}\n\n${note}`);
+      const missionId = startHqBriefing(transcript);
+      const team = hqTeamAgents;
+      // The mission waits for the runs of exactly these agents; once every
+      // message is out (sent or failed), their share of finished runs counts.
+      const addressed = team.map((agent) => agent.agentId);
+      setHqMission((current) => (current && current.id === missionId ? { ...current, addressed } : current));
+      try {
+        if (team.length === 0) throw new Error(t("office.targetNotFound"));
+        for (const agent of team) {
+          const note =
+            agent.agentId === MAIN_AGENT_ID ? t("office.addressAllNoteMain") : t("office.addressAllNoteMember");
+          await handleChatSend(agent.agentId, agent.sessionKey, `${transcript}\n\n${note}`);
+        }
+      } finally {
+        const sentAt = Date.now();
+        setHqMission((current) => (current && current.id === missionId ? { ...current, sentAt } : current));
       }
     },
-    [handleChatSend, startHqBriefing, state.agents, transcribeVoicePayload],
+    [handleChatSend, hqTeamAgents, startHqBriefing, transcribeVoicePayload],
   );
   const {
     state: mainVoiceState,
@@ -2995,6 +3070,9 @@ export function OfficeScreen({
       const id = briefing.id;
       hqBriefingRef.current = { ...briefing, reply: text };
       setHqBriefing((current) => (current && current.id === id && !current.reply ? { ...current, reply: text } : current));
+      setHqOperationSource((current) =>
+        current && current.id === id && !current.reply ? { ...current, reply: text } : current,
+      );
       if (hqArrivedRef.current === id) speakBriefingReply(id, text);
       else pendingBriefingSpeechRef.current = { id, text };
       return true;
@@ -3657,6 +3735,11 @@ export function OfficeScreen({
           onOpenCombat={() => setCombatOpen(true)}
           onIntroChange={setHqIntroPlaying}
           briefing={hqBriefing}
+          mission={hqMission !== null}
+          operation={hqWallOperation}
+          wallAvailable={hqOperation !== null}
+          wallShowsOperation={hqWallMode === "auto"}
+          onToggleWall={toggleHqWall}
           onLeadAtTribune={handleLeadAtTribune}
           onArchiveEvent={handleHqArchiveEvent}
         />

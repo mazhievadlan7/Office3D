@@ -3,14 +3,17 @@ import { HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_STATUS_CODE, type HqAgentInput } from "@/features/hq/core/types";
 import { hqTimeZone } from "@/features/hq/core/hqTime";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import { demoOperation } from "@/features/hq/core/operation";
 import { nextBriefing } from "./screenBriefing";
 import {
   EMPTY_FEED,
   Painter,
   type Ctx2D,
   type HqBriefingText,
+  type HqOperationSnapshot,
   type HqScreenBriefing,
   type HqScreenFeed,
+  type HqScreenOperation,
   type HqTeamStat,
 } from "./screenPaint";
 import {
@@ -84,8 +87,8 @@ const VIEW_PERIOD = 0.2;
 const TEAM_HISTORY = 60;
 const NO_ANCHORS: readonly ScreenAnchor[] = [];
 
-/** A finished picture from the worker, and the briefing it shows (0 for none). */
-type Ready = { index: number; bitmap: ImageBitmap; briefing?: number };
+/** A finished picture from the worker, and the special screen it shows (0 for none). */
+type Ready = { index: number; bitmap: ImageBitmap; screen?: number };
 
 const MAP_LEFT = singleSurface("mapLeft");
 const MAP_RIGHT = singleSurface("mapRight");
@@ -120,12 +123,16 @@ export class HqScreenHub {
   readonly mapBanner = planeTexture(BANNER_W, BANNER_H);
 
   private worker: Worker | null = null;
-  private readonly ready = new Map<number, { bitmap: ImageBitmap; briefing: number }>();
+  private readonly ready = new Map<number, { bitmap: ImageBitmap; screen: number }>();
   private briefing: HqScreenBriefing | null = null;
-  private briefingIds = 0;
-  /** The first id of the briefing on now: its banner never shows an earlier briefing's goal. */
-  private briefingSince = 0;
-  /** Per surface: the briefing its picture on the GPU shows (0 = its usual content). */
+  private operation: HqScreenOperation | null = null;
+  private operationRev = -1;
+  /** One counter for both briefings and operations, so their paint ids never clash. */
+  private specialIds = 0;
+  /** The first id of the current special run (briefing → operation): the banner never shows an earlier run's content. */
+  private specialSince = 0;
+  private previewRev = 0;
+  /** Per surface: the special-screen id its picture on the GPU shows (0 = its usual content). */
   private readonly shown = new Uint32Array(SCREEN_SURFACES.length);
   private fallback: { painters: Map<string, { ctx: Ctx2D; painter: Painter }>; next: Float64Array } | null = null;
   private feed: HqScreenFeed = { ...EMPTY_FEED };
@@ -154,13 +161,13 @@ export class HqScreenHub {
       try {
         const worker = new Worker(new URL("./screens.worker.ts", import.meta.url), { type: "module" });
         worker.onmessage = (event: MessageEvent<Ready>) => {
-          const { index, bitmap, briefing = 0 } = event.data;
+          const { index, bitmap, screen = 0 } = event.data;
           if (this.disposed) {
             bitmap.close();
             return;
           }
           this.ready.get(index)?.bitmap.close();
-          this.ready.set(index, { bitmap, briefing });
+          this.ready.set(index, { bitmap, screen });
         };
         worker.onerror = () => this.useFallback();
         this.worker = worker;
@@ -170,6 +177,22 @@ export class HqScreenHub {
     } else {
       this.useFallback();
     }
+    this.installDevPreview();
+  }
+
+  /**
+   * Development aid: a free way to preview the «ХОД ЗАДАЧИ» wall without a
+   * briefing and without any TTS. In the console:
+   *   __hqOperationPreview()          // a sample operation on the wall
+   *   __hqOperationPreview(snapshot)  // a snapshot of your own
+   *   __hqOperationPreview(null)      // back to the panels
+   * Never touches ElevenLabs or any paid API. Removed on dispose.
+   */
+  private installDevPreview(): void {
+    if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;
+    const w = window as unknown as { __hqOperationPreview?: (snapshot?: HqOperationSnapshot | null) => void };
+    w.__hqOperationPreview = (snapshot) =>
+      this.setOperation(snapshot === null ? null : { ...(snapshot ?? demoOperation()), rev: ++this.previewRev });
   }
 
   /**
@@ -182,35 +205,64 @@ export class HqScreenHub {
    * as soon as the pictures are painted (briefingOnWings, briefingBanner).
    */
   setBriefing(briefing: HqBriefingText | null): void {
-    const next = nextBriefing(this.briefing, briefing, this.briefingIds + 1);
+    const hadSpecial = this.briefing !== null || this.operation !== null;
+    const next = nextBriefing(this.briefing, briefing, this.specialIds + 1);
     if (next === this.briefing) return;
-    if (next) {
-      this.briefingIds = next.id;
-      if (!this.briefing) this.briefingSince = next.id;
-    }
+    if (next) this.specialIds = next.id;
     this.briefing = next;
+    if (this.briefing && !hadSpecial) this.specialSince = this.briefing.id;
+    if (!this.briefing && !this.operation) this.specialSince = 0;
     // Straight to the painters, not with the next feed up to a second later
     // (and without an extra history sample: the feed is the same otherwise).
     this.feed = { ...this.feed, briefing: next };
     this.worker?.postMessage({ type: "feed", feed: this.feed });
-    const fallback = this.fallback;
-    if (fallback) {
-      for (let i = 0; i < SCREEN_SURFACES.length; i++) if (SCREEN_SURFACES[i].briefing) fallback.next[i] = 0;
-    }
+    this.repaintSpecialInFallback();
   }
 
   /**
-   * True while either side panel's picture is a briefing's: the wings then
-   * show both panels whole instead of tiling their cards. Follows what is
-   * painted, not what was asked, so the wall never shows a half-switched mix.
+   * Puts the «ХОД ЗАДАЧИ» tracker on the wall, or takes it off (null). Modelled
+   * on setBriefing: the same rev changes nothing; a new rev takes a fresh paint
+   * id from the shared counter and repaints at once. A briefing has priority,
+   * so while one is up the tracker is not painted. Cheap to call every render.
+   */
+  setOperation(snapshot: HqOperationSnapshot | null): void {
+    const hadSpecial = this.briefing !== null || this.operation !== null;
+    if (!snapshot) {
+      if (!this.operation) return;
+      this.operation = null;
+      this.operationRev = -1;
+    } else {
+      if (this.operation && snapshot.rev === this.operationRev) return;
+      this.operationRev = snapshot.rev;
+      const { id: key, ...rest } = snapshot;
+      this.operation = { ...rest, key, id: ++this.specialIds };
+    }
+    if (this.operation && !this.briefing && !hadSpecial) this.specialSince = this.operation.id;
+    if (!this.briefing && !this.operation) this.specialSince = 0;
+    this.feed = { ...this.feed, operation: this.operation };
+    this.worker?.postMessage({ type: "feed", feed: this.feed });
+    this.repaintSpecialInFallback();
+  }
+
+  private repaintSpecialInFallback(): void {
+    const fallback = this.fallback;
+    if (!fallback) return;
+    for (let i = 0; i < SCREEN_SURFACES.length; i++) if (SCREEN_SURFACES[i].briefing) fallback.next[i] = 0;
+  }
+
+  /**
+   * True while either side panel's picture is a special screen's (a briefing's
+   * or the operation tracker's): the wings then show both panels whole instead
+   * of tiling their cards. Follows what is painted, not what was asked, so the
+   * wall never shows a half-switched mix.
    */
   get briefingOnWings(): boolean {
     return this.shown[MAP_LEFT] !== 0 || this.shown[MAP_RIGHT] !== 0;
   }
 
-  /** True while there is a briefing and the banner shows it. */
+  /** True while a special screen (briefing or operation) is up and the banner shows this run's. */
   get briefingBanner(): boolean {
-    return this.briefing !== null && this.shown[MAP_BANNER] >= this.briefingSince;
+    return (this.briefing !== null || this.operation !== null) && this.shown[MAP_BANNER] >= this.specialSince && this.shown[MAP_BANNER] !== 0;
   }
 
   setQuality(quality: HqQuality): void {
@@ -288,7 +340,7 @@ export class HqScreenHub {
     for (const index of this.ready.keys()) {
       const target = SCREEN_SURFACES[index].target;
       if (target.kind === "layer" ? layers >= LAYER_UPLOADS_PER_FRAME : singles >= SINGLE_UPLOADS_PER_FRAME) continue;
-      const { bitmap, briefing } = this.ready.get(index)!;
+      const { bitmap, screen } = this.ready.get(index)!;
       this.ready.delete(index);
       if (target.kind === "layer") {
         layers++;
@@ -300,7 +352,7 @@ export class HqScreenHub {
         singles++;
         if (uploadRect(renderer, this[target.id], 0, 0, bitmap)) {
           touched.add(this[target.id]);
-          this.shown[index] = briefing;
+          this.shown[index] = screen;
         }
       }
       bitmap.close();
@@ -379,7 +431,7 @@ export class HqScreenHub {
       // Only the rows of this tile go up again.
       texture.addUpdateRange(y * image.width * 4, surface.h * image.width * 4);
       texture.needsUpdate = true;
-      this.shown[i] = this.feed.briefing?.id ?? 0;
+      this.shown[i] = this.feed.briefing?.id ?? this.feed.operation?.id ?? 0;
       painted++;
     }
   }
@@ -456,11 +508,15 @@ export class HqScreenHub {
       history: this.history.slice(),
       teams,
       briefing: this.briefing,
+      operation: this.operation,
     };
   }
 
   dispose(): void {
     this.disposed = true;
+    if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+      delete (window as unknown as { __hqOperationPreview?: unknown }).__hqOperationPreview;
+    }
     this.worker?.terminate();
     this.worker = null;
     for (const { bitmap } of this.ready.values()) bitmap.close();

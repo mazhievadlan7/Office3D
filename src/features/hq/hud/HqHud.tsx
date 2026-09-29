@@ -1,7 +1,19 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Crosshair, Crown, Globe, Maximize2, MessageSquare, Radar, Settings, Volume2, VolumeX } from "lucide-react";
+import {
+  Crosshair,
+  Crown,
+  Globe,
+  LayoutGrid,
+  ListChecks,
+  Maximize2,
+  MessageSquare,
+  Radar,
+  Settings,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 
 import { t } from "@/lib/i18n";
 import { adapterLabel, gatewayStatusLabel } from "@/lib/i18n/labels";
@@ -133,11 +145,20 @@ export function HqHud({
   onOpenCombat,
   soundOn,
   onToggleSound,
+  wallAvailable = false,
+  wallShowsOperation = true,
+  onToggleWall,
   runtime,
   settingsOpen,
   onOpenSettings,
 }: {
   counts: HqHudCounts;
+  /** Whether there is an operation («ХОД ЗАДАЧИ») for the wall to show; the switch is disabled without one. */
+  wallAvailable?: boolean;
+  /** The wall switch: true while the wall shows the operation, false for the usual panels. */
+  wallShowsOperation?: boolean;
+  /** Flips the video wall between the operation and the panels; hidden without it. */
+  onToggleWall?: () => void;
   /** The HQ's own sounds (keyboards, talk): on or off; the button is hidden without the toggle. */
   soundOn?: boolean;
   onToggleSound?: () => void;
@@ -216,6 +237,30 @@ export function HqHud({
             <Crosshair className="h-4 w-4" />
             <span className="hidden xl:inline">{t("hqScene.cameraFollow")}</span>
           </BarButton>
+          {onToggleWall ? (
+            <BarButton
+              active={wallAvailable && wallShowsOperation}
+              disabled={!wallAvailable}
+              label={t("hqScene.wall")}
+              title={
+                !wallAvailable
+                  ? t("hqScene.wallNoOperation")
+                  : wallShowsOperation
+                    ? t("hqScene.wallToPanels")
+                    : t("hqScene.wallToOperation")
+              }
+              onClick={onToggleWall}
+            >
+              {wallAvailable && wallShowsOperation ? (
+                <ListChecks className="h-4 w-4" />
+              ) : (
+                <LayoutGrid className="h-4 w-4" />
+              )}
+              <span className="hidden xl:inline">
+                {wallAvailable && wallShowsOperation ? t("hqScene.wallOperation") : t("hqScene.wallPanels")}
+              </span>
+            </BarButton>
+          ) : null}
 
           <Divider />
           {onOpenCombat ? (

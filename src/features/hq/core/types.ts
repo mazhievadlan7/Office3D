@@ -325,6 +325,19 @@ export type HqLayout = {
 export type HqAgentStatus = "working" | "idle" | "error";
 
 /**
+ * Mission mode («боевая задача»), as the sim reports it (one reused object):
+ * the floor is on duty — nobody goes on breaks, whoever was away is back at
+ * their desk, the cyber-range is off.
+ */
+export type HqMissionView = {
+  active: boolean;
+  /** Seconds since the mission started (0 while inactive). */
+  elapsed: number;
+  /** Seconds until it ends by itself (0 while inactive). */
+  remaining: number;
+};
+
+/**
  * Where an agent currently is, for the hover card. `none` means "use the
  * status label"; the others name a place that overrides it («на киберполигоне»).
  */

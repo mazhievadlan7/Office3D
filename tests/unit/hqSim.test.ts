@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { HqClip } from "@/features/hq/core/config";
-import { HQ_PROP_FOOTPRINT, generateHqLayout } from "@/features/hq/core/layout";
+import {
+  GUEST_SPACING,
+  buildDeskNeighbourhood,
+  helpVisitLimit,
+  peerVisitLimit,
+} from "@/features/hq/core/beats";
+import { HQ_CLIP_INFO, HQ_SHOULDER, HqClip } from "@/features/hq/core/config";
+import { HQ_PROP_FOOTPRINT, generateHqLayout, seatToWorld } from "@/features/hq/core/layout";
 import { HqSimulation } from "@/features/hq/core/sim";
 import { HQ_PLACE } from "@/features/hq/core/types";
 import type { HqAgentInput, HqAgentStatus, HqLayout } from "@/features/hq/core/types";
@@ -491,5 +497,423 @@ describe("HqSimulation briefing", () => {
     sim.startBriefing(5);
     for (let step = 0; step < 60; step++) sim.update(DT);
     expect(sim.briefing.active).toBe(false);
+  });
+});
+
+// --- Living workstations ----------------------------------------------------------
+
+const SEATED_LOOP = (clip: number) => clip === HqClip.SitType || clip === HqClip.SitIdle;
+const STANDING = (clip: number) => clip === HqClip.Idle || clip === HqClip.Talk;
+
+/** Desk index per 0.1 m cell of its shoulder place, to find guests fast. */
+function shoulderIndex(layout: HqLayout) {
+  const cells = new Map<number, number[]>();
+  const key = (cx: number, cz: number) => cx * 100003 + cz;
+  const places = layout.desks.map((d, i) => {
+    const p = seatToWorld(d.x, d.z, d.rotY, HQ_SHOULDER.x, HQ_SHOULDER.z);
+    const k = key(Math.round(p.x * 10), Math.round(p.z * 10));
+    const list = cells.get(k);
+    if (list) list.push(i);
+    else cells.set(k, [i]);
+    return p;
+  });
+  /** The desk whose shoulder place (x, z) is on (within 5 cm), or -1. */
+  return (x: number, z: number): number => {
+    const cx = Math.round(x * 10);
+    const cz = Math.round(z * 10);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (const i of cells.get(key(cx + dx, cz + dz)) ?? []) {
+          if (Math.hypot(places[i].x - x, places[i].z - z) < 0.05) return i;
+        }
+      }
+    }
+    return -1;
+  };
+}
+
+/** Nearest social spot within 4 m of (x, z), or -1. */
+function spotNear(layout: HqLayout, x: number, z: number): number {
+  let best = -1;
+  let bestD = 4;
+  layout.socialSpots.forEach((s, i) => {
+    const d = Math.hypot(s.x - x, s.z - z);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+describe("HqSimulation living workstations: nobody in lockstep", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 41 });
+  sim.setAgents([{ id: "am7", name: "AM7", status: "working" }, ...team(150, () => "working")]);
+  const DT = 0.05;
+  for (let step = 0; step < 60 / DT; step++) sim.update(DT);
+  const f = sim.frame;
+  const n = f.count;
+  const li = f.ids.indexOf("am7");
+  const typingAtStart = Array.from(f.clip).filter((c, i) => i !== li && c === HqClip.SitType).length;
+
+  // The call: when each hacker starts to get up.
+  sim.startBriefing(600);
+  const missionWithBriefing = sim.mission.active;
+  const rise = new Float64Array(n).fill(-1);
+  for (let k = 1; k <= 60; k++) {
+    sim.update(DT);
+    for (let i = 0; i < n; i++) if (i !== li && rise[i] < 0 && f.clip[i] === HqClip.SitDown) rise[i] = k * DT;
+  }
+  // The floor gathers; AM7 has his full say behind the tribune; the screen ends it.
+  for (let k = 0; k < 90 / DT && !sim.briefing.leadAtPodium; k++) sim.update(DT);
+  for (let k = 0; k < 16 / DT; k++) sim.update(DT);
+  sim.endBriefing();
+  const endedAtOnce = !sim.briefing.active;
+  const missionAfterBriefing = sim.mission.active;
+  // ...and when each one sits back down.
+  const sit = new Float64Array(n).fill(-1);
+  for (let k = 1; k <= 60; k++) {
+    sim.update(DT);
+    for (let i = 0; i < n; i++) if (i !== li && sit[i] < 0 && f.clip[i] === HqClip.SitDown) sit[i] = k * DT;
+  }
+  for (let k = 0; k < 30 / DT; k++) sim.update(DT);
+  // Everyone typing again, the hall just sat down together: phase and tempo per agent.
+  const phase: number[] = [];
+  const rate: number[] = [];
+  {
+    const t0 = Float32Array.from(f.clipTime);
+    const c0 = Uint8Array.from(f.clip);
+    sim.update(DT);
+    const dur = HQ_CLIP_INFO.SitType.duration;
+    for (let i = 0; i < n; i++) {
+      if (i === li || c0[i] !== HqClip.SitType || f.clip[i] !== HqClip.SitType || f.blend[i] < 1) continue;
+      phase.push(f.clipTime[i]);
+      rate.push((((f.clipTime[i] - t0[i]) % dur) + dur) % dur / DT);
+    }
+  }
+
+  it("gets the floor up one by one, 0.15-1.4 s after the call", () => {
+    expect(typingAtStart).toBe(150);
+    const times = Array.from(rise).filter((_, i) => i !== li);
+    expect(times.every((t) => t > 0)).toBe(true);
+    expect(Math.min(...times)).toBeGreaterThanOrEqual(0.15 - 1e-6);
+    expect(Math.max(...times)).toBeLessThanOrEqual(1.4 + 2 * DT);
+    expect(Math.max(...times) - Math.min(...times)).toBeGreaterThan(0.9);
+    // Never more than a fifth of the hall in the same 50 ms.
+    const perFrame = new Map<number, number>();
+    for (const t of times) perFrame.set(Math.round(t / DT), (perFrame.get(Math.round(t / DT)) ?? 0) + 1);
+    expect(Math.max(...perFrame.values())).toBeLessThan(30);
+  });
+
+  it("sits them back down one by one when it ends", () => {
+    expect(endedAtOnce).toBe(true);
+    const times = Array.from(sit).filter((_, i) => i !== li);
+    expect(times.every((t) => t > 0)).toBe(true);
+    expect(Math.min(...times)).toBeGreaterThanOrEqual(0.15 - 1e-6);
+    expect(Math.max(...times)).toBeLessThanOrEqual(1.4 + 4 * DT);
+    expect(Math.max(...times) - Math.min(...times)).toBeGreaterThan(0.9);
+  });
+
+  it("types out of step: every loop starts at its own frame and plays at its own tempo", () => {    expect(phase.length).toBeGreaterThan(120);
+    // A tenth-of-a-second histogram of where in the 3.2 s loop everyone is.
+    const buckets = new Set(phase.map((t) => Math.floor(t * 10)));
+    expect(buckets.size).toBeGreaterThanOrEqual(26);
+    const rounded = new Set(rate.map((r) => Math.round(r * 100)));
+    expect(rounded.size).toBeGreaterThan(8);
+    expect(Math.max(...rate) - Math.min(...rate)).toBeGreaterThan(0.05);
+    // A mission (every briefing starts one) types a touch faster: 1.08-1.18.
+    expect(Math.min(...rate)).toBeGreaterThan(1.07);
+    expect(Math.max(...rate)).toBeLessThan(1.19);
+  });
+
+  it("starts a mission with the briefing that outlasts it until endMission", () => {
+    expect(missionWithBriefing).toBe(true);
+    expect(missionAfterBriefing).toBe(true);
+    expect(sim.mission.active).toBe(true);
+    expect(sim.mission.elapsed).toBeGreaterThan(40);
+    expect(sim.mission.remaining).toBeGreaterThan(0);
+    sim.endMission();
+    expect(sim.mission.active).toBe(false);
+    expect(sim.mission.elapsed).toBe(0);
+    // Out of the mission, typing is back at each agent's own 0.92-1.08.
+    sim.update(DT);
+    const t0 = Float32Array.from(f.clipTime);
+    sim.update(DT);
+    const dur = HQ_CLIP_INFO.SitType.duration;
+    for (let i = 0; i < n; i++) {
+      if (i === li || f.clip[i] !== HqClip.SitType || f.blend[i] < 1) continue;
+      const r = ((((f.clipTime[i] - t0[i]) % dur) + dur) % dur) / DT;
+      expect(r).toBeGreaterThan(0.91);
+      expect(r).toBeLessThan(1.09);
+    }
+  });
+});
+
+describe("HqSimulation living workstations: spots, shoulders and desks", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 43 });
+  const people: HqAgentInput[] = [
+    { id: "am7", name: "AM7", status: "working" },
+    ...team(300, (i) => (i % 2 === 0 ? "idle" : "working")),
+  ];
+  sim.setAgents(people);
+  const nb = buildDeskNeighbourhood(layout.desks, layout.arena);
+  const shoulderOf = shoulderIndex(layout);
+  const deskOf = new Map(Object.entries(sim.getAssignments()));
+  const f = sim.frame;
+  const n = f.count;
+  const li = f.ids.indexOf("am7");
+  const agentAt = new Int32Array(layout.desks.length).fill(-1);
+  for (let i = 0; i < n; i++) {
+    const d = deskOf.get(f.ids[i]);
+    if (d !== undefined) agentAt[d] = i;
+  }
+  const DT = 0.1;
+  let spotTalkFrames = 0;
+  let twoSpeakers = 0;
+  const speakers = new Set<string>();
+  let maxGuests = 0;
+  let crowdedRow = 0;
+  let hostNotAtWork = 0;
+  let leadAtShoulder = 0;
+  const visits = new Set<string>();
+  const wasGuest = new Int32Array(n).fill(-1);
+  // Idle hackers at their own desk: when their seated loop last changed.
+  const lastSwitch = new Float64Array(n).fill(-1);
+  const lastLoop = new Int32Array(n).fill(-1);
+  let shortestBeat = Infinity;
+  const idleTyping = new Set<string>();
+  const idleLeaning = new Set<string>();
+  {
+    const talkAt = new Int32Array(layout.socialSpots.length);
+    for (let step = 0; step < 9000; step++) {
+      sim.update(DT);
+      const t = (step + 1) * DT;
+      talkAt.fill(0);
+      const guestDesks: number[] = [];
+      let guests = 0;
+      for (let i = 0; i < n; i++) {
+        const clip = f.clip[i];
+        if (clip === HqClip.Talk && i !== li) {
+          const s = spotNear(layout, f.x[i], f.z[i]);
+          if (s >= 0) {
+            talkAt[s]++;
+            spotTalkFrames++;
+            speakers.add(f.ids[i]);
+          }
+        }
+        const g = STANDING(clip) ? shoulderOf(f.x[i], f.z[i]) : -1;
+        if (g >= 0) {
+          guestDesks.push(g);
+          const host = agentAt[g];
+          if (host < 0 || !(f.clip[host] === HqClip.SitType || f.clip[host] === HqClip.SitDown)) hostNotAtWork++;
+          if (i === li) leadAtShoulder++;
+          else {
+            guests++;
+            if (wasGuest[i] !== g) visits.add(`${f.ids[i]}@${g}@${Math.floor(t / 60)}`);
+          }
+        }
+        wasGuest[i] = g;
+        // Beats of the free hackers at their own desks.
+        const d = deskOf.get(f.ids[i]);
+        const atDesk = d !== undefined && Math.hypot(layout.desks[d].x - f.x[i], layout.desks[d].z - f.z[i]) < 0.02;
+        if (i !== li && f.status[i] === 1 && atDesk && SEATED_LOOP(clip)) {
+          if (clip === HqClip.SitType) idleTyping.add(f.ids[i]);
+          else idleLeaning.add(f.ids[i]);
+          if (lastLoop[i] >= 0 && lastLoop[i] !== clip) {
+            if (lastSwitch[i] >= 0) shortestBeat = Math.min(shortestBeat, t - lastSwitch[i]);
+            lastSwitch[i] = t;
+          }
+          lastLoop[i] = clip;
+        } else {
+          lastLoop[i] = -1;
+          lastSwitch[i] = -1;
+        }
+      }
+      for (let s = 0; s < talkAt.length; s++) if (talkAt[s] > 1) twoSpeakers++;
+      maxGuests = Math.max(maxGuests, guests);
+      for (let a = 0; a < guestDesks.length; a++) {
+        for (let b = a + 1; b < guestDesks.length; b++) {
+          const da = guestDesks[a];
+          const db = guestDesks[b];
+          if (nb.row[da] === nb.row[db] && Math.abs(nb.pos[da] - nb.pos[db]) <= GUEST_SPACING) crowdedRow++;
+        }
+      }
+    }
+  }
+
+  it("lets one person talk at a time at every spot, and passes the word round", () => {    expect(spotTalkFrames).toBeGreaterThan(300);
+    expect(twoSpeakers).toBe(0);
+    expect(speakers.size).toBeGreaterThan(10);
+  });
+
+  it("sends free hackers to look over a working neighbour's shoulder, within the limits", () => {
+    expect(visits.size).toBeGreaterThanOrEqual(8);
+    expect(maxGuests).toBeLessThanOrEqual(peerVisitLimit(n));
+    expect(crowdedRow).toBe(0);
+    expect(hostNotAtWork).toBe(0);
+  });
+
+  it("brings AM7 to the shoulder place of those he visits", () => {
+    expect(leadAtShoulder).toBeGreaterThan(50);
+  });
+
+  it("switches free hackers between leaning back and typing, never faster than the minimum beat", () => {
+    expect(idleTyping.size).toBeGreaterThan(20);
+    expect(idleLeaning.size).toBeGreaterThan(20);
+    expect(shortestBeat).toBeGreaterThanOrEqual(6 - DT - 1e-6);
+  });
+});
+
+describe("HqSimulation mission mode", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 47 });
+  sim.setAgents([{ id: "am7", name: "AM7", status: "working" }, ...team(150, (i) => (i % 2 === 0 ? "idle" : "working"))]);
+  const deskOf = new Map(Object.entries(sim.getAssignments()));
+  const f = sim.frame;
+  const n = f.count;
+  const li = f.ids.indexOf("am7");
+  const DT = 0.1;
+  const atOwnDesk = (i: number) => {
+    const d = deskOf.get(f.ids[i]);
+    return d !== undefined && Math.hypot(layout.desks[d].x - f.x[i], layout.desks[d].z - f.z[i]) < 0.05;
+  };
+  const shoulderOf = shoulderIndex(layout);
+  // Walking pace over 2 s windows (walking all the way through), per agent.
+  const lastX = new Float32Array(n);
+  const lastZ = new Float32Array(n);
+  const walkedSince = new Uint8Array(n);
+  const paces = (who: (i: number) => boolean, out: number[], step: number) => {
+    for (let i = 0; i < n; i++) {
+      if (f.clip[i] !== HqClip.Walk) walkedSince[i] = 0;
+      if (step % 20 !== 0) continue;
+      if (walkedSince[i] && who(i)) out.push(Math.hypot(f.x[i] - lastX[i], f.z[i] - lastZ[i]) / (20 * DT));
+      lastX[i] = f.x[i];
+      lastZ[i] = f.z[i];
+      walkedSince[i] = f.clip[i] === HqClip.Walk ? 1 : 0;
+    }
+  };
+  const median = (v: number[]) => v.slice().sort((a, b) => a - b)[Math.floor(v.length / 2)];
+  const ordinaryPace: number[] = [];
+  for (let step = 0; step < 2400; step++) {
+    sim.update(DT); // four minutes of an ordinary day
+    paces((i) => i !== li, ordinaryPace, step);
+  }
+  const awayBefore: number[] = [];
+  for (let i = 0; i < n; i++) if (i !== li && !atOwnDesk(i)) awayBefore.push(i);
+  const wasAway = new Uint8Array(n);
+  for (const i of awayBefore) wasAway[i] = 1;
+
+  sim.startMission(400);
+  const activeAtStart = sim.mission.active;
+  // Ninety seconds to get everyone who was away back (the hall is ~100 m across)...
+  const backAt = new Float64Array(n).fill(-1);
+  const returnPace: number[] = [];
+  walkedSince.fill(0);
+  for (let step = 0; step < 900; step++) {
+    sim.update(DT);
+    for (const i of awayBefore) if (backAt[i] < 0 && atOwnDesk(i)) backAt[i] = (step + 1) * DT;
+    paces((i) => wasAway[i] === 1 && backAt[i] < 0, returnPace, step);
+  }
+  const returns = awayBefore.map((i) => backAt[i]);
+  // ...then two minutes on duty.
+  let maxAway = 0;
+  let atSpots = 0;
+  let onRange = 0;
+  let idleOffDuty = 0;
+  let helpers = 0;
+  let maxHelpers = 0;
+  for (let step = 0; step < 1200; step++) {
+    sim.update(DT);
+    let away = 0;
+    let helping = 0;
+    for (let i = 0; i < n; i++) {
+      if (f.place[i] === HQ_PLACE.cyberrange) onRange++;
+      if (i === li) continue;
+      if (!atOwnDesk(i)) {
+        away++;
+        if (STANDING(f.clip[i]) && spotNear(layout, f.x[i], f.z[i]) >= 0) atSpots++;
+        if (STANDING(f.clip[i]) && shoulderOf(f.x[i], f.z[i]) >= 0) helping++;
+      } else if (f.status[i] === 1 && !(SEATED_LOOP(f.clip[i]) || f.clip[i] === HqClip.SitDown)) {
+        idleOffDuty++;
+      }
+    }
+    if (helping > 0) helpers++;
+    maxHelpers = Math.max(maxHelpers, helping);
+    maxAway = Math.max(maxAway, away);
+  }
+
+  // After the mission: who leaves their desk, and when.
+  sim.endMission();
+  const activeAfterEnd = sim.mission.active;
+  const departures: number[] = [];
+  {
+    const seatedBefore = new Uint8Array(n);
+    for (let i = 0; i < n; i++) seatedBefore[i] = atOwnDesk(i) ? 1 : 0;
+    for (let step = 0; step < 3000; step++) {
+      sim.update(DT);
+      for (let i = 0; i < n; i++) {
+        if (i === li) continue;
+        const seated = atOwnDesk(i) ? 1 : 0;
+        if (seatedBefore[i] && !seated) departures.push((step + 1) * DT);
+        seatedBefore[i] = seated;
+      }
+    }
+  }
+
+  it("calls whoever is away back to their desk, each after their own short delay", () => {
+    expect(awayBefore.length).toBeGreaterThan(5);
+    expect(activeAtStart).toBe(true);
+    expect(returns.every((t) => t > 0)).toBe(true);
+    expect(Math.min(...returns)).toBeGreaterThan(0.5);
+    expect(Math.max(...returns)).toBeLessThan(90);
+  });
+
+  it("brings them back at a brisk walk, not a run", () => {
+    expect(ordinaryPace.length).toBeGreaterThan(100);
+    expect(returnPace.length).toBeGreaterThan(50);
+    const ratio = median(returnPace) / median(ordinaryPace);
+    expect(ratio).toBeGreaterThan(1.08);
+    expect(ratio).toBeLessThan(1.25);
+  });
+
+  it("keeps the floor on duty: no breaks, no cyber-range, at most a colleague's short help", () => {
+    expect(atSpots).toBe(0);
+    expect(onRange).toBe(0);
+    expect(idleOffDuty).toBe(0);
+    expect(maxHelpers).toBeLessThanOrEqual(helpVisitLimit(n));
+    // The helper's walk there and back is the only one away from a desk.
+    expect(maxAway).toBeLessThanOrEqual(helpVisitLimit(n) + 2);
+    expect(helpers).toBeGreaterThan(0);
+  });
+
+  it("relaxes each hacker at their own moment afterwards: no rush for the door", () => {    expect(activeAfterEnd).toBe(false);
+    expect(departures.length).toBeGreaterThan(15);
+    // Everyone stays on duty a few seconds more; breaks only from 45 s on.
+    expect(departures[0]).toBeGreaterThanOrEqual(3);
+    expect(departures.filter((t) => t < 45).length).toBeLessThanOrEqual(2 * peerVisitLimit(n));
+    // Never more than the departure limiter lets through (a burst of 2, then 1.5 a second).
+    for (let k = 0; k < departures.length; k++) {
+      let within = 0;
+      for (let j = k; j < departures.length && departures[j] < departures[k] + 2; j++) within++;
+      expect(within).toBeLessThanOrEqual(5);
+    }
+    expect(departures[departures.length - 1] - departures[0]).toBeGreaterThan(90);
+  });
+
+  it("ends by itself after its longest time", () => {
+    const small = new HqSimulation(generateHqLayout(100), { seed: 5 });
+    small.setAgents(team(20, (i) => (i % 2 === 0 ? "idle" : "working")));
+    small.startMission(5);
+    for (let step = 0; step < 40; step++) small.update(DT);
+    expect(small.mission.active).toBe(true);
+    expect(small.mission.remaining).toBeLessThan(1.1);
+    for (let step = 0; step < 20; step++) small.update(DT);
+    expect(small.mission.active).toBe(false);
+    // Asking again while active only moves the end later.
+    small.startMission(30);
+    small.startMission(5);
+    expect(small.mission.remaining).toBeGreaterThan(29);
   });
 });

@@ -17,7 +17,8 @@ import { setHqTimeZone } from "@/features/hq/core/hqTime";
  *
  * Messages in:  { type: "feed", feed } | { type: "slowdown", value } | { type: "ack", index }
  *               | { type: "views", value: number[] (1 = in view, per surface) }
- * Messages out: { index, bitmap, briefing (the briefing's id painted, 0 for none) }
+ * Messages out: { index, bitmap, screen (the id of the special screen painted —
+ *               a briefing's or the operation's — 0 for the usual content) }
  */
 
 type Incoming =
@@ -86,7 +87,7 @@ function tick(): void {
     surface.paint(painter, t, feed);
     const bitmap = (painter.ctx.canvas as OffscreenCanvas).transferToImageBitmap();
     inFlight[i] = 1;
-    scope.postMessage({ index: i, bitmap, briefing: feed.briefing?.id ?? 0 }, [bitmap]);
+    scope.postMessage({ index: i, bitmap, screen: feed.briefing?.id ?? feed.operation?.id ?? 0 }, [bitmap]);
   }
   cursor = (cursor + 1) % count;
 }
@@ -95,10 +96,11 @@ scope.onmessage = (event: MessageEvent<Incoming>) => {
   const message = event.data;
   if (message.type === "ack") inFlight[message.index] = 0;
   else if (message.type === "feed") {
-    const briefing = feed.briefing?.id ?? 0;
+    const screen = feed.briefing?.id ?? feed.operation?.id ?? 0;
     feed = message.feed;
-    // A briefing on or off (or a new one): the wall shows it at once.
-    if ((feed.briefing?.id ?? 0) !== briefing) {
+    // A special screen (briefing or operation) on, off or changed: repaint the
+    // surfaces that show it at once.
+    if ((feed.briefing?.id ?? feed.operation?.id ?? 0) !== screen) {
       const t = now();
       for (let i = 0; i < count; i++) if (SCREEN_SURFACES[i].briefing) next[i] = Math.min(next[i], t);
     }

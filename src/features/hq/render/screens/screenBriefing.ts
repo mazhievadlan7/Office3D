@@ -1,8 +1,14 @@
+import { briefingText, planSteps, type PlanSteps } from "@/features/hq/core/operation";
 import { plural, type PluralForms } from "@/lib/i18n/plural";
 import { liveBug } from "./screenBroadcast";
 import { DISPLAY, TV, fillRound, fit, glassCard, label, linear, liveDot, radial, spaced, vignette } from "./screenKit";
 import { backdrop } from "./screenPanels";
 import type { HqBriefingText, HqScreenBriefing, Painter } from "./screenPaint";
+
+// planSteps and briefingText now live in core/operation.ts (the wall's text
+// parsing has one home there); re-exported so importers, and hqMap.test, keep
+// working through this module.
+export { briefingText, planSteps, type PlanSteps };
 
 /**
  * AM7's briefing on the video wall (HqScreenHub.setBriefing): the task on the
@@ -18,21 +24,6 @@ import type { HqBriefingText, HqScreenBriefing, Painter } from "./screenPaint";
 
 /** Width of a string at the current font, in pixels. */
 export type Measure = (text: string) => number;
-
-/**
- * A briefing's text as the wall shows it: line breaks kept, blank lines,
- * runs of spaces and Markdown emphasis (the answer may come from a model)
- * dropped.
- */
-export function briefingText(text: string): string {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .replace(/\*\*|__|`/g, "")
-    .split("\n")
-    .map((line) => line.replace(/^\s*#{1,6}\s+/, "").replace(/[ \t ]+/g, " ").trim())
-    .filter(Boolean)
-    .join("\n");
-}
 
 /**
  * The briefing to paint for `input`: its text cleaned up, and the current
@@ -163,54 +154,6 @@ export function fitBlocks(
   return { size, blocks: kept, clipped: true };
 }
 
-/** A plan written as a list: any lead-in before it, and its steps without their numbers or bullets. */
-export type PlanSteps = { intro: string; steps: string[] };
-
-/** A list item at the start of a line: "1.", "2)", "3:", "Шаг 4.", or a bullet. */
-const STEP_MARK = /^(?:шаг\s*)?(?:\d{1,2}\s*[.):]|[-–—•*·▪])\s+/i;
-/** A number marking a step inside running text: "… 2) …", "…; 3. …". */
-const INLINE_MARK = /(?:^|[\s;,])(\d{1,2})[.)]\s+/g;
-/** A lead-in that only says "plan" («План:», «План действий:») repeats the panel's own title. */
-const PLAN_ONLY = /^(?:наш\s+|мой\s+)?план(?:\s+действий)?$/i;
-
-/**
- * The plan's steps when it is written as a list, one item a line ("1. …",
- * "2) …", "- …") or numbered inline in one run of text ("1) … 2) … 3) …",
- * numbers in order from 1), or null when it is plain prose. Two items at
- * least make a list.
- */
-export function planSteps(plan: string): PlanSteps | null {
-  const lines = briefingText(plan).split("\n").filter(Boolean);
-  const introOf = (text: string) => {
-    const intro = text.replace(/[\s:–—-]+$/, "").trim();
-    return PLAN_ONLY.test(intro) ? "" : intro;
-  };
-  if (lines.filter((line) => STEP_MARK.test(line)).length >= 2) {
-    const lead: string[] = [];
-    const steps: string[] = [];
-    for (const line of lines) {
-      if (STEP_MARK.test(line)) steps.push(line.replace(STEP_MARK, "").trim());
-      else if (steps.length > 0) steps[steps.length - 1] = `${steps[steps.length - 1]} ${line}`.trim();
-      else lead.push(line);
-    }
-    return { intro: introOf(lead.join(" ")), steps: steps.filter(Boolean) };
-  }
-  const text = lines.join(" ");
-  const marks: Array<{ start: number; end: number }> = [];
-  for (const match of text.matchAll(INLINE_MARK)) {
-    if (Number(match[1]) !== marks.length + 1) continue;
-    const at = match.index ?? 0;
-    marks.push({ start: at + match[0].indexOf(match[1]), end: at + match[0].length });
-  }
-  if (marks.length < 2) return null;
-  const steps = marks.map((mark, i) =>
-    text
-      .slice(mark.end, i + 1 < marks.length ? marks[i + 1].start : text.length)
-      .replace(/[\s;,]+$/, "")
-      .trim(),
-  );
-  return { intro: introOf(text.slice(0, marks[0].start)), steps: steps.filter(Boolean) };
-}
 
 // --- painting --------------------------------------------------------------------------------
 
@@ -218,8 +161,8 @@ const STEPS: PluralForms = ["шаг", "шага", "шагов"];
 /** The cards start under the header, as on the side panels (screenPanels.ts). */
 const CARD_TOP = 118;
 const CARD_BOTTOM = 20;
-const BODY_WEIGHT = 600;
-const RED_GRADIENT: ReadonlyArray<readonly [number, string]> = [
+export const BODY_WEIGHT = 600;
+export const RED_GRADIENT: ReadonlyArray<readonly [number, string]> = [
   [0, "#ff2d2d"],
   [1, "#b00b12"],
 ];
@@ -227,7 +170,7 @@ const RED_GRADIENT: ReadonlyArray<readonly [number, string]> = [
 // Fits are the costly part and the text rarely changes: keep the last few.
 const fits = new Map<string, Fitted>();
 
-function fitText(p: Painter, key: string, blocks: readonly string[], width: number | ((size: number) => number), widthKey: number, height: number, options: FitOptions): Fitted {
+export function fitText(p: Painter, key: string, blocks: readonly string[], width: number | ((size: number) => number), widthKey: number, height: number, options: FitOptions): Fitted {
   const id = `${key}|${p.w}x${p.h}|${widthKey.toFixed(1)}x${height.toFixed(1)}|${options.max}-${options.min}|${blocks.join("\u0001")}`;
   let fitted = fits.get(id);
   if (!fitted) {
@@ -248,12 +191,12 @@ function fitText(p: Painter, key: string, blocks: readonly string[], width: numb
 }
 
 /** Baseline of line `i` of a block whose top is `top`. */
-function baseline(top: number, size: number, leading: number, i: number): number {
+export function baseline(top: number, size: number, leading: number, i: number): number {
   return top + size * (0.8 + (leading - 1) / 2) + i * size * leading;
 }
 
 /** A section's name on a red tag, the channels' logo block (screenBroadcast.ts); returns its width. */
-function sectionTag(p: Painter, x: number, y: number, text: string, align: "left" | "right"): number {
+export function sectionTag(p: Painter, x: number, y: number, text: string, align: "left" | "right"): number {
   const c = p.ctx;
   const h = 64;
   const spacing = 4;
@@ -268,7 +211,7 @@ function sectionTag(p: Painter, x: number, y: number, text: string, align: "left
 }
 
 /** The header's red rule, fading away from the tag's side. */
-function headerRule(p: Painter, fromRight: boolean): void {
+export function headerRule(p: Painter, fromRight: boolean): void {
   const c = p.ctx;
   const stops: ReadonlyArray<readonly [number, string]> = fromRight
     ? [
@@ -284,14 +227,14 @@ function headerRule(p: Painter, fromRight: boolean): void {
 }
 
 /** The panel's card, and the box its text goes in. */
-function bodyCard(p: Painter): { x: number; y: number; w: number; h: number } {
+export function bodyCard(p: Painter): { x: number; y: number; w: number; h: number } {
   const ch = p.h - CARD_TOP - CARD_BOTTOM;
   glassCard(p, 40, CARD_TOP, p.w - 80, ch, { accent: true, radius: 10 });
   return { x: 40 + 46, y: CARD_TOP + 26, w: p.w - 80 - 92, h: ch - 52 };
 }
 
 /** Lines of one fitted paragraph, centred in the box's height. */
-function drawParagraph(p: Painter, fitted: Fitted, box: { x: number; y: number; w: number; h: number }, leading: number, color: string): void {
+export function drawParagraph(p: Painter, fitted: Fitted, box: { x: number; y: number; w: number; h: number }, leading: number, color: string): void {
   const lines = fitted.blocks.flat();
   const top = box.y + (box.h - lines.length * fitted.size * leading) / 2;
   p.setFont(fitted.size, BODY_WEIGHT, DISPLAY);
@@ -299,14 +242,14 @@ function drawParagraph(p: Painter, fitted: Fitted, box: { x: number; y: number; 
 }
 
 /** A quiet placeholder while AM7 is still working a part out: a live dot and the words. */
-function drawWaiting(p: Painter, t: number, box: { x: number; y: number; w: number; h: number }, text: string): void {
+export function drawWaiting(p: Painter, t: number, box: { x: number; y: number; w: number; h: number }, text: string): void {
   const y = box.y + box.h / 2;
   liveDot(p.ctx, box.x + 14, y - 14, 9, t);
   p.setFont(48, BODY_WEIGHT, DISPLAY);
   p.text(`${text}${".".repeat(1 + (Math.floor(t * 2) % 3))}`, box.x + 44, y, TV.white45);
 }
 
-const TASK_FIT: FitOptions = { max: 78, min: 30, leading: 1.18 };
+export const TASK_FIT: FitOptions = { max: 78, min: 30, leading: 1.18 };
 
 /** The west wing during a briefing: «ЗАДАЧА» and the task, as large as it fits. */
 export function paintBriefingTask(p: Painter, t: number, briefing: HqScreenBriefing): void {

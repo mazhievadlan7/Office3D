@@ -1,7 +1,7 @@
 "use client";
 
-import { useThree, type RootState } from "@react-three/fiber";
-import { memo, useEffect, useMemo, type MutableRefObject } from "react";
+import { useFrame, useThree, type RootState } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { MeshStandardMaterial, PlaneGeometry, type Material, type Mesh } from "three";
 
 import { briefingScreens } from "../../core/briefing";
@@ -13,6 +13,7 @@ import { HqEnvironment } from "../environment/HqEnvironment";
 import { HqWorldMap } from "../map/HqWorldMap";
 import { HqScreenDriver } from "../screens/HqScreenDriver";
 import { HqScreenHub } from "../screens/screenHub";
+import type { HqOperationSnapshot } from "../screens/screenPaint";
 import { HqWorkstations } from "../workstations/HqWorkstations";
 import { HqCameraRig, type HqCameraApi, type HqCameraMode } from "./HqCameraRig";
 import { HqLighting } from "./HqLighting";
@@ -114,6 +115,31 @@ function FallbackFloor({ layout }: { layout: HqLayout }) {
   );
 }
 
+/**
+ * Hands the «ХОД ЗАДАЧИ» tracker to the hub (the same three wall screens as a
+ * briefing; the hub paints it only while no briefing is up). Read from a ref
+ * each frame and pushed only when the snapshot object changes, like an effect
+ * on it would, so a new snapshot never re-renders the scene tree, and a dev
+ * preview (__hqOperationPreview) is not overwritten while nothing changes.
+ * Allocation-free per frame.
+ */
+function HqOperationFeed({
+  screens,
+  operationRef,
+}: {
+  screens: HqScreenHub;
+  operationRef: MutableRefObject<HqOperationSnapshot | null>;
+}) {
+  const pushed = useRef<HqOperationSnapshot | null>(null);
+  useFrame(() => {
+    const next = operationRef.current;
+    if (next === pushed.current) return;
+    pushed.current = next;
+    screens.setOperation(next);
+  });
+  return null;
+}
+
 export type HqSceneProps = {
   layout: HqLayout;
   simRef: MutableRefObject<HqSimulation | null>;
@@ -130,6 +156,13 @@ export type HqSceneProps = {
   onFocus: (agentId: string) => void;
   /** A briefing in progress (the task and AM7's answer so far): shown on the video wall. */
   briefing?: { task: string; reply: string } | null;
+  /**
+   * The «ХОД ЗАДАЧИ» tracker for the video wall after a briefing, or null; a
+   * briefing keeps priority. A ref read every frame, not a prop: a new
+   * snapshot (up to once a second during an operation) must not re-render the
+   * memoised scene tree.
+   */
+  operationRef?: MutableRefObject<HqOperationSnapshot | null>;
   /** The character GLB's action names once loaded (passed on to HqCrowd). */
   onClipsChange?: (names: readonly string[]) => void;
   /** Read every frame: the bytes of the archive cart's run under way (its tablet), or null. */
@@ -161,6 +194,7 @@ export const HqScene = memo(function HqScene({
   onSelect,
   onFocus,
   briefing = null,
+  operationRef,
   onClipsChange,
   archiveBytes,
 }: HqSceneProps) {
@@ -179,6 +213,7 @@ export const HqScene = memo(function HqScene({
     <>
       <HqShaderPrewarm />
       <HqDevThreeHook />
+      {operationRef ? <HqOperationFeed screens={screens} operationRef={operationRef} /> : null}
       <HqSimDriver simRef={simRef} activityRef={activityRef} />
       <HqScreenDriver screens={screens} agentsRef={agentsRef} quality={quality} />
       <HqCameraRig

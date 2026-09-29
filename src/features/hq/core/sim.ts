@@ -17,10 +17,27 @@
 // runs to his desk like everyone else; in the doorway or across a walkway he
 // first pushes on until it is clear. Afterwards he walks back and finishes.
 //
+// Living workstations (core/beats.ts): nobody moves in lockstep. Every loop
+// starts at a random frame and plays at the agent's own tempo; the hall
+// stands up for a briefing and sits down after it over a second or so; a
+// group at a social spot has one speaker at a time; a free hacker at their
+// desk switches between leaning back and typing on their own beat, and now
+// and then walks over to look over a working neighbour's shoulder (AM7's
+// visits use the same shoulder place). Leaving one's desk goes through a
+// departure limiter, so a crowd never gets up at once.
+//
+// Mission mode («боевая задача», startMission/endMission, on for every
+// briefing): no breaks, whoever is away walks briskly back, free hackers stay
+// on duty at their desks, AM7 makes short rounds, the cyber-range is off.
+// Afterwards each agent relaxes at their own moment and the first breaks are
+// spread over minutes.
+//
 // Hot-path rules: update() allocates nothing (agents, waypoint buffers, the
 // spatial hash and scratch arrays are sized in the constructor / setAgents),
 // timers run on an internal clock advanced by the clamped dt, and every random
 // choice comes from a seeded per-agent generator, so a run replays exactly.
+// Beats draw from a second per-agent generator (`beat`), so they never shift
+// the routes and outings the first one decides.
 
 import {
   HQ_AGENT_RADIUS,
@@ -32,12 +49,53 @@ import {
   HQ_LEAD_AGENT_IDS,
   HQ_LEAD_AGENT_NAME,
   HQ_PUSH_GRIP,
+  HQ_SHOULDER,
   HQ_WALK_SPEED,
   HqClip,
   POD,
   WORKSTATION,
 } from "./config";
 import { HQ_ENTRANCE_HALF_WIDTH } from "./archiveLayout";
+import {
+  BEAT_MIN,
+  BEAT_TYPE,
+  BEAT_VISIT,
+  BRISK_FACTOR,
+  GUEST_QUIET_MAX,
+  GUEST_QUIET_MIN,
+  GUEST_SPACING,
+  GUEST_TALK_MAX,
+  GUEST_TALK_MIN,
+  HqDepartureLimiter,
+  LEAD_VISIT_MAX,
+  LEAD_VISIT_MIN,
+  MISSION_LEAD_GAP_MAX,
+  MISSION_LEAD_GAP_MIN,
+  MISSION_LEAD_VISIT_MAX,
+  MISSION_LEAD_VISIT_MIN,
+  MISSION_MAX_DEFAULT,
+  RELAX_MAX,
+  RELAX_MIN,
+  RELAX_OUTING_MAX,
+  RELAX_OUTING_MIN,
+  RETURN_DELAY_MAX,
+  RETURN_DELAY_MIN,
+  SPOT_GAP_MAX,
+  SPOT_GAP_MIN,
+  SPOT_TURN_MAX,
+  SPOT_TURN_MIN,
+  beatPause,
+  buildDeskNeighbourhood,
+  guestNearby,
+  helpVisitLimit,
+  missionTempo,
+  peerVisitLimit,
+  peerVisitSeconds,
+  pickDeskBeat,
+  reactionDelay,
+  rollTraits,
+  type HqDeskNeighbourhood,
+} from "./beats";
 import { HQ_LEAD_VIA, HQ_PROP_FOOTPRINT } from "./layout";
 import { hqRoleFamily } from "./roles";
 import { findPath, navNodeCount, nearestNode } from "./nav";
@@ -51,6 +109,7 @@ import {
   type HqArchiveLane,
   type HqArchiveView,
   type HqLayout,
+  type HqMissionView,
   type HqRect,
   type HqSocialSpotKind,
 } from "./types";
@@ -90,6 +149,22 @@ const ERROR = HQ_STATUS_CODE.error;
 
 const CLIP_DURATION = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].duration);
 const CLIP_LOOP = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].loop);
+const CLIP_BLEND = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].blend);
+/** Distance-driven clips (Walk, Run, Push): fades to and from them stay short. */
+const CLIP_LOCO = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].speed > 0);
+
+/** Crossfade from one clip to another: HQ_BLEND_TIME around locomotion, else the target's own. */
+function blendTime(from: number, to: number): number {
+  if (CLIP_LOCO[from] || CLIP_LOCO[to]) return HQ_BLEND_TIME;
+  const t = CLIP_BLEND[to];
+  return t > 0 ? t : HQ_BLEND_TIME;
+}
+
+/** Salt of the per-agent beat generator (kept apart from the route generator). */
+const BEAT_SALT = 0xbea75eed;
+// A free hacker's act at their own desk (the seated clip it picks).
+const ACT_IDLE = 0;
+const ACT_TYPE = 1;
 const WALK_NATIVE_SPEED = HQ_CLIP_INFO.Walk.speed;
 const RUN_NATIVE_SPEED = HQ_CLIP_INFO.Run.speed;
 /**
@@ -114,7 +189,7 @@ const D_NONE = 0;
 const D_SEAT = 1; // sit at a desk
 const D_ERROR = 2; // stand beside the desk
 const D_SPOT = 3; // a social spot slot
-const D_VISIT = 4; // the lead standing by someone's desk
+const D_VISIT = 4; // a guest (the lead or a colleague) at a seated hacker's shoulder
 const D_LOUNGE = 5; // sit on a lounge seat
 const D_BRIEF = 6; // stand at one's own desk and listen to the lead's briefing
 const D_PODIUM = 7; // the lead at the podium in front of the rows, briefing the floor
@@ -295,6 +370,8 @@ class Agent {
   prevTime = 0;
   prevRate = 1;
   blend = 1;
+  /** Length of the current crossfade (blendTime of the two clips). */
+  blendDur = HQ_BLEND_TIME;
 
   lookX = 0;
   lookY = HEAD_STANDING;
@@ -311,10 +388,35 @@ class Agent {
   talkToggleAt = 0;
   visitTarget: Agent | null = null;
   visitor: Agent | null = null;
+  /** The host's desk while visiting (guest spacing is kept per desk), -1 otherwise. */
+  visitSeat = -1;
+  /** A colleague's visit (counted against the peer limit), and whether it is a mission's short help. */
+  peerVisit = false;
+  helping = false;
   /** Cyber-range from the workstation: on it now, until when, and when next. */
   onRange = false;
   rangeUntil = 0;
   nextRange = 0;
+
+  // --- Beats (core/beats.ts), all drawn from `beat` -------------------------
+  /** Seeded from the id hash, apart from `rng`: beats never shift routes or outings. */
+  readonly beat: HqRng;
+  readonly social: number;
+  readonly fidget: number;
+  /** Playback rate of this agent's loops, and of its typing during a mission. */
+  readonly tempo: number;
+  readonly missionRate: number;
+  /** The sim's tempoEpoch the current loop's rate was set in (see HqSimulation.tempoEpoch). */
+  rateEpoch = 0;
+  /** Free at their own desk: ACT_IDLE (SitIdle) or ACT_TYPE (SitType). */
+  act = ACT_IDLE;
+  nextBeat = 0;
+  /** Reaction delay: standing up for a briefing / sitting down after it waits until then. */
+  holdUntil = 0;
+  /** A mission started while away: head back to the desk from then on. */
+  returnAt = 0;
+  /** After a mission: still on duty until then. */
+  relaxAt = 0;
 
   constructor(id: string, seed: number) {
     this.id = id;
@@ -326,6 +428,13 @@ class Agent {
     // the rng, so the crowd's seeded behaviour is untouched) — otherwise every
     // hacker would enter at once when the office fills up.
     this.nextRange = idHash % (RANGE_NEXT_MAX + 1);
+    this.beat = new HqRng(mixSeed(mixSeed(seed, BEAT_SALT), idHash));
+    const traits = rollTraits(this.beat);
+    this.social = traits.social;
+    this.fidget = traits.fidget;
+    this.tempo = traits.tempo;
+    this.missionRate = missionTempo(traits.tempo);
+    this.nextBeat = this.beat.range(BEAT_MIN, 45);
   }
 }
 
@@ -461,8 +570,10 @@ export class HqSimulation {
   private readonly apprZ: Float32Array;
   private readonly viaX: Float32Array;
   private readonly viaZ: Float32Array;
-  private readonly visitX: Float32Array;
-  private readonly visitZ: Float32Array;
+  /** A guest's place at the seat's shoulder (HQ_SHOULDER), facing the centre monitor. */
+  private readonly shX: Float32Array;
+  private readonly shZ: Float32Array;
+  private readonly shRot: Float32Array;
   private readonly monX: Float32Array;
   private readonly monZ: Float32Array;
   private readonly kbX: Float32Array;
@@ -485,6 +596,31 @@ export class HqSimulation {
   private readonly spotAgents: Array<Agent | null>;
   /** Per spot slot: 1 where someone can stand (in the spot's room, off props and aisles). */
   private readonly slotOk: Uint8Array;
+  /** One speaker at a time per spot: who has the word, until when (or the pause before the next turn), who had it last. */
+  private readonly spotSpeaker: Array<Agent | null>;
+  private readonly spotTurnUntil: Float64Array;
+  private readonly spotLast: Array<Agent | null>;
+
+  // Over-the-shoulder visits: desk rows and near desks, guests per desk, who sits where.
+  private readonly nb: HqDeskNeighbourhood;
+  private readonly deskGuest: Uint8Array;
+  private readonly deskAgent: Array<Agent | null>;
+  /** Colleagues' visits under way (AM7's not counted). */
+  private visitCount = 0;
+  /** Leaving one's desk for a break or a visit (briefings and mission returns are not limited). */
+  private readonly departures = new HqDepartureLimiter();
+
+  // Mission mode.
+  /**
+   * Bumped whenever loop tempos change regime (a mission starts or ends):
+   * seated agents re-read their rate then, not every frame (a float returned
+   * per agent per frame would allocate).
+   */
+  private tempoEpoch = 1;
+  private missionActive = false;
+  private missionSince = 0;
+  private missionUntil = 0;
+  private readonly missionView: HqMissionView = { active: false, elapsed: 0, remaining: 0 };
 
   // Routing scratch.
   private readonly spawnNode: number;
@@ -607,8 +743,9 @@ export class HqSimulation {
     this.apprZ = new Float32Array(n);
     this.viaX = new Float32Array(n);
     this.viaZ = new Float32Array(n);
-    this.visitX = new Float32Array(n);
-    this.visitZ = new Float32Array(n);
+    this.shX = new Float32Array(n);
+    this.shZ = new Float32Array(n);
+    this.shRot = new Float32Array(n);
     this.monX = new Float32Array(n);
     this.monZ = new Float32Array(n);
     this.kbX = new Float32Array(n);
@@ -678,12 +815,15 @@ export class HqSimulation {
       else local(s, side * 0.85, 0);
       this.viaX[i] = this.tmpX;
       this.viaZ[i] = this.tmpZ;
-      local(s, side * 1.15, -0.25);
-      this.visitX[i] = this.tmpX;
-      this.visitZ[i] = this.tmpZ;
       local(s, centre.x, centre.z);
       this.monX[i] = this.tmpX;
       this.monZ[i] = this.tmpZ;
+      // Behind the sitter's right shoulder, looking at the centre monitor: a
+      // straight step in from the ring node behind the chair.
+      local(s, HQ_SHOULDER.x, HQ_SHOULDER.z);
+      this.shX[i] = this.tmpX;
+      this.shZ[i] = this.tmpZ;
+      this.shRot[i] = Math.atan2(this.monX[i] - this.tmpX, this.monZ[i] - this.tmpZ);
       local(s, WORKSTATION.keyboard.x, WORKSTATION.keyboard.z);
       this.kbX[i] = this.tmpX;
       this.kbZ[i] = this.tmpZ;
@@ -714,8 +854,9 @@ export class HqSimulation {
       this.seatNode[i] = s.navNode;
       this.viaX[i] = s.approach.x;
       this.viaZ[i] = s.approach.z;
-      this.visitX[i] = s.approach.x;
-      this.visitZ[i] = s.approach.z;
+      this.shX[i] = s.approach.x;
+      this.shZ[i] = s.approach.z;
+      this.shRot[i] = s.rotY;
       this.monX[i] = this.kbX[i] = table.tableX;
       this.monZ[i] = this.kbZ[i] = table.tableZ;
       local(s, 0, 0.1);
@@ -738,6 +879,13 @@ export class HqSimulation {
     this.spotAgents = new Array<Agent | null>(spots.length * MAX_SLOTS).fill(null);
     this.slotOk = new Uint8Array(spots.length * MAX_SLOTS);
     this.markStandingSlots();
+    this.spotSpeaker = new Array<Agent | null>(spots.length).fill(null);
+    this.spotLast = new Array<Agent | null>(spots.length).fill(null);
+    this.spotTurnUntil = new Float64Array(spots.length);
+
+    this.nb = buildDeskNeighbourhood(desks, layout.arena);
+    this.deskGuest = new Uint8Array(desks.length);
+    this.deskAgent = new Array<Agent | null>(desks.length).fill(null);
 
     this.spawnNode = nearestNode(layout.nav, layout.spawn.x, layout.spawn.z);
     this.pathBuf = new Int32Array(Math.max(1, navNodeCount(layout.nav)));
@@ -828,7 +976,9 @@ export class HqSimulation {
    * Starts (or extends) a briefing: the lead walks to the podium in front of
    * the rows and addresses the floor; everyone with a desk comes back to it
    * and stands there facing the lead; everyone else turns to listen. It ends
-   * after `seconds` or at endBriefing.
+   * after `seconds` or at endBriefing. Each hacker reacts in their own time
+   * (REACTION_MIN..MAX), so the hall does not rise as one. A briefing is the
+   * start of a mission: startMission() is implied and outlasts the briefing.
    */
   startBriefing(seconds = BRIEFING_DEFAULT): void {
     if (!this.briefingActive) {
@@ -840,6 +990,7 @@ export class HqSimulation {
           this.releaseLounge(a);
           this.endVisit(a);
           a.onRange = false;
+          if (!a.lead && a !== this.arcAgent) a.holdUntil = this.time + reactionDelay(a.beat);
         }
       }
       this.archiveBriefingStarts();
@@ -847,6 +998,7 @@ export class HqSimulation {
     }
     this.briefingUntil = this.time + Math.max(1, seconds);
     this.briefingEndRequested = false;
+    this.startMission(Math.max(MISSION_MAX_DEFAULT, seconds));
   }
 
   /**
@@ -880,8 +1032,92 @@ export class HqSimulation {
     this.briefingEndRequested = false;
     for (const a of this.agents) {
       if (a.seat >= 0 || a.lead) a.nextOuting = this.time + a.rng.range(30, 120);
+      // Back into the chair, each at their own moment.
+      if (a.seat >= 0 && !a.lead && a !== this.arcAgent) a.holdUntil = this.time + reactionDelay(a.beat);
     }
     this.archiveBriefingEnds();
+  }
+
+  // --- Mission mode -------------------------------------------------------------
+
+  /**
+   * Mission mode («боевая задача»): nobody goes on a break; whoever is away
+   * (a spot, the lounge, a colleague's desk) heads back at a brisk walk after
+   * RETURN_DELAY_MIN..MAX; free hackers stay on duty at their desks (typing
+   * or reading, the only interaction a short over-the-shoulder help); AM7
+   * makes short rounds of the working floor; the cyber-range is off. It ends
+   * at endMission() or after `maxSeconds`. Calling it while active only moves
+   * the end later. startBriefing() calls it.
+   */
+  startMission(maxSeconds = MISSION_MAX_DEFAULT): void {
+    const span = Number.isFinite(maxSeconds) && maxSeconds > 0 ? maxSeconds : MISSION_MAX_DEFAULT;
+    const until = this.time + Math.max(1, span);
+    if (this.missionActive) {
+      if (until > this.missionUntil) this.missionUntil = until;
+      return;
+    }
+    const now = this.time;
+    this.missionActive = true;
+    this.missionSince = now;
+    this.missionUntil = until;
+    this.tempoEpoch++;
+    for (const a of this.agents) {
+      a.onRange = false;
+      a.relaxAt = 0;
+      if (a.lead) {
+        // Off the map, onto the floor: the first round soon.
+        if (a.spot >= 0) this.releaseSpot(a);
+        if (!a.visitTarget) a.nextOuting = Math.min(a.nextOuting, now + a.beat.range(8, 25));
+        continue;
+      }
+      if (a.seat < 0 || a === this.arcAgent) continue;
+      // Away: back to the desk, each after their own moment (think()).
+      a.returnAt = now + a.beat.range(RETURN_DELAY_MIN, RETURN_DELAY_MAX);
+      // At the desk: settle into duty over the next few seconds, not all at once.
+      if (a.nextBeat > now + BEAT_MIN) a.nextBeat = now + a.beat.range(0.5, BEAT_MIN);
+    }
+  }
+
+  /**
+   * Ends mission mode. Everyone relaxes at their own moment (RELAX_MIN..MAX
+   * from now: until then they stay on duty), and the first breaks come
+   * RELAX_OUTING_MIN..MAX from now, through the departure limiter — the floor
+   * does not rush to the coffee bar together. A briefing still running keeps
+   * the floor until it ends.
+   */
+  endMission(): void {
+    if (!this.missionActive) return;
+    this.missionActive = false;
+    this.tempoEpoch++;
+    const now = this.time;
+    for (const a of this.agents) {
+      if (a.lead) {
+        if (!a.visitTarget) a.nextOuting = now + a.beat.range(30, 90);
+        continue;
+      }
+      if (a.seat < 0) continue;
+      a.relaxAt = now + a.beat.range(RELAX_MIN, RELAX_MAX);
+      a.nextOuting = now + a.beat.range(RELAX_OUTING_MIN, RELAX_OUTING_MAX);
+      if (a.nextBeat < a.relaxAt) a.nextBeat = a.relaxAt;
+      // Nobody drops into the cyber-range the moment the mission is over either.
+      const range = now + a.beat.range(30, 300);
+      if (a.nextRange < range) a.nextRange = range;
+    }
+  }
+
+  /** Mission mode as it stands (always the same object, updated on read). */
+  get mission(): Readonly<HqMissionView> {
+    const v = this.missionView;
+    const on = this.missionActive;
+    v.active = on;
+    v.elapsed = on ? this.time - this.missionSince : 0;
+    v.remaining = on ? Math.max(0, this.missionUntil - this.time) : 0;
+    return v;
+  }
+
+  /** On duty: during a mission, and after it until the agent's own relaxAt. */
+  private onDuty(a: Agent): boolean {
+    return this.missionActive || this.time < a.relaxAt;
   }
 
   /** Whether the lead is speaking (Talk) or listening (Idle) at the podium. */
@@ -1052,6 +1288,12 @@ export class HqSimulation {
       if (status === IDLE && agent.status !== IDLE) {
         agent.nextOuting = this.time + agent.rng.range(30, 200);
       }
+      // A new status starts from the plain pose (typing when working, leaning back when free),
+      // and its loop's tempo is looked at again (typing speeds up on a mission only when working).
+      if (status !== agent.status) {
+        agent.act = ACT_IDLE;
+        agent.rateEpoch = 0;
+      }
       // The cyber-range only makes sense while the hacker is working.
       if (status !== WORKING) agent.onRange = false;
       agent.status = status;
@@ -1088,6 +1330,10 @@ export class HqSimulation {
     this.leadAgent = lead;
 
     this.assignDesks(next, nextById);
+    this.deskAgent.fill(null);
+    for (const agent of next) {
+      if (!agent.lead && agent.seat >= 0 && agent.seat < this.deskAgent.length) this.deskAgent[agent.seat] = agent;
+    }
 
     this.agents = next;
     this.byId = nextById;
@@ -1115,6 +1361,8 @@ export class HqSimulation {
     // all at once.
     const step = dt > 0 ? (dt < MAX_DT ? dt : MAX_DT) : 0;
     this.time += step;
+    this.departures.refill(step);
+    if (this.missionActive && this.time >= this.missionUntil) this.endMission();
     if (this.briefingActive && this.time >= this.briefingUntil) this.finishBriefing();
     else if (this.briefingEndRequested && (this.leadHasBriefed() || this.time >= this.briefingEndBy)) this.finishBriefing();
     this.stepArchive(step);
@@ -1274,7 +1522,8 @@ export class HqSimulation {
       a.clip = HqClip.Idle;
     }
     a.clipTime = a.rng.range(0, CLIP_DURATION[a.clip]);
-    a.clipRate = 1;
+    a.clipRate = this.loopRate(a, a.clip);
+    a.rateEpoch = this.tempoEpoch;
     a.prevClip = a.clip;
     a.prevTime = a.clipTime;
     a.blend = 1;
@@ -1343,29 +1592,40 @@ export class HqSimulation {
       }
       const t = a.visitTarget;
       if (t) {
-        const valid =
-          t.alive && t.seat >= 0 && t.status === WORKING && t.place === D_SEAT && (t.mode === M_SEATED || t.mode === M_SIT);
         const done = a.place === D_VISIT && a.mode === M_STAND && now >= a.leaveAt;
-        if (!valid || done) {
+        if (!this.hostValid(a, t) || done) {
           this.endVisit(a);
-          a.nextOuting = now + a.rng.range(60, 150);
+          // A mission's rounds come thick and fast.
+          a.nextOuting = this.missionActive
+            ? now + a.beat.range(MISSION_LEAD_GAP_MIN, MISSION_LEAD_GAP_MAX)
+            : now + a.rng.range(60, 150);
         }
       } else if (a.spot >= 0) {
-        if (a.place === D_SPOT && a.mode === M_STAND && now >= a.leaveAt) {
+        if (this.missionActive) {
+          // No time for the map: back to the floor.
+          this.releaseSpot(a);
+          a.nextOuting = now + a.beat.range(MISSION_LEAD_GAP_MIN, MISSION_LEAD_GAP_MAX);
+        } else if (a.place === D_SPOT && a.mode === M_STAND && now >= a.leaveAt) {
           this.releaseSpot(a);
           a.nextOuting = now + a.rng.range(60, 150);
         }
       } else if (a.mode === M_SEATED && now >= a.nextOuting) {
-        if (!(a.rng.chance(0.6) && this.startVisit(a)) && !this.reserveOuting(a, K_MAP)) {
+        if (this.missionActive) {
+          if (!this.startVisit(a)) a.nextOuting = now + a.beat.range(10, 20);
+        } else if (!(a.rng.chance(0.6) && this.startVisit(a)) && !this.reserveOuting(a, K_MAP)) {
           a.nextOuting = now + a.rng.range(20, 40);
         }
       }
       return;
     }
     if (a.seat >= 0) {
+      const duty = this.onDuty(a);
       // Cyber-range: a working hacker enters it from their own workstation,
-      // stays seated for a session, then drops back to ordinary work.
-      if (a.status === WORKING && a.place === D_SEAT && a.mode === M_SEATED) {
+      // stays seated for a session, then drops back to ordinary work. Never
+      // during a mission: that is the real operation, not a drill.
+      if (this.missionActive) {
+        a.onRange = false;
+      } else if (a.status === WORKING && a.place === D_SEAT && a.mode === M_SEATED) {
         if (a.onRange) {
           if (now >= a.rangeUntil) {
             a.onRange = false;
@@ -1378,8 +1638,18 @@ export class HqSimulation {
       } else if (a.onRange) {
         a.onRange = false;
       }
-      if (a.spot >= 0) {
+      if (a.visitTarget) {
+        // At (or on the way to) a working colleague's shoulder.
+        const done = a.place === D_VISIT && a.mode === M_STAND && now >= a.leaveAt;
+        // A mission recalls a plain visit (its own short help stays).
+        const recalled = this.missionActive && !a.helping && now >= a.returnAt;
+        if (a.status !== IDLE || !this.hostValid(a, a.visitTarget) || done || recalled) {
+          this.endVisit(a);
+          a.nextBeat = now + a.beat.range(BEAT_MIN, 2 * BEAT_MIN);
+        }
+      } else if (a.spot >= 0) {
         if (a.status !== IDLE) this.releaseSpot(a);
+        else if (duty && now >= a.returnAt) this.releaseSpot(a);
         else if (a.place === D_SPOT && a.mode === M_STAND && now >= a.leaveAt) {
           this.releaseSpot(a);
           a.nextOuting = now + a.rng.range(90, 300);
@@ -1387,16 +1657,28 @@ export class HqSimulation {
       } else if (a.lounge >= 0) {
         // The seat stays held until the agent has stood up (releaseHold).
         if (a.status !== IDLE) this.releaseLounge(a);
+        else if (duty && now >= a.returnAt) this.releaseLounge(a);
         else if (a.place === D_LOUNGE && a.mode === M_SEATED && now >= a.leaveAt) {
           this.releaseLounge(a);
           a.nextOuting = now + a.rng.range(90, 300);
         }
-      } else if (a.status === IDLE && a.mode === M_SEATED && a.place === D_SEAT && now >= a.nextOuting) {
-        if (!this.reserveOuting(a, -1)) a.nextOuting = now + a.rng.range(20, 60);
+      } else if (a.status === IDLE && a.mode === M_SEATED && a.place === D_SEAT) {
+        if (!duty && now >= a.nextOuting) {
+          // One departure at a time across the hall: otherwise wait a moment.
+          if (!this.departures.take()) a.nextOuting = now + a.beat.range(0.3, 1.5);
+          else if (!this.reserveOuting(a, -1)) {
+            this.departures.refund();
+            a.nextOuting = now + a.rng.range(20, 60);
+          }
+        } else if (now >= a.nextBeat) {
+          this.deskBeat(a, duty);
+        }
       }
       return;
     }
     // No desk (more agents than desks): hang out in the lounge, drift between spots.
+    // A visit started from a desk this agent no longer has ends here.
+    if (a.visitTarget) this.endVisit(a);
     if (a.spot < 0) {
       if (now >= a.nextOuting) {
         this.reserveOverflow(a);
@@ -1439,6 +1721,9 @@ export class HqSimulation {
 
   /** Compares what the agent should be doing with its destination. */
   private plan(a: Agent): void {
+    // Reaction delay (a briefing's start or end): whoever is sitting or
+    // standing still keeps at it a moment longer. Walkers turn at once.
+    if (a.holdUntil > this.time && a.mode !== M_WALK && a.mode !== M_PUSH) return;
     const kind = this.intentKind(a);
     let seat = -1;
     let spot = -1;
@@ -1502,18 +1787,71 @@ export class HqSimulation {
     }
   }
 
+  /** AM7 drops by a working hacker: to their shoulder, never next to another guest. */
   private startVisit(a: Agent): boolean {
     const n = this.agents.length;
     if (n < 2) return false;
     for (let k = 0; k < 16; k++) {
       const t = this.agents[a.rng.int(n)];
       if (t === a || t.lead || t.seat < 0 || t.status !== WORKING || t.mode !== M_SEATED || t.visitor) continue;
-      if (t.place !== D_SEAT) continue;
-      a.visitTarget = t;
-      t.visitor = a;
+      if (t.place !== D_SEAT || t.seat >= this.deskGuest.length) continue;
+      if (guestNearby(this.nb, this.deskGuest, t.seat, GUEST_SPACING)) continue;
+      this.beginVisit(a, t, false, false);
       return true;
     }
     return false;
+  }
+
+  /**
+   * A free hacker walks over to a working neighbour (at most PEER_ROWS rows
+   * and PEER_DESKS desks away) and looks over their shoulder: within the
+   * concurrent limit (a mission's help limit on duty), never next to another
+   * guest, and through the departure limiter.
+   */
+  private startPeerVisit(a: Agent, duty: boolean): boolean {
+    const n = this.agents.length;
+    const cap = duty ? helpVisitLimit(n) : peerVisitLimit(n);
+    if (this.visitCount >= cap) return false;
+    const s = a.seat;
+    if (s < 0 || s >= this.deskGuest.length) return false;
+    const nb = this.nb;
+    const start = nb.nearStart[s];
+    const count = nb.nearStart[s + 1] - start;
+    if (count <= 0) return false;
+    const offset = a.beat.int(count);
+    for (let k = 0; k < count; k++) {
+      const desk = nb.near[start + ((offset + k) % count)];
+      const t = this.deskAgent[desk];
+      if (!t || t === a || !t.alive || t.lead || t.seat !== desk || t === this.arcAgent) continue;
+      if (t.status !== WORKING || t.mode !== M_SEATED || t.place !== D_SEAT || t.visitor) continue;
+      if (guestNearby(nb, this.deskGuest, desk, GUEST_SPACING)) continue;
+      if (!this.departures.take()) return false;
+      this.beginVisit(a, t, true, duty);
+      return true;
+    }
+    return false;
+  }
+
+  private beginVisit(a: Agent, t: Agent, peer: boolean, help: boolean): void {
+    a.visitTarget = t;
+    t.visitor = a;
+    a.visitSeat = t.seat;
+    this.deskGuest[t.seat]++;
+    a.peerVisit = peer;
+    a.helping = help;
+    if (peer) this.visitCount++;
+  }
+
+  /** The host of a visit can still be visited: present, working, in their own chair. */
+  private hostValid(a: Agent, t: Agent): boolean {
+    return (
+      t.alive &&
+      t.seat >= 0 &&
+      t.seat === a.visitSeat &&
+      t.status === WORKING &&
+      t.place === D_SEAT &&
+      (t.mode === M_SEATED || t.mode === M_SIT)
+    );
   }
 
   private endVisit(a: Agent): void {
@@ -1521,6 +1859,24 @@ export class HqSimulation {
     if (!t) return;
     if (t.visitor === a) t.visitor = null;
     a.visitTarget = null;
+    const s = a.visitSeat;
+    if (s >= 0 && s < this.deskGuest.length && this.deskGuest[s] > 0) this.deskGuest[s]--;
+    a.visitSeat = -1;
+    if (a.peerVisit && this.visitCount > 0) this.visitCount--;
+    a.peerVisit = false;
+    a.helping = false;
+  }
+
+  /** A free hacker's beat at their own desk: lean back, type, or go over to a working neighbour. */
+  private deskBeat(a: Agent, duty: boolean): void {
+    const now = this.time;
+    const beat = pickDeskBeat(duty, a.social, a.beat);
+    if (beat === BEAT_VISIT && this.startPeerVisit(a, duty)) {
+      a.nextBeat = now + BEAT_MIN;
+      return;
+    }
+    a.act = beat === BEAT_TYPE ? ACT_TYPE : ACT_IDLE;
+    a.nextBeat = now + beatPause(duty, a.fidget, a.beat);
   }
 
   // --- Lounge seats ---------------------------------------------------------
@@ -1805,6 +2161,59 @@ export class HqSimulation {
     return best;
   }
 
+  /** Standing at a spot (arrived, not just on the way). */
+  private standsAt(b: Agent, spot: number): boolean {
+    return b.alive && b.mode === M_STAND && b.place === D_SPOT && b.placeSpot === spot;
+  }
+
+  /**
+   * Who has the word at a spot: one speaker at a time, for SPOT_TURN_MIN..MAX
+   * seconds, then a short pause and someone else (anyone but the last one
+   * when there is a choice). Null during a pause or with fewer than two there.
+   * `by` is whoever asks this frame; its beat generator makes the choices.
+   */
+  private spotTalker(spot: number, by: Agent): Agent | null {
+    const now = this.time;
+    let s = this.spotSpeaker[spot];
+    if (s && (now >= this.spotTurnUntil[spot] || !this.standsAt(s, spot))) {
+      this.spotLast[spot] = s;
+      this.spotSpeaker[spot] = null;
+      s = null;
+      this.spotTurnUntil[spot] = now + by.beat.range(SPOT_GAP_MIN, SPOT_GAP_MAX);
+    }
+    if (!s && now >= this.spotTurnUntil[spot]) {
+      s = this.pickSpeaker(spot, by);
+      if (s) {
+        this.spotSpeaker[spot] = s;
+        this.spotTurnUntil[spot] = now + by.beat.range(SPOT_TURN_MIN, SPOT_TURN_MAX);
+      }
+    }
+    return s;
+  }
+
+  private pickSpeaker(spot: number, by: Agent): Agent | null {
+    const base = spot * MAX_SLOTS;
+    const last = this.spotLast[spot];
+    let total = 0;
+    let fresh = 0;
+    for (let k = 0; k < MAX_SLOTS; k++) {
+      const b = this.spotAgents[base + k];
+      if (!b || !this.standsAt(b, spot)) continue;
+      total++;
+      if (b !== last) fresh++;
+    }
+    if (total < 2) return null;
+    const skipLast = fresh > 0;
+    let pick = by.beat.int(skipLast ? fresh : total);
+    for (let k = 0; k < MAX_SLOTS; k++) {
+      const b = this.spotAgents[base + k];
+      if (!b || !this.standsAt(b, spot) || (skipLast && b === last)) continue;
+      if (pick === 0) return b;
+      pick--;
+    }
+    return null;
+  }
+
   // --- Routing --------------------------------------------------------------
 
   private destAnchor(a: Agent): number {
@@ -1836,7 +2245,8 @@ export class HqSimulation {
         // The seat's nav node is the aisle point right in front of it.
         return this.pushWp(n, this.apprX[s], this.apprZ[s], -1);
       case D_VISIT:
-        return this.pushWp(n, this.visitX[s], this.visitZ[s], -1);
+        // From the ring node behind the host's chair straight to their shoulder.
+        return this.pushWp(n, this.shX[s], this.shZ[s], -1);
       case D_SPOT:
         this.slotPosition(a.destSpot, a.destSlot);
         return this.pushWp(n, this.tmpX, this.tmpZ, -1);
@@ -1971,12 +2381,17 @@ export class HqSimulation {
         if (a.clipTime >= SIT_DOWN_DURATION) {
           a.clipTime = SIT_DOWN_DURATION;
           a.mode = M_SEATED;
-          this.setClip(a, this.seatedClip(a), 0, 1);
+          this.setLoop(a, this.seatedClip(a));
         }
         break;
       case M_SEATED: {
         const clip = this.seatedClip(a);
-        if (a.clip !== clip) this.setClip(a, clip, 0, 1);
+        if (a.clip !== clip) this.setLoop(a, clip);
+        else if (a.rateEpoch !== this.tempoEpoch) {
+          // A mission started or ended, or the status changed: re-read the tempo once.
+          a.clipRate = this.loopRate(a, clip);
+          a.rateEpoch = this.tempoEpoch;
+        }
         break;
       }
       case M_RISE:
@@ -2006,15 +2421,43 @@ export class HqSimulation {
     a.clipTime = wrapClip(a.clip, a.clipTime);
     if (a.blend < 1) {
       a.prevTime = wrapClip(a.prevClip, a.prevTime + a.prevRate * dt);
-      a.blend = Math.min(1, a.blend + dt / HQ_BLEND_TIME);
+      a.blend = Math.min(1, a.blend + dt / a.blendDur);
     }
     this.syncPosition(a);
     this.desiredLook(a);
   }
 
-  /** Typing at a desk while working; sitting idle otherwise (and always in the lounge). */
+  /**
+   * At one's own desk: typing while working; free, whatever the last beat
+   * picked (leaning back or typing). Elsewhere (the lounge) sitting idle.
+   */
   private seatedClip(a: Agent): number {
-    return a.status === WORKING && a.place === D_SEAT ? HqClip.SitType : HqClip.SitIdle;
+    if (a.place !== D_SEAT) return HqClip.SitIdle;
+    if (a.status === WORKING) return HqClip.SitType;
+    return a.act === ACT_TYPE ? HqClip.SitType : HqClip.SitIdle;
+  }
+
+  /** Playback rate of a loop for this agent: its own tempo; typing speeds up on a mission. */
+  private loopRate(a: Agent, clip: number): number {
+    if (clip === HqClip.Present) return 1;
+    if (clip === HqClip.SitType && this.missionActive && a.status === WORKING) return a.missionRate;
+    return a.tempo;
+  }
+
+  /**
+   * Enters a standing or seated loop at a random frame and the agent's own
+   * tempo, so nobody moves in step with anyone else (not for Present, whose
+   * gesture is timed from its start, nor for the distance-driven gaits).
+   */
+  private setLoop(a: Agent, clip: number): void {
+    const rate = this.loopRate(a, clip);
+    a.rateEpoch = this.tempoEpoch;
+    if (clip === a.clip) {
+      a.clipRate = rate;
+      return;
+    }
+    const time = clip === HqClip.Present ? 0 : a.beat.next() * CLIP_DURATION[clip];
+    this.setClip(a, clip, time, rate);
   }
 
   private setClip(a: Agent, clip: number, time: number, rate: number): void {
@@ -2022,6 +2465,7 @@ export class HqSimulation {
       a.clipRate = rate;
       return;
     }
+    const fade = blendTime(a.clip, clip);
     if (clip === a.prevClip && a.blend < 1) {
       // Switching back mid-fade: swap instead of popping.
       const t = a.prevTime;
@@ -2032,6 +2476,7 @@ export class HqSimulation {
       a.clipTime = t;
       a.clipRate = rate;
       a.blend = 1 - a.blend;
+      a.blendDur = fade;
       return;
     }
     a.prevClip = a.clip;
@@ -2041,6 +2486,7 @@ export class HqSimulation {
     a.clipTime = time;
     a.clipRate = rate;
     a.blend = 0;
+    a.blendDur = fade;
   }
 
   private stepWalk(a: Agent, index: number, dt: number): void {
@@ -2048,7 +2494,7 @@ export class HqSimulation {
       if (a.needsRoute || a.wpMore) {
         if (a.wpMore) a.needsRoute = true;
         a.moving = false;
-        this.setClip(a, HqClip.Idle, 0, 1);
+        this.setLoop(a, HqClip.Idle);
         return;
       }
       if (a.dest === D_LOUNGE && !this.turnToSit(a, dt)) return;
@@ -2072,12 +2518,15 @@ export class HqSimulation {
       // walked up to face first; the walker turns round on the spot (turnToSit).
       if (a.dest === D_SEAT || a.dest === D_BRIEF) want = this.seatRot[a.destSeat];
       else if (a.dest === D_ERROR) want = this.errFacing[a.destSeat];
+      else if (a.dest === D_VISIT) want = this.shRot[a.destSeat];
       else if (a.dest === D_PODIUM) want = this.podiumFacing;
       else if (a.dest === D_CART) want = this.arcGrabRot;
     }
     a.facing = turnToward(a.facing, want, TURN_RATE * dt);
     const err = Math.abs(wrapAngle(want - a.facing));
-    let speed = a.speed * (hurry ? RUN_FACTOR : 1) * slow;
+    // A mission calls whoever is away back to their desk at a brisk walk.
+    const brisk = !hurry && this.missionActive && a.dest === D_SEAT && !a.lead;
+    let speed = a.speed * (hurry ? RUN_FACTOR : brisk ? BRISK_FACTOR : 1) * slow;
     if (err > 1.2) speed *= 0.2;
     else if (err > 0.6) speed *= 0.6;
 
@@ -2130,7 +2579,7 @@ export class HqSimulation {
     const settle = 1 - Math.min(1, 10 * dt);
     a.ox *= settle;
     a.oz *= settle;
-    if (a.clip !== HqClip.Idle) this.setClip(a, HqClip.Idle, 0, 1);
+    if (a.clip !== HqClip.Idle) this.setLoop(a, HqClip.Idle);
     return false;
   }
 
@@ -2239,13 +2688,16 @@ export class HqSimulation {
         a.mode = M_SIT;
         a.place = D_SEAT;
         a.placeSeat = s;
+        // Back in one's own chair: the plain pose first, the next beat a while later.
+        a.act = ACT_IDLE;
+        if (a.nextBeat < this.time + BEAT_MIN) a.nextBeat = this.time + a.beat.range(BEAT_MIN, 3 * BEAT_MIN);
         this.setClip(a, HqClip.SitDown, 0, 1);
         return;
       case D_ERROR:
         a.mode = M_STAND;
         a.place = D_ERROR;
         a.placeSeat = s;
-        this.setClip(a, HqClip.Idle, 0, 1);
+        this.setLoop(a, HqClip.Idle);
         return;
       case D_LOUNGE: {
         a.bx = this.seatX[s];
@@ -2268,30 +2720,39 @@ export class HqSimulation {
         a.placeSlot = a.destSlot;
         const kind = this.spotKind[a.destSpot];
         a.leaveAt = this.time + a.rng.range(STAY_MIN[kind], STAY_MAX[kind]);
-        a.talking = false;
-        a.talkToggleAt = this.time + a.rng.range(0.5, 3);
-        this.setClip(a, HqClip.Idle, 0, 1);
+        // Listening first: the spot's speaker turns (spotTalker) say who talks.
+        this.setLoop(a, HqClip.Idle);
         return;
       }
       case D_VISIT:
         a.mode = M_STAND;
         a.place = D_VISIT;
         a.placeSeat = s;
-        a.leaveAt = this.time + a.rng.range(4, 8);
-        this.setClip(a, HqClip.Talk, 0, 1);
+        a.talking = true;
+        if (a.lead) {
+          a.leaveAt =
+            this.time +
+            (this.missionActive
+              ? a.beat.range(MISSION_LEAD_VISIT_MIN, MISSION_LEAD_VISIT_MAX)
+              : a.rng.range(LEAD_VISIT_MIN, LEAD_VISIT_MAX));
+        } else {
+          a.leaveAt = this.time + peerVisitSeconds(a.helping, a.beat);
+          a.talkToggleAt = this.time + a.beat.range(GUEST_TALK_MIN, GUEST_TALK_MAX);
+        }
+        this.setLoop(a, HqClip.Talk);
         return;
       case D_BRIEF:
         a.mode = M_STAND;
         a.place = D_BRIEF;
         a.placeSeat = s;
-        this.setClip(a, HqClip.Idle, 0, 1);
+        this.setLoop(a, HqClip.Idle);
         return;
       case D_PODIUM:
         a.mode = M_STAND;
         a.place = D_PODIUM;
         a.placeSeat = -1;
         this.podiumSince = this.time;
-        this.setClip(a, this.briefingSpeaking ? HqClip.Talk : HqClip.Idle, 0, 1);
+        this.setLoop(a, this.briefingSpeaking ? HqClip.Talk : HqClip.Idle);
         return;
       case D_CART:
         if (a === this.arcAgent && this.arcPhase === ARC_FETCH) {
@@ -2300,12 +2761,12 @@ export class HqSimulation {
         }
         a.mode = M_STAND;
         a.place = D_NONE;
-        this.setClip(a, HqClip.Idle, 0, 1);
+        this.setLoop(a, HqClip.Idle);
         return;
       default:
         a.mode = M_STAND;
         a.place = D_NONE;
-        this.setClip(a, HqClip.Idle, 0, 1);
+        this.setLoop(a, HqClip.Idle);
     }
   }
 
@@ -2317,12 +2778,12 @@ export class HqSimulation {
     } else if (a.place === D_SPOT) {
       const partner = this.partnerOf(a);
       if (partner) {
-        want = Math.atan2(partner.x - a.x, partner.z - a.z);
-        if (this.time >= a.talkToggleAt) {
-          a.talking = !a.talking;
-          a.talkToggleAt = this.time + (a.talking ? a.rng.range(3, 7) : a.rng.range(2, 5));
-        }
-        if (a.talking) clip = HqClip.Talk;
+        // One speaker at a time: the speaker turns to the nearest listener,
+        // the others to the speaker (to the nearest one during a pause).
+        const speaker = this.spotTalker(a.placeSpot, a);
+        if (speaker === a) clip = HqClip.Talk;
+        const to = speaker && speaker !== a ? speaker : partner;
+        want = Math.atan2(to.x - a.x, to.z - a.z);
       } else {
         const spot = this.layout.socialSpots[a.placeSpot];
         const kind = this.spotKind[a.placeSpot];
@@ -2330,9 +2791,19 @@ export class HqSimulation {
           kind === K_MAP || kind === K_SERVER ? spot.rotY : Math.atan2(spot.x - a.x, spot.z - a.z);
       }
     } else if (a.place === D_VISIT && a.visitTarget) {
-      const s = a.visitTarget.placeSeat >= 0 ? a.visitTarget.placeSeat : a.placeSeat;
-      want = Math.atan2(this.headX[s] - a.x, this.headZ[s] - a.z);
-      clip = HqClip.Talk;
+      // At the host's shoulder, facing their screen. AM7 talks; a colleague
+      // alternates talking and following along on the screen.
+      want = this.shRot[a.placeSeat];
+      if (a.lead) clip = HqClip.Talk;
+      else {
+        if (this.time >= a.talkToggleAt) {
+          a.talking = !a.talking;
+          a.talkToggleAt =
+            this.time +
+            (a.talking ? a.beat.range(GUEST_TALK_MIN, GUEST_TALK_MAX) : a.beat.range(GUEST_QUIET_MIN, GUEST_QUIET_MAX));
+        }
+        clip = a.talking ? HqClip.Talk : HqClip.Idle;
+      }
     } else if (a.place === D_PODIUM) {
       // Facing the rows, talking; every cycle the Present clip turns him to
       // show the wall (the turn is in the clip: the feet stay planted).
@@ -2353,7 +2824,7 @@ export class HqSimulation {
       clip = HqClip.Idle;
     }
     a.facing = turnToward(a.facing, want, STAND_TURN_RATE * dt);
-    if (a.clip !== clip) this.setClip(a, clip, 0, 1);
+    if (a.clip !== clip) this.setLoop(a, clip);
   }
 
   private syncPosition(a: Agent): void {
@@ -2375,12 +2846,20 @@ export class HqSimulation {
           return;
         }
         const v = a.visitor;
-        if (a.mode === M_SEATED && v && v.visitTarget === a && v.mode === M_STAND && v.place === D_VISIT) {
-          // The lead dropped by: look up at him.
+        if (
+          a.mode === M_SEATED &&
+          v &&
+          v.visitTarget === a &&
+          v.mode === M_STAND &&
+          v.place === D_VISIT &&
+          (v.lead || v.talking)
+        ) {
+          // Someone at the shoulder is talking: look up at them (while a
+          // colleague follows along quietly, both look at the screen).
           a.wantX = v.x;
           a.wantY = HEAD_STANDING;
           a.wantZ = v.z;
-          a.wantW = 1;
+          a.wantW = v.lead ? 1 : 0.8;
         } else {
           a.wantX = this.monX[s];
           a.wantY = WORKSTATION.monitors[1].y;
@@ -2428,18 +2907,28 @@ export class HqSimulation {
     }
     if (a.place === D_VISIT && a.visitTarget) {
       const s = a.visitTarget.placeSeat >= 0 ? a.visitTarget.placeSeat : a.placeSeat;
-      a.wantX = this.headX[s];
-      a.wantY = HEAD_SEATED;
-      a.wantZ = this.headZ[s];
-      a.wantW = 0.9;
+      if (a.lead || a.talking) {
+        a.wantX = this.headX[s];
+        a.wantY = HEAD_SEATED;
+        a.wantZ = this.headZ[s];
+        a.wantW = 0.9;
+      } else {
+        a.wantX = this.monX[s];
+        a.wantY = WORKSTATION.monitors[1].y;
+        a.wantZ = this.monZ[s];
+        a.wantW = 0.8;
+      }
       return;
     }
     if (a.place === D_SPOT) {
       const partner = this.partnerOf(a);
       if (partner) {
-        a.wantX = partner.x;
+        // Listeners watch the speaker; the speaker (or everyone in a pause) the nearest one.
+        const sp = this.spotSpeaker[a.placeSpot];
+        const to = sp && sp !== a && this.standsAt(sp, a.placeSpot) ? sp : partner;
+        a.wantX = to.x;
         a.wantY = HEAD_STANDING;
-        a.wantZ = partner.z;
+        a.wantZ = to.z;
         a.wantW = 0.9;
         return;
       }

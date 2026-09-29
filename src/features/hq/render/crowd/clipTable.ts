@@ -1,4 +1,4 @@
-import { HQ_CLIPS, HQ_CLIP_INFO, HqClip, type HqClipName } from "@/features/hq/core/config";
+import { HQ_CLIPS, HQ_CLIP_INFO, type HqClipName } from "@/features/hq/core/config";
 
 /**
  * Which animation actually plays each HqClip code.
@@ -26,9 +26,12 @@ export const HQ_CLIP_COUNT = HQ_CLIPS.length;
 /** AM7 is drawn slightly larger than everyone else. */
 export const HQ_LEAD_SCALE = 1.04;
 
+/** 1 per HqClip code played sitting (HQ_CLIP_INFO[...].seated). */
+const SEATED = Uint8Array.from(HQ_CLIPS, (name) => (HQ_CLIP_INFO[name].seated ? 1 : 0));
+
 /** Seated clips, used for label height, capsule height and blob size. */
 export function isSeatedClip(code: number): boolean {
-  return code === HqClip.SitDown || code === HqClip.SitType || code === HqClip.SitIdle;
+  return SEATED[code] === 1;
 }
 
 /** Blender exports actions as "Idle" or "Armature|Idle"; compare the last part, case-insensitively. */
