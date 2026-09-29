@@ -27,9 +27,9 @@ const TYPISTS = 8;
 const TYPE_RANGE = 15;
 /** Speakers heard at once (at most this many intelligible voices), and how near. */
 const TALKERS = HQ_SUBTITLE_SLOTS;
-const TALK_RANGE = 13;
+const TALK_RANGE = 22;
 /** Within this many metres a speaker says real phrases; farther off, a murmur. */
-const VOICE_RANGE = 9;
+const VOICE_RANGE = 18;
 /** A phrase's level before distance (the bank is levelled to one loudness). */
 const PHRASE_LEVEL = 1.1;
 /** Where a seated typist's keyboard is, in the seat frame (metres). */
@@ -320,7 +320,8 @@ export function HqSoundscape({
       const speaking = isSpeakingClip(f.clip[i], f.clipTime[i]);
       const phraseOn = t.playing !== null && now >= 0 && t.playing.endsAt > now;
       if (live) {
-        t.src ??= audio.source(1.3, TALK_RANGE + 4, true);
+        // A wider reference distance keeps voices audible across a few rows.
+        t.src ??= audio.source(3, TALK_RANGE + 6, true);
         t.src?.place(x, 1.7, z);
       }
       const src = t.src;
