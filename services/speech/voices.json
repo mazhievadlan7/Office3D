@@ -1,89 +1,184 @@
 {
-  "_comment": "Voices the office offers. id = <engine>:<name>. role: system (the HQ's own voice), lead (AM7), crew (operational hackers), any. VoiceStudio presets are designed voices (VoxCPM2 voice design: a description plus a fixed seed, so a voice sounds the same every time); 'fallback' is the Silero voice spoken when VoiceStudio is down.",
+  "_comment": "Voices the office offers. id = <engine>:<name>. role: system (the HQ's own voice), lead (AM7), crew (operational hackers), any. VoiceStudio presets are designed voices: VoxCPM2 voice design (an English description plus a fixed seed; Russian descriptions came out female-sounding) rendered once into a short reference clip (voice-refs/<file>, synthetic, no real person) that VoiceStudio then clones for every line, so the timbre never drifts. 'fallback' is the Silero voice spoken when VoiceStudio is down (all different, so the crew stays distinguishable on a CPU-only server). 'fx' is the post-processing heard on the voice, fallback included: humanoid (-2 semitones, flanger, short echo) or humanoid-light (-1 semitone, subtle flanger). 'gender' picks the grammatical form of the crew's lines.",
   "voices": [
     {
-      "id": "silero:aidar",
-      "label": "Система штаба (Айдар, Silero)",
+      "id": "silero:system",
+      "label": "Система штаба (Silero Евгений)",
       "role": "system",
-      "params": { "speaker": "aidar" }
+      "params": { "speaker": "eugene" },
+      "fx": "humanoid",
+      "gender": "male"
     },
     {
       "id": "voicestudio:am7",
       "label": "AM7",
       "role": "lead",
-      "description": "Главный хакер: низкий спокойный мужской голос",
+      "description": "Главный хакер: низкий, чуть хрипловатый, уверенный голос командира",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A deep, calm, confident adult male voice with a low pitch, measured pace and clear, precise diction; composed and authoritative, like a commander giving a briefing.",
+        "description": "A low, slightly husky, confident male commander voice, speaking Russian firmly.",
         "seed": 7
       },
-      "fallback": "silero:eugene"
+      "reference": {
+        "file": "am7.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid",
+      "gender": "male",
+      "fallback": "silero:ru_safarhuja"
     },
     {
       "id": "voicestudio:crew-m1",
-      "label": "Оператор М1",
+      "label": "Оператор — быстрый, точный",
       "role": "crew",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A young adult male voice, energetic and quick, slightly bright tone, focused and professional.",
+        "description": "A young male technical operator voice, fast and precise, speaking Russian.",
         "seed": 101
       },
-      "fallback": "silero:aidar"
+      "reference": {
+        "file": "operator.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
+      "fallback": "silero:ru_alexandr"
     },
     {
       "id": "voicestudio:crew-m2",
-      "label": "Оператор М2",
+      "label": "Аналитик — холодный, ровный",
       "role": "crew",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A mature male baritone, dry and matter-of-fact, steady pace, low emotion.",
-        "seed": 202
+        "description": "A cold, even, emotionless male analyst voice, speaking Russian in a flat measured tone.",
+        "seed": 7
       },
-      "fallback": "silero:eugene"
+      "reference": {
+        "file": "analyst.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
+      "fallback": "silero:ru_roman"
     },
     {
       "id": "voicestudio:crew-m3",
-      "label": "Оператор М3",
+      "label": "Ветеран — спокойный баритон",
       "role": "crew",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A male voice in his thirties, precise and analytical, medium pitch, crisp articulation.",
-        "seed": 303
+        "description": "A calm, seasoned male veteran in his fifties, a warm low baritone, unhurried and steady, speaking Russian with quiet confidence.",
+        "seed": 7
       },
+      "reference": {
+        "file": "veteran.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
       "fallback": "silero:aidar"
     },
     {
-      "id": "voicestudio:crew-f1",
-      "label": "Оператор Ж1",
+      "id": "voicestudio:crew-m4",
+      "label": "Инфильтратор — с хрипотцой, тихий",
       "role": "crew",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A confident adult female voice, cool and composed, medium-low pitch, clear diction.",
-        "seed": 404
+        "description": "A male infiltrator voice, slightly raspy but clear, quiet and intense, mid-low pitch, speaking Russian in short precise phrases.",
+        "seed": 7
       },
+      "reference": {
+        "file": "infiltrator.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
+      "fallback": "silero:ru_bogdan"
+    },
+    {
+      "id": "voicestudio:crew-m5",
+      "label": "Взломщик — молодой, энергичный",
+      "role": "crew",
+      "params": {
+        "model": "voxcpm2",
+        "voice": "default",
+        "language": "ru",
+        "description": "A young male hacker voice, energetic and quick, a bright tenor, speaking Russian fast and confidently.",
+        "seed": 42
+      },
+      "reference": {
+        "file": "breaker.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
+      "fallback": "silero:ru_dmitriy"
+    },
+    {
+      "id": "voicestudio:crew-m6",
+      "label": "Часовой — глубокий бас, сдержанный",
+      "role": "crew",
+      "params": {
+        "model": "voxcpm2",
+        "voice": "default",
+        "language": "ru",
+        "description": "A deep bass male voice, terse and disciplined, with military precision, speaking Russian in a low steady tone.",
+        "seed": 202
+      },
+      "reference": {
+        "file": "sentinel.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "male",
+      "fallback": "silero:ru_eduard"
+    },
+    {
+      "id": "voicestudio:crew-f1",
+      "label": "Техлид — точная, собранная (Ж)",
+      "role": "crew",
+      "params": {
+        "model": "voxcpm2",
+        "voice": "default",
+        "language": "ru",
+        "description": "A precise, confident adult female tech lead, cool and composed, medium-low pitch, crisp diction, speaking Russian.",
+        "seed": 7
+      },
+      "reference": {
+        "file": "techlead.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "female",
       "fallback": "silero:baya"
     },
     {
       "id": "voicestudio:crew-f2",
-      "label": "Оператор Ж2",
+      "label": "Разведка — спокойная, негромкая (Ж)",
       "role": "crew",
       "params": {
         "model": "voxcpm2",
         "voice": "default",
         "language": "ru",
-        "description": "A young adult female voice, lively and sharp, slightly fast pace, professional tone.",
-        "seed": 505
+        "description": "A calm, soft-spoken adult female reconnaissance specialist, focused and quiet, medium pitch, speaking Russian.",
+        "seed": 7
       },
+      "reference": {
+        "file": "recon.flac",
+        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+      },
+      "fx": "humanoid-light",
+      "gender": "female",
       "fallback": "silero:kseniya"
     }
   ]

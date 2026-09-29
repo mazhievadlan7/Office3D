@@ -8,6 +8,7 @@ become pauses — before the text reaches the stress model.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -162,3 +163,55 @@ def ssml_rate(speed: float) -> str | None:
     if speed < 1.3:
         return "fast"
     return "x-fast"
+
+
+class StressLexicon:
+    """Phrases the engines stress wrongly (homographs in the office's own
+    lines: замо́к / за́мок, всё / все, мука́ / му́ка), marked by hand with `+`.
+
+    Matching ignores case and ё/е. For Silero the phrase goes in with its
+    marks (the stress model keeps marks it is given); for engines that take
+    plain text (VoxCPM2) the marks are dropped and only the ё is kept.
+    """
+
+    def __init__(self, phrases: Iterable[str]) -> None:
+        entries: list[tuple[re.Pattern[str], str]] = []
+        seen: list[str] = []
+        for raw in phrases:
+            marked = " ".join(str(raw).split())
+            plain = marked.replace("+", "")
+            if not plain:
+                continue
+            seen.append(marked)
+            pattern = "".join(
+                "[её]" if ch in "её" else r"\s+" if ch == " " else re.escape(ch) for ch in plain.lower()
+            )
+            entries.append((re.compile(rf"(?<![\w+]){pattern}(?![\w+])", re.IGNORECASE), marked))
+        entries.sort(key=lambda entry: len(entry[1]), reverse=True)
+        self._entries = entries
+        self.version = hashlib.sha256("\n".join(sorted(seen)).encode("utf-8")).hexdigest()[:12] if seen else ""
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    @staticmethod
+    def _cased(found: str, replacement: str) -> str:
+        if not found[:1].isupper():
+            return replacement
+        for index, ch in enumerate(replacement):
+            if ch.isalpha():
+                return replacement[:index] + ch.upper() + replacement[index + 1 :]
+        return replacement
+
+    def apply(self, text: str, *, marks: bool = True) -> str:
+        for regex, marked in self._entries:
+            replacement = marked if marks else marked.replace("+", "")
+            text = regex.sub(lambda m, r=replacement: self._cased(m.group(0), r), text)
+        return text
+
+
+def load_stress(path: Path | None) -> StressLexicon:
+    if not path or not path.is_file():
+        return StressLexicon([])
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return StressLexicon(data.get("phrases", []) if isinstance(data, dict) else data)

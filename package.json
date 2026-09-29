@@ -11,6 +11,7 @@
     "demo-gateway": "node server/demo-gateway-adapter.js",
     "speech": "node scripts/speech-run.mjs",
     "speech:check": "node scripts/speech-run.mjs --check",
+    "voice:bank": "node --no-warnings scripts/voice-bank.mjs",
     "build": "next build",
     "start": "node server/index.js",
     "lint": "eslint .",

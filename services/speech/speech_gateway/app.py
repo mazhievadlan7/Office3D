@@ -21,8 +21,10 @@ from . import __version__
 from .audio import FORMATS, MEDIA_TYPES, Audio, UndecodableAudio, concat, encode, resample
 from .cache import SpeechCache, cache_key
 from .config import Settings
+from .fx import FX_VERSION, apply_fx
+from .references import ReferenceStore
 from .stt_engine import Transcript
-from .text import chunk_text
+from .text import StressLexicon, chunk_text, load_stress
 from .voices import UnknownVoice, Voice, VoiceCatalog
 from .voicestudio import VoiceStudioClient, VoiceStudioError
 
@@ -135,6 +137,8 @@ def create_app(
     cache: SpeechCache | None = None,
     stt: SttLike | None = None,
     warmup: bool | None = None,
+    references: ReferenceStore | None = None,
+    stress: StressLexicon | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     if stt is None and settings.stt_engine == "gigaam":
@@ -162,12 +166,15 @@ def create_app(
             threads=settings.silero_threads,
             sample_rate=settings.silero_sample_rate,
             lexicon_file=settings.lexicon_file,
+            cis_model=settings.silero_cis_model,
         )
     voicestudio = voicestudio or VoiceStudioClient(
         settings.voicestudio_url, api_key=settings.voicestudio_api_key, timeout_s=settings.voicestudio_timeout_s
     )
     catalog = catalog or VoiceCatalog.load(settings.voices_file, settings.default_voice, settings.voicestudio_model)
     cache = cache or SpeechCache(settings.cache_dir, settings.cache_max_mb * 1024 * 1024, settings.cache_enabled)
+    references = references or ReferenceStore(settings.voice_refs_dirs)
+    stress = stress if stress is not None else load_stress(settings.stress_file)
     do_warmup = settings.warmup if warmup is None else warmup
     state: dict[str, Any] = {"voicestudio_down_until": 0.0}
     warm_state: dict[str, Any] = {"state": "off"}
@@ -183,8 +190,6 @@ def create_app(
         voice = voice or next((v for v in catalog.list() if v.engine == "voicestudio"), None)
         if voice is None:
             return
-        params = dict(voice.params)
-        params.setdefault("model", catalog.voicestudio_model)
         deadline = time.monotonic() + settings.voicestudio_warmup_timeout_s
         warm_state.update(state="waiting", voice=voice.id)
         while not (await voicestudio.health()).get("reachable"):
@@ -195,6 +200,7 @@ def create_app(
         warm_state["state"] = "loading"
         started = time.perf_counter()
         try:
+            params = await _voicestudio_params(voice, None)
             await voicestudio.synthesize(
                 _WARMUP_PHRASE, params, 1.0, timeout_s=max(10.0, deadline - time.monotonic())
             )
@@ -265,13 +271,43 @@ def create_app(
             "data": [voice.public() for voice in catalog.list()],
         }
 
-    async def _render(voice: Voice, text: str, speed: float, model: str | None) -> Audio:
-        if voice.engine == "silero":
-            return await run_in_threadpool(silero.synthesize, text, voice.params["speaker"], speed)
+    async def _voicestudio_params(voice: Voice, model: str | None) -> dict[str, Any]:
+        """What VoiceStudio is asked for: the preset, with its reference clip's profile when it has one."""
         params = dict(voice.params)
         if model and model not in _PASSTHROUGH_MODELS:
             params["model"] = model
         params.setdefault("model", catalog.voicestudio_model)
+        if voice.reference is not None:
+            clip = await run_in_threadpool(references.get, voice.reference.file)
+            if clip is not None:
+                try:
+                    params["voice"] = await voicestudio.ensure_profile(
+                        f"office3d-{voice.name}-{clip.sha256[:12]}",
+                        wav=clip.wav,
+                        text=voice.reference.text,
+                        seed=params.get("seed"),
+                        language=params.get("language"),
+                    )
+                    # The clip is the voice now: a description would switch VoxCPM2 out of cloning.
+                    params.pop("description", None)
+                    params.pop("instruct", None)
+                except VoiceStudioError as exc:
+                    if exc.unreachable:
+                        raise
+                    log.warning("%s: no voice profile (%s); designing the voice from its description", voice.id, exc.message)
+        return params
+
+    def _silero_model(voice: Voice) -> str:
+        model_for = getattr(silero, "model_for", None)
+        speaker = voice.params.get("speaker", "")
+        return model_for(speaker) if callable(model_for) and speaker else silero.model_id
+
+    async def _render(voice: Voice, text: str, speed: float, model: str | None) -> Audio:
+        if voice.engine == "silero":
+            marked = stress.apply(text, marks=True)
+            return await run_in_threadpool(silero.synthesize, marked, voice.params["speaker"], speed)
+        text = stress.apply(text, marks=False)
+        params = await _voicestudio_params(voice, model)
         # VoiceStudio takes at most 4096 characters, and designed voices stay
         # steadier over short spans: long text goes sentence by sentence.
         chunks = chunk_text(text, limit=VOICESTUDIO_CHUNK_CHARS) or [text]
@@ -296,8 +332,16 @@ def create_app(
         started = time.perf_counter()
         served = voice
         fallback_used = False
-        identity = {"voice": voice.cache_identity(), "text": text, "speed": round(req.speed, 3),
-                    "format": req.response_format, "model": req.model or "", "silero": silero.model_id}
+        identity: dict[str, Any] = {"voice": voice.cache_identity(), "text": text, "speed": round(req.speed, 3),
+                                    "format": req.response_format, "model": req.model or "", "silero": silero.model_id}
+        if voice.engine == "silero":
+            identity["silero"] = _silero_model(voice)
+        if voice.fx != "none":
+            identity["fx"] = [voice.fx, FX_VERSION]
+        if stress.version:
+            identity["stress"] = stress.version
+        if voice.reference is not None:
+            identity["reference"] = await run_in_threadpool(references.sha, voice.reference.file)
         key = cache_key(identity)
         cached = cache.get(key, req.response_format)
         if cached is not None:
@@ -338,6 +382,9 @@ def create_app(
             log.exception("synthesis failed for %s", voice.id)
             return openai_error(503, f"The {voice.engine} engine could not speak right now.", code="engine_unavailable")
 
+        # The voice's own treatment, on the fallback too: the preset is what is heard.
+        if voice.fx != "none":
+            audio = await run_in_threadpool(apply_fx, audio, voice.fx)
         data = await run_in_threadpool(encode, audio, req.response_format)
         if not fallback_used:
             cache.put(key, req.response_format, data)
@@ -348,6 +395,7 @@ def create_app(
             "X-Speech-Engine": served.engine,
             "X-Speech-Cache": "miss",
             "X-Speech-Duration": f"{audio.duration_s:.3f}",
+            "X-Speech-FX": voice.fx,
         }
         if fallback_used:
             headers["X-Speech-Fallback"] = served.id

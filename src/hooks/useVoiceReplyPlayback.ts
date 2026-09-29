@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceReplyProvider } from "@/lib/voiceReply/provider";
 import { t } from "@/lib/i18n";
+import { beginForegroundSpeech } from "@/lib/voice/speechDuck";
 import { splitSpeech } from "@/lib/voice/speechChunks";
 
 export type VoiceReplyPlaybackRequest = {
@@ -31,9 +32,13 @@ export const useVoiceReplyPlayback = (params: {
   const audioUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
+  /** Ends the duck of the HQ's crew talk for what is playing now (see lib/voice/speechDuck). */
+  const duckRef = useRef<(() => void) | null>(null);
   const [playing, setPlaying] = useState(false);
 
   const releaseAudio = useCallback(() => {
+    duckRef.current?.();
+    duckRef.current = null;
     const source = sourceRef.current;
     if (source) {
       source.onended = null;
@@ -113,6 +118,9 @@ export const useVoiceReplyPlayback = (params: {
           source.connect(audioContext.destination);
           sourceRef.current = source;
           setPlaying(true);
+          // The HQ's background crew talk ducks while a reply is spoken.
+          const endDuck = beginForegroundSpeech();
+          duckRef.current = endDuck;
           await new Promise<void>((resolve, reject) => {
             source.onended = () => {
               resolve();
@@ -123,6 +131,7 @@ export const useVoiceReplyPlayback = (params: {
               reject(error);
             }
           }).finally(() => {
+            endDuck();
             if (sourceRef.current === source) {
               source.disconnect();
               sourceRef.current = null;
@@ -140,6 +149,8 @@ export const useVoiceReplyPlayback = (params: {
       const audio = new Audio(nextUrl);
       audioRef.current = audio;
       setPlaying(true);
+      const endDuck = beginForegroundSpeech();
+      duckRef.current = endDuck;
       await new Promise<void>((resolve, reject) => {
         const cleanup = () => {
           audio.removeEventListener("ended", handleDone);
@@ -162,6 +173,7 @@ export const useVoiceReplyPlayback = (params: {
           reject(error);
         });
       }).finally(() => {
+        endDuck();
         if (audioRef.current === audio) {
           audioRef.current = null;
         }

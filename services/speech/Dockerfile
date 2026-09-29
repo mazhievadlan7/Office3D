@@ -18,7 +18,8 @@ COPY requirements.txt requirements-cpu.txt ./
 RUN pip install -r requirements-cpu.txt
 
 COPY speech_gateway ./speech_gateway
-COPY voices.json lexicon.json ./
+COPY voices.json lexicon.json stress.json ./
+COPY voice-refs ./voice-refs
 
 USER speech
 EXPOSE 8765

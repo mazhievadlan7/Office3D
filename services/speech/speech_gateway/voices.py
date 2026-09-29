@@ -2,8 +2,12 @@
 
 A preset names an engine and everything that engine needs to sound the same
 every time (a VoiceStudio model, a voice-design description and a seed, or a
-Silero speaker). A VoiceStudio preset may name a Silero `fallback`, spoken when
-VoiceStudio is down — so a CPU-only server without VoiceStudio still talks.
+Silero speaker). A VoiceStudio preset may carry a `reference`: a short clip of
+the designed voice (services/speech/voice-refs/, synthetic, made with VoxCPM2
+voice design) that VoiceStudio clones, so the timbre is the same on every
+line. It may name a Silero `fallback`, spoken when VoiceStudio is down — so a
+CPU-only server without VoiceStudio still talks. `fx` names the
+post-processing preset (fx.py) the voice is heard through, fallback included.
 """
 
 from __future__ import annotations
@@ -14,9 +18,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .fx import is_fx_preset
+
 ENGINES = ("silero", "voicestudio")
 VOICE_ID_RE = re.compile(r"^(silero|voicestudio):([A-Za-z0-9_.-]{1,80})$")
+#: Silero v5 Russian speakers (the `silero_model`, v5_5_ru by default).
 SILERO_SPEAKERS = ("aidar", "baya", "kseniya", "xenia", "eugene")
+#: Russian speakers of Silero's CIS model (v5_cis_base, MIT): more distinct
+#: voices for the crew's fallbacks. Loaded only once one of them speaks.
+SILERO_CIS_SPEAKERS = (
+    "ru_alexandr", "ru_bogdan", "ru_dmitriy", "ru_eduard", "ru_gamat", "ru_igor", "ru_marat", "ru_roman",
+    "ru_safarhuja", "ru_sibday",
+    "ru_aigul", "ru_albina", "ru_alfia", "ru_alfia2", "ru_ekaterina", "ru_karina", "ru_kejilgan", "ru_kermen",
+    "ru_miyau", "ru_nurgul", "ru_oksana", "ru_onaoy", "ru_ramilia", "ru_saida", "ru_vika", "ru_zara",
+    "ru_zhadyra", "ru_zhazira", "ru_zinaida",
+)
+ALL_SILERO_SPEAKERS = SILERO_SPEAKERS + SILERO_CIS_SPEAKERS
 SILERO_LABELS = {
     "aidar": "Айдар",
     "baya": "Бая",
@@ -28,10 +45,23 @@ SILERO_LABELS = {
 OPENAI_VOICE_NAMES = frozenset(
     {"alloy", "ash", "ballad", "cedar", "coral", "echo", "fable", "marin", "nova", "onyx", "sage", "shimmer", "verse"}
 )
+_REFERENCE_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}\.(flac|wav)$")
 
 
 class UnknownVoice(ValueError):
     pass
+
+
+def is_cis_speaker(speaker: str) -> bool:
+    return speaker in SILERO_CIS_SPEAKERS
+
+
+@dataclass(frozen=True)
+class Reference:
+    """A clip of the voice for VoiceStudio to clone: a file in voice-refs/ and its exact transcript."""
+
+    file: str
+    text: str
 
 
 @dataclass(frozen=True)
@@ -45,6 +75,11 @@ class Voice:
     #: silero: speaker. voicestudio: request fields (model, voice, description, seed, language, instruct).
     params: dict[str, Any] = field(default_factory=dict)
     fallback: str | None = None
+    #: Post-processing preset (fx.FX_PRESETS): none, humanoid, humanoid-light.
+    fx: str = "none"
+    reference: Reference | None = None
+    #: "male" / "female": lines written for the crew take the speaker's grammatical gender.
+    gender: str | None = None
 
     def public(self) -> dict[str, Any]:
         out: dict[str, Any] = {"id": self.id, "engine": self.engine, "label": self.label, "role": self.role}
@@ -52,10 +87,23 @@ class Voice:
             out["description"] = self.description
         if self.fallback:
             out["fallback"] = self.fallback
+        if self.fx != "none":
+            out["fx"] = self.fx
+        if self.gender:
+            out["gender"] = self.gender
         return out
 
     def cache_identity(self) -> dict[str, Any]:
-        return {"id": self.id, "engine": self.engine, "params": self.params}
+        identity: dict[str, Any] = {"id": self.id, "engine": self.engine, "params": self.params}
+        if self.reference:
+            identity["reference"] = {"file": self.reference.file, "text": self.reference.text}
+        return identity
+
+
+def _silero_label(speaker: str) -> str:
+    if speaker in SILERO_LABELS:
+        return f"{SILERO_LABELS[speaker]} (Silero)"
+    return f"{speaker.removeprefix('ru_').capitalize()} (Silero CIS)"
 
 
 def _silero_voice(speaker: str, role: str = "any", label: str | None = None) -> Voice:
@@ -63,7 +111,7 @@ def _silero_voice(speaker: str, role: str = "any", label: str | None = None) -> 
         id=f"silero:{speaker}",
         engine="silero",
         name=speaker,
-        label=label or f"{SILERO_LABELS.get(speaker, speaker)} (Silero)",
+        label=label or _silero_label(speaker),
         role=role,
         params={"speaker": speaker},
     )
@@ -75,6 +123,12 @@ class VoiceCatalog:
         self.voicestudio_model = voicestudio_model
         for speaker in SILERO_SPEAKERS:
             self._presets.setdefault(f"silero:{speaker}", _silero_voice(speaker))
+        # The CIS speakers named as fallbacks are listed too (the rest resolve on request).
+        for voice in presets:
+            if voice.fallback and voice.fallback not in self._presets:
+                name = voice.fallback.split(":", 1)[1]
+                if name in ALL_SILERO_SPEAKERS:
+                    self._presets[voice.fallback] = _silero_voice(name)
         self.default_voice = default_voice if default_voice in self._presets or VOICE_ID_RE.match(default_voice) else "silero:aidar"
 
     @classmethod
@@ -100,8 +154,8 @@ class VoiceCatalog:
             raise UnknownVoice(f"Unknown voice '{value}'. Use <engine>:<name>, engines: {', '.join(ENGINES)}.")
         engine, name = match.groups()
         if engine == "silero":
-            if name not in SILERO_SPEAKERS:
-                raise UnknownVoice(f"Unknown Silero speaker '{name}'. Speakers: {', '.join(SILERO_SPEAKERS)}.")
+            if name not in ALL_SILERO_SPEAKERS:
+                raise UnknownVoice(f"Unknown Silero speaker '{name}'. Speakers: {', '.join(ALL_SILERO_SPEAKERS)}.")
             return _silero_voice(name)
         # Any other VoiceStudio voice: a voice-profile id or an engine preset there.
         return Voice(
@@ -122,11 +176,27 @@ def parse_preset(raw: dict[str, Any]) -> Voice:
     params = dict(raw.get("params") or {})
     if engine == "silero":
         params.setdefault("speaker", name)
-        if params["speaker"] not in SILERO_SPEAKERS:
+        if params["speaker"] not in ALL_SILERO_SPEAKERS:
             raise ValueError(f"voices.json: {voice_id} names unknown Silero speaker {params['speaker']!r}")
     fallback = raw.get("fallback")
     if fallback is not None and not (isinstance(fallback, str) and fallback.startswith("silero:")):
         raise ValueError(f"voices.json: {voice_id} fallback must be a silero voice")
+    fx = str(raw.get("fx") or "none")
+    if not is_fx_preset(fx):
+        raise ValueError(f"voices.json: {voice_id} names unknown fx preset {fx!r}")
+    reference = None
+    ref = raw.get("reference")
+    if ref is not None:
+        if engine != "voicestudio" or not isinstance(ref, dict):
+            raise ValueError(f"voices.json: {voice_id}: only a VoiceStudio voice takes a reference {{file, text}}")
+        file = str(ref.get("file") or "")
+        text = " ".join(str(ref.get("text") or "").split())
+        if not _REFERENCE_FILE_RE.match(file) or not text:
+            raise ValueError(f"voices.json: {voice_id}: a reference needs a file (name.flac or .wav) and its text")
+        reference = Reference(file=file, text=text)
+    gender = raw.get("gender")
+    if gender not in (None, "male", "female"):
+        raise ValueError(f"voices.json: {voice_id}: gender must be male or female")
     return Voice(
         id=voice_id,
         engine=engine,
@@ -136,4 +206,7 @@ def parse_preset(raw: dict[str, Any]) -> Voice:
         description=raw.get("description"),
         params=params,
         fallback=fallback,
+        fx=fx,
+        reference=reference,
+        gender=gender,
     )

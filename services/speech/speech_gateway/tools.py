@@ -1,8 +1,9 @@
 """Setup and check helpers, used by scripts/speech-setup.* and by hand.
 
     python -m speech_gateway.tools prefetch
-        Download Silero, the stress model and the speech-recognition model
-        (GigaAM v3 + Silero VAD) now, instead of at first use.
+        Download Silero (the Russian and the CIS model), the stress model and
+        the speech-recognition model (GigaAM v3 + Silero VAD) now, instead of
+        at first use.
     python -m speech_gateway.tools prefetch-stt
         Only the speech-recognition model.
     python -m speech_gateway.tools voicestudio-install voxcpm2 [--url URL]
@@ -74,11 +75,14 @@ def prefetch() -> int:
         device=settings.silero_device,
         threads=settings.silero_threads,
         lexicon_file=settings.lexicon_file,
+        cis_model=settings.silero_cis_model,
     )
     started = time.perf_counter()
     engine.load()
     print(f"Silero {settings.silero_model} ready on {engine.device} in {time.perf_counter() - started:.1f}s "
           f"({engine.model_path})")
+    engine.load_cis()
+    print(f"Silero {settings.silero_cis_model} ready (the crew's fallback voices)")
     return prefetch_stt()
 
 
@@ -169,7 +173,7 @@ def smoke(url: str, out: Path, wav: Path | None) -> int:
     health = _json("GET", f"{base}/health", timeout=10)
     print("health:", json.dumps(health, ensure_ascii=False))
     phrases = [
-        ("silero:aidar", "Доброе утро. Система штаба на связи: сорок два агента готовы, замки открыты."),
+        ("silero:system", "Доброе утро. Система штаба на связи: сорок два агента готовы, все под контролем."),
         ("voicestudio:am7", "Брифинг начинается. Цель операции — проверка периметра."),
     ]
     for voice, text in phrases:
@@ -193,7 +197,7 @@ def smoke(url: str, out: Path, wav: Path | None) -> int:
               f"cache={headers.get('x-speech-cache')} fallback={headers.get('x-speech-fallback', '-')} -> {out / name}")
         if headers.get("x-speech-fallback"):
             ok = False
-    sample = wav or out / "silero_aidar.wav"
+    sample = wav or out / "silero_system.wav"
     if sample.is_file():
         boundary = "----office3dspeech"
         payload = (

@@ -4,7 +4,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import { HQ_SUBTITLE_SLOTS, type HqSubtitleSink } from "@/features/hq/render/audio/HqSoundscape";
 
 /**
- * Subtitle frames over the heads of agents who are talking near the camera
+ * Caption frames (off by default: voice, not text) over the heads of agents talking near the camera
  * (render/audio/HqSoundscape.tsx). The render loop writes text and position
  * straight into these nodes through `sinkRef`; React renders them once.
  */

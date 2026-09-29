@@ -20,3 +20,17 @@ export function saveHqSoundOn(on: boolean): void {
     // Storage blocked: the choice lasts for this visit.
   }
 }
+
+const CAPTIONS_KEY = "office3d.hq.captions";
+
+/**
+ * Captions over the crew's talk. Voice, not text: off unless this browser
+ * turned them on (localStorage "office3d.hq.captions" = "on").
+ */
+export function hqCaptionsOn(): boolean {
+  try {
+    return window.localStorage.getItem(CAPTIONS_KEY) === "on";
+  } catch {
+    return false;
+  }
+}

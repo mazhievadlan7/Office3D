@@ -54,9 +54,20 @@ export const resolveAgentVoice = (params: {
   const options = crew.length
     ? crew
     : (setup?.tts.options ?? []).map((option) => option.id).filter((id) => id !== systemVoice);
-  if (options.length === 0) return mainVoice;
-  const pool = options.length > 1 ? options.filter((id) => id !== mainVoice) : options;
-  return pool[hash(agentId) % pool.length];
+  return crewVoiceFor(agentId, options, mainVoice) ?? mainVoice;
+};
+
+/**
+ * An operator's crew voice: a stable hash of their id over the crew voices,
+ * skipping the main agent's voice while there are others. The HQ's ambient
+ * talk (render/audio/HqSoundscape) uses it too, so an agent sounds the same
+ * across the floor and in chat. Null without crew voices.
+ */
+export const crewVoiceFor = (agentId: string, crewVoiceIds: readonly string[], mainVoice: string | null): string | null => {
+  if (crewVoiceIds.length === 0) return null;
+  const pool = crewVoiceIds.length > 1 ? crewVoiceIds.filter((id) => id !== mainVoice) : crewVoiceIds;
+  const from = pool.length ? pool : crewVoiceIds;
+  return from[hash(agentId) % from.length];
 };
 
 /** Session keys whose replies are not spoken as ordinary chat replies. */

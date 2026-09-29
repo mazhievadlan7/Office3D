@@ -1,0 +1,32 @@
+{
+  "_comment": "Phrases in the office's own lines whose stress the engines get wrong (homographs, jargon). Written with + before the stressed vowel. Silero reads the marks; for VoxCPM2 the marks are dropped and only ё is kept. Matching ignores case and ё/е.",
+  "phrases": [
+    "вс+ё под контр+олем",
+    "вс+ё ч+исто",
+    "вс+ё в п+орядке",
+    "вс+ё гот+ово",
+    "вс+ё сход+ится",
+    "вс+ё раб+отает",
+    "вс+ё по регл+аменту",
+    "вс+ё зафикс+ировал",
+    "вс+ё зафикс+ировала",
+    "вс+е на мест+ах",
+    "вс+е аг+енты",
+    "вс+е кан+алы",
+    "зам+ок на двер+и",
+    "зам+ок серв+ерной",
+    "ст+арый з+амок",
+    "мук+а в мешк+е",
+    "м+ука ожид+ания",
+    "ск+оуп",
+    "ск+оупа",
+    "ск+оупе",
+    "ск+оупу",
+    "ск+оупом",
+    "р+етест",
+    "р+етеста",
+    "в+ыводы",
+    "д+ашборд",
+    "эй эм с+емь"
+  ]
+}

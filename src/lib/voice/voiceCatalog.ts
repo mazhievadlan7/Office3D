@@ -17,6 +17,8 @@ export type SpeechVoice = {
   role: SpeechVoiceRole;
   /** The Silero voice the gateway speaks with when VoiceStudio is down. */
   fallback?: string;
+  /** Grammatical gender of the voice (the crew's lines are written for it). */
+  gender?: "male" | "female";
 };
 
 export const SPEECH_VOICE_ID_RE = /^(silero|voicestudio):[A-Za-z0-9_.-]{1,80}$/;
@@ -24,17 +26,33 @@ export const SPEECH_VOICE_ID_RE = /^(silero|voicestudio):[A-Za-z0-9_.-]{1,80}$/;
 export const isSpeechVoiceId = (value: unknown): value is string =>
   typeof value === "string" && SPEECH_VOICE_ID_RE.test(value.trim());
 
-export const DEFAULT_SYSTEM_VOICE = "silero:aidar";
+/** «Система штаба»: Silero's deepest voice (exact stress, instant on a CPU) with the gateway's humanoid FX. */
+export const DEFAULT_SYSTEM_VOICE = "silero:system";
 export const DEFAULT_LEAD_VOICE = "voicestudio:am7";
 
+const crew = (id: string, label: string, gender: "male" | "female", fallback: string): SpeechVoice => ({
+  id: `voicestudio:${id}`,
+  label,
+  engine: "voicestudio",
+  role: "crew",
+  fallback,
+  gender,
+});
+
+// The casting: AM7 and eight operators, each a VoxCPM2-designed voice cloned
+// from its own reference clip, each with a different Silero fallback.
 export const BUILTIN_SPEECH_VOICES: SpeechVoice[] = [
-  { id: "voicestudio:am7", label: "AM7", engine: "voicestudio", role: "lead", fallback: "silero:eugene" },
-  { id: "voicestudio:crew-m1", label: "Оператор М1", engine: "voicestudio", role: "crew", fallback: "silero:aidar" },
-  { id: "voicestudio:crew-m2", label: "Оператор М2", engine: "voicestudio", role: "crew", fallback: "silero:eugene" },
-  { id: "voicestudio:crew-m3", label: "Оператор М3", engine: "voicestudio", role: "crew", fallback: "silero:aidar" },
-  { id: "voicestudio:crew-f1", label: "Оператор Ж1", engine: "voicestudio", role: "crew", fallback: "silero:baya" },
-  { id: "voicestudio:crew-f2", label: "Оператор Ж2", engine: "voicestudio", role: "crew", fallback: "silero:kseniya" },
-  { id: "silero:aidar", label: "Система штаба (Айдар, Silero)", engine: "silero", role: "system" },
+  { id: "voicestudio:am7", label: "AM7", engine: "voicestudio", role: "lead", fallback: "silero:ru_safarhuja", gender: "male" },
+  crew("crew-m1", "Оператор — быстрый, точный", "male", "silero:ru_alexandr"),
+  crew("crew-m2", "Аналитик — холодный, ровный", "male", "silero:ru_roman"),
+  crew("crew-m3", "Ветеран — спокойный баритон", "male", "silero:aidar"),
+  crew("crew-m4", "Инфильтратор — с хрипотцой, тихий", "male", "silero:ru_bogdan"),
+  crew("crew-m5", "Взломщик — молодой, энергичный", "male", "silero:ru_dmitriy"),
+  crew("crew-m6", "Часовой — глубокий бас, сдержанный", "male", "silero:ru_eduard"),
+  crew("crew-f1", "Техлид — точная, собранная (Ж)", "female", "silero:baya"),
+  crew("crew-f2", "Разведка — спокойная, негромкая (Ж)", "female", "silero:kseniya"),
+  { id: "silero:system", label: "Система штаба (Silero Евгений)", engine: "silero", role: "system", gender: "male" },
+  { id: "silero:aidar", label: "Айдар (Silero)", engine: "silero", role: "any" },
   { id: "silero:eugene", label: "Евгений (Silero)", engine: "silero", role: "any" },
   { id: "silero:baya", label: "Бая (Silero)", engine: "silero", role: "any" },
   { id: "silero:kseniya", label: "Ксения (Silero)", engine: "silero", role: "any" },
@@ -56,7 +74,8 @@ export const parseGatewayVoices = (body: unknown): SpeechVoice[] => {
     const role = ROLES.includes(entry.role as SpeechVoiceRole) ? (entry.role as SpeechVoiceRole) : "any";
     const label = typeof entry.label === "string" && entry.label.trim() ? entry.label.trim().slice(0, 80) : id;
     const fallback = isSpeechVoiceId(entry.fallback) ? String(entry.fallback) : undefined;
-    voices.push({ id, label, engine, role, ...(fallback ? { fallback } : {}) });
+    const gender = entry.gender === "male" || entry.gender === "female" ? entry.gender : undefined;
+    voices.push({ id, label, engine, role, ...(fallback ? { fallback } : {}), ...(gender ? { gender } : {}) });
   }
   return voices;
 };

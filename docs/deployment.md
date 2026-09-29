@@ -353,18 +353,61 @@ GPU процесс VoiceStudio удерживал ещё ~4 ГБ видеопа�
 `turbo`) этого не исправляет: VoiceStudio загружает её заново на каждый запрос,
 и одна загрузка large-v3 по его журналу занимает 7–8 с.
 
+### Голоса и обработка
+
+Кто каким голосом говорит, задаёт `services/speech/voices.json`:
+
+- «Система штаба» — `silero:system` (Silero `eugene`, самый низкий голос Silero,
+  точные ударения, мгновенно на CPU);
+- AM7 и восемь операторов (шесть мужских, два женских) — голоса, созданные
+  дизайном голоса VoxCPM2 по английскому описанию с фиксированным seed. Каждый
+  один раз записан в короткий эталон (`services/speech/voice-refs/*.flac`,
+  синтетический голос, не запись человека); шлюз заводит по нему профиль в
+  VoiceStudio и клонирует его на каждой реплике, поэтому тембр не «плывёт» от
+  фразы к фразе. У каждого свой запасной голос Silero (`fallback`), все
+  разные;
+- `fx` — обработка «гуманоидного ИИ», которую шлюз накладывает после синтеза и
+  до кэша (numpy, одинаково на любом CPU): `humanoid` (на 2 полутона ниже,
+  лёгкий фленджер, короткое эхо) у системы и AM7, `humanoid-light` (на
+  полутон ниже, едва заметный фленджер) у команды, `none` — без обработки.
+  Браузер играет звук как есть.
+
+Свой эталон для сервера можно положить в `<OFFICE3D_SPEECH_HOME>/voice-refs/`
+с тем же именем файла: он важнее файла из репозитория. Без эталона голос
+создаётся по описанию (тембр между репликами менее стабилен).
+
+### Реплики команды в штабе
+
+Когда камера подходит к тем, кто разговаривает (в лаунже, соседи за столами),
+слышны настоящие короткие реплики каждого своим голосом: вопросы и ответы о
+скоупе, находках, отчётах, учениях на полигоне
+(`src/features/hq/render/audio/crewScript.ts`). Их нужно один раз озвучить
+при запущенном `npm run speech`:
+
+```bash
+npm run voice:bank            # все голоса команды и AM7; можно прервать и продолжить
+npm run voice:bank -- --check # сколько готово
+```
+
+Файлы лежат вне репозитория (`OFFICE3D_VOICE_BANK_DIR`), офис отдаёт их по
+`/api/office/voice/bank`. Пока банка нет, в штабе слышен синтезированный гул
+голосов. Субтитров над говорящими по умолчанию нет (голос, а не текст); их
+можно включить в браузере: `localStorage["office3d.hq.captions"] = "on"`.
+
 ### Настройки
 
 | Переменная | Где | Значение по умолчанию |
 | --- | --- | --- |
 | `SPEECH_GATEWAY_URL` | офис | `http://127.0.0.1:8765` |
-| `OFFICE3D_SYSTEM_VOICE` | офис | `silero:aidar` — голос «Системы штаба» |
+| `OFFICE3D_SYSTEM_VOICE` | офис | `silero:system` — голос «Системы штаба» (Silero Евгений с обработкой humanoid) |
 | `OFFICE3D_TTS_VOICE` | офис | `voicestudio:am7` — голос AM7, если в настройках не выбран другой |
 | `OFFICE3D_STT_LANGUAGE` | офис | `ru` |
+| `OFFICE3D_VOICE_BANK_DIR` | офис, `npm run voice:bank` | `<OFFICE3D_SPEECH_HOME>/voice-bank` — заранее озвученные реплики команды |
 | `OFFICE3D_SPEECH_HOME` | установка, `npm run speech`, шлюз | см. выше |
 | `SPEECH_PORT`, `SPEECH_DEFAULT_VOICE` | шлюз | `8765`, `silero:aidar` |
 | `VOICESTUDIO_URL`, `VOICESTUDIO_MODEL`, `VOICESTUDIO_TIMEOUT_S`, `VOICESTUDIO_BACKOFF_S` | шлюз | `http://127.0.0.1:3900`, `voxcpm2`, `90`, `60` (после сбоя VoiceStudio столько секунд говорят запасные голоса) |
-| `SILERO_MODEL`, `SILERO_DEVICE`, `SILERO_THREADS` | шлюз | `v5_5_ru`, `cpu`, `4` |
+| `SILERO_MODEL`, `SILERO_CIS_MODEL`, `SILERO_DEVICE`, `SILERO_THREADS` | шлюз | `v5_5_ru`, `v5_cis_base` (голоса `ru_*` для запасных голосов команды, MIT; скачивается при первом использовании), `cpu`, `4` |
+| `SPEECH_STRESS_FILE` | шлюз | `services/speech/stress.json` — фразы с ударениями (`+`) для омографов в репликах офиса |
 | `SPEECH_STT_ENGINE` | шлюз | `gigaam` (или `voicestudio` — всё распознаёт Whisper VoiceStudio) |
 | `SPEECH_STT_MODEL`, `SPEECH_STT_QUANTIZATION`, `SPEECH_STT_THREADS` | шлюз | `gigaam-v3-e2e-rnnt` (или `gigaam-v3-e2e-ctc`), пусто (полная точность; `int8` — в 4 раза меньше памяти), `4` |
 | `SPEECH_STT_VAD`, `SPEECH_STT_FALLBACK`, `SPEECH_STT_MODEL_DIR` | шлюз | `1`, `1` (без GigaAM — в VoiceStudio), пусто (веса из `HF_HOME`; каталог — для установки без сети) |

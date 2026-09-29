@@ -98,7 +98,7 @@ describe("voice providers", () => {
     const calls = stubFetch(mp3(), mp3());
     await ttsProvider({}).synthesize({ text: "Доброе утро", voiceId: "voicestudio:am7", role: "system" });
     await ttsProvider({ OFFICE3D_SYSTEM_VOICE: "silero:eugene" }).synthesize({ text: "Доброе утро", role: "system" });
-    expect(JSON.parse(String(calls[0].init.body)).voice).toBe("silero:aidar");
+    expect(JSON.parse(String(calls[0].init.body)).voice).toBe("silero:system");
     expect(JSON.parse(String(calls[1].init.body)).voice).toBe("silero:eugene");
   });
 
@@ -171,7 +171,7 @@ describe("voice providers", () => {
         object: "list",
         default: "silero:aidar",
         data: [
-          { id: "silero:aidar", label: "Система", role: "system", engine: "silero" },
+          { id: "silero:system", label: "Система", role: "system", engine: "silero" },
           { id: "voicestudio:am7", label: "AM7", role: "lead", engine: "voicestudio", fallback: "silero:eugene" },
           { id: "voicestudio:crew-m1", label: "М1", role: "crew", engine: "voicestudio" },
           { id: "voicestudio:crew-f1", label: "Ж1", role: "crew", engine: "voicestudio" },
@@ -185,12 +185,12 @@ describe("voice providers", () => {
       provider: "local-speech",
       ready: true,
       defaultVoiceId: "voicestudio:am7",
-      systemVoiceId: "silero:aidar",
+      systemVoiceId: "silero:system",
       leadVoiceId: "voicestudio:am7",
       crewVoiceIds: ["voicestudio:crew-m1", "voicestudio:crew-f1"],
     });
     expect(setup.tts.options.map((option) => option.id)).toEqual([
-      "silero:aidar",
+      "silero:system",
       "voicestudio:am7",
       "voicestudio:crew-m1",
       "voicestudio:crew-f1",

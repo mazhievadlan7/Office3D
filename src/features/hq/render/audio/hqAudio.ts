@@ -2,10 +2,12 @@ import type { Camera } from "three";
 import { Vector3 } from "three";
 
 /**
- * The HQ's own sounds, synthesised with Web Audio (no audio files): keyboards
- * and mice at the desks near the camera, and the android crew's muffled talk
- * where people chat. Everything is placed in 3D (HRTF panners) and heard from
- * the camera, so it only reaches the ear when the camera comes close.
+ * The HQ's own sounds: keyboards and mice at the desks near the camera
+ * (synthesised with Web Audio), the crew's talk where people chat (their real
+ * pre-rendered phrases up close, a synthesised muffled murmur farther off).
+ * Everything is placed in 3D (HRTF panners) and heard from the camera, so it
+ * only reaches the ear when the camera comes close. The crew's voices go
+ * through their own bus, which ducks while «Система штаба» or AM7 speaks.
  *
  * Browsers start audio only after a user gesture: `resume` is called on the
  * first pointer or key press. Nodes for one sound are made when it plays and
@@ -16,6 +18,8 @@ import { Vector3 } from "three";
 const LOOKAHEAD = 0.12;
 /** How loud the whole HQ is (0..1), before distance. */
 const MASTER = 0.55;
+/** The crew's voices while foreground speech (the system, AM7) is heard. */
+const DUCKED = 0.16;
 
 /**
  * A source is re-placed only once it has moved this far (squared metres,
@@ -43,6 +47,8 @@ export type HqAudioSource = {
 export class HqAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private voices: GainNode | null = null;
+  private ducked = false;
   private noise: AudioBuffer | null = null;
   private enabled = true;
   private disposed = false;
@@ -65,6 +71,11 @@ export class HqAudio {
     return this.now >= 0 && this.enabled;
   }
 
+  /** The audio context (null before the first gesture): the voice bank decodes with it. */
+  get context(): AudioContext | null {
+    return this.ctx;
+  }
+
   /** Starts (or wakes) the audio context; call from a user gesture. */
   resume(): void {
     if (this.disposed) return;
@@ -82,11 +93,22 @@ export class HqAudio {
       limiter.ratio.value = 6;
       master.connect(limiter);
       limiter.connect(ctx.destination);
+      const voices = ctx.createGain();
+      voices.gain.value = this.ducked ? DUCKED : 1;
+      voices.connect(master);
       this.ctx = ctx;
       this.master = master;
+      this.voices = voices;
       this.noise = whiteNoise(ctx, 1.5);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
+  }
+
+  /** Lowers the crew's voices (not the keyboards) while foreground speech plays. */
+  duckVoices(on: boolean): void {
+    this.ducked = on;
+    const ctx = this.ctx;
+    if (ctx && this.voices) this.voices.gain.setTargetAtTime(on ? DUCKED : 1, ctx.currentTime, on ? 0.08 : 0.4);
   }
 
   setEnabled(enabled: boolean): void {
@@ -146,10 +168,13 @@ export class HqAudio {
     }
   }
 
-  /** A positioned source; its sounds are connected to `panner`. */
-  source(refDistance = 1.2, maxDistance = 22): HqAudioSource | null {
+  /**
+   * A positioned source; its sounds are connected to `panner`. `voice`
+   * sources go through the crew's voice bus (ducked under foreground speech).
+   */
+  source(refDistance = 1.2, maxDistance = 22, voice = false): HqAudioSource | null {
     const ctx = this.ctx;
-    const master = this.master;
+    const master = voice ? this.voices : this.master;
     if (!ctx || !master) return null;
     const panner = ctx.createPanner();
     panner.panningModel = "HRTF";
@@ -301,14 +326,56 @@ export class HqAudio {
     };
   }
 
+  /**
+   * A decoded phrase from `time` into `out`, at `level`. Returns controls to
+   * fade it out early, or null before audio has started.
+   */
+  phrase(out: AudioNode, buffer: AudioBuffer, time: number, level: number): HqPhrase | null {
+    const ctx = this.ctx;
+    if (!ctx) return null;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    src.connect(gain);
+    gain.connect(out);
+    const phrase: HqPhrase = {
+      endsAt: time + buffer.duration,
+      stop(at) {
+        if (phrase.endsAt <= at) return;
+        phrase.endsAt = at + 0.15;
+        gain.gain.setTargetAtTime(0, at, 0.04);
+        try {
+          src.stop(at + 0.2);
+        } catch {
+          // Already stopped.
+        }
+      },
+    };
+    src.onended = () => {
+      src.disconnect();
+      gain.disconnect();
+    };
+    src.start(time);
+    return phrase;
+  }
+
   dispose(): void {
     this.disposed = true;
     void this.ctx?.close();
     this.ctx = null;
     this.master = null;
+    this.voices = null;
     this.noise = null;
   }
 }
+
+export type HqPhrase = {
+  /** Audio time the phrase ends (earlier once stopped). */
+  endsAt: number;
+  /** Fades it out from `time`. */
+  stop(time: number): void;
+};
 
 export type HqVoice = {
   /** One syllable from `time` for `length` seconds, at `level` (0..1), on a vowel index. */

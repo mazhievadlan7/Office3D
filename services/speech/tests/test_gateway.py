@@ -16,6 +16,8 @@ from fastapi.testclient import TestClient
 from speech_gateway.app import create_app
 from speech_gateway.cache import SpeechCache
 from speech_gateway.config import SERVICE_DIR, Settings, is_loopback
+from speech_gateway.references import ReferenceStore
+from speech_gateway.text import StressLexicon
 from speech_gateway.voices import VoiceCatalog
 from speech_gateway.voicestudio import VoiceStudioClient
 
@@ -36,6 +38,7 @@ class FakeVoiceStudio:
         self.down = down
         self.speech_status = speech_status
         self.requests: list[httpx.Request] = []
+        self.profiles: list[dict] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -49,6 +52,14 @@ class FakeVoiceStudio:
             return httpx.Response(200, content=wav_bytes(), headers={"content-type": "audio/wav"})
         if request.url.path == "/v1/audio/transcriptions":
             return httpx.Response(200, json={"text": "привет штаб"})
+        if request.url.path == "/profiles" and request.method == "GET":
+            return httpx.Response(200, json=self.profiles)
+        if request.url.path == "/profiles" and request.method == "POST":
+            body = request.content.decode("utf-8", "replace")
+            name = body.split('name="name"\r\n\r\n', 1)[1].split("\r\n", 1)[0]
+            profile = {"id": f"p{len(self.profiles) + 1}", "name": name, "body": body}
+            self.profiles.append(profile)
+            return httpx.Response(200, json=profile)
         return httpx.Response(404, json={"detail": "not found"})
 
     def client(self) -> VoiceStudioClient:
@@ -61,7 +72,13 @@ def settings(tmp_path: Path) -> Settings:
 
 
 def make_client(
-    settings: Settings, silero=None, vs: FakeVoiceStudio | None = None, cache: bool = True, stt=None
+    settings: Settings,
+    silero=None,
+    vs: FakeVoiceStudio | None = None,
+    cache: bool = True,
+    stt=None,
+    references: ReferenceStore | None = None,
+    stress: StressLexicon | None = None,
 ) -> TestClient:
     vs = vs or FakeVoiceStudio()
     app = create_app(
@@ -71,6 +88,9 @@ def make_client(
         cache=SpeechCache(settings.cache_dir, 10 * 1024 * 1024, enabled=cache),
         stt=stt or FakeStt(),
         warmup=False,
+        # No reference clips unless a test gives some: presets are then designed voices.
+        references=references or ReferenceStore(()),
+        stress=stress,
     )
     return TestClient(app)
 
@@ -79,9 +99,10 @@ def test_voices_lists_both_engines_and_roles(settings):
     body = make_client(settings).get("/v1/voices").json()
     ids = {voice["id"]: voice for voice in body["data"]}
     assert body["default"] == "silero:aidar"
-    assert ids["silero:aidar"]["role"] == "system"
-    assert ids["voicestudio:am7"]["role"] == "lead"
-    assert ids["voicestudio:am7"]["fallback"] == "silero:eugene"
+    assert ids["silero:system"]["role"] == "system" and ids["silero:system"]["fx"] == "humanoid"
+    assert ids["voicestudio:am7"]["role"] == "lead" and ids["voicestudio:am7"]["fx"] == "humanoid"
+    assert ids["voicestudio:am7"]["fallback"] == "silero:ru_safarhuja"
+    assert ids["silero:ru_safarhuja"]["engine"] == "silero"
     assert {"silero:baya", "silero:kseniya", "silero:xenia", "silero:eugene"} <= set(ids)
     assert sum(1 for v in body["data"] if v["role"] == "crew") >= 2
     # Nothing engine-internal (seeds, prompts) leaks into the list.
@@ -161,8 +182,10 @@ def test_voicestudio_down_falls_back_to_silero(settings):
     client = make_client(settings, silero, FakeVoiceStudio(down=True))
     response = client.post("/v1/audio/speech", json={"voice": "voicestudio:am7", "input": "Резерв"})
     assert response.status_code == 200
-    assert response.headers["x-speech-fallback"] == "silero:eugene"
-    assert silero.calls[-1][1] == "eugene"
+    assert response.headers["x-speech-fallback"] == "silero:ru_safarhuja"
+    assert silero.calls[-1][1] == "ru_safarhuja"
+    # The fallback is heard through AM7's own treatment.
+    assert response.headers["x-speech-fx"] == "humanoid"
 
 
 def test_after_a_failure_fallback_voices_skip_voicestudio_for_a_while(settings):
@@ -437,6 +460,81 @@ def test_bind_is_loopback_only(monkeypatch):
 
 def test_shipped_voices_file_parses():
     catalog = VoiceCatalog.load(SERVICE_DIR / "voices.json", "silero:aidar", "voxcpm2")
+    store = ReferenceStore((SERVICE_DIR / "voice-refs",))
+    fallbacks = []
     for voice in catalog.list():
         if voice.fallback:
             assert catalog.resolve(voice.fallback).engine == "silero"
+            fallbacks.append(voice.fallback)
+        if voice.reference:
+            assert store.find(voice.reference.file), voice.reference.file
+    # Every designed voice has its own fallback, and none is the system's.
+    assert len(fallbacks) == len(set(fallbacks))
+    assert catalog.resolve("silero:system").params["speaker"] not in {f.split(":")[1] for f in fallbacks}
+    crew = [v for v in catalog.list() if v.role == "crew"]
+    assert len(crew) >= 8 and {v.gender for v in crew} == {"male", "female"}
+
+
+def _ref_store(tmp_path: Path) -> ReferenceStore:
+    refs = tmp_path / "refs"
+    refs.mkdir()
+    sf.write(refs / "am7.flac", np.zeros(4800, dtype=np.float32), 48_000, format="FLAC")
+    return ReferenceStore((refs,))
+
+
+def test_reference_voice_is_cloned_through_one_voicestudio_profile(settings, tmp_path):
+    vs = FakeVoiceStudio()
+    client = make_client(settings, vs=vs, references=_ref_store(tmp_path), cache=False)
+    for text in ("Первая фраза.", "Вторая фраза."):
+        assert client.post("/v1/audio/speech", json={"voice": "voicestudio:am7", "input": text}).status_code == 200
+    assert len(vs.profiles) == 1
+    profile = vs.profiles[0]
+    assert profile["name"].startswith("office3d-am7-")
+    assert "clone" in profile["body"] and "Система штаба на связи." in profile["body"]
+    sent = [json.loads(r.content) for r in vs.requests if r.url.path == "/v1/audio/speech"]
+    assert len(sent) == 2
+    assert all(item["voice"] == "p1" and "description" not in item and item["seed"] == 7 for item in sent)
+
+
+def test_an_existing_profile_is_reused(settings, tmp_path):
+    vs = FakeVoiceStudio()
+    store = _ref_store(tmp_path)
+    name = f"office3d-am7-{store.sha('am7.flac')[:12]}"
+    vs.profiles.append({"id": "old", "name": name})
+    make_client(settings, vs=vs, references=store).post("/v1/audio/speech", json={"voice": "voicestudio:am7", "input": "Тест"})
+    sent = [json.loads(r.content) for r in vs.requests if r.url.path == "/v1/audio/speech"]
+    assert len(vs.profiles) == 1 and sent[0]["voice"] == "old"
+
+
+def test_fx_is_applied_before_caching_and_changes_the_sound(settings):
+    silero = FakeSilero()
+    client = make_client(settings, silero)
+    plain = client.post("/v1/audio/speech", json={"voice": "silero:eugene", "input": "Штаб", "response_format": "wav"})
+    treated = client.post("/v1/audio/speech", json={"voice": "silero:system", "input": "Штаб", "response_format": "wav"})
+    again = client.post("/v1/audio/speech", json={"voice": "silero:system", "input": "Штаб", "response_format": "wav"})
+    assert plain.headers["x-speech-fx"] == "none" and treated.headers["x-speech-fx"] == "humanoid"
+    assert again.headers["x-speech-cache"] == "hit" and again.content == treated.content
+    assert treated.content != plain.content
+    assert [call[1] for call in silero.calls] == ["eugene", "eugene"]
+
+
+def test_stress_lexicon_marks_silero_and_only_yo_for_voicestudio(settings):
+    silero, vs = FakeSilero(), FakeVoiceStudio()
+    stress = StressLexicon(["зам+ок на двер+и", "вс+ё под контр+олем"])
+    client = make_client(settings, silero, vs, stress=stress)
+    client.post("/v1/audio/speech", json={"voice": "silero:system", "input": "Замок на двери закрыт, все под контролем."})
+    assert silero.calls[-1][0] == "Зам+ок на двер+и закрыт, вс+ё под контр+олем."
+    client.post("/v1/audio/speech", json={"voice": "voicestudio:crew-m1", "input": "Все под контролем."})
+    sent = json.loads([r for r in vs.requests if r.url.path == "/v1/audio/speech"][-1].content)
+    assert sent["input"] == "Всё под контролем."
+
+
+def test_cis_speakers_resolve_and_bad_presets_are_refused():
+    from speech_gateway.voices import parse_preset
+
+    catalog = VoiceCatalog([], "silero:aidar", "voxcpm2")
+    assert catalog.resolve("silero:ru_roman").params == {"speaker": "ru_roman"}
+    with pytest.raises(ValueError):
+        parse_preset({"id": "silero:x", "params": {"speaker": "eugene"}, "fx": "robot"})
+    with pytest.raises(ValueError):
+        parse_preset({"id": "silero:y", "params": {"speaker": "eugene"}, "reference": {"file": "a.flac", "text": "т"}})

@@ -5,6 +5,11 @@ stress model marks every word (`гот+ов`, homographs by context); the TTS mo
 then reads the marks as written, with its own accenting switched off, so the
 stress we computed is the stress you hear. Long text is spoken sentence by
 sentence (Silero has a per-call length limit) and joined with short pauses.
+
+Two model files: the main Russian model (v5_5_ru: aidar, eugene, baya, …) and
+the CIS model (v5_cis_base, MIT: ru_roman, ru_safarhuja, …), which gives the
+crew's fallback voices distinct timbres. The CIS model loads the first time
+one of its speakers talks.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ import numpy as np
 
 from .audio import Audio, concat
 from .text import chunk_text, load_lexicon, normalize_russian, ssml_rate
-from .voices import SILERO_SPEAKERS
+from .voices import ALL_SILERO_SPEAKERS, is_cis_speaker
 
 log = logging.getLogger("speech.silero")
 
@@ -38,9 +43,13 @@ class SileroEngine:
         threads: int = 4,
         sample_rate: int = 48_000,
         lexicon_file: Path | None = None,
+        cis_model: str = "v5_cis_base",
     ) -> None:
         self.model_id = model
+        self.cis_model_id = cis_model
+        self._model_url = model_url
         self.model_url = model_url.format(model=model)
+        self.models_dir = models_dir
         self.model_path = models_dir / "silero" / f"{model}.pt"
         self.requested_device = device
         self.threads = threads
@@ -48,6 +57,7 @@ class SileroEngine:
         self.lexicon = load_lexicon(lexicon_file)
         self._lock = threading.Lock()  # the model is not re-entrant
         self._model: Any = None
+        self._cis: Any = None
         self._accentor: Any = None
         self.device = "cpu"
         self.error: str | None = None
@@ -58,7 +68,11 @@ class SileroEngine:
         return self._model is not None
 
     def speakers(self) -> tuple[str, ...]:
-        return SILERO_SPEAKERS
+        return ALL_SILERO_SPEAKERS
+
+    def model_for(self, speaker: str) -> str:
+        """The model file that speaks `speaker` (part of the cache identity)."""
+        return self.cis_model_id if is_cis_speaker(speaker) else self.model_id
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -67,17 +81,41 @@ class SileroEngine:
             "device": self.device,
             "sample_rate": self.sample_rate,
             "loaded_in_s": self.loaded_in_s,
+            "cis_model": self.cis_model_id,
+            "cis_loaded": self._cis is not None,
             "error": self.error,
         }
 
-    def _download(self) -> None:
-        if self.model_path.is_file() and self.model_path.stat().st_size > 1_000_000:
-            return
-        self.model_path.parent.mkdir(parents=True, exist_ok=True)
-        partial = self.model_path.with_suffix(".part")
-        log.info("downloading Silero %s", self.model_id)
-        urllib.request.urlretrieve(self.model_url, partial)  # noqa: S310 - fixed https URL
-        partial.replace(self.model_path)
+    def _download(self, model: str | None = None) -> Path:
+        model = model or self.model_id
+        path = self.models_dir / "silero" / f"{model}.pt"
+        if path.is_file() and path.stat().st_size > 1_000_000:
+            return path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial = path.with_suffix(".part")
+        log.info("downloading Silero %s", model)
+        urllib.request.urlretrieve(self._model_url.format(model=model), partial)  # noqa: S310 - fixed https URL
+        partial.replace(path)
+        return path
+
+    def _import(self, path: Path) -> Any:
+        import torch
+
+        importer = torch.package.PackageImporter(str(path))
+        model = importer.load_pickle("tts_models", "model")
+        model.to(torch.device(self.device))
+        return model
+
+    def load_cis(self) -> None:
+        """The CIS model (downloaded on first use, ~90 MB)."""
+        if self._model is None:
+            self.load()
+        with self._lock:
+            if self._cis is not None:
+                return
+            started = time.perf_counter()
+            self._cis = self._import(self._download(self.cis_model_id))
+            log.info("Silero %s ready in %.1fs", self.cis_model_id, time.perf_counter() - started)
 
     def load(self) -> None:
         with self._lock:
@@ -95,16 +133,14 @@ class SileroEngine:
                     device = "cuda" if torch.cuda.is_available() else "cpu"
                 if device == "cuda" and not torch.cuda.is_available():
                     device = "cpu"
-                importer = torch.package.PackageImporter(str(self.model_path))
-                model = importer.load_pickle("tts_models", "model")
-                model.to(torch.device(device))
+                self.device = device
+                model = self._import(self.model_path)
                 accentor = load_accentor()
                 self._accentor = accentor
                 self._model = model
-                self.device = device
                 self.error = None
                 # One short phrase so the first real request is not the slow one.
-                self._synth_chunk("Готов+о.", "aidar", None)
+                self._synth_chunk(self._model, "Готов+о.", "aidar", None)
                 self.loaded_in_s = round(time.perf_counter() - started, 2)
                 log.info("Silero %s ready on %s in %.1fs", self.model_id, device, self.loaded_in_s)
             except Exception as exc:  # reported by /health, retried on next request
@@ -121,7 +157,7 @@ class SileroEngine:
             return [chunk.lower() for chunk in chunks]
         return [self._accentor(chunk).lower() for chunk in chunks]
 
-    def _synth_chunk(self, marked: str, speaker: str, rate: str | None) -> np.ndarray:
+    def _synth_chunk(self, model: Any, marked: str, speaker: str, rate: str | None) -> np.ndarray:
         kwargs = dict(
             speaker=speaker,
             sample_rate=self.sample_rate,
@@ -131,20 +167,23 @@ class SileroEngine:
             put_yo_homo=False,
         )
         if rate:
-            audio = self._model.apply_tts(ssml_text=f'<speak><prosody rate="{rate}">{marked}</prosody></speak>', **kwargs)
+            audio = model.apply_tts(ssml_text=f'<speak><prosody rate="{rate}">{marked}</prosody></speak>', **kwargs)
         else:
-            audio = self._model.apply_tts(text=marked, **kwargs)
+            audio = model.apply_tts(text=marked, **kwargs)
         return audio.detach().cpu().numpy().astype(np.float32)
 
     def synthesize(self, text: str, speaker: str, speed: float = 1.0) -> Audio:
-        if speaker not in SILERO_SPEAKERS:
+        if speaker not in ALL_SILERO_SPEAKERS:
             raise ValueError(f"unknown Silero speaker {speaker!r}")
         if self._model is None:
             self.load()
+        if is_cis_speaker(speaker) and self._cis is None:
+            self.load_cis()
         with self._lock:
+            model = self._cis if is_cis_speaker(speaker) else self._model
             chunks = self.prepare_text(text)
             if not chunks:
                 raise ValueError("nothing speakable in the input")
             rate = ssml_rate(speed)
-            parts = [self._synth_chunk(chunk, speaker, rate) for chunk in chunks]
+            parts = [self._synth_chunk(model, chunk, speaker, rate) for chunk in chunks]
         return Audio(concat(parts, self.sample_rate), self.sample_rate)

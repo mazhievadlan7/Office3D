@@ -16,7 +16,7 @@ import {
 import { generateHqLayout } from "./core/layout";
 import { MISSION_MAX_DEFAULT } from "./core/beats";
 import { HqSimulation } from "./core/sim";
-import { hqSoundOn, saveHqSoundOn } from "./core/soundPreference";
+import { hqCaptionsOn, hqSoundOn, saveHqSoundOn } from "./core/soundPreference";
 import type { HqAgentInput, HqArchiveEvent } from "./core/types";
 import { HqHoverCard } from "./hud/HqHoverCard";
 import { HqHud, HqSettingsControls, type HqHudCounts, type HqRuntimeStatus } from "./hud/HqHud";
@@ -244,6 +244,8 @@ export function HqOffice({
     });
   }, []);
   const subtitleSinkRef = useRef<HqSubtitleSink | null>(null);
+  // Voice, not text: the crew's talk is heard, captioned only when turned on.
+  const [captionsOn] = useState(hqCaptionsOn);
 
   const simRef = useRef<HqSimulation | null>(null);
   const agentsRef = useRef<HqAgentInput[]>(agents);
@@ -282,21 +284,25 @@ export function HqOffice({
     [queueArchiveEvent],
   );
   useEffect(() => {
-    // Development aids: the running sim, e.g. window.__hqSim()?.briefing, and
-    // a cart run with no server clean-up behind it, e.g. __hqArchiveRun(52e6).
+    // Development aids: the running sim, e.g. window.__hqSim()?.briefing, the
+    // camera, e.g. __hqCamera()?.follow("agent-12"), and a cart run with no
+    // server clean-up behind it, e.g. __hqArchiveRun(52e6).
     if (process.env.NODE_ENV === "production") return;
     const w = window as unknown as {
       __hqSim?: () => HqSimulation | null;
+      __hqCamera?: () => HqCameraApi | null;
       __hqArchiveRun?: (freedBytes?: number) => { agentId: string; name: string } | null;
     };
     let devRuns = 0;
     w.__hqSim = () => simRef.current;
+    w.__hqCamera = () => cameraApiRef.current;
     w.__hqArchiveRun = (freedBytes = 50 * 1024 * 1024) => {
       devRuns += 1;
       return simRef.current?.startArchiveRun(`dev-${Date.now().toString(36)}-${devRuns}`, freedBytes) ?? null;
     };
     return () => {
       delete w.__hqSim;
+      delete w.__hqCamera;
       delete w.__hqArchiveRun;
     };
   }, []);
@@ -603,14 +609,14 @@ export function HqOffice({
             onClipsChange={handleClipsChange}
             archiveBytes={archiveBytes}
           />
-          <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={subtitleSinkRef} />
+          <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={captionsOn ? subtitleSinkRef : undefined} />
           <HqCreatorWatch simRef={simRef} />
         </Canvas>
         <div
           aria-hidden={introPlaying}
           className={`transition-opacity duration-700 ease-out ${introPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
         >
-        <HqSubtitles sinkRef={subtitleSinkRef} />
+        {captionsOn ? <HqSubtitles sinkRef={subtitleSinkRef} /> : null}
         <HqHoverCard sinkRef={hoverSinkRef} agentsRef={agentsRef} />
         <HqHud
           counts={counts}

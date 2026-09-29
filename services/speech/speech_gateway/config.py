@@ -75,6 +75,8 @@ class Settings:
     #: The voice used for "default", an OpenAI voice name, or no voice at all.
     default_voice: str = "silero:aidar"
     silero_model: str = "v5_5_ru"
+    #: Silero's CIS model (MIT): the ru_* speakers the crew's fallbacks use.
+    silero_cis_model: str = "v5_cis_base"
     silero_model_url: str = "https://models.silero.ai/models/tts/ru/{model}.pt"
     #: cpu (default: fast enough, leaves the GPU to VoiceStudio), cuda or auto.
     silero_device: str = "cpu"
@@ -83,6 +85,8 @@ class Settings:
     home: Path = field(default_factory=_default_home)
     voices_file: Path = SERVICE_DIR / "voices.json"
     lexicon_file: Path = SERVICE_DIR / "lexicon.json"
+    #: Stress-marked phrases (homographs in the office's own lines): stress.json.
+    stress_file: Path = SERVICE_DIR / "stress.json"
     cache_enabled: bool = True
     cache_max_mb: int = 512
     max_input_chars: int = 5_000
@@ -118,6 +122,12 @@ class Settings:
     def cache_dir(self) -> Path:
         return self.home / "cache" / "tts"
 
+    @property
+    def voice_refs_dirs(self) -> tuple[Path, ...]:
+        """Where a preset's reference clip is looked up: the speech home first
+        (a server's own takes), then the clips shipped in the repository."""
+        return (self.home / "voice-refs", SERVICE_DIR / "voice-refs")
+
     def use_hf_home(self) -> None:
         """Hugging Face downloads (GigaAM, Silero VAD) go under the speech home,
         next to VoiceStudio's, unless HF_HOME is set already."""
@@ -129,6 +139,7 @@ class Settings:
         home = _default_home()
         voices_file = _env("SPEECH_VOICES_FILE")
         lexicon_file = _env("SPEECH_LEXICON_FILE")
+        stress_file = _env("SPEECH_STRESS_FILE")
         stt_model_dir = _env("SPEECH_STT_MODEL_DIR")
         stt_engine = _env("SPEECH_STT_ENGINE", "gigaam").lower()
         return cls(
@@ -141,12 +152,14 @@ class Settings:
             voicestudio_backoff_s=max(0.0, _env_float("VOICESTUDIO_BACKOFF_S", 60.0)),
             default_voice=_env("SPEECH_DEFAULT_VOICE", "silero:aidar"),
             silero_model=_env("SILERO_MODEL", "v5_5_ru"),
+            silero_cis_model=_env("SILERO_CIS_MODEL", "v5_cis_base"),
             silero_model_url=_env("SILERO_MODEL_URL", "https://models.silero.ai/models/tts/ru/{model}.pt"),
             silero_device=_env("SILERO_DEVICE", "cpu").lower(),
             silero_threads=max(1, _env_int("SILERO_THREADS", 4)),
             home=home,
             voices_file=Path(voices_file) if voices_file else SERVICE_DIR / "voices.json",
             lexicon_file=Path(lexicon_file) if lexicon_file else SERVICE_DIR / "lexicon.json",
+            stress_file=Path(stress_file) if stress_file else SERVICE_DIR / "stress.json",
             cache_enabled=_env_bool("SPEECH_CACHE", True),
             cache_max_mb=max(0, _env_int("SPEECH_CACHE_MAX_MB", 512)),
             max_input_chars=max(1, _env_int("SPEECH_MAX_INPUT_CHARS", 5_000)),
