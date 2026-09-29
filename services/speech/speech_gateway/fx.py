@@ -17,6 +17,15 @@ formants shifted, a light flanger, a short echo, a high-pass, a limiter):
 4. a zero-phase high-pass (rumble below ~70 Hz);
 5. loudness: active speech to a fixed RMS, peaks softly limited, so every
    voice arrives at the same level.
+
+The heavy presets (`humanoid-heavy`, `humanoid-hard`) add, in this order:
+the pitch shift with the formants put back (and lowered a little) by a
+cepstral spectral-envelope correction, optionally a slower tempo, a soft
+saturation (grit), an octave-down sub layer mixed low, a ring-modulated copy
+and a short metallic comb resonance (the synthetic "android" sheen), a light
+bit-crushed copy, a tone curve (more chest, the 2–4 kHz consonants kept), and a
+tight small-room reverb (a few early reflections plus a seeded 0.1 s tail).
+Every stage is off in the older presets, so they sound exactly as before.
 """
 
 from __future__ import annotations
@@ -44,6 +53,33 @@ class FxPreset:
     #: RMS of the active speech (dBFS) and the soft ceiling for peaks (linear).
     target_rms_db: float = -19.0
     ceiling: float = 0.94
+    # --- the heavy presets only (defaults: off) ---
+    #: Where the formants go, in semitones from the original voice; None keeps
+    #: the old behaviour (they move with the pitch).
+    formant_semitones: float | None = None
+    #: Duration factor (> 1: slower, pitch unchanged).
+    stretch: float = 1.0
+    #: tanh saturation drive (0: off).
+    drive: float = 0.0
+    #: Octave-down copy, low-passed at `sub_lowpass_hz`, mixed at `sub_mix`.
+    sub_mix: float = 0.0
+    sub_lowpass_hz: float = 220.0
+    #: Ring-modulated copy (carrier `ring_hz`), mixed at `ring_mix`.
+    ring_mix: float = 0.0
+    ring_hz: float = 40.0
+    #: Feedback comb (metallic resonance): delay, feedback, mix.
+    comb_ms: float = 0.0
+    comb_feedback: float = 0.0
+    comb_mix: float = 0.0
+    #: Bit-crushed copy: bits, sample-hold length, mix.
+    crush_bits: int = 0
+    crush_hold: int = 1
+    crush_mix: float = 0.0
+    #: Tone curve: (Hz, dB) points, interpolated on a log-frequency axis.
+    eq: tuple[tuple[float, float], ...] = ()
+    #: Small-room tail: length (s) and level of a seeded, decaying noise response.
+    reverb_s: float = 0.0
+    reverb_mix: float = 0.0
 
 
 FX_PRESETS: dict[str, FxPreset | None] = {
@@ -66,6 +102,59 @@ FX_PRESETS: dict[str, FxPreset | None] = {
         flanger_rate_hz=0.2,
         echoes=((0.019, 0.09), (0.033, 0.05)),
     ),
+    # AM7 (and «Система штаба» if chosen): a menacing android bass. Four
+    # semitones down with the formants lowered only one (big, not muffled),
+    # 6 % slower, gritty, an octave sub, a ring-mod growl and a metal comb.
+    "humanoid-heavy": FxPreset(
+        semitones=-4.0,
+        formant_semitones=-1.0,
+        stretch=1.06,
+        drive=2.2,
+        sub_mix=0.30,
+        sub_lowpass_hz=200.0,
+        ring_mix=0.22,
+        ring_hz=36.0,
+        comb_ms=3.1,
+        comb_feedback=0.55,
+        comb_mix=0.20,
+        crush_bits=9,
+        crush_hold=2,
+        crush_mix=0.10,
+        flanger_mix=0.22,
+        flanger_delay_ms=1.2,
+        flanger_depth_ms=0.8,
+        flanger_rate_hz=0.18,
+        echoes=((0.011, 0.16), (0.019, 0.11), (0.029, 0.07)),
+        eq=((60, -6.0), (110, 3.5), (220, 2.5), (500, -1.5), (1200, -1.0), (2800, 2.0), (4500, 1.0), (9000, -4.0)),
+        reverb_s=0.12,
+        reverb_mix=0.10,
+        highpass_hz=45.0,
+    ),
+    # The crew: hard and deep but lighter than AM7, so the words stay quick.
+    "humanoid-hard": FxPreset(
+        semitones=-3.0,
+        formant_semitones=-1.0,
+        drive=1.8,
+        sub_mix=0.16,
+        sub_lowpass_hz=200.0,
+        ring_mix=0.15,
+        ring_hz=45.0,
+        comb_ms=2.6,
+        comb_feedback=0.45,
+        comb_mix=0.14,
+        crush_bits=10,
+        crush_hold=2,
+        crush_mix=0.07,
+        flanger_mix=0.18,
+        flanger_delay_ms=1.0,
+        flanger_depth_ms=0.7,
+        flanger_rate_hz=0.22,
+        echoes=((0.009, 0.12), (0.017, 0.08), (0.026, 0.05)),
+        eq=((60, -6.0), (120, 2.5), (250, 1.5), (600, -1.5), (2800, 2.0), (4500, 1.0), (9000, -3.0)),
+        reverb_s=0.09,
+        reverb_mix=0.07,
+        highpass_hz=55.0,
+    ),
 }
 
 
@@ -80,12 +169,30 @@ def apply_fx(audio: Audio, preset: str | None) -> Audio:
         return audio
     sr = audio.sample_rate
     x = np.asarray(audio.samples, dtype=np.float64).reshape(-1)
-    if fx.semitones:
+    if fx.formant_semitones is not None or fx.stretch != 1.0:
+        x = shift_voice(x, sr, fx.semitones, fx.formant_semitones, fx.stretch)
+    elif fx.semitones:
         x = pitch_shift(x, sr, fx.semitones)
+    if fx.drive > 0:
+        x = saturate(x, fx.drive)
+    layers = x.copy()
+    if fx.sub_mix > 0:
+        layers += fx.sub_mix * lowpass(pitch_shift(x, sr, -12.0), sr, fx.sub_lowpass_hz)
+    if fx.ring_mix > 0:
+        layers += fx.ring_mix * x * np.sin(2 * np.pi * fx.ring_hz * np.arange(len(x)) / sr)
+    if fx.comb_mix > 0:
+        layers += fx.comb_mix * comb(x, sr, fx.comb_ms, fx.comb_feedback)
+    if fx.crush_mix > 0:
+        layers += fx.crush_mix * crush(x, fx.crush_bits, fx.crush_hold)
+    x = layers
+    if fx.eq:
+        x = tone(x, sr, fx.eq)
     if fx.flanger_mix > 0:
         x = flanger(x, sr, fx.flanger_mix, fx.flanger_delay_ms, fx.flanger_depth_ms, fx.flanger_rate_hz)
     if fx.echoes:
         x = echo(x, sr, fx.echoes)
+    if fx.reverb_mix > 0:
+        x = room(x, sr, fx.reverb_s, fx.reverb_mix)
     if fx.highpass_hz > 0:
         x = highpass(x, sr, fx.highpass_hz)
     x = level(x, sr, fx.target_rms_db, fx.ceiling)
@@ -159,6 +266,131 @@ def pitch_shift(x: np.ndarray, sr: int, semitones: float) -> np.ndarray:
     ratio = 2.0 ** (semitones / 12.0)  # < 1 lowers
     squeezed = wsola(x, sr, 1.0 / ratio)  # duration * ratio, same pitch
     return resample_to(squeezed, len(x))  # back to the duration: pitch * ratio
+
+
+def _frames(sr: int) -> tuple[int, int]:
+    size = 1 << int(round(np.log2(0.043 * sr)))  # 2048 at 48 kHz
+    return size, size // 4
+
+
+def _stft(x: np.ndarray, size: int, hop: int) -> np.ndarray:
+    window = np.hanning(size + 1)[:-1]
+    padded = np.concatenate([np.zeros(size), x, np.zeros(size + hop)])
+    count = (len(padded) - size) // hop + 1
+    idx = np.arange(size)[None, :] + hop * np.arange(count)[:, None]
+    return np.fft.rfft(padded[idx] * window, axis=1)
+
+
+def _istft(spec: np.ndarray, size: int, hop: int, length: int) -> np.ndarray:
+    window = np.hanning(size + 1)[:-1]
+    frames = np.fft.irfft(spec, size, axis=1) * window
+    out = np.zeros(hop * (len(frames) - 1) + size)
+    norm = np.zeros_like(out)
+    for k, frame in enumerate(frames):
+        out[k * hop : k * hop + size] += frame
+        norm[k * hop : k * hop + size] += window**2
+    out /= np.maximum(norm, 1e-3)
+    return out[size : size + length]
+
+
+def _envelope(mag: np.ndarray, sr: int, size: int) -> np.ndarray:
+    """Cepstrally smoothed log spectral envelope of each frame (quefrencies below 1.6 ms)."""
+    log_mag = np.log(np.maximum(mag, 1e-7))
+    cep = np.fft.irfft(log_mag, size, axis=1)
+    keep = max(8, int(0.0016 * sr))
+    lifter = np.zeros(size)
+    lifter[:keep] = 1.0
+    lifter[size - keep + 1 :] = 1.0
+    return np.fft.rfft(cep * lifter, axis=1).real
+
+
+def shift_voice(
+    x: np.ndarray, sr: int, semitones: float, formant_semitones: float | None, stretch: float = 1.0
+) -> np.ndarray:
+    """Pitch by `semitones`, formants by `formant_semitones` (None: with the pitch), duration * `stretch`.
+
+    The resampling shift moves the whole spectrum; each frame is then flattened
+    by its own cepstral envelope and given the original frame's envelope,
+    warped by the wanted formant shift (gain limited to ±18 dB).
+    """
+    ratio = 2.0 ** (semitones / 12.0)
+    length = max(1, int(round(len(x) * stretch)))
+    y = resample_to(wsola(x, sr, 1.0 / (ratio * stretch)), length) if semitones or stretch != 1.0 else x.copy()
+    if formant_semitones is None:
+        return y
+    source = resample_to(wsola(x, sr, 1.0 / stretch), length) if stretch != 1.0 else x
+    size, hop = _frames(sr)
+    shifted = _stft(y, size, hop)
+    original = _stft(source, size, hop)
+    count = min(len(shifted), len(original))
+    shifted, original = shifted[:count], original[:count]
+    env_shifted = _envelope(np.abs(shifted), sr, size)
+    env_original = _envelope(np.abs(original), sr, size)
+    bins = np.arange(size // 2 + 1)
+    warp = bins / (2.0 ** (formant_semitones / 12.0))  # target(f) = original(f / q)
+    target = np.array([np.interp(warp, bins, row) for row in env_original])
+    limit = np.log(10 ** (18 / 20))
+    gain = np.exp(np.clip(target - env_shifted, -limit, limit))
+    return _istft(shifted * gain, size, hop, length)
+
+
+def saturate(x: np.ndarray, drive: float) -> np.ndarray:
+    """Soft tanh saturation, level kept (peak-normalised in, same peak out)."""
+    peak = float(np.max(np.abs(x))) or 1.0
+    return peak * np.tanh(drive * x / peak) / np.tanh(drive)
+
+
+def lowpass(x: np.ndarray, sr: int, cutoff_hz: float) -> np.ndarray:
+    """Zero-phase low-pass with a 4th-order Butterworth magnitude, in one FFT."""
+    return _filtered(x, sr, lambda f: 1.0 / np.sqrt(1.0 + (f / cutoff_hz) ** 8))
+
+
+def comb(x: np.ndarray, sr: int, delay_ms: float, feedback: float) -> np.ndarray:
+    """Feedback comb y[n] = x[n] + g·y[n−D] (a metallic resonance), in the frequency domain."""
+    d = max(1, int(round(delay_ms * sr / 1000.0)))
+    tail = int(d * np.log(1e-4) / np.log(min(max(feedback, 1e-3), 0.95)))
+    size = 1 << int(np.ceil(np.log2(len(x) + tail + 1)))
+    freqs = np.arange(size // 2 + 1) / size
+    response = 1.0 / (1.0 - feedback * np.exp(-2j * np.pi * freqs * d))
+    return np.fft.irfft(np.fft.rfft(x, size) * response, size)[: len(x)] * (1.0 - feedback)
+
+
+def crush(x: np.ndarray, bits: int, hold: int) -> np.ndarray:
+    """Sample-and-hold every `hold` samples, then quantised to `bits` (relative to the peak)."""
+    peak = float(np.max(np.abs(x))) or 1.0
+    held = np.repeat(x[::hold], hold)[: len(x)] if hold > 1 else x
+    steps = 2 ** (bits - 1)
+    return np.round(held / peak * steps) / steps * peak
+
+
+def tone(x: np.ndarray, sr: int, points: tuple[tuple[float, float], ...]) -> np.ndarray:
+    """Zero-phase EQ: a gain curve through (Hz, dB) points on a log-frequency axis."""
+    hz = np.log([p[0] for p in points])
+    db = np.array([p[1] for p in points])
+    return _filtered(x, sr, lambda f: 10 ** (np.interp(np.log(np.maximum(f, 1.0)), hz, db) / 20))
+
+
+def room(x: np.ndarray, sr: int, seconds: float, mix: float) -> np.ndarray:
+    """A tight small-room tail: seeded decaying noise (the same every run), convolved and mixed in."""
+    n = max(1, int(seconds * sr))
+    rng = np.random.default_rng(1729)
+    t = np.arange(n) / sr
+    impulse = rng.standard_normal(n) * np.exp(-6.9 * t / seconds)  # −60 dB at `seconds`
+    impulse[: int(0.004 * sr)] = 0.0  # starts after the direct sound
+    impulse = lowpass(impulse, sr, 5000.0)
+    impulse /= np.sqrt(np.sum(impulse**2)) or 1.0
+    size = 1 << int(np.ceil(np.log2(len(x) + n)))
+    wet = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(impulse, size), size)[: len(x) + n]
+    return np.concatenate([x, np.zeros(n)]) + mix * wet
+
+
+def _filtered(x: np.ndarray, sr: int, curve) -> np.ndarray:
+    pad = int(0.05 * sr)
+    n = len(x) + 2 * pad
+    size = 1 << int(np.ceil(np.log2(n)))
+    spectrum = np.fft.rfft(np.concatenate([np.zeros(pad), x, np.zeros(pad)]), size)
+    freqs = np.fft.rfftfreq(size, 1.0 / sr)
+    return np.fft.irfft(spectrum * curve(freqs), size)[pad : pad + len(x)]
 
 
 def _delayed(x: np.ndarray, delay: np.ndarray) -> np.ndarray:

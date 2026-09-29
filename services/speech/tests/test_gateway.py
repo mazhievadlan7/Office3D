@@ -99,8 +99,8 @@ def test_voices_lists_both_engines_and_roles(settings):
     body = make_client(settings).get("/v1/voices").json()
     ids = {voice["id"]: voice for voice in body["data"]}
     assert body["default"] == "silero:aidar"
-    assert ids["silero:system"]["role"] == "system" and ids["silero:system"]["fx"] == "humanoid"
-    assert ids["voicestudio:am7"]["role"] == "lead" and ids["voicestudio:am7"]["fx"] == "humanoid"
+    assert ids["silero:system"]["role"] == "system" and ids["silero:system"]["fx"] == "humanoid-heavy"
+    assert ids["voicestudio:am7"]["role"] == "lead" and ids["voicestudio:am7"]["fx"] == "humanoid-heavy"
     assert ids["voicestudio:am7"]["fallback"] == "silero:ru_safarhuja"
     assert ids["silero:ru_safarhuja"]["engine"] == "silero"
     assert {"silero:aidar", "silero:eugene"} <= set(ids)
@@ -188,7 +188,7 @@ def test_voicestudio_down_falls_back_to_silero(settings):
     assert response.headers["x-speech-fallback"] == "silero:ru_safarhuja"
     assert silero.calls[-1][1] == "ru_safarhuja"
     # The fallback is heard through AM7's own treatment.
-    assert response.headers["x-speech-fx"] == "humanoid"
+    assert response.headers["x-speech-fx"] == "humanoid-heavy"
 
 
 def test_after_a_failure_fallback_voices_skip_voicestudio_for_a_while(settings):
@@ -199,7 +199,7 @@ def test_after_a_failure_fallback_voices_skip_voicestudio_for_a_while(settings):
     tried = len([r for r in vs.requests if r.url.path == "/v1/audio/speech"])
     vs.down = False
     response = client.post("/v1/audio/speech", json={"voice": "voicestudio:crew-m1", "input": "Два"})
-    assert response.headers["x-speech-fallback"] == "silero:ru_alexandr"
+    assert response.headers["x-speech-fallback"] == "silero:ru_bogdan"
     assert len([r for r in vs.requests if r.url.path == "/v1/audio/speech"]) == tried
     # A voice without a fallback still tries VoiceStudio.
     assert client.post("/v1/audio/speech", json={"voice": "voicestudio:x", "input": "Три"}).status_code == 200
@@ -538,7 +538,7 @@ def test_fx_is_applied_before_caching_and_changes_the_sound(settings):
     plain = client.post("/v1/audio/speech", json={"voice": "silero:eugene", "input": "Штаб", "response_format": "wav"})
     treated = client.post("/v1/audio/speech", json={"voice": "silero:system", "input": "Штаб", "response_format": "wav"})
     again = client.post("/v1/audio/speech", json={"voice": "silero:system", "input": "Штаб", "response_format": "wav"})
-    assert plain.headers["x-speech-fx"] == "none" and treated.headers["x-speech-fx"] == "humanoid"
+    assert plain.headers["x-speech-fx"] == "none" and treated.headers["x-speech-fx"] == "humanoid-heavy"
     assert again.headers["x-speech-cache"] == "hit" and again.content == treated.content
     assert treated.content != plain.content
     assert [call[1] for call in silero.calls] == ["eugene", "eugene"]

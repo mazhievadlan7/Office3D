@@ -53,7 +53,7 @@ export const currentSpeechVoiceId = (voiceId: string): string => {
   return id;
 };
 
-/** «Система штаба»: Silero's deepest voice (exact stress, instant on a CPU) with the gateway's humanoid FX. */
+/** «Система штаба»: Silero's deepest voice (exact stress, instant on a CPU) with the gateway's humanoid-heavy FX. */
 export const DEFAULT_SYSTEM_VOICE = "silero:system";
 export const DEFAULT_LEAD_VOICE = "voicestudio:am7";
 
@@ -70,12 +70,12 @@ const crew = (id: string, label: string, fallback: string): SpeechVoice => ({
 // from its own reference clip, each with a different Silero fallback.
 export const BUILTIN_SPEECH_VOICES: SpeechVoice[] = [
   { id: "voicestudio:am7", label: "AM7", engine: "voicestudio", role: "lead", fallback: "silero:ru_safarhuja", gender: "male" },
-  crew("crew-m1", "Оператор — быстрый, точный", "silero:ru_alexandr"),
-  crew("crew-m2", "Аналитик — холодный, ровный", "silero:ru_roman"),
-  crew("crew-m3", "Ветеран — спокойный баритон", "silero:aidar"),
-  crew("crew-m4", "Инфильтратор — с хрипотцой, тихий", "silero:ru_bogdan"),
-  crew("crew-m5", "Взломщик — молодой, энергичный", "silero:ru_dmitriy"),
-  crew("crew-m6", "Часовой — глубокий бас, сдержанный", "silero:ru_eduard"),
+  crew("crew-m1", "Взломщик — низкий, сухой, резкий", "silero:ru_bogdan"),
+  crew("crew-m2", "Аналитик — тёмный баритон, ледяной", "silero:ru_alexandr"),
+  crew("crew-m3", "Ветеран — тяжёлый грудной бас", "silero:ru_roman"),
+  crew("crew-m4", "Инфильтратор — хриплый, угрожающий", "silero:ru_eduard"),
+  crew("crew-m5", "Наёмник — грубый, с хрипотцой", "silero:aidar"),
+  crew("crew-m6", "Часовой — строгий бас-баритон", "silero:ru_dmitriy"),
   { id: "silero:system", label: "Система штаба (Silero Евгений)", engine: "silero", role: "system", gender: "male" },
   { id: "silero:aidar", label: "Айдар (Silero)", engine: "silero", role: "any" },
   { id: "silero:eugene", label: "Евгений (Silero)", engine: "silero", role: "any" },
