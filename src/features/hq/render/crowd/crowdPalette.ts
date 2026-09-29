@@ -14,6 +14,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
+import { compilePassAhead } from "@/features/hq/render/scene/shaderPrewarm";
 
 /**
  * The per-frame bone palette of the instanced crowd.
@@ -189,6 +190,11 @@ export class HqPalettePass {
 
   get palette(): Texture {
     return this.target.texture;
+  }
+
+  /** Starts compiling the pass's program ahead of its first render (see shaderPrewarm.ts). */
+  compile(renderer: WebGLRenderer): void {
+    compilePassAhead(renderer, this.scene, this.camera);
   }
 
   setInstance(k: number, rowA: number, rowB: number, weightA: number, lead: number): void {

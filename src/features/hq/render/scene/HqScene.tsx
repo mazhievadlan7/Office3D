@@ -2,7 +2,7 @@
 
 import { useFrame, useThree, type RootState } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef, type MutableRefObject } from "react";
-import { MeshStandardMaterial, PlaneGeometry, type Material, type Mesh } from "three";
+import { MeshStandardMaterial, PlaneGeometry } from "three";
 
 import { briefingScreens } from "../../core/briefing";
 import { HQ_THEME } from "../../core/config";
@@ -22,58 +22,38 @@ import { HqPicking, type HqHoverSink } from "./HqPicking";
 import { HqPostFx } from "./HqPostFx";
 import { HqSimDriver } from "./HqSimDriver";
 import type { HqQuality } from "./quality";
+import { disposePrewarm, HqPrewarmGate } from "./shaderPrewarm";
 
 const noRaycast = () => null;
 
-/** How often the pre-warm looks for materials that have no shader program yet (ms). */
-const PREWARM_CHECK_MS = 1000;
+/**
+ * Runs after every content update (priority 0) and before the post chain
+ * draws the frame (priority 1), so it sees each object before its first draw.
+ */
+const PREWARM_PRIORITY = 0.5;
 
 /**
- * Compiles every material's shader program ahead of its first use, off the
- * frame. Left to itself three.js compiles a program synchronously the first
- * time its object is drawn — the nameplate on the first hover, the tribune
- * when it rises, the briefing banner, a model that just loaded — and on
- * Windows (ANGLE over Direct3D) each such compile froze the whole HQ for
- * 150-570 ms. renderer.compileAsync prepares every material in the scene
- * graph, hidden objects included, and lets the driver compile them in
- * parallel (KHR_parallel_shader_compile). It runs again whenever a material
- * it has not seen yet appears. Nothing is drawn differently.
+ * Compiles every shader program before its first draw. Left to itself
+ * three.js compiles a program synchronously the first time its object is
+ * drawn — the whole room on the first frame, a model that just loaded, the
+ * nameplate on the first hover, the tribune when it rises — and on Windows
+ * (ANGLE over Direct3D) each such compile froze the HQ for 10-40 ms, a room's
+ * worth for ~250 ms. HqPrewarmGate (shaderPrewarm.ts) compiles them ahead,
+ * exactly as the frame will use them, holds the objects back until the
+ * driver has built them in parallel and they have been drawn once off
+ * screen, then lets them in together. Objects whose programs already exist
+ * are never held back. Nothing is drawn differently.
  */
-function HqShaderPrewarm() {
-  const get = useThree((state) => state.get);
-  useEffect(() => {
-    let alive = true;
-    let busy = false;
-    const seen = new WeakSet<Material>();
-    const check = () => {
-      if (!alive || busy) return;
-      const { gl, scene, camera } = get();
-      // Collected in the same tick as the compile, which gathers the same set.
-      let fresh = false;
-      scene.traverse((object) => {
-        const material = (object as Mesh).material;
-        if (!material) return;
-        for (const m of Array.isArray(material) ? material : [material]) {
-          if (seen.has(m)) continue;
-          seen.add(m);
-          fresh = true;
-        }
-      });
-      if (!fresh) return;
-      busy = true;
-      gl.compileAsync(scene, camera)
-        .catch(() => undefined)
-        .finally(() => {
-          busy = false;
-        });
-    };
-    check();
-    const timer = window.setInterval(check, PREWARM_CHECK_MS);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [get]);
+function HqShaderPrewarm({ gate }: { gate: HqPrewarmGate }) {
+  const gl = useThree((state) => state.gl);
+  useEffect(
+    () => () => {
+      gate.dispose();
+      disposePrewarm(gl);
+    },
+    [gl, gate],
+  );
+  useFrame(({ gl: renderer, scene, camera }) => gate.update(renderer, scene, camera), PREWARM_PRIORITY);
   return null;
 }
 
@@ -202,6 +182,9 @@ export const HqScene = memo(function HqScene({
   // Every screen's content (monitors, wall screens, AM7's monitor, the map panels).
   const screens = useMemo(() => new HqScreenHub(), []);
   useEffect(() => () => screens.dispose(), [screens]);
+  // Holds new objects back until their shaders are built (and the post chain
+  // until the room is, at load).
+  const gate = useMemo(() => new HqPrewarmGate(), []);
   // The briefing on the video wall: the task on the west wing, AM7's plan on
   // the east wing, the goal across the top of the map.
   const briefingTask = briefing?.task ?? null;
@@ -211,7 +194,7 @@ export const HqScene = memo(function HqScene({
   }, [screens, briefingTask, briefingReply]);
   return (
     <>
-      <HqShaderPrewarm />
+      <HqShaderPrewarm gate={gate} />
       <HqDevThreeHook />
       {operationRef ? <HqOperationFeed screens={screens} operationRef={operationRef} /> : null}
       <HqSimDriver simRef={simRef} activityRef={activityRef} />
@@ -252,7 +235,7 @@ export const HqScene = memo(function HqScene({
         onSelect={onSelect}
         onFocus={onFocus}
       />
-      <HqPostFx quality={quality} />
+      <HqPostFx quality={quality} gate={gate} />
     </>
   );
 });

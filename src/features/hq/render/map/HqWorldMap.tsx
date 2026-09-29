@@ -130,7 +130,9 @@ export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldM
   // Nothing here re-renders per frame: the rig writes uniforms and attributes.
   // The input object is reused so the frame loop allocates nothing.
   const frameInput = useRef<MapFrameInput | null>(null);
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
+    // A map layer that arrived streams to the GPU a strip per frame.
+    rig.upload(state.gl);
     const raw = activity ? activity.current : DEFAULT_MAP_ACTIVITY;
     const level = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0;
     let input = frameInput.current;

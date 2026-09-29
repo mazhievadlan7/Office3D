@@ -73,7 +73,7 @@ export function HqCrowd({ simRef, agentsRef, hoveredIdRef, selectedId, quality, 
     if (!runtime) return;
     runtime.setQuality(quality);
     const character = characterRef.current;
-    if (!runtime.hasCharacter(character)) runtime.setCharacter(character, state.gl);
+    if (!runtime.hasCharacter(character)) runtime.setCharacter(character, state.gl, state.camera, state.scene);
     runtime.update(
       state.gl,
       simRef.current,

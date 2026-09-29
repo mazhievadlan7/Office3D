@@ -156,6 +156,12 @@ export class HqCrowdHeroes {
     // Bounds of a skinned mesh follow the bind pose; the slot is only used
     // for agents already known to be on screen.
     mesh.frustumCulled = false;
+    // The renderer still reads the bounds to order draws. Left null, the
+    // first draw computes posed bounds by skinning every vertex on the CPU
+    // (~8 ms a rig, ~130 ms for the whole set in one frame) and never updates
+    // them after; the bind-pose sphere orders the draws just as well.
+    if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+    if (mesh.geometry.boundingSphere) mesh.boundingSphere = mesh.geometry.boundingSphere.clone();
     const mixer = new AnimationMixer(object);
     // Actions are made up front but only the one or two a pose needs play,
     // so the mixer evaluates two clips per rig whatever the clip count.

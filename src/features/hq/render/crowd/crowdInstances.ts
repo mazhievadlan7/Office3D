@@ -7,13 +7,16 @@ import {
   MeshStandardMaterial,
   SphereGeometry,
   type BufferAttribute,
+  type Camera,
   type DataTexture,
   type Material,
+  type Scene,
   type WebGLRenderer,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { HQ_THEME } from "@/features/hq/core/config";
 import type { HqAgentFrame } from "@/features/hq/core/types";
+import { compileAhead } from "@/features/hq/render/scene/shaderPrewarm";
 import { HQ_LEAD_SCALE } from "./clipTable";
 import { createCrowdMaterial, type HqCrowdUniforms } from "./crowdMaterials";
 import { HqPalettePass } from "./crowdPalette";
@@ -142,6 +145,15 @@ export class HqSkinnedCrowd {
     const rowA = bakeRow(this.bake, frame.clip[i], frame.clipTime[i]);
     const rowB = w >= 0.999 ? rowA : bakeRow(this.bake, frame.prevClip[i], frame.prevClipTime[i]);
     this.pass.setInstance(k, rowA, rowB, w, lead ? 1 : 0);
+  }
+
+  /**
+   * Starts compiling the crowd's programs (the instanced body and its palette
+   * pass) before the crowd is first drawn; see shaderPrewarm.ts.
+   */
+  compile(renderer: WebGLRenderer, camera: Camera, scene: Scene): void {
+    compileAhead(renderer, [this.mesh], camera, scene);
+    this.pass.compile(renderer);
   }
 
   /** Uploads the instances and renders their bone palette (before the scene draws). */

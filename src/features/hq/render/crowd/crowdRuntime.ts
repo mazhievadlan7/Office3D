@@ -9,11 +9,13 @@ import {
   type InstancedMesh,
   type Material,
   type Object3D,
+  type Scene,
   type WebGLRenderer,
 } from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
 import type { HqAgentFrame, HqAgentInput } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
+import { compileAhead, programsReady } from "@/features/hq/render/scene/shaderPrewarm";
 import { HQ_LEAD_SCALE, isSeatedClip } from "./clipTable";
 import { HqCrowdDecals, RING_HOVER, RING_SELECTED } from "./crowdDecals";
 import { HqCrowdHeroes } from "./crowdHeroes";
@@ -45,6 +47,13 @@ const HERO_COUNT: Record<HqQuality, number> = { high: 24, medium: 12, low: 4 };
  * the scene; the figures stand in until it is done (a fraction of a second).
  */
 const LOAD_BUDGET_MS = 4;
+/**
+ * The stand-ins give way after this long even if the driver has not finished
+ * compiling: both this many milliseconds and this many frames (a background
+ * tab runs a frame a second or none).
+ */
+const MAX_COMPILE_WAIT_MS = 4000;
+const MAX_COMPILE_WAIT_FRAMES = 240;
 const MAX_HEROES = 24;
 // Bounding sphere of one agent for culling, centred at chest height.
 const CULL_RADIUS = 1.25;
@@ -75,6 +84,10 @@ type PendingCharacter = {
   bake: HqSkinBake | null;
   heroes: HqCrowdHeroes | null;
   heroMaterials: { normal: Material; lead: Material } | null;
+  /** Built once the rigs are, then held back until its shaders are compiled. */
+  crowd: HqSkinnedCrowd | null;
+  compileStart: number;
+  compileFrames: number;
 };
 
 export class HqCrowdRuntime {
@@ -126,10 +139,13 @@ export class HqCrowdRuntime {
   /**
    * Switches between the GLB character and the capsule stand-in. Call it
    * every frame until hasCharacter(source): the clips are baked and the hero
-   * rigs built LOAD_BUDGET_MS at a time (the bake is cached per GLTF), and
-   * whatever was drawn before stays on screen until the new one is complete.
+   * rigs built LOAD_BUDGET_MS at a time (the bake is cached per GLTF), then
+   * every shader the character draws with (crowd, palette pass, rigs and
+   * their shadows) is compiled off the frame; whatever was drawn before stays
+   * on screen until the new one is complete. `camera` and `scene` are the
+   * ones the crowd will be drawn with.
    */
-  setCharacter(source: HqCharacterSource | null, renderer: WebGLRenderer): void {
+  setCharacter(source: HqCharacterSource | null, renderer: WebGLRenderer, camera?: Camera, scene?: Scene): void {
     if (this.hasCharacter(source)) return;
     if (!source) {
       this.dropPending();
@@ -146,7 +162,7 @@ export class HqCrowdRuntime {
         this.dropCharacter();
         return;
       }
-      this.pending = { source, baker, bake: null, heroes: null, heroMaterials: null };
+      this.pending = { source, baker, bake: null, heroes: null, heroMaterials: null, crowd: null, compileStart: 0, compileFrames: 0 };
     }
     const p = this.pending;
     if (!mesh) return;
@@ -161,12 +177,30 @@ export class HqCrowdRuntime {
     }
     if (!p.heroes.grow(Math.max(0.5, LOAD_BUDGET_MS - (performance.now() - t0)))) return;
 
-    // Complete: swap it in.
+    if (!p.crowd) {
+      // Half floats still hold the palette to about a millimetre at room scale.
+      const floatTargets = renderer.extensions.has("EXT_color_buffer_float");
+      p.crowd = new HqSkinnedCrowd(mesh.geometry, mesh.material, p.bake, this.capacity, floatTargets);
+      p.crowd.mesh.receiveShadow = this.quality === "high";
+      // Drawn untouched, the crowd and its rigs compiled five programs in
+      // their first frame (~40 ms on ANGLE/D3D). Start them now, in
+      // parallel, and keep the stand-ins up until they are built.
+      if (camera && scene) {
+        p.crowd.compile(renderer, camera, scene);
+        compileAhead(renderer, [p.heroes.root], camera, scene);
+      }
+      p.compileStart = performance.now();
+      return;
+    }
+    p.compileFrames += 1;
+    const expired = p.compileFrames > MAX_COMPILE_WAIT_FRAMES && performance.now() - p.compileStart > MAX_COMPILE_WAIT_MS;
+    if (!programsReady(renderer) && !expired) return;
+
+    // Complete: swap it in, sized for the agents that arrived meanwhile.
+    const crowd = p.crowd;
+    crowd.ensure(this.capacity);
     this.pending = null;
     this.dropCharacter();
-    // Half floats still hold the palette to about a millimetre at room scale.
-    const floatTargets = renderer.extensions.has("EXT_color_buffer_float");
-    const crowd = new HqSkinnedCrowd(mesh.geometry, mesh.material, p.bake, this.capacity, floatTargets);
     crowd.mesh.receiveShadow = this.quality === "high";
     this.character = { source, bake: p.bake, crowd, heroes: p.heroes, heroMaterials: p.heroMaterials };
     this.root.add(crowd.mesh, p.heroes.root);
@@ -177,6 +211,7 @@ export class HqCrowdRuntime {
     const p = this.pending;
     if (!p) return;
     this.pending = null;
+    p.crowd?.dispose();
     p.heroes?.dispose();
     p.heroMaterials?.normal.dispose();
     p.heroMaterials?.lead.dispose();

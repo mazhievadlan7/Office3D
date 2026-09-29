@@ -361,23 +361,56 @@ describe("world map rig", () => {
     expect(uniforms.uDayMix.value).toBe(0);
     expect(rig.shared.uReveal.value).toBe(0);
 
-    // Imagery missing (a 404): only the vector data arrives.
+    // A renderer stand-in: records the strips streamed into GPU storage.
+    const strips: Array<[number, number]> = [];
+    let mipmaps = 0;
+    const handles = new Map<THREE.Texture, { __webglTexture: object }>();
+    const gl = {
+      TEXTURE_2D: 1, RGBA: 2, RED: 3, UNSIGNED_BYTE: 4, NONE: 0,
+      UNPACK_ALIGNMENT: 5, UNPACK_FLIP_Y_WEBGL: 6, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 7,
+      UNPACK_COLORSPACE_CONVERSION_WEBGL: 8, UNPACK_ROW_LENGTH: 9, UNPACK_SKIP_PIXELS: 10, UNPACK_SKIP_ROWS: 11,
+      texStorage2D: () => undefined,
+      texSubImage2D: (...args: number[]) => strips.push([args[3], args[5]]),
+      generateMipmap: () => (mipmaps += 1),
+    };
+    const renderer = {
+      initTexture: (texture: THREE.Texture) => handles.set(texture, { __webglTexture: {} }),
+      properties: { get: (texture: THREE.Texture) => handles.get(texture) ?? {} },
+      getContext: () => gl,
+      state: { bindTexture: () => undefined, pixelStorei: () => undefined },
+    } as unknown as THREE.WebGLRenderer;
+    const step = () => {
+      rig.upload(renderer);
+      rig.frame(1 / 60, frame);
+    };
+
+    // Imagery missing (a 404): only the vector data arrives. It streams in
+    // (storage first, then its rows, then the mip chain) before it shows.
     rig.setRaster("geo", raster(4));
-    rig.frame(1 / 60, frame);
+    step();
+    expect(rig.has("geo")).toBe(false);
+    const geo = [...handles.keys()][0] as THREE.DataTexture;
+    expect(geo.source.dataReady).toBe(false);
+    step();
     expect(rig.has("geo")).toBe(true);
+    expect(strips).toEqual([[0, 3]]);
+    expect(mipmaps).toBe(1);
+    expect(geo.source.dataReady).toBe(true);
     expect((uniforms.uGeoMap.value as THREE.DataTexture).image.width).toBe(8);
     for (let i = 0; i < 180; i++) rig.frame(1 / 60, frame);
     expect(rig.shared.uReveal.value).toBe(1);
     expect(uniforms.uDayMix.value).toBe(0);
     expect(uniforms.uNightMix.value).toBe(0);
 
-    // Both images arrive together: attached on separate frames, then faded in.
+    // Both images arrive together: streamed one after the other, then faded in.
     rig.setRaster("day", raster(1));
     rig.setRaster("night", raster(1));
-    rig.frame(1 / 60, frame);
+    step();
+    step();
     expect(rig.has("day")).toBe(true);
     expect(rig.has("night")).toBe(false);
-    rig.frame(1 / 60, frame);
+    step();
+    step();
     expect(rig.has("night")).toBe(true);
     expect(uniforms.uDayMix.value).toBeGreaterThan(0);
     expect(uniforms.uDayMix.value).toBeLessThan(0.1);

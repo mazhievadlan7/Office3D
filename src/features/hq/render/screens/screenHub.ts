@@ -106,8 +106,38 @@ function planeTexture(width: number, height: number): THREE.DataTexture {
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = true;
   texture.anisotropy = 8;
+  // Storage only: the dark start is cleared on the GPU (clearPlanes). Sending
+  // the texels instead meant ~38 MB of black through the upload path in the
+  // screens' first frame (~50 ms). The main-thread fallback uploads them.
+  texture.source.dataReady = false;
   texture.needsUpdate = true;
   return texture;
+}
+
+/**
+ * Clears every mip level of a plane texture to opaque black on the GPU,
+ * exactly the texels planeTexture's data holds, through three's state so its
+ * cached bindings and clear colour stay true.
+ */
+function clearPlane(renderer: THREE.WebGLRenderer, texture: THREE.DataTexture): void {
+  const handle = glTextureOf(renderer, texture);
+  if (!handle) return;
+  const gl = renderer.getContext() as WebGL2RenderingContext;
+  const state = renderer.state;
+  const image = texture.image as { width: number; height: number };
+  const levels = Math.floor(Math.log2(Math.max(image.width, image.height))) + 1;
+  const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  const framebuffer = gl.createFramebuffer();
+  state.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  state.setScissorTest(false);
+  state.buffers.color.setMask(true);
+  state.buffers.color.setClear(0, 0, 0, 1, false);
+  for (let level = 0; level < levels; level++) {
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, handle, level);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  state.bindFramebuffer(gl.FRAMEBUFFER, previous);
+  gl.deleteFramebuffer(framebuffer);
 }
 
 function workerSupported(): boolean {
@@ -143,6 +173,7 @@ export class HqScreenHub {
   private sample = 0;
   private slowdown = 1;
   private disposed = false;
+  private planesCleared = false;
   private readonly mipmapAt = new Map<THREE.Texture, number>();
   private readonly mipmapDue = new Set<THREE.DataTexture>();
   /** Null until the props report where the screens hang: then everything counts as seen. */
@@ -282,6 +313,11 @@ export class HqScreenHub {
 
   /** Per frame: refresh the floor feed about once a second and upload what is ready. */
   update(seconds: number, agents: readonly HqAgentInput[], renderer: THREE.WebGLRenderer, camera?: THREE.Camera): void {
+    if (!this.planesCleared) {
+      // Before any screen draws: allocate the planes and clear them dark.
+      this.planesCleared = true;
+      for (const texture of this.planes()) if (!texture.source.dataReady) clearPlane(renderer, texture);
+    }
     if (seconds - this.feedAt >= FEED_PERIOD || seconds < this.feedAt) {
       this.feedAt = seconds;
       this.feed = this.buildFeed(agents);
@@ -394,6 +430,16 @@ export class HqScreenHub {
     for (const { bitmap } of this.ready.values()) bitmap.close();
     this.ready.clear();
     if (!this.fallback) this.fallback = { painters: new Map(), next: new Float64Array(SCREEN_SURFACES.length) };
+    // The fallback paints into the CPU copies and uploads rows of them.
+    for (const texture of this.planes()) {
+      if (texture.source.dataReady) continue;
+      texture.source.dataReady = true;
+      texture.needsUpdate = true;
+    }
+  }
+
+  private planes(): THREE.DataTexture[] {
+    return [this.monitors, this.walls, this.exec, this.mapLeft, this.mapRight, this.mapBanner];
   }
 
   /** Main-thread fallback: one surface per frame, slower than the worker. */

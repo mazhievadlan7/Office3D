@@ -34,6 +34,12 @@ const IMAGERY_FADE_SECONDS = 1.6;
 const MAX_ANISOTROPY = 8;
 /** The Sun moves a quarter of a degree a minute: once a second is smooth, and spares a per-frame allocation. */
 const SUN_UPDATE_MS = 1000;
+/**
+ * Texels sent to the GPU per frame while a map layer streams in. The day
+ * imagery alone is 11 MB (5400×2040) and the geo layer 25 MB; uploaded whole
+ * on its first draw, one layer froze a frame for 30-130 ms on ANGLE/D3D.
+ */
+const UPLOAD_BYTES_PER_FRAME = 1 << 20;
 export const DEFAULT_MAP_ACTIVITY = 0.4;
 
 const QUALITY_LEVEL: Record<HqQuality, number> = { low: 0, medium: 1, high: 2 };
@@ -141,7 +147,8 @@ export class MapRig {
   private wings = 0;
   private anisotropy = 1;
   private readonly loaded: Record<MapLayer, THREE.DataTexture | null> = { geo: null, day: null, night: null };
-  private readonly queued: Array<{ layer: MapLayer; texture: THREE.DataTexture }> = [];
+  /** Layers waiting to stream in, in arrival order; `row` is how far the head has been sent. */
+  private readonly queued: Array<{ layer: MapLayer; texture: THREE.DataTexture; row: number; allocated: boolean }> = [];
   private dayMix = 0;
   private nightMix = 0;
   private sunAtMs = Number.NEGATIVE_INFINITY;
@@ -152,11 +159,76 @@ export class MapRig {
   }
 
   /**
-   * Hands over a layer's texels. The texture is attached on a later frame,
-   * one per frame, so no two big uploads ever land in the same frame.
+   * Hands over a layer's texels. They stream to the GPU over the next frames
+   * (upload()), one layer at a time, and the layer is attached once complete.
    */
   setRaster(layer: MapLayer, raster: MapRaster): void {
-    this.queued.push({ layer, texture: rasterTexture(raster, this.anisotropy) });
+    this.queued.push({ layer, texture: rasterTexture(raster, this.anisotropy), row: 0, allocated: false });
+  }
+
+  /**
+   * Streams the next strip of the waiting layer: storage (every mip level)
+   * first, then UPLOAD_BYTES_PER_FRAME of rows a frame, then the mip chain,
+   * built once by the GPU; only then is the layer attached, so its first
+   * draw uploads nothing. Call once per frame before the draw.
+   */
+  upload(renderer: THREE.WebGLRenderer): void {
+    const next = this.queued[0];
+    if (!next) return;
+    const texture = next.texture;
+    if (!next.allocated) {
+      // Allocate (texStorage2D, sampler state) without sending the texels.
+      texture.source.dataReady = false;
+      renderer.initTexture(texture);
+      next.allocated = true;
+      return;
+    }
+    const image = texture.image as { width: number; height: number; data: Uint8Array };
+    const glTexture = (renderer.properties.get(texture) as { __webglTexture?: WebGLTexture }).__webglTexture;
+    const gl = renderer.getContext();
+    if (!glTexture || !("texStorage2D" in gl)) {
+      // No storage to stream into: let three upload it whole on the first draw.
+      texture.source.dataReady = true;
+      texture.needsUpdate = true;
+      this.queued.shift();
+      this.attach(next.layer, texture);
+      return;
+    }
+    const rgba = texture.format === THREE.RGBAFormat;
+    const rowBytes = image.width * (rgba ? 4 : 1);
+    const rows = Math.min(image.height - next.row, Math.max(1, Math.floor(UPLOAD_BYTES_PER_FRAME / rowBytes)));
+    // Through three's state, which caches the bound texture and the pixel-store
+    // parameters: a raw gl call would leave its cache wrong for its next upload.
+    const state = renderer.state as unknown as {
+      bindTexture: (target: number, texture: WebGLTexture) => void;
+      pixelStorei: (name: number, value: number | boolean) => void;
+    };
+    state.bindTexture(gl.TEXTURE_2D, glTexture);
+    state.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    state.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    state.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    state.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    state.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    state.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    state.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      next.row,
+      image.width,
+      rows,
+      rgba ? gl.RGBA : gl.RED,
+      gl.UNSIGNED_BYTE,
+      image.data,
+      next.row * rowBytes,
+    );
+    next.row += rows;
+    if (next.row < image.height) return;
+    gl.generateMipmap(gl.TEXTURE_2D);
+    texture.source.dataReady = true;
+    this.queued.shift();
+    this.attach(next.layer, texture);
   }
 
   /** Whether a layer's real data is on the map (not its stand-in). */
@@ -191,8 +263,6 @@ export class MapRig {
       sunDirection(input.clockMs, u.uSunDir.value);
     }
 
-    const next = this.queued.shift();
-    if (next) this.attach(next.layer, next.texture);
     // Imagery fades in over the procedural look rather than popping.
     const fade = dt / IMAGERY_FADE_SECONDS;
     this.dayMix = this.loaded.day ? Math.min(1, this.dayMix + fade) : 0;
