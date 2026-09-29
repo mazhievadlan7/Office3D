@@ -100,7 +100,7 @@ export type HqProp = {
 
 /**
  * Channels of the wall screens; the layer order of the screen hub's wall
- * texture: AM7's report, AM7 NEWS, AM7 BUSINESS (markets) and AM7 RADIO.
+ * texture: AM7's report, HACKING NEWS, AM7 BUSINESS (markets) and AM7 RADIO.
  */
 export const HQ_WALL_SCREEN = { exec: 0, news: 1, markets: 2, music: 3 } as const;
 export type HqWallScreen = (typeof HQ_WALL_SCREEN)[keyof typeof HQ_WALL_SCREEN];

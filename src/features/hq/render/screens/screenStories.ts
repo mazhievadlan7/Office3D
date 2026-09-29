@@ -15,10 +15,13 @@ const AGENTS: PluralForms = ["агент", "агента", "агентов"];
 
 export const STATUS_WORD = ["в работе", "ожидает", "ошибка"] as const;
 
-/** Role family names (HQ_ROLE_FAMILY order) for the screens. */
-export const TEAM_NAMES = ["Оперативный штаб", "Разведка", "Веб и API", "Сеть", "Идентификация", "Облако", "Реверс", "Отчётность"] as const;
+/**
+ * Kinds of operation, in HQ_ROLE_FAMILY order (core/roles.ts maps an agent's
+ * role to one): not departments, everyone is an operational hacker.
+ */
+export const TEAM_NAMES = ["Оперативный штаб", "Разведка", "Веб и API", "Идентификация", "Облако", "Сеть", "Реверс", "Отчётность"] as const;
 /** Short ticker codes, same order. */
-export const TEAM_CODES = ["ОБЩ", "ИССЛ", "РАЗР", "АНЛТ", "ДИЗН", "DVOP", "ТЕСТ", "ТЕКС"] as const;
+export const TEAM_CODES = ["ШТАБ", "РАЗВ", "ВЕБ", "ИДЕН", "ОБЛК", "СЕТЬ", "РЕВС", "ОТЧТ"] as const;
 
 /** Share of agents working, 0..1. */
 export function workingShare(feed: HqScreenFeed): number {
@@ -85,7 +88,7 @@ function eventTitle(name: string, status: number): string {
 
 /**
  * The news channel's rundown, most urgent first: fresh errors, the state of
- * the floor, the minute's trend, the busiest department, the latest moves.
+ * the floor, the minute's trend, the busiest kind of operation, the latest moves.
  */
 export function newsStories(feed: HqScreenFeed): NewsStory[] {
   const out: NewsStory[] = [];
@@ -135,7 +138,7 @@ export function newsStories(feed: HqScreenFeed): NewsStory[] {
     const team = feed.teams[busiest];
     out.push({
       tag: "ОПЕРАЦИИ",
-      title: `«${TEAM_NAMES[busiest]}» загружен на ${Math.round(best * 100)}%`,
+      title: `Операции «${TEAM_NAMES[busiest]}»: в работе ${Math.round(best * 100)}%`,
       sub: `${team.working} из ${team.total} ${plural(team.total, AGENTS)} в работе`,
       hot: false,
     });
@@ -320,7 +323,7 @@ export function candles(values: readonly number[], per: number): Candle[] {
   return out;
 }
 
-/** Business ticker quotes: the index, every staffed department, the statuses. */
+/** Business ticker quotes: the index, every kind of operation in progress, the statuses. */
 export function marketQuotes(feed: HqScreenFeed, index: number, change: number): Array<{ code: string; value: string; delta: number }> {
   const quotes: Array<{ code: string; value: string; delta: number }> = [{ code: "AM7X", value: decimal(index, 2), delta: change }];
   feed.teams.forEach((team, i) => {

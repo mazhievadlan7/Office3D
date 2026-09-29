@@ -6,7 +6,7 @@ import { generateHqLayout } from "@/features/hq/core/layout";
 import { HQ_ROLE_FAMILY, HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_WALL_SCREEN } from "@/features/hq/core/types";
 import { mapDirection, subsolarPoint, sunDirection } from "@/features/hq/render/map/sun";
-import { APP_LAYER, HQ_SCREEN_APPS, packDeskState, screenAppsGlsl } from "@/features/hq/render/screens/screenApps";
+import { APP_LAYER, HQ_KALI_APPS, HQ_SCREEN_APPS, packDeskState, screenAppsGlsl } from "@/features/hq/render/screens/screenApps";
 import { buildEarthLevels, greatCircle, projectGlobe } from "@/features/hq/render/screens/screenGlobe";
 import { APP_PAINTERS, EMPTY_FEED, type HqScreenFeed } from "@/features/hq/render/screens/screenPaint";
 import {
@@ -78,9 +78,19 @@ describe("desk monitors", () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThan(HQ_SCREEN_APPS.length);
     }
-    // Builders code on the centre monitor.
-    const centre = values.slice((HQ_ROLE_FAMILY.builder * 3 + 1) * 4, (HQ_ROLE_FAMILY.builder * 3 + 2) * 4);
-    for (const v of centre) expect([APP_LAYER.code_ts, APP_LAYER.code_py]).toContain(v);
+    // A hacker on an operation works in a Kali root terminal on the centre
+    // monitor, whatever the kind of operation; the side monitors never show one.
+    const kali = HQ_KALI_APPS.map((name) => APP_LAYER[name]);
+    for (let family = 0; family < HQ_ROLE_FAMILY_COUNT; family++) {
+      for (let monitor = 0; monitor < 3; monitor++) {
+        const column = values.slice((family * 3 + monitor) * 4, (family * 3 + monitor + 1) * 4);
+        for (const v of column) expect(kali.includes(v), `family ${family} monitor ${monitor}`).toBe(monitor === 1);
+      }
+    }
+    // Idle desks show code, logs or dashboards (or lock), never the Kali session.
+    const idle = /HQ_APP_IDLE\[\d+\] = int\[\d+\]\(([^)]*)\)/.exec(glsl);
+    expect(idle).not.toBeNull();
+    for (const v of idle![1].split(",").map((s) => Number(s.trim()))) expect(kali).not.toContain(v);
   });
 });
 

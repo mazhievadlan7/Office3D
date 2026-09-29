@@ -1,21 +1,24 @@
 import {
+  CALLSIGNS,
   CHAT_LINES,
   CODE_PY,
   CODE_SQL,
   CODE_TS,
   DOC_TEXT,
   DOC_TITLE,
+  KALI_RANGE,
+  KALI_RECON,
+  KALI_WEB,
   KANBAN,
   LOG_MESSAGES,
   LOG_SERVICES,
+  OPERATION_KINDS,
   PAPERS,
   REGIONS,
   RESEARCH_TEXT,
   RESEARCH_TITLE,
   TASK_KINDS,
-  TERM_BUILD,
   TERM_OPS,
-  TERM_TESTS,
   TS_KEYWORDS,
   hash2,
   makeRng,
@@ -317,7 +320,7 @@ export function clockText(ms: number, withMs = false): string {
 }
 
 function nameAt(feed: HqScreenFeed, k: number): string {
-  if (feed.names.length === 0) return pick(["Nova", "Vex", "Rune", "Kade", "Lyra", "Orion"], hash2(k, 7));
+  if (feed.names.length === 0) return pick(CALLSIGNS, hash2(k, 7));
   return feed.names[Math.floor(hash2(k, 11) * feed.names.length) % feed.names.length];
 }
 
@@ -516,7 +519,7 @@ const sql: AppPainter = (p, t, seed, feed) => {
   p.setFont(10.5);
   CODE_SQL.slice(0, 5).forEach((line, i) => codeLine(p, line, 8, box.y + 13 + i * 13, 90));
   const ty = box.y + 13 * 5 + 10;
-  const cols = ["name", "role", "tasks", "avg_ms", "ok_pct"];
+  const cols = ["name", "op", "tasks", "avg_ms", "ok_pct"];
   const cx = [8, 0.26, 0.5, 0.66, 0.82].map((f, i) => (i === 0 ? 8 : f * box.w));
   p.fill(0, ty, box.w, 16, "#242427");
   p.setFont(10, 700);
@@ -530,7 +533,7 @@ const sql: AppPainter = (p, t, seed, feed) => {
     const k = r + Math.floor(seed * 100);
     const tasks = Math.round(40 + hash2(k, Math.floor(t / 6)) * 200);
     p.text(nameAt(feed, k), cx[0], y, INK.white);
-    p.text(pick(["research", "builder", "analyst", "devops", "qa", "design"], hash2(k, 3)), cx[1], y, INK.mid);
+    p.text(pick(OPERATION_KINDS, hash2(k, 3)), cx[1], y, INK.mid);
     p.text(String(tasks), cx[2], y, INK.text);
     p.text(String(Math.round(90 + hash2(k, 5) * 500)), cx[3], y, INK.text);
     p.text(`${(92 + hash2(k, 9) * 8).toFixed(1)}`, cx[4], y, INK.good);
@@ -598,32 +601,43 @@ const papers: AppPainter = (p, t, seed) => {
   });
 };
 
-const design: AppPainter = (p, t, seed) => {
-  const box = p.window("Figma — HQ dashboard v3", ["Дашборд", "Компоненты"], 0, "100%  •  3 выбрано");
-  const lw = 86;
-  p.fill(0, box.y, lw, box.h, "#141417");
-  p.setFont(10, 400, SANS);
-  ["▾ Frame / Home", "   Header", "   KPI cards", "   Chart", "   Table", "▸ Frame / Agent", "▸ Components"].forEach((l, i) =>
-    p.text(l, 6, box.y + 16 + i * 15, i === 3 ? INK.white : INK.dim),
-  );
-  const ax = lw + 18;
-  const aw = box.w - lw - 110;
-  const ah = box.h - 30;
-  p.fill(ax, box.y + 14, aw, ah, "#1a1a1d");
-  p.stroke(ax, box.y + 14, aw, ah, INK.dim);
-  p.fill(ax + 8, box.y + 22, aw - 16, 16, "#353538");
-  for (let i = 0; i < 3; i++) p.fill(ax + 8 + i * ((aw - 16) / 3), box.y + 44, (aw - 16) / 3 - 6, 34, "#28282b");
-  p.chart(series(24, t * 0.2, seed), ax + 10, box.y + 86, aw - 20, ah * 0.36, INK.hot);
-  // selection box moving
-  const sx = ax + 8 + (Math.floor(t * 0.5) % 3) * ((aw - 16) / 3);
-  p.stroke(sx - 2, box.y + 42, (aw - 16) / 3 - 2, 38, INK.warn, 1.5);
-  // swatches
-  const px = box.w - 86;
-  p.fill(px, box.y, 86, box.h, "#141417");
-  ["#ff1a1a", "#b0302d", "#6e0000", "#ffd8d0", "#242427", "#ffae5c"].forEach((c, i) => {
-    p.fill(px + 8, box.y + 12 + i * 22, 16, 16, c);
-    p.setFont(9.5);
-    p.text(c, px + 30, box.y + 24 + i * 22, INK.mid);
+/** The operation's findings tracker: id, severity, title, status. */
+const FINDINGS: ReadonlyArray<readonly [id: string, sev: "high" | "medium" | "low" | "info", title: string, status: string]> = [
+  ["F-0194", "high", "Order access not checked per owner", "в отчёте"],
+  ["F-0192", "medium", "Legacy FTP banner shows its version", "в отчёте"],
+  ["F-0193", "low", "No CSP and HSTS headers", "фикс приложен"],
+  ["F-0190", "medium", "Weak password policy on the lab portal", "ретест"],
+  ["F-0188", "low", "Verbose error pages on api-gw", "дубликат"],
+  ["F-0186", "info", "Unused test account on the range", "закрыто"],
+  ["F-0185", "medium", "Session not ended on logout", "ретест"],
+];
+
+const SEV_COLOR = { high: INK.hot, medium: INK.warn, low: INK.mid, info: INK.dim } as const;
+
+const findings: AppPainter = (p, t, seed) => {
+  const high = FINDINGS.filter((f) => f[1] === "high").length;
+  const box = p.window("Находки — OP-2417", ["Все", "High", "Ретест"], 0, `${FINDINGS.length} находок  •  high ${high}  •  скоуп подтверждён`);
+  const cx = [10, 70, 142, box.w - 12];
+  p.fill(0, box.y, box.w, 17, "#242427");
+  p.setFont(10, 700);
+  ["id", "sev", "title"].forEach((c, i) => p.text(c, cx[i], box.y + 12, INK.hot));
+  p.text("status", cx[3], box.y + 12, INK.hot, "right");
+  const hl = Math.floor(t * 0.5 + seed * 7) % FINDINGS.length;
+  const lh = 22;
+  FINDINGS.forEach(([id, sev, title, status], i) => {
+    const y = box.y + 36 + i * lh;
+    if (y > box.y + box.h - 4) return;
+    if (i === hl) p.fill(0, y - 14, box.w, lh - 2, "#27272a");
+    p.setFont(10.5, 600);
+    p.text(id, cx[0], y, INK.white);
+    p.fill(cx[1], y - 10, 58, 13, "#1d1d20");
+    p.fill(cx[1], y - 10, 3, 13, SEV_COLOR[sev]);
+    p.setFont(9.5, 700);
+    p.text(sev.toUpperCase(), cx[1] + 8, y, SEV_COLOR[sev]);
+    p.setFont(10.5, 400, SANS);
+    p.text(title, cx[2], y, i === hl ? INK.white : INK.text);
+    p.setFont(9.5, 500, SANS);
+    p.text(status, cx[3], y, INK.dim, "right");
   });
 };
 
@@ -646,7 +660,7 @@ const cluster: AppPainter = (p, t, seed) => {
 };
 
 const kanban: AppPainter = (p, t) => {
-  const box = p.window("Задачи — спринт 42", ["Доска", "Бэклог"], 0, "12 задач  •  3 на ревью");
+  const box = p.window("Операции — OP-2417", ["Доска", "Скоуп"], 0, "12 карточек  •  2 на вычитке");
   const cols: Array<[string, readonly string[]]> = [
     ["К работе", KANBAN.todo],
     ["В работе", KANBAN.doing],
@@ -674,7 +688,7 @@ const kanban: AppPainter = (p, t) => {
 };
 
 const chat: AppPainter = (p, t, seed, feed) => {
-  const box = p.window("Команда — общий канал", ["# штаб", "# релиз", "AM7"], 0, `${feed.total || 300} в сети`);
+  const box = p.window("Штаб — канал операций", ["# штаб", "# op-2417", "AM7"], 0, `${feed.total || 300} в сети`);
   const shown = Math.floor(t * 0.35 + seed * 20) % CHAT_LINES.length;
   const rows = Math.floor((box.h - 30) / 30);
   p.setFont(10.5, 400, SANS);
@@ -816,17 +830,17 @@ const worldops: AppPainter = (p, t, seed, feed) => {
 export const APP_PAINTERS: Record<string, AppPainter> = {
   code_ts: editor(CODE_TS, "router.ts", "TypeScript"),
   code_py: editor(CODE_PY, "anomalies.py", "Python"),
-  term_build: terminal(TERM_BUILD, "root@kali: ~/agent-core", "~/agent-core"),
-  term_ops: terminal(TERM_OPS, "root@kali: ~/infra", "~/infra"),
+  kali_recon: terminal(KALI_RECON, "root@kali: ~/ops/op-2417", "~/ops/op-2417"),
+  kali_web: terminal(KALI_WEB, "root@kali: ~/ops/web-lab", "~/ops/web-lab"),
   logs,
   metrics,
   sql,
   notebook,
   research,
   papers,
-  design,
+  findings,
   cluster,
-  tests: terminal(TERM_TESTS, "root@kali: ~/e2e", "~/e2e"),
+  kali_range: terminal(KALI_RANGE, "root@kali: ~/range", "~/range"),
   kanban,
   chat,
   docs,

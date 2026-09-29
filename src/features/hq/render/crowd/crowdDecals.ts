@@ -1,5 +1,4 @@
 import {
-  AdditiveBlending,
   BufferAttribute,
   Color,
   DynamicDrawUsage,
@@ -16,15 +15,17 @@ import { HQ_THEME } from "@/features/hq/core/config";
  * Floor decals under the agents, two draws in total:
  * - a soft blob shadow under every visible agent (the instanced crowd does
  *   not cast real shadows; only hero rigs do);
- * - glowing rings: bright for the selected agent, softer for the hovered one,
- *   and a faint status ring under everyone at high quality.
- * Both are instanced quads on the floor with per-instance data only, so an
- * agent costs 16-40 bytes of upload per frame.
+ * - a thin neutral outline under the hovered and the selected agent only.
+ * The owner's rule: no glowing or coloured rings/markers on the floor. The
+ * outline is alpha-blended grey, never additive and never bright enough to
+ * reach the bloom; nobody else gets a ring (no status rings).
+ * Both are instanced quads on the floor with per-instance data only.
  */
 
-export const RING_STATUS = 0;
 export const RING_HOVER = 1;
 export const RING_SELECTED = 2;
+/** Outline instances: the hovered and the selected agent. */
+const RING_SLOTS = 2;
 
 const BLOB_VERTEX = /* glsl */ `
 attribute vec4 aSpot;
@@ -69,9 +70,9 @@ void main() {
 }
 `;
 
+// A plain thin line: no halo, no wash, no ticks, no pulse. vColor.a is the
+// line's opacity (alpha-blended over the floor, so it can only dim or tint it).
 const RING_FRAGMENT = /* glsl */ `
-uniform float uTime;
-uniform vec3 uSelectGlow;
 varying vec2 vLocal;
 varying vec4 vColor;
 varying vec2 vStyle;
@@ -79,36 +80,12 @@ void main() {
   float r = length( vLocal );
   if ( r > 1.0 ) discard;
   float aa = fwidth( r ) * 1.25;
-  float style = vStyle.x;
-  bool selected = style > 1.5;
-  bool emphasised = style > 0.5;
-  float ringR = 0.72;
-  float halfW = selected ? 0.034 : ( emphasised ? 0.026 : 0.014 );
-  float d = abs( r - ringR );
-  float core = 1.0 - smoothstep( halfW - aa, halfW + aa, d );
-  float glow = exp( -d * ( emphasised ? 9.0 : 18.0 ) ) * ( emphasised ? 0.45 : 0.16 );
-  vec3 glowColor = selected ? uSelectGlow : vColor.rgb;
-  vec3 col = vColor.rgb * core + glowColor * glow;
-  if ( emphasised ) {
-    // Faint floor wash inside the ring.
-    col += glowColor * ( 1.0 - smoothstep( 0.0, ringR, r ) ) * 0.07;
-  }
-  if ( selected ) {
-    // Slowly turning tick marks on an outer band, and a gentle pulse.
-    float turn = fract( atan( vLocal.y, vLocal.x ) / 6.2831853 * 40.0 + uTime * 0.18 );
-    float tick = smoothstep( 0.2, 0.3, turn ) * ( 1.0 - smoothstep( 0.55, 0.65, turn ) );
-    float band = 1.0 - smoothstep( 0.014 - aa, 0.014 + aa, abs( r - 0.9 ) );
-    col += glowColor * band * tick * 1.3;
-    col *= 0.86 + 0.14 * sin( uTime * 2.6 + vStyle.y );
-  }
-  float fade = 1.0 - smoothstep( 0.94, 1.0, r );
-  if ( !emphasised ) {
-    // Status rings are texture, not signal: they fade out once a ring is
-    // only a few pixels across, so a zoomed-out room does not turn to confetti.
-    float radiusPx = 1.0 / max( fwidth( r ), 1e-4 );
-    fade *= smoothstep( 9.0, 22.0, radiusPx );
-  }
-  gl_FragColor = vec4( col * vColor.a * fade, 1.0 );
+  bool selected = vStyle.x > 1.5;
+  float halfW = selected ? 0.02 : 0.014;
+  float core = 1.0 - smoothstep( halfW - aa, halfW + aa, abs( r - 0.72 ) );
+  float a = core * vColor.a;
+  if ( a < 0.003 ) discard;
+  gl_FragColor = vec4( vColor.rgb, a );
   #include <colorspace_fragment>
 }
 `;
@@ -166,16 +143,10 @@ export class HqCrowdDecals {
     });
     blobMaterial.name = "hq-crowd-blob";
     const ringMaterial = new ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uSelectGlow: { value: new Color(HQ_THEME.accent) },
-      },
       vertexShader: RING_VERTEX,
       fragmentShader: RING_FRAGMENT,
       transparent: true,
       depthWrite: false,
-      blending: AdditiveBlending,
-      toneMapped: false,
       polygonOffset: true,
       polygonOffsetFactor: -3,
       polygonOffsetUnits: -3,
@@ -204,10 +175,10 @@ export class HqCrowdDecals {
     this.blobSpot = instanced(size, 4);
     blobGeometry.setAttribute("aSpot", this.blobSpot);
     const ringGeometry = floorQuad();
-    // Status rings for everyone plus the selected and hovered highlights.
-    this.ringSpot = instanced(size + 4, 4);
-    this.ringColor = instanced(size + 4, 4);
-    this.ringStyle = instanced(size + 4, 2);
+    // Only the selected and hovered outlines (a couple of instances).
+    this.ringSpot = instanced(RING_SLOTS, 4);
+    this.ringColor = instanced(RING_SLOTS, 4);
+    this.ringStyle = instanced(RING_SLOTS, 2);
     ringGeometry.setAttribute("aSpot", this.ringSpot);
     ringGeometry.setAttribute("aColor", this.ringColor);
     ringGeometry.setAttribute("aStyle", this.ringStyle);
@@ -232,9 +203,9 @@ export class HqCrowdDecals {
     a[o + 3] = radius;
   }
 
-  /** `color` is linear; `intensity` scales it (above 1 reaches the bloom). */
-  pushRing(x: number, y: number, z: number, radius: number, color: Color, intensity: number, style: number, phase: number): void {
-    if (this.ringCount >= this.capacity + 4) return;
+  /** `color` is linear; `opacity` is the line's alpha (0..1, alpha-blended, never glows). */
+  pushRing(x: number, y: number, z: number, radius: number, color: Color, opacity: number, style: number, phase: number): void {
+    if (this.ringCount >= RING_SLOTS) return;
     const k = this.ringCount++;
     const spot = this.ringSpot.array as Float32Array;
     const col = this.ringColor.array as Float32Array;
@@ -246,12 +217,12 @@ export class HqCrowdDecals {
     col[k * 4] = color.r;
     col[k * 4 + 1] = color.g;
     col[k * 4 + 2] = color.b;
-    col[k * 4 + 3] = intensity;
+    col[k * 4 + 3] = opacity;
     sty[k * 2] = style;
     sty[k * 2 + 1] = phase;
   }
 
-  end(time: number): void {
+  end(): void {
     this.blobs.geometry.instanceCount = this.blobCount;
     this.rings.geometry.instanceCount = this.ringCount;
     this.blobs.visible = this.blobCount > 0;
@@ -260,7 +231,6 @@ export class HqCrowdDecals {
     upload(this.ringSpot, this.ringCount);
     upload(this.ringColor, this.ringCount);
     upload(this.ringStyle, this.ringCount);
-    this.rings.material.uniforms.uTime.value = time;
   }
 
   dispose(): void {

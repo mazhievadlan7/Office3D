@@ -15,7 +15,7 @@ import { HQ_THEME } from "@/features/hq/core/config";
 import type { HqAgentFrame, HqAgentInput } from "@/features/hq/core/types";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { HQ_LEAD_SCALE, isSeatedClip } from "./clipTable";
-import { HqCrowdDecals, RING_HOVER, RING_SELECTED, RING_STATUS } from "./crowdDecals";
+import { HqCrowdDecals, RING_HOVER, RING_SELECTED } from "./crowdDecals";
 import { HqCrowdHeroes } from "./crowdHeroes";
 import { HqCapsuleCrowd, HqSkinnedCrowd } from "./crowdInstances";
 import { HqCrowdLabels } from "./crowdLabels";
@@ -47,13 +47,12 @@ const CULL_CENTER_Y = 0.9;
 const HEAD_STANDING = 1.56;
 const HEAD_SEATED = 1.18;
 
-const _statusColors = [
-  new Color(HQ_THEME.statusWorking),
-  new Color(HQ_THEME.statusIdle),
-  new Color(HQ_THEME.statusError),
-];
-const _selected = new Color(HQ_THEME.statusSelected);
-const _hover = new Color(HQ_THEME.accentSoft);
+// Neutral grey outlines, alpha-blended: no status colours, no amber/orange,
+// nothing bright enough to bloom (the owner asked twice for no floor rings).
+const _selected = new Color(HQ_THEME.statusSelected).multiplyScalar(0.4);
+const _hover = new Color(HQ_THEME.statusSelected).multiplyScalar(0.32);
+const SELECTED_OPACITY = 0.3;
+const HOVER_OPACITY = 0.2;
 
 type Character = {
   source: HqCharacterSource;
@@ -173,7 +172,7 @@ export class HqCrowdRuntime {
   hide(renderer: WebGLRenderer): void {
     this.capsules.hide();
     this.decals.begin();
-    this.decals.end(0);
+    this.decals.end();
     this.labels.hide();
     if (this.character) {
       this.character.crowd.begin();
@@ -191,7 +190,6 @@ export class HqCrowdRuntime {
     camera: Camera,
     viewportHeight: number,
     dt: number,
-    time: number,
   ): void {
     if (!sim || sim.frame.count === 0) {
       this.hide(renderer);
@@ -256,29 +254,26 @@ export class HqCrowdRuntime {
       capsules.end();
     }
 
-    // 4. Floor decals: blob shadows, status rings (high), hover and selection.
+    // 4. Floor decals: a neutral blob shadow under everyone (grounding only);
+    // a thin grey outline under the hovered and the selected agent. No status,
+    // run or hauler rings: nothing coloured or glowing on the floor.
     const decals = this.decals;
-    const statusRings = this.quality === "high";
     decals.begin();
     for (let i = 0; i < n; i += 1) {
       if (visible[i] === 0) continue;
-      const y = f.y[i] + 0.012;
-      decals.pushBlob(f.x[i], y, f.z[i], isSeatedClip(f.clip[i]) ? 0.52 : 0.44);
-      if (statusRings && i !== selected && i !== hovered) {
-        decals.pushRing(f.x[i], y + 0.002, f.z[i], 0.5, _statusColors[f.status[i]] ?? _statusColors[1], 0.06, RING_STATUS, 0);
-      }
+      decals.pushBlob(f.x[i], f.y[i] + 0.012, f.z[i], isSeatedClip(f.clip[i]) ? 0.52 : 0.44);
     }
     if (hovered >= 0 && hovered !== selected && visible[hovered] === 1) {
-      decals.pushRing(f.x[hovered], f.y[hovered] + 0.016, f.z[hovered], 0.62, _hover, 1.1, RING_HOVER, 0);
+      decals.pushRing(f.x[hovered], f.y[hovered] + 0.016, f.z[hovered], 0.62, _hover, HOVER_OPACITY, RING_HOVER, 0);
     }
     if (selected >= 0 && visible[selected] === 1) {
-      decals.pushRing(f.x[selected], f.y[selected] + 0.018, f.z[selected], 0.7, _selected, 1.6, RING_SELECTED, 0);
+      decals.pushRing(f.x[selected], f.y[selected] + 0.018, f.z[selected], 0.66, _selected, SELECTED_OPACITY, RING_SELECTED, 0);
     }
-    decals.end(time);
+    decals.end();
 
     // 5. Nameplate: only the agent under the pointer — a name lights up on
     // hover, never on camera proximity, and the selection is shown by the
-    // floor ring instead of a lingering label.
+    // neutral floor outline instead of a lingering label.
     let labelCount = 0;
     if (hovered >= 0 && visible[hovered] === 1) this.labelWant[labelCount++] = hovered;
     this.labels.update(f, this.labelWant, labelCount, sim, agents, visible, this.headY, selected, hovered, camera, viewportHeight, dt);

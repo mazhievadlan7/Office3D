@@ -102,9 +102,9 @@ const IDLE_PERIOD = 2;
 const APP_PERIOD: Partial<Record<(typeof HQ_SCREEN_APPS)[number], number>> = {
   code_ts: 0.25,
   code_py: 0.25,
-  term_build: 0.4,
-  term_ops: 0.4,
-  tests: 0.4,
+  kali_recon: 0.4,
+  kali_web: 0.4,
+  kali_range: 0.4,
   logs: 0.33,
   docs: 0.3,
   alert: 0.5,

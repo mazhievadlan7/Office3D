@@ -30,8 +30,8 @@ const MAX_DT = 0.1;
 
 /**
  * Every agent in the HQ: a GPU-skinned instanced crowd for everyone, real
- * skinned rigs with head look-at and shadows for the nearest few, floor
- * rings and blob shadows, and pill nameplates. Reads the simulation frame in
+ * skinned rigs with head look-at and shadows for the nearest few, blob
+ * shadows (plus a neutral hover/selection outline), and pill nameplates. Reads the simulation frame in
  * useFrame; React renders this component once.
  *
  * Until the character GLB is loaded (or if it fails) the same agents are
@@ -83,7 +83,6 @@ export function HqCrowd({ simRef, agentsRef, hoveredIdRef, selectedId, quality, 
       state.camera,
       state.size.height,
       Math.min(Math.max(delta, 0), MAX_DT),
-      state.clock.elapsedTime,
     );
   });
 

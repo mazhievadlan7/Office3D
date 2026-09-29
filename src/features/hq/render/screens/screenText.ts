@@ -184,31 +184,65 @@ const ok = (text: string): TermLine => ({ text, kind: "ok" });
 const warn = (text: string): TermLine => ({ text, kind: "warn" });
 const dim = (text: string): TermLine => ({ text, kind: "dim" });
 
-export const TERM_BUILD: TermLine[] = [
-  cmd("npm run test -- --run"),
-  dim(" RUN  v4.1.11 /srv/hq/agent-core"),
-  ok(" ✓ router.test.ts (18 tests) 212ms"),
-  ok(" ✓ scheduler.test.ts (24 tests) 348ms"),
-  ok(" ✓ memory/vector.test.ts (11 tests) 97ms"),
-  ok(" ✓ tools/http.test.ts (9 tests) 1204ms"),
-  ok(" ✓ gateway/session.test.ts (31 tests) 640ms"),
-  out(" Test Files  5 passed (5)"),
-  out("      Tests  93 passed (93)"),
-  out("   Duration  2.61s"),
-  cmd("npm run build"),
-  dim("> agent-core@4.2.0 build"),
-  dim("> tsc -p tsconfig.build.json && esbuild src/index.ts --bundle"),
-  out("  dist/index.js      412.7kb"),
-  out("  dist/index.js.map  1.1mb"),
-  ok("⚡ Done in 1843ms"),
-  cmd("git add -A && git commit -m \"router: retry with backoff\""),
-  out("[feature/router-retry 3f9c2a1] router: retry with backoff"),
-  out(" 3 files changed, 64 insertions(+), 12 deletions(-)"),
-  cmd("git push origin feature/router-retry"),
-  dim("Enumerating objects: 11, done."),
-  dim("Writing objects: 100% (6/6), 1.94 KiB | 1.94 MiB/s, done."),
-  out("remote: Create a pull request for 'feature/router-retry'"),
-  ok("   7d1e0b4..3f9c2a1  feature/router-retry -> feature/router-retry"),
+// The Kali root sessions of a hacker on an operation (centre monitor, see
+// screenApps.ts). Authorised work only, against the HQ's own lab range and
+// an agreed scope: the tools are the HQ's own wrappers (scope, recon
+// inventory, findings, range), so nothing here is a usable attack command.
+
+/** Recon of the authorised scope: inventory, not intrusion. */
+export const KALI_RECON: TermLine[] = [
+  cmd("scope show --op OP-2417"),
+  out("operation  OP-2417 · authorised by AM7"),
+  out("targets    lab range 10.77.0.0/24 (own) · web-lab.range.local"),
+  out("window     09:00–21:00 MSK · rules of engagement v3"),
+  cmd("recon inventory --range range-07 --passive"),
+  dim("[*] reading the range registry…"),
+  out("  10.77.0.12   web-lab      http, https"),
+  out("  10.77.0.21   api-gw       https"),
+  out("  10.77.0.34   files-lab    smb"),
+  warn("  10.77.0.40   legacy-ftp   ftp · outdated banner"),
+  ok("[+] 4 assets in scope · 0 out of scope"),
+  cmd("findings add --sev medium \"legacy FTP banner shows its version\""),
+  ok("[+] F-0192 recorded · severity: medium"),
+  cmd("notes sync --report OP-2417"),
+  ok("[+] notes pushed to the report draft"),
+];
+
+/** Web and API assessment inside the scope: headers and an access-control review. */
+export const KALI_WEB: TermLine[] = [
+  cmd("scope check web-lab.range.local"),
+  ok("[+] in scope · OP-2417 · test account issued"),
+  cmd("http-review --headers https://web-lab.range.local"),
+  out("HTTP/2 200 · server: nginx"),
+  warn("missing: Content-Security-Policy"),
+  warn("missing: Strict-Transport-Security"),
+  cmd("findings add --sev low \"no CSP and HSTS headers\""),
+  ok("[+] F-0193 recorded · severity: low"),
+  cmd("api-review --spec openapi.yaml --role-matrix"),
+  out("  42 endpoints · 3 roles · 126 checks"),
+  { text: "  ! /api/v1/orders/{id}: owner not checked per user", kind: "err" },
+  cmd("findings add --sev high \"order access not checked per owner\""),
+  ok("[+] F-0194 recorded · severity: high · AM7 notified"),
+  cmd("report draft --section web"),
+  ok("[+] 3 findings · fixes attached"),
+];
+
+/** A session on the cyber-range (entered from the hacker's own desk). */
+export const KALI_RANGE: TermLine[] = [
+  cmd("range status"),
+  out("cyber-range  range-07 · 6 VMs · snapshot 2026-09-28"),
+  ok("[+] isolated network · egress blocked"),
+  cmd("range start --scenario web-basics"),
+  dim("[*] restoring the snapshot… done"),
+  ok("[+] scenario running · timer 02:00:00"),
+  cmd("range objectives"),
+  out("  [x] 1. map the lab's services"),
+  out("  [x] 2. find the misconfigured header"),
+  out("  [ ] 3. write up the fix"),
+  cmd("range submit --objective 2"),
+  ok("[+] accepted · +150 pts"),
+  cmd("range reset --keep-notes"),
+  ok("[+] snapshot restored · notes kept"),
 ];
 
 export const TERM_OPS: TermLine[] = [
@@ -237,23 +271,6 @@ export const TERM_OPS: TermLine[] = [
   out("Plan: 2 to add, 1 to change, 0 to destroy."),
 ];
 
-export const TERM_TESTS: TermLine[] = [
-  cmd("npx playwright test --reporter=line"),
-  dim("Running 42 tests using 6 workers"),
-  ok("  ✓  1 [chromium] › login.spec.ts:12:3 › signs in with a key (2.1s)"),
-  ok("  ✓  2 [chromium] › chat.spec.ts:30:3 › sends a message to AM7 (3.4s)"),
-  ok("  ✓  3 [chromium] › tasks.spec.ts:8:3 › moves a card to done (1.8s)"),
-  { text: "  ✗  4 [webkit] › upload.spec.ts:44:3 › attaches a 20MB file (30.0s)", kind: "err" },
-  dim("     TimeoutError: locator.click: Timeout 30000ms exceeded."),
-  ok("  ✓  5 [firefox] › settings.spec.ts:19:3 › switches the theme (1.2s)"),
-  ok("  ✓  6 [chromium] › office.spec.ts:61:3 › opens the HQ view (4.7s)"),
-  warn("  ↻  4 [webkit] retry #1 › upload.spec.ts:44:3"),
-  ok("  ✓  4 [webkit] › upload.spec.ts:44:3 › attaches a 20MB file (8.2s)"),
-  out("  41 passed, 1 flaky (1.4m)"),
-  cmd("npm run lint"),
-  ok("✔ No problems found"),
-];
-
 export const LOG_SERVICES = ["gateway", "router", "memory", "worker", "planner", "tools", "auth", "search"];
 
 export const LOG_MESSAGES = [
@@ -271,7 +288,14 @@ export const LOG_MESSAGES = [
   "deploy.check worker healthy=%w/%w",
 ];
 
-export const TASK_KINDS = ["research", "code", "review", "analysis", "report", "deploy", "test", "design"];
+/** Kinds of operation work, for the log lines. */
+export const TASK_KINDS = ["recon", "web", "api", "identity", "cloud", "network", "reverse", "report"];
+
+/** Operation kinds (HQ_ROLE_FAMILY order), for tables. */
+export const OPERATION_KINDS = ["hq", "recon", "web-api", "identity", "cloud", "network", "reverse", "report"];
+
+/** Fallback callsigns when the floor has no names yet. */
+export const CALLSIGNS = ["Ghost", "Viper", "Raven", "Cipher", "Nyx", "Wraith", "Onyx", "Specter"];
 
 export const RESEARCH_TITLE = "Гибридный поиск для памяти агентов";
 export const RESEARCH_TEXT = [
@@ -281,10 +305,10 @@ export const RESEARCH_TEXT = [
   "",
   "Ключевые выводы:",
   "• векторы хорошо ловят смысл, но теряют точные совпадения;",
-  "• BM25 держит имена, коды ошибок и номера задач;",
+  "• BM25 держит имена, коды ошибок и номера находок;",
   "• переранжирование cross-encoder'ом добавляет ещё 6–8%.",
   "",
-  "Рекомендация: включить гибридный режим для памяти команды,",
+  "Рекомендация: включить гибридный режим для базы знаний штаба,",
   "вес BM25 = 0.35, top-k = 40, переранжирование для top-10.",
   "Задержка растёт на 18 мс в p95 — в пределах бюджета.",
   "",
@@ -302,42 +326,43 @@ export const PAPERS = [
   ["Latency Budgets in Agent Pipelines", "Olsen, Mehta", "2026", "73"],
 ];
 
+/** The crew's ops channel: callsigns, scope, findings, severity, reports. */
 export const CHAT_LINES = [
-  ["AM7", "Сводка к 18:00, пожалуйста."],
-  ["Nova", "Готовлю. Аналитика уже прислала цифры."],
-  ["Vex", "Тесты зелёные, деплой воркеров через 10 минут."],
-  ["Rune", "Нашла причину таймаутов — лимит пула соединений."],
-  ["AM7", "Отлично. Поднимите лимит и проверьте p95."],
-  ["Kade", "Сделано: p95 упал с 410 до 184 мс."],
-  ["Lyra", "Отчёт по конкурентам в папке «Исследования»."],
-  ["Orion", "Дизайн дашборда согласован, отдаю в разработку."],
-  ["Echo", "Очередь пуста, беру задачи из бэклога."],
-  ["Juno", "Нужен ревьюер на PR #412 — кто свободен?"],
-  ["Mika", "Беру ревью."],
-  ["AM7", "Спасибо, команда. Держим темп."],
+  ["AM7", "Сводка по ОП-2417 к 18:00, пожалуйста."],
+  ["Ghost", "Скоуп подтверждён, работаем только в окне."],
+  ["Viper", "Разведка полигона готова, 4 актива в скоупе."],
+  ["Raven", "F-0194 — high, доступ к заказам без проверки."],
+  ["AM7", "Принял. High — в отчёт первым пунктом."],
+  ["Cipher", "Заголовки web-lab: CSP и HSTS нет, это low."],
+  ["Nyx", "Рекомендации по фиксу приложил к находкам."],
+  ["Wraith", "Стенд на киберполигоне сброшен, заметки целы."],
+  ["Onyx", "Дубликат F-0188 закрыл, осталось три средних."],
+  ["Specter", "Черновик отчёта готов, нужен вычитывающий."],
+  ["Ghost", "Беру вычитку."],
+  ["AM7", "Спасибо, команда. Держим скоуп."],
 ];
 
 export const KANBAN = {
-  todo: ["Сравнить модели эмбеддингов", "Обновить онбординг", "Лимиты API партнёров", "Отчёт за неделю"],
-  doing: ["Ретраи в роутере", "Дашборд задержек", "Миграция индекса"],
-  review: ["PR #412: кеш ответов", "Макет штаба v3"],
-  done: ["Алерты по ошибкам", "Нагрузочный тест", "Сводка для AM7"],
+  todo: ["Разведка range-07", "Ревью ролей API", "Проверка после патча", "Отчёт за неделю"],
+  doing: ["F-0194: доступ к заказам", "Заголовки web-lab", "Сценарий полигона"],
+  review: ["Черновик отчёта ОП-2417", "Рекомендации по FTP"],
+  done: ["Скоуп согласован", "Инвентаризация активов", "Сводка для AM7"],
 };
 
-export const DOC_TITLE = "План релиза 4.3";
+export const DOC_TITLE = "Отчёт ОП-2417 (черновик)";
 export const DOC_TEXT = [
-  "Цель релиза — ускорить ответы агентов и снизить долю ошибок.",
+  "Цель: проверка веб-приложения и API в согласованном скоупе.",
   "",
-  "1. Роутер задач: ретраи с экспоненциальной задержкой,",
-  "   приоритеты и честное распределение нагрузки.",
-  "2. Память: гибридный поиск (векторы + BM25), компактизация",
-  "   длинных сессий, переиндексация без простоя.",
-  "3. Наблюдаемость: дашборд задержек p50/p95/p99 по операциям,",
-  "   алерты при росте ошибок выше 2% за 5 минут.",
-  "4. Безопасность: ротация ключей, аудит вызовов инструментов.",
+  "1. Скоуп: лабораторный сегмент 10.77.0.0/24 и web-lab,",
+  "   окно работ 09:00–21:00, правила взаимодействия v3.",
+  "2. Находки: 1 high, 1 medium, 1 low; критичных нет.",
+  "   F-0194 (high): нет проверки владельца заказа в API.",
+  "3. Рекомендации: проверка прав на каждый объект,",
+  "   заголовки CSP и HSTS, обновить устаревший FTP.",
+  "4. Повторная проверка — после исправлений заказчика.",
   "",
-  "Сроки: заморозка кода — пятница, релиз — вторник.",
-  "Ответственные: разработка — Vex, данные — Rune, QA — Kade.",
+  "Сроки: черновик — пятница, финальный отчёт — вторник.",
+  "Ответственные: веб — Raven, разведка — Viper, отчёт — Specter.",
 ];
 
 export const REGIONS = ["eu-west", "us-east", "us-west", "ap-south", "ap-east", "sa-east", "me-central", "af-south"];
