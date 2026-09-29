@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
 import { GEO_BORDER_RANGE, GEO_COAST_RANGE, GEO_SHELF_RANGE } from "@/features/hq/render/map/mapGeo";
 import {
+  ARC_SAG_GLSL,
   MAP_HOTSPOT_COUNT,
   MAP_LAT_NORTH,
   MAP_LAT_SOUTH,
@@ -94,6 +95,8 @@ export type MapSharedUniforms = {
   uSunDir: THREE.IUniform<THREE.Vector3>;
   /** 1 draws the glyph panels beside the map; 0 leaves them to the screen hub's canvases. */
   uHud: THREE.IUniform<number>;
+  /** Curvature of the display's arc (MapFit.arcK), for layers placed in their vertex shader. */
+  uArcK: THREE.IUniform<number>;
 };
 
 export function createSharedUniforms(): MapSharedUniforms {
@@ -108,6 +111,7 @@ export function createSharedUniforms(): MapSharedUniforms {
     uHotspots: { value: Array.from({ length: MAP_HOTSPOT_COUNT }, () => new THREE.Vector4()) },
     uSunDir: { value: new THREE.Vector3(1, 0, 0) },
     uHud: { value: 1 },
+    uArcK: { value: 0 },
   };
 }
 
@@ -120,6 +124,9 @@ function withShared(
 
 // ---------------------------------------------------------------- glass panel
 
+// The glass is bent onto the display's arc on the CPU (mapGeometry.ts), which
+// moves only z: position.xy stays the flat display-local metres, and the
+// normal attribute carries the arc's.
 const PANEL_VERTEX = /* glsl */ `
 #include <common>
 #include <fog_pars_vertex>
@@ -131,7 +138,7 @@ void main() {
   vLocal = position.xy;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   vViewPos = mvPosition.xyz;
-  vViewNormal = normalize(normalMatrix * vec3(0.0, 0.0, 1.0));
+  vViewNormal = normalize(normalMatrix * normal);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
@@ -152,6 +159,7 @@ uniform float uScanY;
 uniform float uQuality;
 uniform vec4 uMapRect;
 uniform float uHud;
+uniform vec4 uWings;
 uniform vec4 uGeo;
 uniform vec2 uHalf;
 uniform float uFrameInset;
@@ -267,8 +275,19 @@ void main() {
   float margin = uFrameInset * 1.6;
   float sideW = (uMapRect.x + hs.x) - margin * 2.0;
   float mapH = uMapRect.w - uMapRect.y;
-  // The branch is uniform; inside it everything is masked, not branched, so
-  // the derivatives the helpers take stay well defined.
+  // The branches are uniform; inside them everything is masked, not
+  // branched, so the derivatives the helpers take stay well defined.
+  if (sideW > 0.35) {
+    // A hairline frame round the land, dividing the map from the wings.
+    vec2 mapMid = (uMapRect.xy + uMapRect.zw) * 0.5;
+    vec2 mapHalf = (uMapRect.zw - uMapRect.xy) * 0.5 + vec2(margin * 0.5);
+    col += uAccent * band(sdBox(p - mapMid, mapHalf), 0.003) * 2.0;
+  }
+  if (uWings.w > 0.5) {
+    // The screen hub's panels tile the wings (mapWings.ts): a rule under their title row.
+    float ax = abs(p.x);
+    col += uAccent * band(p.y - uWings.z, 0.002) * step(uWings.x, ax) * step(ax, uWings.y) * 0.9;
+  }
   if (sideW > 0.35 && uHud > 0.5) {
     float left = step(-hs.x + margin, p.x) * step(p.x, uMapRect.x - margin);
     float right = step(uMapRect.z + margin, p.x) * step(p.x, hs.x - margin);
@@ -331,6 +350,8 @@ export function createPanelMaterial(shared: MapSharedUniforms): THREE.ShaderMate
       uGeo: { value: new THREE.Vector4(MAP_LON_WEST, MAP_LON_EAST, MAP_LAT_SOUTH, MAP_LAT_NORTH) },
       uHalf: { value: new THREE.Vector2(1, 1) },
       uFrameInset: { value: 0.08 },
+      // |x| where the wings begin and end, the y of their title rule, and 1 while the hub's panels are on them.
+      uWings: { value: new THREE.Vector4(0, 0, 0, 0) },
       uBase: { value: color(HQ_THEME.background) },
       uGlass: { value: color(HQ_THEME.glass) },
       uEdge: { value: color(HQ_THEME.glassEdge) },
@@ -357,17 +378,84 @@ export const EARTH_TWILIGHT: readonly [number, number] = [-0.25, 0.3];
 /** City lights switch on over this range of the Sun's height. */
 export const EARTH_LIGHTS_ON: readonly [number, number] = [-0.14, 0.1];
 
-// Terrain palette: black ocean with deep red shelves, land from dark maroon
-// through red to a pale warm white on ice, salt flats and snow-capped peaks.
+// Terrain palette, like a real operations-centre wall: a near-black ocean,
+// graphite continents lit by warm orange city lights, red only on the live
+// markers and the arcs between them.
 const EARTH_COLORS = {
-  ocean: "#050203",
-  shelf: "#3a0a0a",
-  landLow: "#2b0808",
-  landMid: "#6e1010",
-  landHigh: "#a82a22",
-  landPeak: "#b89088",
-  cityCore: "#ffe2d8",
+  ocean: "#030304",
+  shelf: "#0b0c0f",
+  landLow: "#15161a",
+  landMid: "#1f2025",
+  landHigh: "#2b2c32",
+  landPeak: "#3d3e45",
+  cityWarm: "#ff8c32",
+  cityCore: "#ffe6b0",
 } as const;
+
+/**
+ * Arcs between busy cities (indices into MAP_HOTSPOTS): mostly neighbouring
+ * regions, the way traffic between them is drawn on a real wall.
+ */
+const MAP_ARCS: ReadonlyArray<readonly [number, number]> = [
+  [0, 7], // New York - London
+  [1, 0], // Los Angeles - New York
+  [4, 0], // Mexico City - New York
+  [3, 7], // Toronto - London
+  [5, 8], // Sao Paulo - Paris
+  [6, 5], // Buenos Aires - Sao Paulo
+  [7, 10], // London - Moscow
+  [9, 11], // Berlin - Istanbul
+  [8, 13], // Paris - Cairo
+  [10, 19], // Moscow - Beijing
+  [12, 16], // Dubai - Mumbai
+  [13, 14], // Cairo - Lagos
+  [15, 12], // Johannesburg - Dubai
+  [16, 17], // Mumbai - Singapore
+  [18, 20], // Hong Kong - Tokyo
+  [17, 21], // Singapore - Sydney
+];
+
+const ARCS_GLSL = /* glsl */ `
+const int HQ_ARC_COUNT = ${MAP_ARCS.length};
+const ivec2 HQ_ARCS[${MAP_ARCS.length}] = ivec2[${MAP_ARCS.length}](${MAP_ARCS.map(([a, b]) => `ivec2(${a}, ${b})`).join(", ")});
+
+// The arcs: circular arcs bowed north from the chord between two markers, a
+// dim red line with a bright pulse running from one end to the other.
+vec3 hqArcs(vec2 p, float width) {
+  vec3 acc = vec3(0.0);
+  float px = max(max(fwidth(p.x), fwidth(p.y)), 1e-4);
+  float w = max(width, px * 0.8);
+  for (int k = 0; k < HQ_ARC_COUNT; k++) {
+    vec2 a = uHotspots[HQ_ARCS[k].x].xy;
+    vec2 b = uHotspots[HQ_ARCS[k].y].xy;
+    vec2 ch = b - a;
+    float len = max(length(ch), 1e-3);
+    vec2 u = ch / len;
+    vec2 n = vec2(-u.y, u.x);
+    if (n.y < 0.0) n = -n;
+    float sag = len * 0.22;
+    vec2 mid = (a + b) * 0.5;
+    vec2 d = p - mid;
+    float side = dot(d, n);
+    float along = dot(d, u);
+    // Outside the arc's own box: nothing to draw.
+    // Nothing below the chord (the circle's far side) or outside the arc's box.
+    if (side < -w * 2.0 || side > sag + w * 6.0 || abs(along) > 0.5 * len + w * 6.0) continue;
+    float radius = (sag * sag + 0.25 * len * len) / (2.0 * sag);
+    vec2 c = mid - n * (radius - sag);
+    float dist = abs(length(p - c) - radius);
+    float line = exp(-sq(dist / w));
+    float halo = exp(-dist / (w * 6.0));
+    float t = clamp(along / len + 0.5, 0.0, 1.0);
+    // 0.12 cycles/s: a whole number of them in the wrapped clock's hour.
+    float head = fract(uTime * 0.12 + float(k) * 0.37);
+    float pulse = exp(-sq((t - head) * 16.0));
+    float trail = smoothstep(head - 0.4, head, t) * step(t, head);
+    acc += uAccent * (line * (0.3 + 0.9 * trail) + halo * 0.12) + uCityCore * line * pulse * 1.8;
+  }
+  return acc;
+}
+`;
 
 const EARTH_VERTEX = /* glsl */ `
 #include <common>
@@ -379,11 +467,11 @@ varying vec3 vViewPos;
 varying vec3 vViewNormal;
 void main() {
   vUv = uv;
-  // The plane is built in display-local metres (see HqWorldMap).
+  // The plane is built in display-local metres and bent in z only (mapGeometry.ts).
   vLocal = position.xy;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   vViewPos = mvPosition.xyz;
-  vViewNormal = normalize(normalMatrix * vec3(0.0, 0.0, 1.0));
+  vViewNormal = normalize(normalMatrix * normal);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
@@ -421,6 +509,7 @@ uniform vec3 uLandLow;
 uniform vec3 uLandMid;
 uniform vec3 uLandHigh;
 uniform vec3 uLandPeak;
+uniform vec3 uCityWarm;
 uniform vec3 uCityCore;
 varying vec2 vUv;
 varying vec2 vLocal;
@@ -428,6 +517,7 @@ varying vec3 vViewPos;
 varying vec3 vViewNormal;
 ${COMMON}
 ${GRID}
+${ARCS_GLSL}
 
 const float HQ_LON_W = ${glslFloat(MAP_LON_WEST)};
 const float HQ_LON_E = ${glslFloat(MAP_LON_EAST)};
@@ -528,18 +618,19 @@ void main() {
   col *= mix(HQ_NIGHT_LEVEL, 1.0, daylight) * (0.94 + 0.12 * clamp(sunDot, 0.0, 1.0));
   float dim = mix(0.6, 1.0, daylight);
 
-  // Coastline: a crisp one-pixel line with a soft glow out to sea.
+  // Coastline: a faint one-pixel grey line, the continents' edge in the dark.
   float coastLine = 1.0 - smoothstep(0.4 * coastW, 1.2 * coastW, abs(coastD));
   float seaGlow = (1.0 - land) * exp(-shelfD * 1.8);
-  float rim = land * exp(-shelfD * 3.0);
-  col += uAccent * (coastLine * 0.75 + seaGlow * 0.07 + rim * 0.05) * reveal * dim;
+  col += uLandPeak * coastLine * 0.9 * reveal;
+  col += uAccent * seaGlow * 0.02 * reveal * dim;
 
   // Land borders, fainter than the coast.
   float borderW = max(fwidth(borderD), 1e-4);
   float border = (1.0 - smoothstep(0.35 * borderW, 1.1 * borderW, borderD)) * land;
-  col += uAccent * border * 0.16 * reveal * dim;
+  col += uLandPeak * border * 0.35 * reveal;
 
-  // City lights on the night side: NASA's Black Marble when it is here,
+  // City lights, warm orange, brightest on the night side but lit everywhere
+  // (a wall display, not a photograph): NASA's Black Marble when it is here,
   // otherwise the metro glows broken into towns by noise.
   vec2 gq = mapUv * vec2(720.0, 272.0);
   float grainOn = clamp(1.6 - fwidth(gq.x) * 1.2, 0.0, 1.0);
@@ -549,8 +640,8 @@ void main() {
   float nightSide = 1.0 - smoothstep(HQ_LIGHTS_0, HQ_LIGHTS_1, sunDot);
   // A slow shimmer; 0.6981 rad/s is 400 cycles per hour, so the wrapped clock never jumps.
   float shimmer = 0.9 + 0.1 * sin(uTime * 0.6981317 + hqNoise(mapUv * vec2(90.0, 34.0)) * 6.2831853);
-  float lightsOn = mix(0.04, 1.0, nightSide) * shimmer * (0.85 + 0.3 * uActivity);
-  col += (uAccent * city * 1.3 + uCityCore * smoothstep(0.5, 1.0, city) * 1.1) * lightsOn;
+  float lightsOn = mix(0.55, 1.0, nightSide) * shimmer * (0.85 + 0.3 * uActivity);
+  col += (uCityWarm * city * 1.5 + uCityCore * smoothstep(0.5, 1.0, city) * 1.1) * lightsOn;
 
   // Graticule, fainter over land; a slow pulse travels along it.
   float major = max(gridLine(lon, 30.0, 0.5), gridLine(lat, 20.0, 0.5));
@@ -560,10 +651,9 @@ void main() {
   float far = smoothstep(0.25, 1.2, fwidth(lon));
   float grat = (major * 0.5 + minor * 0.18) * mix(1.0, 0.45, far) * mix(1.0, 0.5, landShown);
   float pulse = 0.85 + 0.15 * sin(lon * 0.06 - uTime * 0.6981317);
-  col += uDeep * grat * pulse * (0.45 + 0.15 * uActivity);
+  col += uDeep * grat * pulse * (0.2 + 0.08 * uActivity);
 
-  // Under each live marker, only a faint local glow on the surface: no
-  // ripples or landing rings, which read as clutter on a realistic Earth.
+  // Under each live marker a red glow on the surface.
   float hot = 0.0;
   float reach = uSpot * 6.0;
   for (int i = 0; i < HOTSPOT_COUNT; i++) {
@@ -572,7 +662,10 @@ void main() {
     if (d2 > reach * reach) continue;
     hot += exp(-d2 / sq(uSpot * 2.2));
   }
-  col += uAccent * hot * 0.22 * (0.8 + 0.4 * uActivity) * smoothstep(0.85, 1.0, uReveal);
+  col += uAccent * hot * 0.45 * (0.8 + 0.4 * uActivity) * smoothstep(0.85, 1.0, uReveal);
+
+  // The arcs between the markers, over the land and sea.
+  col += hqArcs(vLocal, uSpot * 0.16) * (0.8 + 0.4 * uActivity) * smoothstep(0.85, 1.0, uReveal);
 
   // The scan: a thin line sweeping down that briefly lifts what it passes.
   float ds = vLocal.y - uScanY;
@@ -639,6 +732,7 @@ export function createEarthMaterial(shared: MapSharedUniforms, maps: EarthMaps):
       uLandMid: { value: color(EARTH_COLORS.landMid) },
       uLandHigh: { value: color(EARTH_COLORS.landHigh) },
       uLandPeak: { value: color(EARTH_COLORS.landPeak) },
+      uCityWarm: { value: color(EARTH_COLORS.cityWarm) },
       uCityCore: { value: color(EARTH_COLORS.cityCore) },
     }),
     vertexShader: EARTH_VERTEX,
@@ -658,14 +752,18 @@ attribute float aIndex;
 uniform float uSize;
 uniform vec4 uHotspots[HOTSPOT_COUNT];
 uniform float uReveal;
+uniform float uArcK;
 varying vec2 vUv;
 varying float vPhase;
+${ARC_SAG_GLSL}
 void main() {
   vec4 h = uHotspots[int(aIndex + 0.5)];
   float s = uSize * smoothstep(0.85, 1.0, uReveal);
   vUv = position.xy + 0.5;
   vPhase = h.z;
-  vec4 mvPosition = modelViewMatrix * vec4(h.xy + position.xy * s, 0.01, 1.0);
+  // Placed on the display's arc like every other layer (mapGeometry.ts bends those on the CPU).
+  vec2 at = h.xy + position.xy * s;
+  vec4 mvPosition = modelViewMatrix * vec4(at, 0.01 + hqArcSag(uArcK, at.x), 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
@@ -736,13 +834,15 @@ export function createHotspotMaterial(shared: MapSharedUniforms): THREE.ShaderMa
 
 // ---------------------------------------------------------- wall + floor glow
 
+// Both glows are bent (or laid along the arc) on the CPU, so their own
+// display-local metres ride in the uv attribute (mapGeometry.ts).
 const GLOW_VERTEX = /* glsl */ `
 #include <common>
 #include <fog_pars_vertex>
 #include <logdepthbuf_pars_vertex>
 varying vec2 vLocal;
 void main() {
-  vLocal = position.xy;
+  vLocal = uv;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
@@ -750,8 +850,9 @@ void main() {
 }
 `;
 
-// One program for both glows. uMode 0: halo on the wall around the display
-// (stronger toward the floor). uMode 1: light spill on the floor.
+// One program for both glows. uMode 0: halo on the case's face around the
+// display (stronger toward the floor), with the case's steady LED line at
+// the walls' skirt height. uMode 1: light spill on the floor.
 const GLOW_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
@@ -762,6 +863,7 @@ uniform float uFlicker;
 uniform float uStrength;
 uniform vec2 uHalf;
 uniform vec2 uFloorSize;
+uniform vec2 uFootLine;
 uniform vec3 uAccent;
 varying vec2 vLocal;
 ${FOG_KEEP}
@@ -769,22 +871,32 @@ float sdBox(vec2 p, vec2 b) {
   vec2 q = abs(p) - b;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
+// A 2.5 cm LED line at height "at", like the walls' own lines. Past a pixel
+// it widens and dims by as much, so far away it never breaks up or blooms more.
+float hqLedLine(float y, float at) {
+  float px = max(fwidth(y), 1e-5);
+  float hw = max(0.0125, px * 0.75);
+  return (1.0 - smoothstep(hw - px * 0.5, hw + px * 0.5, abs(y - at))) * (0.0125 / hw);
+}
 void main() {
   #include <logdepthbuf_fragment>
   float g;
+  float led = 0.0;
   if (uMode < 0.5) {
     float sd = max(sdBox(vLocal, uHalf), 0.0);
     float below = smoothstep(uHalf.y * 0.2, -uHalf.y * 1.2, vLocal.y);
     g = exp(-sd * mix(3.2, 1.3, below)) * mix(0.35, 1.0, below);
+    led = hqLedLine(vLocal.y, uFootLine.x) * uFootLine.y;
   } else {
-    // vLocal.y runs from the wall (+half depth) into the room (-half depth).
+    // vLocal.y runs from the case's foot (+half depth) into the room (-half depth).
     float fromWall = uFloorSize.y * 0.5 - vLocal.y;
     float across = abs(vLocal.x) / (uFloorSize.x * 0.5);
     g = exp(-fromWall * 0.75) * (1.0 - smoothstep(0.55, 1.0, across));
   }
   // Dither against banding in the long, dark gradients.
   float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
-  vec3 col = uAccent * (g * uStrength * (0.8 + 0.4 * uActivity) * uFlicker + dither);
+  // The LED lines stay steady: the display's flicker and activity are its own.
+  vec3 col = uAccent * (g * uStrength * (0.8 + 0.4 * uActivity) * uFlicker + led + dither);
   col *= hqFogKeep();
   gl_FragColor = vec4(max(col, 0.0), 1.0);
   ${FRAG_OUTPUT}
@@ -799,6 +911,8 @@ export function createGlowMaterial(shared: MapSharedUniforms, mode: 0 | 1): THRE
       uStrength: { value: mode === 0 ? 0.05 : 0.1 },
       uHalf: { value: new THREE.Vector2(1, 1) },
       uFloorSize: { value: new THREE.Vector2(1, 1) },
+      // The case's LED line (halo only): its y and its glow (0 = none).
+      uFootLine: { value: new THREE.Vector2(0, 0) },
       uAccent: { value: color(HQ_THEME.accent) },
     }),
     vertexShader: GLOW_VERTEX,

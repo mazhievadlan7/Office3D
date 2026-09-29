@@ -6,12 +6,29 @@ import { PCFShadowMap, WebGLRenderer } from "three";
 
 import { t } from "@/lib/i18n";
 import { loadHqAssignments, saveHqAssignments } from "./core/assignments";
-import { HQ_DEFAULT_CAPACITY, HQ_LEAD_AGENT_IDS, HQ_LEAD_AGENT_NAME, HQ_THEME, type HqCapacity } from "./core/config";
+import {
+  HQ_DEFAULT_CAPACITY,
+  HQ_LEAD_AGENT_IDS,
+  HQ_LEAD_AGENT_NAME,
+  HQ_THEME,
+  type HqCapacity,
+} from "./core/config";
 import { generateHqLayout } from "./core/layout";
 import { HqSimulation } from "./core/sim";
-import type { HqAgentInput } from "./core/types";
+import { hqSoundOn, saveHqSoundOn } from "./core/soundPreference";
+import type { HqAgentInput, HqArchiveEvent } from "./core/types";
 import { HqHoverCard } from "./hud/HqHoverCard";
 import { HqHud, HqSettingsControls, type HqHudCounts, type HqRuntimeStatus } from "./hud/HqHud";
+import { HqSubtitles } from "./hud/HqSubtitles";
+import {
+  createArchiveRunGuard,
+  shouldLogMaintenanceMemory,
+  type ArchiveRunGuard,
+  type HqMaintenanceLogEvent,
+  type MaintenanceFeedMemory,
+} from "./maintenance/maintenanceStatus";
+import { useMaintenanceFeed } from "./maintenance/useMaintenanceFeed";
+import { HqSoundscape, type HqSubtitleSink } from "./render/audio/HqSoundscape";
 import type { HqCameraApi, HqCameraMode } from "./render/scene/HqCameraRig";
 import type { HqHoverSink } from "./render/scene/HqPicking";
 import { HqScene } from "./render/scene/HqScene";
@@ -37,7 +54,45 @@ export type HqOfficeProps = {
   onOpenCombat?: () => void;
   /** True while the opening fly-through plays, so the screen can hide its own panels. */
   onIntroChange?: (playing: boolean) => void;
+  /**
+   * A briefing in progress: AM7 at the podium addressing the floor, everyone
+   * standing at their desks. Null when there is none.
+   */
+  briefing?: HqBriefing | null;
+  /**
+   * AM7 has reached his spot behind the tribune for this briefing (once per
+   * briefing): the screen starts his answer out loud from there.
+   */
+  onLeadAtTribune?: (briefingId: string) => void;
+  /**
+   * The archive cart and the server's upkeep, for the console: the cart's own
+   * events (taken, paused, handover, …), a run with nothing to take out
+   * ("checked"), and the server's memory advice ("memory"). Delivered from the
+   * view's poll, never during render; at most ARCHIVE_EVENT_QUEUE_MAX queue up
+   * between two polls.
+   */
+  onArchiveEvent?: (event: HqMaintenanceLogEvent) => void;
 };
+
+/** A briefing the screen started (a voice command to the whole team). */
+export type HqBriefing = {
+  /** Changes for every new briefing. */
+  id: string;
+  /** What the person asked of the team, as transcribed. */
+  task: string;
+  /** AM7's answer, once it arrives (empty until then). */
+  reply: string;
+  /** True while AM7's answer is being spoken. */
+  speaking: boolean;
+};
+
+/** Longest a briefing holds the floor if the screen never ends it. */
+const BRIEFING_MAX_SECONDS = 240;
+/** How often the view reads the sim's briefing state (ms). */
+const BRIEFING_POLL_MS = 250;
+/** Archive events kept between two polls; the oldest go first past this. */
+const ARCHIVE_EVENT_QUEUE_MAX = 16;
+
 
 // What the sim sees of an agent; anything else changing is not its business.
 const agentsSignature = (agents: readonly HqAgentInput[]): string => {
@@ -114,6 +169,9 @@ export function HqOffice({
   onOpenSettings,
   onOpenCombat,
   onIntroChange,
+  briefing = null,
+  onLeadAtTribune,
+  onArchiveEvent,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
   // Always the highest quality: full detail, shadows and effects, rendered at
@@ -134,6 +192,14 @@ export function HqOffice({
   );
 
   const layout = useMemo(() => generateHqLayout(capacity), [capacity]);
+  const [soundOn, setSoundOn] = useState(hqSoundOn);
+  const toggleSound = useCallback(() => {
+    setSoundOn((on) => {
+      saveHqSoundOn(!on);
+      return !on;
+    });
+  }, []);
+  const subtitleSinkRef = useRef<HqSubtitleSink | null>(null);
 
   const simRef = useRef<HqSimulation | null>(null);
   const agentsRef = useRef<HqAgentInput[]>(agents);
@@ -145,6 +211,55 @@ export function HqOffice({
   const cameraModeRef = useRef<HqCameraMode>("overview");
   const selectedRef = useRef<string | null>(selectedAgentId);
   const callbacksRef = useRef({ onAgentSelect });
+  // The archive cart: what the host last told the sim (re-applied to a new
+  // sim), and the console events waiting for the next poll.
+  const archiveFillRef = useRef<number | null>(null);
+  const archiveRunsEnabledRef = useRef<boolean | null>(null);
+  const archiveQueueRef = useRef<HqMaintenanceLogEvent[]>([]);
+  const onArchiveEventRef = useRef(onArchiveEvent);
+  useEffect(() => {
+    onArchiveEventRef.current = onArchiveEvent;
+  }, [onArchiveEvent]);
+  const queueArchiveEvent = useCallback((event: HqMaintenanceLogEvent) => {
+    const queue = archiveQueueRef.current;
+    if (queue.length >= ARCHIVE_EVENT_QUEUE_MAX) queue.shift();
+    queue.push(event);
+  }, []);
+  // The bytes of the cart run under way, for the cart's tablet (read every
+  // frame): from the run's first event until the cart is parked again.
+  const archiveBytesRef = useRef<number | null>(null);
+  const archiveBytes = useCallback(() => archiveBytesRef.current, []);
+  const handleSimArchiveEvent = useCallback(
+    (event: HqArchiveEvent) => {
+      if (event.type === "parked") archiveBytesRef.current = null;
+      else if (event.type !== "auto") archiveBytesRef.current = event.freedBytes;
+      queueArchiveEvent(event);
+    },
+    [queueArchiveEvent],
+  );
+  useEffect(() => {
+    // Development aids: the running sim, e.g. window.__hqSim()?.briefing, and
+    // a cart run with no server clean-up behind it, e.g. __hqArchiveRun(52e6).
+    if (process.env.NODE_ENV === "production") return;
+    const w = window as unknown as {
+      __hqSim?: () => HqSimulation | null;
+      __hqArchiveRun?: (freedBytes?: number) => { agentId: string; name: string } | null;
+    };
+    let devRuns = 0;
+    w.__hqSim = () => simRef.current;
+    w.__hqArchiveRun = (freedBytes = 50 * 1024 * 1024) => {
+      devRuns += 1;
+      return simRef.current?.startArchiveRun(`dev-${Date.now().toString(36)}-${devRuns}`, freedBytes) ?? null;
+    };
+    return () => {
+      delete w.__hqSim;
+      delete w.__hqArchiveRun;
+    };
+  }, []);
+  const onLeadAtTribuneRef = useRef(onLeadAtTribune);
+  useEffect(() => {
+    onLeadAtTribuneRef.current = onLeadAtTribune;
+  }, [onLeadAtTribune]);
 
   useEffect(() => {
     callbacksRef.current.onAgentSelect = onAgentSelect;
@@ -159,14 +274,64 @@ export function HqOffice({
       assignments: loadHqAssignments(namespace, layout.capacity),
     });
     sim.onAssignmentsChange = (assignments) => saveHqAssignments(namespace, layout.capacity, assignments);
+    sim.onArchiveEvent = handleSimArchiveEvent;
+    archiveBytesRef.current = null;
     sim.setAgents(agentsRef.current);
+    // A new sim (another floor) starts from what the host already knows.
+    if (archiveRunsEnabledRef.current !== null) sim.setArchiveRunsEnabled(archiveRunsEnabledRef.current);
+    if (archiveFillRef.current !== null) sim.setArchiveFill(archiveFillRef.current);
     signatureRef.current = agentsSignature(agentsRef.current);
     simRef.current = sim;
     return () => {
       sim.onAssignmentsChange = undefined;
+      sim.onArchiveEvent = undefined;
       if (simRef.current === sim) simRef.current = null;
     };
-  }, [layout, namespace]);
+  }, [layout, namespace, handleSimArchiveEvent]);
+
+  // The server's upkeep (GET /api/maintenance/status): how full the archive
+  // is, its last clean-up and its memory.
+  const maintenance = useMaintenanceFeed();
+  const archiveFill = maintenance.fill;
+  useEffect(() => {
+    // Null until the server has measured: the cart keeps what it shows.
+    if (archiveFill === null) return;
+    archiveFillRef.current = archiveFill;
+    simRef.current?.setArchiveFill(archiveFill);
+  }, [archiveFill]);
+  // Each clean-up once: a trip when the server says it is worth one, the
+  // "checked" line when it had nothing to take out, nothing when it is old
+  // news (seen before in this browser, or longer ago than 10 minutes).
+  const archiveGuardRef = useRef<ArchiveRunGuard | null>(null);
+  const lastArchiveRun = maintenance.lastRun;
+  useEffect(() => {
+    if (!lastArchiveRun) return;
+    archiveGuardRef.current ??= createArchiveRunGuard();
+    const decision = archiveGuardRef.current.admit(lastArchiveRun);
+    if (decision === "trip") simRef.current?.startArchiveRun(lastArchiveRun.id, lastArchiveRun.freedBytes);
+    else if (decision === "checked") queueArchiveEvent({ type: "checked", runId: lastArchiveRun.id });
+  }, [lastArchiveRun, queueArchiveEvent]);
+  // The memory advice, once each time it changes to a new one.
+  const serverMemory = maintenance.memory;
+  const loggedMemoryRef = useRef<MaintenanceFeedMemory | null>(null);
+  useEffect(() => {
+    const previous = loggedMemoryRef.current;
+    loggedMemoryRef.current = serverMemory;
+    if (!shouldLogMaintenanceMemory(previous, serverMemory)) return;
+    queueArchiveEvent({
+      type: "memory",
+      level: serverMemory.level,
+      rss: serverMemory.rss,
+      recommendation: serverMemory.recommendation,
+    });
+  }, [serverMemory, queueArchiveEvent]);
+  // Cart runs need the character's Push clip; without it every run is applied
+  // at once (the console still says so).
+  const handleClipsChange = useCallback((names: readonly string[]) => {
+    const enabled = names.includes("Push");
+    archiveRunsEnabledRef.current = enabled;
+    simRef.current?.setArchiveRunsEnabled(enabled);
+  }, []);
 
   // Roster changes: tell the sim only when something it uses changed.
   useEffect(() => {
@@ -191,6 +356,70 @@ export function HqOffice({
     }, 1000);
     return () => window.clearInterval(timer);
   }, [capacity]);
+
+  // A briefing: the sim gathers the floor, the camera takes the briefing view
+  // (unless the person is following someone). When the screen ends it, the sim
+  // holds it until AM7 has had his say behind the tribune; the wall keeps the
+  // task and the camera the view until then, and only then back to the floor.
+  const briefingId = briefing?.id ?? null;
+  const briefingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    briefingIdRef.current = briefingId;
+    const sim = simRef.current;
+    if (!sim || !briefingId) return;
+    // The camera API is re-created with the rig; read it through the ref when used.
+    const camera = cameraApiRef;
+    const mode = cameraModeRef;
+    sim.startBriefing(BRIEFING_MAX_SECONDS);
+    if (mode.current !== "follow") camera.current?.goTo("briefing");
+    return () => sim.endBriefing();
+  }, [briefingId, layout, namespace]);
+  // What the video wall shows: a stable object while the texts stay the same,
+  // so the memoised scene does not re-render when only `speaking` flips.
+  const briefingTask = briefing?.task ?? null;
+  const briefingReply = briefing?.reply ?? "";
+  const liveBriefingScene = useMemo(
+    () => (briefingTask === null ? null : { task: briefingTask, reply: briefingReply }),
+    [briefingTask, briefingReply],
+  );
+  const lastSceneRef = useRef(liveBriefingScene);
+  useEffect(() => {
+    if (liveBriefingScene) lastSceneRef.current = liveBriefingScene;
+  }, [liveBriefingScene]);
+  // The last briefing's wall while the sim winds it down; null otherwise.
+  const [heldScene, setHeldScene] = useState<{ task: string; reply: string } | null>(null);
+  useEffect(() => {
+    let wasActive = false;
+    let reported: string | null = null;
+    const timer = window.setInterval(() => {
+      // The archive events since the last poll, oldest first, to the console.
+      const queue = archiveQueueRef.current;
+      if (queue.length > 0) {
+        const events = queue.splice(0);
+        const deliver = onArchiveEventRef.current;
+        if (deliver) for (const event of events) deliver(event);
+      }
+      const sim = simRef.current;
+      if (!sim) return;
+      const { active, leadAtPodium } = sim.briefing;
+      const id = briefingIdRef.current;
+      if (active && leadAtPodium && id && reported !== id) {
+        reported = id;
+        onLeadAtTribuneRef.current?.(id);
+      }
+      const held = active && !id ? lastSceneRef.current : null;
+      setHeldScene((current) => (current === held ? current : held));
+      if (wasActive && !active && cameraModeRef.current === "briefing") cameraApiRef.current?.goTo("overview");
+      wasActive = active;
+    }, BRIEFING_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+  const briefingScene = liveBriefingScene ?? heldScene;
+  const briefingSpeaking = Boolean(briefing?.speaking);
+  useEffect(() => {
+    // Until an answer is being spoken, AM7 addresses the floor anyway (Talk).
+    simRef.current?.setBriefingSpeaking(briefingSpeaking || !briefing?.reply);
+  }, [briefingSpeaking, briefing?.reply]);
 
   // Following the selected agent keeps following when the selection changes.
   useEffect(() => {
@@ -298,12 +527,17 @@ export function HqOffice({
             onIntroChange={handleIntroChange}
             onSelect={handleSelect}
             onFocus={handleFocus}
+            briefing={briefingScene}
+            onClipsChange={handleClipsChange}
+            archiveBytes={archiveBytes}
           />
+          <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={subtitleSinkRef} />
         </Canvas>
         <div
           aria-hidden={introPlaying}
           className={`transition-opacity duration-700 ease-out ${introPlaying ? "opacity-0 [&_*]:!pointer-events-none" : "opacity-100"}`}
         >
+        <HqSubtitles sinkRef={subtitleSinkRef} />
         <HqHoverCard sinkRef={hoverSinkRef} agentsRef={agentsRef} />
         <HqHud
           counts={counts}
@@ -312,6 +546,8 @@ export function HqOffice({
           onCameraPreset={handleCameraPreset}
           onMessageLead={leadId && onAgentSelect ? () => onAgentSelect(leadId) : undefined}
           onOpenCombat={onOpenCombat}
+          soundOn={soundOn}
+          onToggleSound={toggleSound}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}

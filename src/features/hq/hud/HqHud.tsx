@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Crosshair, Crown, Globe, Maximize2, MessageSquare, Radar, Settings } from "lucide-react";
+import { Crosshair, Crown, Globe, Maximize2, MessageSquare, Radar, Settings, Volume2, VolumeX } from "lucide-react";
 
 import { t } from "@/lib/i18n";
 import { adapterLabel, gatewayStatusLabel } from "@/lib/i18n/labels";
@@ -131,11 +131,16 @@ export function HqHud({
   onCameraPreset,
   onMessageLead,
   onOpenCombat,
+  soundOn,
+  onToggleSound,
   runtime,
   settingsOpen,
   onOpenSettings,
 }: {
   counts: HqHudCounts;
+  /** The HQ's own sounds (keyboards, talk): on or off; the button is hidden without the toggle. */
+  soundOn?: boolean;
+  onToggleSound?: () => void;
   cameraMode: HqCameraMode;
   canFollow: boolean;
   onCameraPreset: (preset: HqCameraPreset) => void;
@@ -223,6 +228,17 @@ export function HqHud({
             <BarButton label={t("hqScene.messageLead")} title={t("hqScene.messageLeadTitle")} onClick={onMessageLead}>
               <MessageSquare className="h-4 w-4" />
               <span className="hidden xl:inline">{t("hqScene.messageLead")}</span>
+            </BarButton>
+          ) : null}
+          {onToggleSound ? (
+            <BarButton
+              active={Boolean(soundOn)}
+              label={t("hqScene.sound")}
+              title={soundOn ? t("hqScene.soundOnTitle") : t("hqScene.soundOffTitle")}
+              onClick={onToggleSound}
+            >
+              {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              <span className="hidden xl:inline">{t("hqScene.sound")}</span>
             </BarButton>
           ) : null}
           {runtime || onOpenSettings ? (

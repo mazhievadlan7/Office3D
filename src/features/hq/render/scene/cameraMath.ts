@@ -19,7 +19,7 @@ export type HqCameraPose = {
   distance: number;
 };
 
-export type HqCameraPreset = "overview" | "am7" | "map" | "follow";
+export type HqCameraPreset = "overview" | "am7" | "map" | "briefing" | "follow";
 
 const DEG = Math.PI / 180;
 
@@ -27,12 +27,12 @@ export const HQ_CAMERA = {
   fov: 30,
   azimuth: 45 * DEG,
   polar: (90 - 38) * DEG,
-  // Stay inside the south-east quadrant with a little margin either side.
-  minAzimuth: 6 * DEG,
-  maxAzimuth: 84 * DEG,
+  // Free to orbit the hall all the way round.
+  minAzimuth: -Infinity,
+  maxAzimuth: Infinity,
   // From a near top-down view to a low cinematic angle.
   minPolar: 16 * DEG,
-  maxPolar: 72 * DEG,
+  maxPolar: 82 * DEG,
   minDistance: 2.5,
   followDistance: 9,
 } as const;
@@ -85,14 +85,15 @@ export function fitDistance(
 function roomPoints(layout: HqLayout): Point[] {
   const { x0, z0, x1, z1 } = layout.bounds;
   const h = layout.wallHeight;
-  // Floor corners plus the tops of the two tall back walls.
+  const north = Math.max(h, layout.northWallHeight);
+  // Floor corners plus the tops of the two tall back walls (the north one, with the video wall, taller).
   return [
     [x0, 0, z0],
     [x1, 0, z0],
     [x1, 0, z1],
     [x0, 0, z1],
-    [x0, h, z0],
-    [x1, h, z0],
+    [x0, north, z0],
+    [x1, north, z0],
     [x0, h, z1],
   ];
 }
@@ -117,7 +118,7 @@ export function overviewPose(layout: HqLayout, aspect: number): HqCameraPose {
  * layout's focus hint and pulled toward the north wall so the map stays in
  * frame.
  */
-const HOME_MAX_DISTANCE = 95;
+const HOME_MAX_DISTANCE = 78;
 
 export function homePose(layout: HqLayout, aspect: number): HqCameraPose {
   const overview = overviewPose(layout, aspect);
@@ -157,17 +158,24 @@ export function am7Pose(layout: HqLayout, aspect: number): HqCameraPose {
   };
 }
 
-/** Square-on to the holographic map, low enough to feel its height. */
+/**
+ * Square-on to the video wall, low enough to feel its height. Its ends stand
+ * `curve` in front of the wall (the display is concave), and they frame it.
+ */
 export function mapPose(layout: HqLayout, aspect: number): HqCameraPose {
   const wall = layout.mapWall;
-  const target: Point = [wall.x, wall.y, wall.z];
+  const curve = Math.max(0, wall.curve);
+  const target: Point = [wall.x, wall.y, wall.z + curve / 2];
   const hw = wall.width / 2;
   const hh = wall.height / 2;
+  const ends = wall.z + curve;
   const points: Point[] = [
-    [wall.x - hw, wall.y - hh, wall.z],
-    [wall.x + hw, wall.y - hh, wall.z],
-    [wall.x - hw, wall.y + hh, wall.z],
-    [wall.x + hw, wall.y + hh, wall.z],
+    [wall.x - hw, wall.y - hh, ends],
+    [wall.x + hw, wall.y - hh, ends],
+    [wall.x - hw, wall.y + hh, ends],
+    [wall.x + hw, wall.y + hh, ends],
+    [wall.x, wall.y - hh, wall.z],
+    [wall.x, wall.y + hh, wall.z],
   ];
   const azimuth = 12 * DEG;
   const polar = (90 - 19) * DEG;
@@ -178,6 +186,40 @@ export function mapPose(layout: HqLayout, aspect: number): HqCameraPose {
     azimuth,
     polar,
     distance: fitDistance(points, target, azimuth, polar, HQ_CAMERA.fov, aspect, 1.1),
+  };
+}
+
+/**
+ * A briefing: from behind the front rows, low, looking at the tribune with the
+ * video wall rising behind the lead, the rows' heads in the foreground.
+ */
+export function briefingPose(layout: HqLayout, aspect: number): HqCameraPose {
+  const wall = layout.mapWall;
+  const { tribune } = layout;
+  // The walkway arc in front of the first row, 2.5 m south of the tribune.
+  const podiumZ = tribune.z + 2.5;
+  const target: Point = [tribune.x, 2.4, tribune.z];
+  // All three screens (both wings and the map) in frame; the display's ends
+  // stand `curve` metres in front of the wall.
+  const hw = wall.width * 0.5;
+  const top = wall.y + wall.height / 2;
+  const points: Point[] = [
+    [wall.x - hw, top, wall.z + wall.curve],
+    [wall.x + hw, top, wall.z + wall.curve],
+    [wall.x, top, wall.z],
+    [tribune.x, 0, podiumZ],
+    [tribune.x - 3, 1.8, podiumZ + 1],
+    [tribune.x + 3, 1.8, podiumZ + 1],
+  ];
+  const azimuth = 7 * DEG;
+  const polar = (90 - 18) * DEG;
+  return {
+    tx: target[0],
+    ty: target[1],
+    tz: target[2],
+    azimuth,
+    polar,
+    distance: fitDistance(points, target, azimuth, polar, HQ_CAMERA.fov, aspect, 1.06),
   };
 }
 

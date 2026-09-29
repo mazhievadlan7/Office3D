@@ -148,7 +148,7 @@ function displayName(name: string): string {
 function nameOf(agents: readonly HqAgentInput[], index: number, id: string): string {
   const direct = agents[index];
   if (direct && direct.id === id) return direct.name || id;
-  for (const agent of agents) if (agent.id === id) return agent.name || id;
+  for (let k = 0; k < agents.length; k += 1) if (agents[k].id === id) return agents[k].name || id;
   return id;
 }
 
@@ -366,7 +366,8 @@ export class HqCrowdLabels {
     const geometry = this.pill.geometry;
     geometry.instanceCount = drawn;
     this.pill.visible = drawn > 0;
-    for (const attribute of this.attributes) {
+    for (let a = 0; a < this.attributes.length; a += 1) {
+      const attribute = this.attributes[a];
       attribute.clearUpdateRanges();
       if (drawn > 0) {
         attribute.addUpdateRange(0, drawn * attribute.itemSize);

@@ -2,13 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   archiveSharedTask,
   listSharedTasks,
   resolveSharedTaskStorePath,
   upsertSharedTask,
+  upsertSharedTasks,
 } from "@/lib/tasks/shared-store";
 
 const makeTempDir = (name: string) => fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
@@ -149,5 +150,81 @@ describe("shared task store", () => {
     process.env.OPENCLAW_STATE_DIR = tempDir;
 
     expect(listSharedTasks()).toEqual([]);
+  });
+
+  const batch = [
+    { id: "t-1", title: "First", status: "todo" as const, source: "openclaw_event" as const, updatedAt: "2026-09-28T10:00:00.000Z" },
+    { id: "t-2", title: "Second", status: "todo" as const, source: "openclaw_event" as const, updatedAt: "2026-09-28T10:00:01.000Z" },
+    { id: "t-1", title: "First", status: "review" as const, source: "openclaw_event" as const, updatedAt: "2026-09-28T10:00:02.000Z" },
+    { id: "t-2", title: " Second ", notes: [" note "], runId: " run-2 ", updatedAt: "2026-09-28T10:00:03.000Z" },
+  ];
+
+  it("stores a batch exactly as the same upserts one by one, with one atomic write", () => {
+    tempDir = makeTempDir("shared-task-store-batch");
+    process.env.OPENCLAW_STATE_DIR = path.join(tempDir, "one-by-one");
+    const oneByOne = batch.map((task) => upsertSharedTask(task));
+    const oneByOneStored = listSharedTasks();
+
+    process.env.OPENCLAW_STATE_DIR = path.join(tempDir, "batch");
+    const writes = vi.spyOn(fs, "writeFileSync");
+    const renames = vi.spyOn(fs, "renameSync");
+    try {
+      const saved = upsertSharedTasks(batch);
+      expect(writes).toHaveBeenCalledTimes(1);
+      expect(renames).toHaveBeenCalledTimes(1);
+      expect(saved).toEqual(oneByOne);
+    } finally {
+      writes.mockRestore();
+      renames.mockRestore();
+    }
+    expect(listSharedTasks()).toEqual(oneByOneStored);
+    expect(listSharedTasks().find((task) => task.id === "t-1")?.history.map((entry) => entry.type)).toEqual([
+      "created",
+      "status_changed",
+    ]);
+  });
+
+  it("stores nothing of a batch whose write fails", () => {
+    tempDir = makeTempDir("shared-task-store-batch-fail");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+    upsertSharedTask({ id: "t-0", title: "Before", status: "todo", source: "office3d_manual" });
+    const before = fs.readFileSync(resolveSharedTaskStorePath(), "utf8");
+
+    const renames = vi.spyOn(fs, "renameSync").mockImplementationOnce(() => {
+      throw new Error("disk full");
+    });
+    try {
+      expect(() => upsertSharedTasks(batch)).toThrow("disk full");
+    } finally {
+      renames.mockRestore();
+    }
+
+    expect(fs.readFileSync(resolveSharedTaskStorePath(), "utf8")).toBe(before);
+    expect(listSharedTasks().map((task) => task.id)).toEqual(["t-0"]);
+    const leftovers = fs.readdirSync(path.dirname(resolveSharedTaskStorePath())).filter((name) => name.endsWith(".tmp"));
+    expect(leftovers).toEqual([]);
+  });
+
+  it("writes compact JSON and notices when the file changes underneath", () => {
+    tempDir = makeTempDir("shared-task-store-compact");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+    upsertSharedTask({ id: "t-1", title: "Compact", status: "todo", source: "office3d_manual" });
+    const storePath = resolveSharedTaskStorePath();
+    expect(fs.readFileSync(storePath, "utf8")).not.toContain("\n");
+    expect(listSharedTasks().map((task) => task.title)).toEqual(["Compact"]);
+
+    // Someone else rewrites the file: the next read returns the new content.
+    const replaced = JSON.parse(fs.readFileSync(storePath, "utf8")) as { tasks: Array<{ title: string }> };
+    replaced.tasks[0].title = "Changed on disk, a longer title";
+    fs.writeFileSync(storePath, JSON.stringify(replaced), "utf8");
+    expect(listSharedTasks().map((task) => task.title)).toEqual(["Changed on disk, a longer title"]);
+  });
+
+  it("does not let a caller's changes to a listed array leak into the store", () => {
+    tempDir = makeTempDir("shared-task-store-copy");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+    upsertSharedTask({ id: "t-1", title: "Kept", status: "todo", source: "office3d_manual" });
+    listSharedTasks().length = 0;
+    expect(listSharedTasks()).toHaveLength(1);
   });
 });

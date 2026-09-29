@@ -6,10 +6,12 @@ import * as THREE from "three";
 import type { HqMapWall } from "@/features/hq/core/types";
 import { MapDataLoader, browserLoadEnvironment, planMapLoad, whenIdle } from "@/features/hq/render/map/mapData";
 import type { MapImageryKind } from "@/features/hq/render/map/mapGeo";
-import { MAP_HOTSPOT_COUNT, fitMap, type MapFit } from "@/features/hq/render/map/mapProjection";
+import { MAP_LAYER_Z, createDisplayGeometry, createWingGeometry } from "@/features/hq/render/map/mapGeometry";
+import { MAP_HOTSPOT_COUNT, fitMap } from "@/features/hq/render/map/mapProjection";
 import { DEFAULT_MAP_ACTIVITY, MapRig, type MapFrameInput } from "@/features/hq/render/map/mapRig";
+import { mapBriefing, mapWings, type MapWingSource, type MapWingTile } from "@/features/hq/render/map/mapWings";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
-import { MAP_PANEL_ASPECT, type HqScreenHub } from "@/features/hq/render/screens/screenHub";
+import type { HqScreenHub } from "@/features/hq/render/screens/screenHub";
 import { createScreenTextureMaterial } from "@/features/hq/render/screens/screenMaterial";
 
 export type HqWorldMapProps = {
@@ -17,31 +19,59 @@ export type HqWorldMapProps = {
   quality: HqQuality;
   /** Share of working agents, 0..1; drives the markers' and the glass's energy. */
   activity?: MutableRefObject<number>;
-  /** Paints the live data panels beside the map; without it the glass draws glyph panels. */
+  /**
+   * Paints the live data panels on the wings, and a briefing when there is
+   * one (HqScreenHub.setBriefing); without it the glass draws glyph panels.
+   */
   screens?: HqScreenHub | null;
 };
 
-// Layer depths in display-local metres (the wall face is z = 0).
-const BEZEL_DEPTH = 0.07;
-const PANEL_Z = 0.035;
-const EARTH_Z = PANEL_Z + 0.003;
-const OVERLAY_Z = PANEL_Z + 0.004;
-const SIDE_Z = PANEL_Z + 0.003;
-const HALO_Z = 0.012;
-const FLOOR_LIFT = 0.012;
+const MOSAIC_SOURCES: readonly MapWingSource[] = ["left", "right", "apps"];
+const BRIEFING_SOURCES: readonly MapWingSource[] = ["left", "right"];
+/**
+ * The wings' panels stay well under bloom: two dozen of them glowing white
+ * would wash the wall out. The map and the glowing frame carry the light.
+ */
+const WING_GAIN = 1.35;
+/** The briefing's goal is the one line meant to stand out: just at the bloom's edge. */
+const BANNER_GAIN = 1.5;
+
+type TileMesh = { source: MapWingSource; geometry: THREE.BufferGeometry };
+
+/** The tiles merged into one bent geometry per texture they sample. */
+function tileMeshes(tiles: readonly MapWingTile[], sources: readonly MapWingSource[], k: number, z?: number): TileMesh[] {
+  const parts: TileMesh[] = [];
+  for (const source of sources) {
+    const geometry = createWingGeometry(tiles, source, k, z);
+    if (geometry) parts.push({ source, geometry });
+  }
+  return parts;
+}
 
 const noRaycast = () => null;
 
 /**
- * The giant world map on the north wall: a realistic Earth (real coastlines
- * and borders, relief, ocean depth and the night side's city lights, in the
- * HQ's red on black) under the real-time Sun, small live markers on the
- * busy cities, a glowing frame and a red spill onto the wall and floor. No
- * flying arcs or glowing orbs over it: they read as clutter on a realistic map.
- * Until its data loads it shows the dark glass, frame and graticule.
+ * The colossal video wall on the north wall: a concave display whose middle
+ * touches the wall and whose ends come forward (HqMapWall.curve), set in a
+ * matte case that fills the space behind it down to the floor. In the middle
+ * a realistic Earth at night (real coastlines and borders, graphite land with
+ * warm orange city lights) under the real-time Sun, with red live markers on
+ * the busy cities and glowing arcs between them, pulses running along; on
+ * the wings a wall of live data panels in red and amber (mapWings.ts); a
+ * glowing frame, the case's LED line and a red spill onto the floor. Until
+ * its data loads it shows the dark glass, frame and graticule.
+ *
+ * During a briefing the wings show the task and the plan whole and a banner
+ * across the top of the map the goal (mapBriefing). The switch follows what
+ * the screen hub has painted, never a half-painted mix, and flips visibility
+ * only: no React render, no new program.
+ *
+ * Every layer is bent onto the arc once, on the CPU (mapGeometry.ts); only
+ * the markers, placed per frame in their shader, bend there. About ten draw
+ * calls in all.
  */
 export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldMapProps) {
-  const fit = useMemo(() => fitMap(wall.width, wall.height), [wall.width, wall.height]);
+  const fit = useMemo(() => fitMap(wall.width, wall.height, wall.curve), [wall.width, wall.height, wall.curve]);
   const floorY = -wall.y;
   const boundsRadius = Math.hypot(fit.outerW, fit.outerH) / 2 + 1.5;
 
@@ -52,21 +82,47 @@ export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldM
   const display = useMemo(() => createDisplayGeometry(fit, floorY), [fit, floorY]);
   useEffect(() => () => display.dispose(), [display]);
 
-  // The live data panels either side of the map (screen hub canvases).
-  const sides = useMemo(() => sidePanels(fit), [fit]);
-  useEffect(() => () => sides?.geometry.dispose(), [sides]);
-  const sideMaterials = useMemo(() => {
+  // The wings' panels (the tiled cards, and the briefing's whole panels and
+  // banner): one merged, bent geometry per texture they sample.
+  const wings = useMemo(() => {
+    const layout = mapWings(fit);
+    const briefing = mapBriefing(fit);
+    if (!layout || !briefing) return null;
+    return {
+      mosaic: tileMeshes(layout.tiles, MOSAIC_SOURCES, fit.arcK),
+      briefing: tileMeshes(briefing, BRIEFING_SOURCES, fit.arcK),
+      banner: tileMeshes(briefing, ["banner"], fit.arcK, MAP_LAYER_Z.banner),
+    };
+  }, [fit]);
+  useEffect(
+    () => () => {
+      if (wings) for (const part of [...wings.mosaic, ...wings.briefing, ...wings.banner]) part.geometry.dispose();
+    },
+    [wings],
+  );
+  const wingMaterials = useMemo(() => {
     if (!screens) return null;
-    const make = (map: THREE.Texture) => createScreenTextureMaterial(map, 1.9, "hq-map-panel");
-    return { left: make(screens.mapLeft), right: make(screens.mapRight) };
+    // The mosaic runs in the wall's red-to-amber; the briefing's banner keeps its own colours.
+    const make = (map: THREE.Texture, name: string, gain = WING_GAIN, warm = true) =>
+      createScreenTextureMaterial(map, gain, name, undefined, warm);
+    const materials: Record<MapWingSource, THREE.MeshBasicMaterial> = {
+      left: make(screens.mapLeft, "hq-map-wing-left"),
+      right: make(screens.mapRight, "hq-map-wing-right"),
+      apps: make(screens.monitors, "hq-map-wing-apps"),
+      banner: make(screens.mapBanner, "hq-map-banner", BANNER_GAIN, false),
+    };
+    return materials;
   }, [screens]);
   useEffect(
     () => () => {
-      sideMaterials?.left.dispose();
-      sideMaterials?.right.dispose();
+      if (wingMaterials) for (const material of Object.values(wingMaterials)) material.dispose();
     },
-    [sideMaterials],
+    [wingMaterials],
   );
+  // Which of them show: flipped per frame from what the hub has painted.
+  const mosaicRef = useRef<THREE.Group>(null);
+  const briefingRef = useRef<THREE.Group>(null);
+  const bannerRef = useRef<THREE.Group>(null);
 
   const hotspotGeometry = useMemo(() => createHotspotGeometry(boundsRadius), [boundsRadius]);
   useEffect(() => () => hotspotGeometry.dispose(), [hotspotGeometry]);
@@ -82,42 +138,58 @@ export function HqWorldMap({ wall, quality, activity, screens = null }: HqWorldM
       input = {
         fit,
         floorSize: display.floorSize,
+        floorY,
         quality,
         activity: level,
-        hud: !sideMaterials,
+        hud: true,
+        briefing: false,
         clockMs: Date.now(),
       };
       frameInput.current = input;
     }
+    const onWings = screens?.briefingOnWings ?? false;
+    if (mosaicRef.current) mosaicRef.current.visible = !onWings;
+    if (briefingRef.current) briefingRef.current.visible = onWings;
+    if (bannerRef.current) bannerRef.current.visible = screens?.briefingBanner ?? false;
     input.fit = fit;
     input.floorSize = display.floorSize;
+    input.floorY = floorY;
     input.quality = quality;
     input.activity = level;
-    input.hud = !sideMaterials || !sides;
+    input.hud = !wingMaterials || !wings || wings.mosaic.length === 0;
+    input.briefing = onWings;
     input.clockMs = Date.now();
     rig.frame(delta, input);
   });
 
   return (
     <group position={[wall.x, wall.y, wall.z]}>
-      <mesh geometry={display.halo} material={rig.halo} position={[0, 0, HALO_Z]} raycast={noRaycast} />
+      <mesh geometry={display.body} material={rig.body} raycast={noRaycast} />
+      <mesh geometry={display.halo} material={rig.halo} raycast={noRaycast} />
       <mesh geometry={display.bezel} material={rig.bezel} raycast={noRaycast} />
-      <mesh geometry={display.panel} material={rig.panel} position={[0, 0, PANEL_Z]} raycast={noRaycast} />
-      <mesh geometry={display.earth} material={rig.earth} position={[0, 0, EARTH_Z]} raycast={noRaycast} />
-      {sideMaterials && sides ? (
+      <mesh geometry={display.panel} material={rig.panel} raycast={noRaycast} />
+      <mesh geometry={display.earth} material={rig.earth} raycast={noRaycast} />
+      {wingMaterials && wings ? (
         <>
-          <mesh geometry={sides.geometry} material={sideMaterials.left} position={[sides.leftX, 0, SIDE_Z]} raycast={noRaycast} />
-          <mesh geometry={sides.geometry} material={sideMaterials.right} position={[sides.rightX, 0, SIDE_Z]} raycast={noRaycast} />
+          <group ref={mosaicRef}>
+            {wings.mosaic.map(({ source, geometry }) => (
+              <mesh key={source} geometry={geometry} material={wingMaterials[source]} raycast={noRaycast} />
+            ))}
+          </group>
+          <group ref={briefingRef}>
+            {wings.briefing.map(({ source, geometry }) => (
+              <mesh key={source} geometry={geometry} material={wingMaterials[source]} raycast={noRaycast} />
+            ))}
+          </group>
+          <group ref={bannerRef}>
+            {wings.banner.map(({ source, geometry }) => (
+              <mesh key={source} geometry={geometry} material={wingMaterials[source]} raycast={noRaycast} />
+            ))}
+          </group>
         </>
       ) : null}
-      <mesh geometry={hotspotGeometry} material={rig.hotspots} position={[0, 0, OVERLAY_Z]} raycast={noRaycast} />
-      <mesh
-        geometry={display.floor}
-        material={rig.floor}
-        position={[0, floorY + FLOOR_LIFT, display.floorSize.y / 2]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        raycast={noRaycast}
-      />
+      <mesh geometry={hotspotGeometry} material={rig.hotspots} position={[0, 0, MAP_LAYER_Z.overlay]} raycast={noRaycast} />
+      <mesh geometry={display.floor} material={rig.floor} raycast={noRaycast} />
     </group>
   );
 }
@@ -165,95 +237,6 @@ function useMapData(rig: MapRig): void {
       loader.dispose();
     };
   }, [gl, rig]);
-}
-
-/**
- * The two data panels in the letterbox space beside the land: as large as the
- * space between the frame and the map allows at the canvases' aspect.
- */
-function sidePanels(fit: MapFit): { geometry: THREE.PlaneGeometry; leftX: number; rightX: number } | null {
-  const margin = fit.frameInset * 1.6;
-  const outer = fit.panelW / 2 - fit.frameInset - margin;
-  const inner = fit.mapX1 + margin;
-  const width = outer - inner;
-  const height = fit.mapY1 - fit.mapY0;
-  if (width < 0.8 || height < 0.5) return null;
-  let w = width;
-  let h = w / MAP_PANEL_ASPECT;
-  if (h > height) {
-    h = height;
-    w = h * MAP_PANEL_ASPECT;
-  }
-  const centre = (outer + inner) / 2;
-  // The hub's textures keep their top row at v = 0; a plane has v = 1 at the top.
-  const geometry = new THREE.PlaneGeometry(w, h);
-  const uv = geometry.getAttribute("uv");
-  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
-  return { geometry, leftX: -centre, rightX: centre };
-}
-
-type DisplayGeometry = {
-  panel: THREE.PlaneGeometry;
-  /** The Earth's surface over the land rectangle, in display-local metres (uv 0..1 west-east, south-north). */
-  earth: THREE.PlaneGeometry;
-  bezel: THREE.ExtrudeGeometry;
-  halo: THREE.PlaneGeometry;
-  floor: THREE.PlaneGeometry;
-  floorSize: THREE.Vector2;
-  dispose(): void;
-};
-
-function createDisplayGeometry(fit: MapFit, floorY: number): DisplayGeometry {
-  const panel = new THREE.PlaneGeometry(fit.panelW, fit.panelH);
-  const earth = new THREE.PlaneGeometry(fit.mapX1 - fit.mapX0, fit.mapY1 - fit.mapY0);
-  earth.translate((fit.mapX0 + fit.mapX1) / 2, (fit.mapY0 + fit.mapY1) / 2, 0);
-
-  // Bezel: the outer rectangle with the glass cut out, standing off the wall.
-  const ow = fit.outerW / 2;
-  const oh = fit.outerH / 2;
-  const iw = fit.panelW / 2;
-  const ih = fit.panelH / 2;
-  const shape = new THREE.Shape();
-  shape.moveTo(-ow, -oh);
-  shape.lineTo(ow, -oh);
-  shape.lineTo(ow, oh);
-  shape.lineTo(-ow, oh);
-  shape.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(-iw, -ih);
-  hole.lineTo(-iw, ih);
-  hole.lineTo(iw, ih);
-  hole.lineTo(iw, -ih);
-  hole.closePath();
-  shape.holes.push(hole);
-  const bezel = new THREE.ExtrudeGeometry(shape, { depth: BEZEL_DEPTH, bevelEnabled: false, curveSegments: 1 });
-
-  // Halo on the wall from the floor to just above the display. vLocal in the
-  // shader is display-local because the plane is translated, not the mesh.
-  // Kept low above the display so it never glows past the top of the wall.
-  const top = oh + 0.6;
-  const bottom = Math.min(floorY, -oh - 0.5);
-  const halo = new THREE.PlaneGeometry(fit.outerW + 4, top - bottom);
-  halo.translate(0, (top + bottom) / 2, 0);
-
-  const floorSize = new THREE.Vector2(fit.outerW * 1.15, THREE.MathUtils.clamp(fit.outerH * 0.9, 3, 6));
-  const floor = new THREE.PlaneGeometry(floorSize.x, floorSize.y);
-
-  return {
-    panel,
-    earth,
-    bezel,
-    halo,
-    floor,
-    floorSize,
-    dispose() {
-      panel.dispose();
-      earth.dispose();
-      bezel.dispose();
-      halo.dispose();
-      floor.dispose();
-    },
-  };
 }
 
 const QUAD_POSITIONS = new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]);

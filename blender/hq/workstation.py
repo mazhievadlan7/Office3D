@@ -14,7 +14,7 @@ sitter faces -Y, so three.js +Z = Blender -Y after the +Y-up export:
   origin = chair centre on the floor = seated character root
   desk top z 0.75, x -0.80..0.80, y -0.36..-1.10
   seat top z 0.47 centred at y +0.02, backrest front from y +0.24
-  monitor centres (+-0.58 | 0, -0.95, 1.08), side monitors yawed +-0.45 rad
+  monitor centres (+-0.58 | 0, -0.95, 1.13), side monitors yawed +-0.45 rad
   keyboard (0, -0.50, 0.765), mouse (-0.30, -0.50, 0.765): +X is the sitter's left
 
 Export layout (one material per mesh, all at the same origin, for instancing):
@@ -47,16 +47,18 @@ DESK_X = 0.80
 DESK_FRONT = -0.36
 DESK_BACK = -1.10
 DESK_TOP = 0.75
-DESK_THICK = 0.024
+DESK_THICK = 0.032
 SEAT_TOP = 0.47
 SEAT_CY = 0.02
 BACK_Y = 0.24
-# (x, y, z, yaw) in Blender; yaw is rotation about +Z (= three.js rotY).
-MONITORS = [(0.58, -0.95, 1.08, 0.45), (0.0, -0.95, 1.08, 0.0), (-0.58, -0.95, 1.08, -0.45)]
+# (x, y, z, yaw) in Blender; yaw is rotation about +Z (= three.js rotY). The
+# screens are ~20% larger (readable from the rows) and sit a touch higher on the
+# stand; the sim's gaze anchor (config.ts monitors[1].y) stays 1.08, well inside.
+MONITORS = [(0.58, -0.95, 1.13, 0.45), (0.0, -0.95, 1.13, 0.0), (-0.58, -0.95, 1.13, -0.45)]
 KEYBOARD = (0.0, -0.50)
 MOUSE = (-0.30, -0.50)
-SCREEN_HW, SCREEN_HH = 0.274, 0.164
-MONITOR_HW, MONITOR_HH = 0.28, 0.17
+SCREEN_HW, SCREEN_HH = 0.329, 0.197
+MONITOR_HW, MONITOR_HH = 0.336, 0.204
 ARM_Y = -0.075  # monitor-local offset of the arm uprights behind each screen
 CROSSBAR_Z = (0.866, 0.888)
 
@@ -201,7 +203,8 @@ def build_monitors(P):
         P.add("metal", geo.ring_xz((-MONITOR_HW, MONITOR_HW, -MONITOR_HH, MONITOR_HH),
                                    (-SCREEN_HW, SCREEN_HW, -SCREEN_HH, SCREEN_HH), -0.009, 0.002),
               "bezel", matrix=mat, bevel=0.0012, segments=1)
-        P.add("metal", geo.box(-0.276, 0.276, -0.024, -0.008, -0.166, 0.166), "panel", matrix=mat,
+        P.add("metal", geo.box(-(MONITOR_HW - 0.004), MONITOR_HW - 0.004, -0.024, -0.008,
+                               -(MONITOR_HH - 0.004), MONITOR_HH - 0.004), "panel", matrix=mat,
               bevel=0.004, segments=1)
         P.add("metal", geo.frustum(0, 0, -0.024, -0.044, (0.21, -0.13, 0.10), (0.14, -0.085, 0.055)),
               "shell", matrix=mat, bevel=0.004, segments=2)
@@ -226,8 +229,8 @@ def build_monitors(P):
     py = MONITORS[1][1] + ARM_Y
     P.add("metal", geo.cylinder(0.042, DESK_TOP, DESK_TOP + 0.008, 16, x=0, y=py), "grommet",
           bevel=0.002, segments=1)
-    P.add("metal", geo.cylinder(0.017, DESK_TOP, 1.105, 12, x=0, y=py), "pole", sharp_deg=50)
-    P.add("metal", geo.cylinder(0.021, 1.058, 1.102, 12, x=0, y=py), "pole_knuckle", bevel=0.002, segments=1)
+    P.add("metal", geo.cylinder(0.017, DESK_TOP, 1.155, 12, x=0, y=py), "pole", sharp_deg=50)
+    P.add("metal", geo.cylinder(0.021, 1.108, 1.152, 12, x=0, y=py), "pole_knuckle", bevel=0.002, segments=1)
     P.add("metal", geo.box(-0.628, 0.628, py - 0.011, py + 0.019, CROSSBAR_Z[0], CROSSBAR_Z[1]), "crossbar",
           bevel=0.004, segments=2)
 
@@ -319,7 +322,9 @@ def back_surface(u01, v01):
 def seat_cage(u, v, w):
     x = (u - 0.5) * 0.53
     y = -0.235 + 0.50 * v
-    z = 0.402 + (SEAT_TOP + 0.004 - 0.402) * w
+    # Chunkier cushion: the base drops (thicker slab) while the top stays at
+    # SEAT_TOP (w = 1 gives SEAT_TOP + 0.004 regardless, then snap_top pins 0.47).
+    z = 0.386 + (SEAT_TOP + 0.004 - 0.386) * w
     if w > 0.5:
         if u in (0.0, 1.0):
             z += 0.010  # side bolsters
@@ -359,7 +364,7 @@ def build_chair(P):
                   matrix=mat, sharp_deg=50)
 
     # Backrest: mesh panel in a steel ring, lumbar band and spine behind it.
-    P.add("chair", geo.surface_slab(back_surface, 6, 8, 0.008, (0, 1, 0.2)), "back_mesh", sharp_deg=None)
+    P.add("chair", geo.surface_slab(back_surface, 6, 8, 0.011, (0, 1, 0.2)), "back_mesh", sharp_deg=None)
     outline = ([back_surface(i / 2, 0) for i in range(3)] + [back_surface(1, j / 4) for j in range(1, 5)]
                + [back_surface(1 - i / 2, 1) for i in range(1, 3)] + [back_surface(0, 1 - j / 4) for j in range(1, 4)])
     ring = geo.round_path(outline, 0.07, 2, closed=True)
@@ -437,7 +442,7 @@ def build_lod1(P):
         P.add("lod1_screen", screen_quad(i, MONITOR_HW - 0.006, MONITOR_HH - 0.006, 0.0), "l_screen", matrix=mat,
               smooth=False, recalc=False)
     py = MONITORS[1][1] + ARM_Y
-    P.add("lod1_metal", geo.cylinder(0.018, DESK_TOP, 1.10, 8, x=0, y=py), "l_pole", sharp_deg=50)
+    P.add("lod1_metal", geo.cylinder(0.018, DESK_TOP, 1.15, 8, x=0, y=py), "l_pole", sharp_deg=50)
     P.add("lod1_metal", geo.box(-0.628, 0.628, py - 0.011, py + 0.019, CROSSBAR_Z[0], CROSSBAR_Z[1]),
           "l_crossbar", smooth=False)
 
@@ -456,7 +461,7 @@ def build_lod1(P):
               smooth=False)
         P.add("lod1_chair", geo.box(s * 0.275 - 0.04, s * 0.275 + 0.04, -0.09, 0.18, 0.64, 0.67), "l_pad",
               smooth=False)
-    P.add("lod1_chair", geo.box(-0.25, 0.25, -0.22, 0.26, 0.405, SEAT_TOP), "l_seat", bevel=0.012, segments=1)
+    P.add("lod1_chair", geo.box(-0.25, 0.25, -0.22, 0.26, 0.386, SEAT_TOP), "l_seat", bevel=0.012, segments=1)
     P.add("lod1_chair", geo.surface_slab(back_surface, 4, 4, 0.02, (0, 1, 0.2)), "l_back", sharp_deg=45)
     top = back_surface(0.5, 1.0)
     P.add("lod1_chair", geo.box(-0.15, 0.15, top.y + 0.02, top.y + 0.07, top.z + 0.045, top.z + 0.18),

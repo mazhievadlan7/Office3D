@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
+import { GLOW, WALL_LINE } from "@/features/hq/render/environment/palette";
 import type { MapRaster } from "@/features/hq/render/map/mapGeo";
 import {
   MAP_HOTSPOT_COUNT,
@@ -8,6 +9,7 @@ import {
   lonToU,
   type MapFit,
 } from "@/features/hq/render/map/mapProjection";
+import { mapWings } from "@/features/hq/render/map/mapWings";
 import {
   createEarthMaterial,
   createGlowMaterial,
@@ -48,11 +50,15 @@ export type MapLayer = "geo" | "day" | "night";
 export type MapFrameInput = {
   fit: MapFit;
   floorSize: THREE.Vector2;
+  /** The floor's height in display-local metres (minus the display centre's height). */
+  floorY: number;
   quality: HqQuality;
   /** Raw activity 0..1 (eased here unless quality is low). */
   activity: number;
   /** Whether the glass draws its own glyph panels beside the map. */
   hud: boolean;
+  /** Whether the wings show a briefing (whole panels, no tiles under a title rule). */
+  briefing: boolean;
   /** Wall clock (ms since the epoch) for the real-time day and night. */
   clockMs: number;
 };
@@ -112,12 +118,27 @@ export class MapRig {
     metalness: 0.85,
     roughness: 0.32,
   });
+  /**
+   * The case between the display and the wall: black and truly matte. A PBR
+   * surface, however rough, catches the key light as a grey sheen at the
+   * grazing angle the camera sees the case's top from (a crescent up to
+   * 2.5 m deep at the ends); Lambert has no specular lobe at all. The
+   * geometry darkens the top further (mapGeometry.ts MAP_CASE_TOP_SHADE).
+   */
+  readonly body = new THREE.MeshLambertMaterial({
+    name: "HqMapCase",
+    color: HQ_THEME.wall,
+    vertexColors: true,
+  });
 
   private time = 0;
   private activity = DEFAULT_MAP_ACTIVITY;
   private revealStart = -1;
   private appliedFit: MapFit | null = null;
   private appliedFloor = new THREE.Vector2(-1, -1);
+  private appliedFloorY = Number.NaN;
+  /** 1 when the fit has wings for the screen hub's panels (mapWings.ts). */
+  private wings = 0;
   private anisotropy = 1;
   private readonly loaded: Record<MapLayer, THREE.DataTexture | null> = { geo: null, day: null, night: null };
   private readonly queued: Array<{ layer: MapLayer; texture: THREE.DataTexture }> = [];
@@ -158,11 +179,12 @@ export class MapRig {
     this.activity =
       quality === "low" ? target : this.activity + (target - this.activity) * (1 - Math.exp(-dt * ACTIVITY_EASE));
 
-    if (this.appliedFit !== fit || !this.appliedFloor.equals(input.floorSize)) {
-      this.applyFit(fit, input.floorSize);
+    if (this.appliedFit !== fit || !this.appliedFloor.equals(input.floorSize) || this.appliedFloorY !== input.floorY) {
+      this.applyFit(fit, input.floorSize, input.floorY);
     }
     u.uQuality.value = QUALITY_LEVEL[quality];
     u.uHud.value = input.hud ? 1 : 0;
+    this.panel.uniforms.uWings.value.w = input.hud || input.briefing ? 0 : this.wings;
     // Also refreshed when the clock jumps back (a changed system time).
     if (Math.abs(input.clockMs - this.sunAtMs) >= SUN_UPDATE_MS) {
       this.sunAtMs = input.clockMs;
@@ -195,6 +217,7 @@ export class MapRig {
     this.halo.dispose();
     this.floor.dispose();
     this.bezel.dispose();
+    this.body.dispose();
     // GPU copies only: a disposed texture still in use uploads again on its next draw.
     for (const layer of ["geo", "day", "night"] as const) {
       this.placeholders[layer].dispose();
@@ -209,9 +232,11 @@ export class MapRig {
     this.earth.uniforms[MAP_UNIFORM[layer]].value = texture;
   }
 
-  private applyFit(fit: MapFit, floorSize: THREE.Vector2): void {
+  private applyFit(fit: MapFit, floorSize: THREE.Vector2, floorY: number): void {
     this.appliedFit = fit;
     this.appliedFloor.copy(floorSize);
+    this.appliedFloorY = floorY;
+    this.shared.uArcK.value = fit.arcK;
     this.shared.uMapRect.value.set(fit.mapX0, fit.mapY0, fit.mapX1, fit.mapY1);
     this.panel.uniforms.uHalf.value.set(fit.panelW / 2, fit.panelH / 2);
     this.panel.uniforms.uFrameInset.value = fit.frameInset;
@@ -226,7 +251,13 @@ export class MapRig {
       spots[i].set(fit.mapX0 + w * HOTSPOT_UV[i * 2], fit.mapY0 + h * HOTSPOT_UV[i * 2 + 1], (i * 0.618034) % 1, 0);
     }
     this.halo.uniforms.uHalf.value.set(fit.outerW / 2, fit.outerH / 2);
+    // The case carries on the walls' skirt line, hidden behind it; the wall's
+    // own top line runs just above the case, so the case needs none there.
+    this.halo.uniforms.uFootLine.value.set(floorY + WALL_LINE.skirt, GLOW.line);
     this.floor.uniforms.uFloorSize.value.copy(floorSize);
+    const wings = mapWings(fit);
+    this.wings = wings ? 1 : 0;
+    if (wings) this.panel.uniforms.uWings.value.set(wings.inner, wings.outer, wings.ruleY, 0);
   }
 }
 

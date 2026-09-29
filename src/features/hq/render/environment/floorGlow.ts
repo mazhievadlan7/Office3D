@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { HQ_THEME, WORKSTATION } from "@/features/hq/core/config";
 import type { HqLayout } from "@/features/hq/core/types";
+import { MAP_CASE, arcCurvature, arcSag } from "@/features/hq/render/map/mapProjection";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
 import { am7SignPlacement, entranceGap, segmentOnRect } from "./layoutGeometry";
 
@@ -110,6 +111,23 @@ class GlowPainter {
     this.ctx.fill();
   }
 
+  /**
+   * A band along the foot of the concave video wall (x from xa to xb, world
+   * metres), reaching `reach` into the room square to the arc: short pieces,
+   * each fading along its own normal.
+   */
+  arcBand(cx: number, z: number, k: number, xa: number, xb: number, reach: number, color: string, alpha: number): void {
+    const pieces = k === 0 ? 1 : Math.max(8, Math.ceil((xb - xa) / 1.5));
+    for (let i = 0; i < pieces; i++) {
+      const ax = xa + ((xb - xa) * i) / pieces;
+      const bx = xa + ((xb - xa) * (i + 1)) / pieces;
+      const az = z + arcSag(k, ax - cx);
+      const bz = z + arcSag(k, bx - cx);
+      const length = Math.hypot(bx - ax, bz - az) || 1;
+      this.band(ax, az, bx, bz, -(bz - az) / length, (bx - ax) / length, reach, color, alpha);
+    }
+  }
+
   line(ax: number, az: number, bx: number, bz: number, width: number, color: string, alpha: number): void {
     this.ctx.globalAlpha = alpha;
     this.ctx.strokeStyle = color;
@@ -134,6 +152,10 @@ class GlowPainter {
 function paintLayout(p: GlowPainter, layout: HqLayout): void {
   const red = HQ_THEME.accent;
   const warm = HQ_THEME.ledWarm;
+  // The desk strips and the light lines along walls and rails (red in the
+  // hacker look, warm in the realistic one).
+  const deskLed = HQ_THEME.deskLed;
+  const trim = HQ_THEME.trim;
   const { bounds } = layout;
 
   // Workstations: LED strip along the desk front and screen spill behind it.
@@ -141,36 +163,47 @@ function paintLayout(p: GlowPainter, layout: HqLayout): void {
   const halfW = ws.width / 2;
   for (const desk of [...layout.desks, layout.leadDesk]) {
     p.frame(desk.x, desk.z, desk.rotY);
-    p.rect(-halfW, ws.deskFront - 0.02, halfW, ws.deskFront + 0.1, red, 0.32);
-    p.rect(-halfW + 0.05, ws.deskFront, halfW - 0.05, ws.deskBack, red, 0.05);
-    p.rect(-halfW - 0.1, ws.deskBack - 0.2, halfW + 0.1, ws.deskBack + 0.05, red, 0.08);
+    p.rect(-halfW, ws.deskFront - 0.02, halfW, ws.deskFront + 0.1, deskLed, 0.32);
+    p.rect(-halfW + 0.05, ws.deskFront, halfW - 0.05, ws.deskBack, deskLed, 0.05);
+    p.rect(-halfW - 0.1, ws.deskBack - 0.2, halfW + 0.1, ws.deskBack + 0.05, deskLed, 0.08);
   }
 
   p.world();
 
-  // The holographic map throws a wide band across the floor in front of it.
+  // The video wall throws a wide band across the floor in front of it, along
+  // its concave arc; its case carries the foot line where the wall's is hidden.
   const map = layout.mapWall;
+  const k = arcCurvature(map.width, map.curve);
+  const footZ = map.z + MAP_CASE.front;
   const mx0 = map.x - map.width / 2;
   const mx1 = map.x + map.width / 2;
-  p.band(mx0, bounds.z0, mx1, bounds.z0, 0, 1, 2.0, red, 0.55);
-  p.band(mx0 + 0.6, bounds.z0, mx1 - 0.6, bounds.z0, 0, 1, 0.8, red, 0.4);
+  const cx0 = mx0 - MAP_CASE.side;
+  const cx1 = mx1 + MAP_CASE.side;
+  p.arcBand(map.x, footZ, k, mx0, mx1, 2.0, red, 0.55);
+  p.arcBand(map.x, footZ, k, mx0 + 0.6, mx1 - 0.6, 0.8, red, 0.4);
+  p.arcBand(map.x, footZ, k, cx0, cx1, 0.45, red, 0.45);
 
-  // Emissive lines at the foot of the tall walls and on the low curbs.
-  p.band(bounds.x0, bounds.z0, bounds.x1, bounds.z0, 0, 1, 0.45, red, 0.45);
-  p.band(bounds.x0, bounds.z0, bounds.x0, bounds.z1, 1, 0, 0.45, red, 0.45);
+  // Emissive lines at the foot of the tall walls (the north one's either side
+  // of the video wall's case) and on the low curbs.
+  const northRuns: Array<[number, number]> = [
+    [bounds.x0, Math.max(bounds.x0, cx0)],
+    [Math.min(bounds.x1, cx1), bounds.x1],
+  ];
+  for (const [a, b] of northRuns) if (b > a) p.band(a, bounds.z0, b, bounds.z0, 0, 1, 0.45, trim, 0.45);
+  p.band(bounds.x0, bounds.z0, bounds.x0, bounds.z1, 1, 0, 0.45, trim, 0.45);
   const gap = entranceGap(layout);
   const southRuns: Array<[number, number]> =
     gap.side === "south" ? [[bounds.x0, gap.from], [gap.to, bounds.x1]] : [[bounds.x0, bounds.x1]];
-  for (const [a, b] of southRuns) p.band(a, bounds.z1, b, bounds.z1, 0, -1, 0.3, red, 0.3);
+  for (const [a, b] of southRuns) p.band(a, bounds.z1, b, bounds.z1, 0, -1, 0.3, trim, 0.3);
   const eastRuns: Array<[number, number]> =
     gap.side === "east" ? [[bounds.z0, gap.from], [gap.to, bounds.z1]] : [[bounds.z0, bounds.z1]];
-  for (const [a, b] of eastRuns) p.band(bounds.x1, a, bounds.x1, b, -1, 0, 0.3, red, 0.3);
+  for (const [a, b] of eastRuns) p.band(bounds.x1, a, bounds.x1, b, -1, 0, 0.3, trim, 0.3);
 
-  // Partitions carry a faint red line on the top rail; AM7's office a bright one.
+  // Partitions carry a faint line on the top rail; AM7's office a bright red one.
   for (const seg of layout.partitions) {
     const am7 = segmentOnRect(seg, layout.am7Office);
     if (seg.kind === "wall" && !am7) continue;
-    p.line(seg.ax, seg.az, seg.bx, seg.bz, am7 ? 0.35 : 0.22, red, am7 ? 0.42 : 0.12);
+    p.line(seg.ax, seg.az, seg.bx, seg.bz, am7 ? 0.35 : 0.22, am7 ? red : trim, am7 ? 0.42 : 0.12);
   }
 
   // The AM7 sign sits high, so its reflection lands further out.

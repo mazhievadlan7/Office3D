@@ -54,7 +54,15 @@ export type HqScreenFeed = {
   history: readonly number[];
   /** Per role family (HQ_ROLE_FAMILY order): the department boards and quotes. */
   teams: readonly HqTeamStat[];
+  /** AM7's briefing on the video wall (HqScreenHub.setBriefing), or null for the usual panels. */
+  briefing: HqScreenBriefing | null;
 };
+
+/** What a briefing puts on the video wall: the task, the goal and the plan, as given. */
+export type HqBriefingText = { task: string; goal: string; plan: string };
+
+/** A briefing as the screens paint it; `id` grows whenever its text changes. */
+export type HqScreenBriefing = HqBriefingText & { id: number };
 
 export type HqTeamStat = {
   total: number;
@@ -76,21 +84,27 @@ export const EMPTY_FEED: HqScreenFeed = {
   events: [],
   history: [],
   teams: [],
+  briefing: null,
 };
 
+// Like real software on a dark theme: neutral near-black chrome, light grey
+// text, red and orange for the accents (highlights, charts, alerts).
 export const INK = {
-  bg: "#060203",
-  panel: "#10040592",
-  panelSolid: "#0e0405",
-  line: "#3b0d10",
-  grid: "#1f0709",
-  dim: "#6e1d1f",
-  mid: "#b0302d",
-  text: "#e0463d",
-  hot: "#ff5b4b",
-  white: "#ffd8d0",
+  bg: "#0a0a0c",
+  panel: "#14151892",
+  panelSolid: "#131417",
+  line: "#2c2e33",
+  grid: "#1a1b1f",
+  dim: "#6b6f78",
+  mid: "#9a9ea8",
+  text: "#c9ccd2",
+  hot: "#ff4a3a",
+  white: "#f1f2f4",
   warn: "#ffae5c",
-  good: "#ff7a66",
+  good: "#ff8a5c",
+  /** Terminal prompt accents (Kali's root prompt: a red user, blue brackets). */
+  promptUser: "#ff5555",
+  promptFrame: "#5c9dff",
 } as const;
 
 export const MONO = `"JetBrains Mono", "Cascadia Mono", Consolas, "Menlo", monospace`;
@@ -152,7 +166,7 @@ export class Painter {
     this.fill(x, y, w, h, INK.panelSolid);
     this.stroke(x, y, w, h, INK.line);
     if (!title) return y;
-    this.fill(x, y, w, size + 8, "#1a0608");
+    this.fill(x, y, w, size + 8, "#242427");
     this.setFont(size, 600);
     this.text(title.toUpperCase(), x + 7, y + size + 3, INK.mid);
     return y + size + 8;
@@ -213,14 +227,14 @@ export class Painter {
 
   /** Horizontal bar with a track. */
   meter(x: number, y: number, w: number, h: number, v: number, color: string = INK.text): void {
-    this.fill(x, y, w, h, "#220709");
+    this.fill(x, y, w, h, "#2a2a2d");
     this.fill(x, y, Math.max(1, w * clamp01(v)), h, color);
   }
 
   ring(cx: number, cy: number, r: number, v: number, width: number, color: string = INK.hot): void {
     const c = this.ctx;
     c.lineWidth = width;
-    c.strokeStyle = "#240809";
+    c.strokeStyle = "#2c2c2f";
     c.beginPath();
     c.arc(cx, cy, r, 0, Math.PI * 2);
     c.stroke();
@@ -234,7 +248,7 @@ export class Painter {
   window(title: string, tabs: readonly string[], active: number, status: string): Box {
     const { w, h } = this;
     this.clear();
-    this.fill(0, 0, w, 22, "#140506");
+    this.fill(0, 0, w, 22, "#1d1d20");
     for (let i = 0; i < 3; i++) {
       this.ctx.fillStyle = i === 0 ? INK.hot : INK.dim;
       this.ctx.beginPath();
@@ -247,12 +261,12 @@ export class Painter {
     this.setFont(10.5, 500, SANS);
     for (let i = 0; i < tabs.length; i++) {
       const tw = this.ctx.measureText(tabs[i]).width + 22;
-      this.fill(tx, 23, tw, 19, i === active ? "#1d0709" : "#0c0304");
+      this.fill(tx, 23, tw, 19, i === active ? "#27272a" : "#141417");
       if (i === active) this.fill(tx, 23, tw, 2, INK.hot);
       this.text(tabs[i], tx + 11, 36, i === active ? INK.white : INK.dim);
       tx += tw + 2;
     }
-    this.fill(0, h - 16, w, 16, "#120405");
+    this.fill(0, h - 16, w, 16, "#1a1a1d");
     this.setFont(9.5, 500, MONO);
     this.text(status, 8, h - 4.5, INK.mid);
     return { x: 0, y: 43, w, h: h - 43 - 16 };
@@ -332,7 +346,7 @@ function editor(source: readonly string[], file: string, lang: string): AppPaint
     const box = p.window(`${file} — agent-core`, [file, "types.ts", "README.md"], 0, `${lang}  UTF-8  Ln ${cursorLine + 1}, Col ${Math.floor(partial * 40) + 1}   ● main`);
     // file tree
     const treeW = 92;
-    p.fill(box.x, box.y, treeW, box.h, "#0b0304");
+    p.fill(box.x, box.y, treeW, box.h, "#141417");
     p.setFont(10, 400, SANS);
     const tree = ["▾ src", "  ▸ memory", "  ▸ tools", "    router.ts", "    scheduler.ts", "    types.ts", "▸ tests", "  package.json"];
     tree.forEach((line, i) => p.text(line, box.x + 6, box.y + 16 + i * 15, i === 3 ? INK.white : INK.dim));
@@ -340,14 +354,14 @@ function editor(source: readonly string[], file: string, lang: string): AppPaint
     const rows = Math.floor((box.h - 8) / lh);
     const first = Math.max(0, cursorLine - rows + 4);
     const gx = box.x + treeW;
-    p.fill(gx, box.y, 30, box.h, "#0a0203");
+    p.fill(gx, box.y, 30, box.h, "#111114");
     p.setFont(11);
     const maxChars = Math.floor((box.w - treeW - 44 - 50) / p.ctx.measureText("M").width);
     for (let r = 0; r < rows; r++) {
       const li = first + r;
       if (li > cursorLine) break;
       const y = box.y + 13 + r * lh;
-      if (li === cursorLine) p.fill(gx + 30, y - 11, box.w - treeW - 80, lh, "#1b0608");
+      if (li === cursorLine) p.fill(gx + 30, y - 11, box.w - treeW - 80, lh, "#242427");
       p.text(String(li + 1).padStart(3, " "), gx + 26, y, li === cursorLine ? INK.mid : INK.line, "right");
       let line = source[li] ?? "";
       if (li === cursorLine) line = line.slice(0, Math.floor(line.length * partial));
@@ -359,7 +373,7 @@ function editor(source: readonly string[], file: string, lang: string): AppPaint
     }
     // minimap
     const mx = box.x + box.w - 44;
-    p.fill(mx, box.y, 44, box.h, "#0a0203");
+    p.fill(mx, box.y, 44, box.h, "#111114");
     for (let i = 0; i < total; i++) {
       const len = Math.min(36, (source[i]?.length ?? 0) * 0.5);
       p.fill(mx + 4 + (source[i]?.search(/\S/) ?? 0) * 0.5, box.y + 4 + i * 2.2, len, 1.2, i <= cursorLine ? INK.dim : INK.grid);
@@ -368,32 +382,56 @@ function editor(source: readonly string[], file: string, lang: string): AppPaint
   };
 }
 
-function terminal(session: readonly TermLine[], title: string): AppPainter {
+/** Kali's root prompt, first row: ┌──(root㉿kali)-[dir]. */
+function kaliPromptTop(p: Painter, x: number, y: number, dir: string): void {
+  let cx = x;
+  cx += p.text("┌──(", cx, y, INK.promptFrame);
+  cx += p.text("root㉿kali", cx, y, INK.promptUser);
+  cx += p.text(")-[", cx, y, INK.promptFrame);
+  cx += p.text(dir, cx, y, INK.white);
+  p.text("]", cx, y, INK.promptFrame);
+}
+
+/** Kali's root prompt, second row: └─# ; returns the x where the command starts. */
+function kaliPromptBottom(p: Painter, x: number, y: number): number {
+  const w = p.text("└─", x, y, INK.promptFrame);
+  return x + w + p.text("# ", x + w, y, INK.promptUser);
+}
+
+type TermRow = { kind: "top" } | { kind: "cmd"; text: string } | { kind: "out"; line: TermLine } | { kind: "cursor" };
+
+function terminal(session: readonly TermLine[], title: string, dir: string): AppPainter {
   return (p, t, seed) => {
-    const box = p.window(title, ["zsh", "node", "logs"], 0, `${session.length} lines  •  utf-8`);
+    const box = p.window(title, ["root@kali", "logs", "notes"], 0, `${session.length} lines  •  zsh  •  utf-8`);
     const lh = 14;
     const rows = Math.floor((box.h - 6) / lh);
     const progress = t * 1.4 + seed * 311;
     const shown = Math.floor(progress) % (session.length + 6);
     p.setFont(11);
-    const lines = session.slice(0, Math.min(shown, session.length));
-    const start = Math.max(0, lines.length - rows + 1);
+    // Every command sits under its two-row prompt; the live prompt waits at the end.
+    const all: TermRow[] = [];
+    for (const line of session.slice(0, Math.min(shown, session.length))) {
+      if (line.kind === "cmd") all.push({ kind: "top" }, { kind: "cmd", text: line.text });
+      else all.push({ kind: "out", line });
+    }
+    all.push({ kind: "top" }, { kind: "cursor" });
+    const visible = all.slice(Math.max(0, all.length - rows));
     let y = box.y + 14;
-    for (let i = start; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.kind === "cmd") {
-        const w = p.text("agent@hq", 8, y, INK.hot);
-        p.text(":~/agent-core$ ", 8 + w, y, INK.dim);
-        p.text(line.text, 8 + w + p.ctx.measureText(":~/agent-core$ ").width, y, INK.white);
+    for (const row of visible) {
+      if (row.kind === "top") {
+        kaliPromptTop(p, 8, y, dir);
+      } else if (row.kind === "cmd") {
+        p.text(row.text, kaliPromptBottom(p, 8, y), y, INK.white);
+      } else if (row.kind === "cursor") {
+        const x = kaliPromptBottom(p, 8, y);
+        if (Math.floor(t * 2.2) % 2 === 0) p.fill(x, y - 10, 7, 13, INK.white);
       } else {
-        const color = line.kind === "ok" ? INK.good : line.kind === "warn" ? INK.warn : line.kind === "err" ? INK.hot : line.kind === "dim" ? INK.dim : INK.text;
-        p.text(line.text, 8, y, color);
+        const kind = row.line.kind;
+        const color = kind === "ok" ? INK.good : kind === "warn" ? INK.warn : kind === "err" ? INK.hot : kind === "dim" ? INK.dim : INK.text;
+        p.text(row.line.text, 8, y, color);
       }
       y += lh;
     }
-    const w = p.text("agent@hq", 8, y, INK.hot);
-    p.text(":~/agent-core$ ", 8 + w, y, INK.dim);
-    if (Math.floor(t * 2.2) % 2 === 0) p.fill(8 + w + p.ctx.measureText(":~/agent-core$ ").width, y - 10, 7, 13, INK.hot);
   };
 }
 
@@ -464,7 +502,7 @@ const sql: AppPainter = (p, t, seed, feed) => {
   const ty = box.y + 13 * 5 + 10;
   const cols = ["name", "role", "tasks", "avg_ms", "ok_pct"];
   const cx = [8, 0.26, 0.5, 0.66, 0.82].map((f, i) => (i === 0 ? 8 : f * box.w));
-  p.fill(0, ty, box.w, 16, "#1a0608");
+  p.fill(0, ty, box.w, 16, "#242427");
   p.setFont(10, 700);
   cols.forEach((c, i) => p.text(c, cx[i], ty + 12, INK.hot));
   p.setFont(10.5);
@@ -472,7 +510,7 @@ const sql: AppPainter = (p, t, seed, feed) => {
   const hl = Math.floor(t * 0.8) % Math.max(1, rows);
   for (let r = 0; r < rows; r++) {
     const y = ty + 30 + r * 15;
-    if (r === hl) p.fill(0, y - 11, box.w, 15, "#1d0709");
+    if (r === hl) p.fill(0, y - 11, box.w, 15, "#27272a");
     const k = r + Math.floor(seed * 100);
     const tasks = Math.round(40 + hash2(k, Math.floor(t / 6)) * 200);
     p.text(nameAt(feed, k), cx[0], y, INK.white);
@@ -511,7 +549,7 @@ const notebook: AppPainter = (p, t, seed) => {
 
 const research: AppPainter = (p, t, seed) => {
   const box = p.window("Исследование — браузер", ["arxiv.org", "Заметки", "Хабр"], 1, "Автосохранение  •  3 источника");
-  p.fill(6, box.y + 4, box.w - 12, 18, "#140506");
+  p.fill(6, box.y + 4, box.w - 12, 18, "#1d1d20");
   p.setFont(10, 400, SANS);
   p.text("https://notes.hq.internal/research/hybrid-search", 12, box.y + 17, INK.mid);
   p.setFont(15, 700, SANS);
@@ -528,7 +566,7 @@ const research: AppPainter = (p, t, seed) => {
 
 const papers: AppPainter = (p, t, seed) => {
   const box = p.window("Поиск статей", ["Результаты", "Избранное"], 0, `${PAPERS.length} из 1 284  •  сортировка: цитирования`);
-  p.fill(8, box.y + 6, box.w - 16, 20, "#140506");
+  p.fill(8, box.y + 6, box.w - 16, 20, "#1d1d20");
   p.setFont(11, 400, SANS);
   const q = "hybrid retrieval agents memory";
   const typed = q.slice(0, Math.min(q.length, Math.floor((t * 6 + seed * 50) % (q.length + 20))));
@@ -547,7 +585,7 @@ const papers: AppPainter = (p, t, seed) => {
 const design: AppPainter = (p, t, seed) => {
   const box = p.window("Figma — HQ dashboard v3", ["Дашборд", "Компоненты"], 0, "100%  •  3 выбрано");
   const lw = 86;
-  p.fill(0, box.y, lw, box.h, "#0b0304");
+  p.fill(0, box.y, lw, box.h, "#141417");
   p.setFont(10, 400, SANS);
   ["▾ Frame / Home", "   Header", "   KPI cards", "   Chart", "   Table", "▸ Frame / Agent", "▸ Components"].forEach((l, i) =>
     p.text(l, 6, box.y + 16 + i * 15, i === 3 ? INK.white : INK.dim),
@@ -555,18 +593,18 @@ const design: AppPainter = (p, t, seed) => {
   const ax = lw + 18;
   const aw = box.w - lw - 110;
   const ah = box.h - 30;
-  p.fill(ax, box.y + 14, aw, ah, "#120405");
+  p.fill(ax, box.y + 14, aw, ah, "#1a1a1d");
   p.stroke(ax, box.y + 14, aw, ah, INK.dim);
-  p.fill(ax + 8, box.y + 22, aw - 16, 16, "#2a0a0c");
-  for (let i = 0; i < 3; i++) p.fill(ax + 8 + i * ((aw - 16) / 3), box.y + 44, (aw - 16) / 3 - 6, 34, "#1f0709");
+  p.fill(ax + 8, box.y + 22, aw - 16, 16, "#353538");
+  for (let i = 0; i < 3; i++) p.fill(ax + 8 + i * ((aw - 16) / 3), box.y + 44, (aw - 16) / 3 - 6, 34, "#28282b");
   p.chart(series(24, t * 0.2, seed), ax + 10, box.y + 86, aw - 20, ah * 0.36, INK.hot);
   // selection box moving
   const sx = ax + 8 + (Math.floor(t * 0.5) % 3) * ((aw - 16) / 3);
   p.stroke(sx - 2, box.y + 42, (aw - 16) / 3 - 2, 38, INK.warn, 1.5);
   // swatches
   const px = box.w - 86;
-  p.fill(px, box.y, 86, box.h, "#0b0304");
-  ["#ff1a1a", "#b0302d", "#6e0000", "#ffd8d0", "#1a0608", "#ffae5c"].forEach((c, i) => {
+  p.fill(px, box.y, 86, box.h, "#141417");
+  ["#ff1a1a", "#b0302d", "#6e0000", "#ffd8d0", "#242427", "#ffae5c"].forEach((c, i) => {
     p.fill(px + 8, box.y + 12 + i * 22, 16, 16, c);
     p.setFont(9.5);
     p.text(c, px + 30, box.y + 24 + i * 22, INK.mid);
@@ -603,13 +641,13 @@ const kanban: AppPainter = (p, t) => {
   const moving = Math.floor(t / 3) % 3;
   cols.forEach(([title, cards], c) => {
     const x = 5 + c * cw;
-    p.fill(x + 2, box.y + 4, cw - 4, box.h - 8, "#0c0304");
+    p.fill(x + 2, box.y + 4, cw - 4, box.h - 8, "#141417");
     p.setFont(10.5, 700, SANS);
     p.text(`${title}  ${cards.length}`, x + 8, box.y + 18, INK.mid);
     cards.forEach((card, i) => {
       const y = box.y + 26 + i * 40;
       const active = c === 1 && i === moving;
-      p.fill(x + 6, y, cw - 12, 34, active ? "#2a0a0c" : "#160506");
+      p.fill(x + 6, y, cw - 12, 34, active ? "#353538" : "#1e1e21");
       p.fill(x + 6, y, 3, 34, c === 3 ? INK.dim : INK.hot);
       p.setFont(9.8, 500, SANS);
       p.text(card.length > 24 ? `${card.slice(0, 23)}…` : card, x + 13, y + 14, active ? INK.white : INK.text);
@@ -635,14 +673,14 @@ const chat: AppPainter = (p, t, seed, feed) => {
     p.setFont(10.5, 400, SANS);
     p.text(msg, 32, y + 24, INK.text);
   }
-  p.fill(8, box.y + box.h - 22, box.w - 16, 18, "#140506");
+  p.fill(8, box.y + box.h - 22, box.w - 16, 18, "#1d1d20");
   p.setFont(10, 400, SANS);
   p.text(Math.floor(t * 2) % 2 ? "Сообщение в # штаб…" : "Сообщение в # штаб… |", 14, box.y + box.h - 9, INK.dim);
 };
 
 const docs: AppPainter = (p, t, seed) => {
   const box = p.window(`${DOC_TITLE} — Документы`, ["Документ", "Комментарии"], 0, "Сохранено  •  4 соавтора");
-  p.fill(40, box.y + 6, box.w - 80, box.h - 12, "#0f0405");
+  p.fill(40, box.y + 6, box.w - 80, box.h - 12, "#18181b");
   p.setFont(15, 700, SANS);
   p.text(DOC_TITLE, 56, box.y + 32, INK.white);
   p.setFont(10.8, 400, SANS);
@@ -698,12 +736,12 @@ const network: AppPainter = (p, t, seed) => {
 };
 
 const lock: AppPainter = (p, t, _seed, feed) => {
-  p.clear("#050102");
+  p.clear("#0c0c0f");
   const { w, h } = p;
   const c = p.ctx;
   const g = c.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w * 0.6);
-  g.addColorStop(0, "#2a0608");
-  g.addColorStop(1, "#050102");
+  g.addColorStop(0, "#2c2c2f");
+  g.addColorStop(1, "#0c0c0f");
   c.fillStyle = g;
   c.fillRect(0, 0, w, h);
   p.setFont(64, 200, SANS);
@@ -722,7 +760,7 @@ const lock: AppPainter = (p, t, _seed, feed) => {
 };
 
 const alert: AppPainter = (p, t, seed, feed) => {
-  p.clear("#0a0102");
+  p.clear("#0f0f12");
   const { w, h } = p;
   const flash = Math.floor(t * 2) % 2 === 0;
   p.fill(0, 0, w, 42, flash ? "#8a0a0a" : "#4a0506");
@@ -762,8 +800,8 @@ const worldops: AppPainter = (p, t, seed, feed) => {
 export const APP_PAINTERS: Record<string, AppPainter> = {
   code_ts: editor(CODE_TS, "router.ts", "TypeScript"),
   code_py: editor(CODE_PY, "anomalies.py", "Python"),
-  term_build: terminal(TERM_BUILD, "agent@hq: ~/agent-core"),
-  term_ops: terminal(TERM_OPS, "agent@hq: ~/infra"),
+  term_build: terminal(TERM_BUILD, "root@kali: ~/agent-core", "~/agent-core"),
+  term_ops: terminal(TERM_OPS, "root@kali: ~/infra", "~/infra"),
   logs,
   metrics,
   sql,
@@ -772,7 +810,7 @@ export const APP_PAINTERS: Record<string, AppPainter> = {
   papers,
   design,
   cluster,
-  tests: terminal(TERM_TESTS, "agent@hq: ~/e2e"),
+  tests: terminal(TERM_TESTS, "root@kali: ~/e2e", "~/e2e"),
   kanban,
   chat,
   docs,

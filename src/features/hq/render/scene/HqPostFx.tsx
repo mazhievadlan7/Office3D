@@ -16,6 +16,10 @@ import { BlendFunction, SMAAPreset, ToneMappingMode } from "postprocessing";
 
 import type { HqQuality } from "./quality";
 
+/** A light vignette and fine grain: the room stays readable to the edges. */
+const VIGNETTE_DARKNESS = 0.5;
+const GRAIN = 0.1;
+
 /**
  * The post chain. The renderer itself draws linear HDR (the Canvas is `flat`),
  * so bloom sees real emissive values above 1 and AgX does the tone mapping
@@ -52,8 +56,8 @@ export function HqPostFx({ quality }: { quality: HqQuality }) {
       {quality === "high" ? (
         <ChromaticAberration offset={aberration} radialModulation modulationOffset={0.35} />
       ) : null}
-      <Vignette offset={0.28} darkness={0.72} eskil={false} />
-      <Noise blendFunction={BlendFunction.SOFT_LIGHT} opacity={quality === "low" ? 0 : 0.18} />
+      <Vignette offset={0.28} darkness={VIGNETTE_DARKNESS} eskil={false} />
+      <Noise blendFunction={BlendFunction.SOFT_LIGHT} opacity={quality === "low" ? 0 : GRAIN} />
     </EffectComposer>
   );
 }

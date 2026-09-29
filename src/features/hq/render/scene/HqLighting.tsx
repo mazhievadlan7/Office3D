@@ -29,7 +29,16 @@ import type { HqQuality } from "./quality";
  */
 
 // Light colours derived from the theme: a near-white key with a warm cast.
-const KEY_COLOR = new Color(HQ_THEME.statusSelected).lerp(new Color(HQ_THEME.ledWarm), 0.14);
+const KEY_COLOR = new Color(HQ_THEME.statusSelected).lerp(new Color(HQ_THEME.ledWarm), 0.3);
+
+/** Warm white throughout, like a lit operations floor at night: moody, even. */
+const LOOK = {
+  ambient: { color: "#ffe6cc", intensity: 0.18 },
+  hemisphere: { sky: "#e8e1d6", ground: "#2a2521", intensity: 1.05 },
+  fillFront: { color: "#fff0e0", intensity: 0.55 },
+  fillBack: { color: "#e8e3ec", intensity: 0.45 },
+  key: 2.4,
+};
 // Direction toward the key light: high, from the east and a touch south, so
 // shadows fall west, visible from the south-east camera.
 const KEY_DIRECTION = new Vector3(0.62, 1.25, 0.28).normalize();
@@ -201,20 +210,18 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
       {/* Fixed, distant fog — the same everywhere, so brightness never follows
           the camera; the whole hall reads lit, not just what you look at. */}
       <fog ref={fogRef} attach="fog" args={[HQ_THEME.fog, 90, 320]} />
-      {/* A faint red atmosphere only: the floor is meant to read black with red
-          circuit traces, not a red wash. */}
-      <ambientLight color={HQ_THEME.accent} intensity={0.3} />
-      <hemisphereLight args={["#aeb4c4", "#141014", 2.4]} />
+      <ambientLight color={LOOK.ambient.color} intensity={LOOK.ambient.intensity} />
+      <hemisphereLight args={[LOOK.hemisphere.sky, LOOK.hemisphere.ground, LOOK.hemisphere.intensity]} />
       {/* Bright, even fills from both ends so desks and hooded figures read
           across the whole hall — same brightness near and far. */}
-      <directionalLight position={[18, 26, 30]} color="#e9dede" intensity={1.15} />
-      <directionalLight position={[-16, 24, -30]} color="#d8d2e0" intensity={1.05} />
+      <directionalLight position={[18, 26, 30]} color={LOOK.fillFront.color} intensity={LOOK.fillFront.intensity} />
+      <directionalLight position={[-16, 24, -30]} color={LOOK.fillBack.color} intensity={LOOK.fillBack.intensity} />
       <primitive object={keyTarget} />
       <primitive object={am7Target} />
       <directionalLight
         ref={keyRef}
         color={KEY_COLOR}
-        intensity={3.6}
+        intensity={LOOK.key}
         target={keyTarget}
         castShadow={shadowsOn}
         shadow-mapSize={[SHADOW_MAP_SIZE[quality], SHADOW_MAP_SIZE[quality]]}
@@ -249,14 +256,14 @@ export function HqLighting({ layout, quality }: { layout: HqLayout; quality: HqQ
         ceiling strip, a red glow from the map side and a faint cool fill.
         Rendered once into a cube map; glossy floors and screens pick it up.
       */}
-      <Environment frames={1} resolution={256} environmentIntensity={0.9}>
-        {/* All red / near-black: glossy surfaces reflect red, never a white glare
-            that follows the camera. */}
-        <Lightformer form="rect" intensity={2.4} color={HQ_THEME.accent} scale={[16, 1.4, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
-        <Lightformer form="rect" intensity={1.5} color={HQ_THEME.accentSoft} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
-        <Lightformer form="rect" intensity={1.1} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, 9]} rotation-y={Math.PI} />
-        <Lightformer form="rect" intensity={0.5} color="#241c20" scale={[8, 3, 1]} position={[9, 3, 0]} rotation-y={-Math.PI / 2} />
-        <Lightformer form="rect" intensity={0.5} color="#241c20" scale={[8, 3, 1]} position={[-9, 3, 0]} rotation-y={Math.PI / 2} />
+      <Environment frames={1} resolution={256} environmentIntensity={1.1}>
+        {/* Warm ceiling strips, a red glow from the map side and a cool fill:
+            the polished stone mirrors a lit room. */}
+        <Lightformer form="rect" intensity={4} color="#fff4e8" scale={[14, 0.8, 1]} position={[0, 6, 0]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={3} color={HQ_THEME.statusSelected} scale={[10, 0.6, 1]} position={[0, 6, 3]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={0.8} color={HQ_THEME.accent} scale={[12, 3, 1]} position={[0, 2.5, -9]} />
+        <Lightformer form="rect" intensity={0.8} color={HQ_THEME.ledWarm} scale={[8, 2, 1]} position={[-9, 2, 0]} rotation-y={Math.PI / 2} />
+        <Lightformer form="rect" intensity={1.4} color="#c8d2e6" scale={[10, 4, 1]} position={[9, 3, 6]} rotation-y={-Math.PI / 2} />
       </Environment>
     </>
   );

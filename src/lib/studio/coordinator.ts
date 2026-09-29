@@ -393,9 +393,36 @@ const mergeStudioPatch = (
   };
 };
 
+/**
+ * Rate limit for a patch that may be re-sent very often (the task board: a
+ * live team changes it every second and the patch is the whole board).
+ */
+export type StudioSettingsPatchThrottle = {
+  /** At most one save carrying a throttled patch per this many ms. */
+  minIntervalMs: number;
+  /**
+   * A throttled patch never waits longer than this after it was first queued,
+   * even while the trailing debounce keeps being pushed back by new changes.
+   */
+  maxWaitMs: number;
+};
+
+/** Stable serialisation of one gateway's task board entry, used to skip no-op saves. */
+const taskBoardEntrySignature = (value: unknown): string => JSON.stringify(value ?? null);
+
 export class StudioSettingsCoordinator {
   private pendingPatch: StudioSettingsPatch | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private timerDueAt: number | null = null;
+  // Due time asked for by ordinary (unthrottled) patches: a trailing debounce.
+  private plainDueAt: number | null = null;
+  // Due time asked for by throttled patches, and when the first one was queued.
+  private throttledDueAt: number | null = null;
+  private throttledQueuedAt: number | null = null;
+  private lastThrottledFlushAt = Number.NEGATIVE_INFINITY;
+  // What the server was last sent for each gateway's task board, so a board
+  // that did not change since is not uploaded again.
+  private readonly sentTaskBoardSignatures = new Map<string, string>();
   private queue: Promise<void> = Promise.resolve();
   private disposed = false;
   private cachedEnvelope: StudioSettingsResponse | null = null;
@@ -459,18 +486,92 @@ export class StudioSettingsCoordinator {
     return loadPromise;
   }
 
-  schedulePatch(patch: StudioSettingsPatch, debounceMs: number = this.defaultDebounceMs): void {
+  /**
+   * Queues a patch; all queued patches go out together in one save.
+   *
+   * Without `throttle` the save is a trailing debounce: it happens `debounceMs`
+   * after the latest unthrottled patch. With `throttle` the patch is still
+   * debounced, but a save carrying it happens at most once per
+   * `throttle.minIntervalMs`, and never later than `throttle.maxWaitMs` after
+   * it was first queued. Any earlier save (another patch, `flushPending`) takes
+   * it along.
+   */
+  schedulePatch(
+    patch: StudioSettingsPatch,
+    debounceMs: number = this.defaultDebounceMs,
+    throttle?: StudioSettingsPatchThrottle,
+  ): void {
     if (this.disposed) return;
     this.pendingPatch = mergeStudioPatch(this.pendingPatch, patch);
-    if (this.timer) {
-      clearTimeout(this.timer);
+    const now = Date.now();
+    const debounceDueAt = now + Math.max(0, debounceMs);
+    if (throttle) {
+      if (this.throttledQueuedAt === null) this.throttledQueuedAt = now;
+      const earliestAllowed = this.lastThrottledFlushAt + throttle.minIntervalMs;
+      const latestAllowed = this.throttledQueuedAt + throttle.maxWaitMs;
+      this.throttledDueAt = Math.min(
+        Math.max(debounceDueAt, earliestAllowed),
+        latestAllowed,
+      );
+    } else {
+      this.plainDueAt = debounceDueAt;
     }
+    this.armTimer(now);
+  }
+
+  private armTimer(now: number): void {
+    const dueAt = Math.min(
+      this.plainDueAt ?? Number.POSITIVE_INFINITY,
+      this.throttledDueAt ?? Number.POSITIVE_INFINITY,
+    );
+    if (!Number.isFinite(dueAt)) return;
+    // A busy board re-queues every second with the same due time; keep the timer.
+    if (this.timer && this.timerDueAt === dueAt) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.timerDueAt = dueAt;
     this.timer = setTimeout(() => {
       this.timer = null;
+      this.timerDueAt = null;
       void this.flushPending().catch((err) => {
         console.error("Failed to flush pending studio settings patch.", err);
       });
-    }, debounceMs);
+    }, Math.max(0, dueAt - now));
+  }
+
+  private clearTimer(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    this.timerDueAt = null;
+    this.plainDueAt = null;
+    this.throttledDueAt = null;
+  }
+
+  /**
+   * Drops task board entries identical to what was last sent for that gateway,
+   * and records the ones that will be sent. Returns null when nothing is left.
+   */
+  private dropUnchangedTaskBoards(patch: StudioSettingsPatch): {
+    patch: StudioSettingsPatch | null;
+    recorded: Array<[string, string]>;
+  } {
+    const recorded: Array<[string, string]> = [];
+    if (!patch.taskBoard) return { patch, recorded };
+    const taskBoard: NonNullable<StudioSettingsPatch["taskBoard"]> = {};
+    let kept = 0;
+    for (const [gatewayKey, value] of Object.entries(patch.taskBoard)) {
+      const signature = taskBoardEntrySignature(value);
+      if (this.sentTaskBoardSignatures.get(gatewayKey) === signature) continue;
+      this.sentTaskBoardSignatures.set(gatewayKey, signature);
+      recorded.push([gatewayKey, signature]);
+      taskBoard[gatewayKey] = value;
+      kept += 1;
+    }
+    const next: StudioSettingsPatch = { ...patch };
+    if (kept > 0) next.taskBoard = taskBoard;
+    else delete next.taskBoard;
+    return { patch: Object.keys(next).length > 0 ? next : null, recorded };
   }
 
   async applyPatchNow(patch: StudioSettingsPatch): Promise<void> {
@@ -483,18 +584,34 @@ export class StudioSettingsCoordinator {
     if (this.disposed) {
       return this.queue;
     }
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-    const patch = this.pendingPatch;
+    const carriesThrottled = this.throttledQueuedAt !== null;
+    this.clearTimer();
+    this.throttledQueuedAt = null;
+    const pending = this.pendingPatch;
     this.pendingPatch = null;
-    if (!patch) {
+    if (!pending) {
       return this.queue;
     }
+    const { patch, recorded } = this.dropUnchangedTaskBoards(pending);
+    if (!patch) {
+      // Nothing was sent, so the throttle interval does not restart: the next
+      // real change still goes out after its debounce.
+      return this.queue;
+    }
+    if (carriesThrottled) this.lastThrottledFlushAt = Date.now();
     const write = this.queue.then(async () => {
-      const response = await this.transport.updateSettings(patch);
-      this.primeCache(response);
+      try {
+        const response = await this.transport.updateSettings(patch);
+        this.primeCache(response);
+      } catch (err) {
+        // Not saved after all: the next identical board must be sent again.
+        for (const [gatewayKey, signature] of recorded) {
+          if (this.sentTaskBoardSignatures.get(gatewayKey) === signature) {
+            this.sentTaskBoardSignatures.delete(gatewayKey);
+          }
+        }
+        throw err;
+      }
     });
     this.queue = write.catch((err) => {
       console.error("Failed to persist studio settings patch.", err);
@@ -503,12 +620,11 @@ export class StudioSettingsCoordinator {
   }
 
   dispose(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    this.clearTimer();
+    this.throttledQueuedAt = null;
     this.pendingPatch = null;
     this.pendingLoadPromise = null;
+    this.sentTaskBoardSignatures.clear();
     this.disposed = true;
   }
 }

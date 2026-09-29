@@ -1,4 +1,4 @@
-import type { HqLayout, HqRect, HqSegment } from "@/features/hq/core/types";
+import type { HqDeck, HqLayout, HqRect, HqSegment } from "@/features/hq/core/types";
 import { ENTRANCE_WIDTH } from "./palette";
 
 // Pure helpers that derive environment placement from the layout. Kept free
@@ -33,65 +33,44 @@ export function segmentOnRect(seg: HqSegment, r: HqRect): boolean {
   return vertical || horizontal;
 }
 
+/** True when both ends of the segment lie on the rim of AM7's round island. */
+export function segmentOnDeck(seg: HqSegment, deck: HqDeck): boolean {
+  const onRim = (x: number, z: number) => Math.abs(Math.hypot(x - deck.x, z - deck.z) - deck.radius) < EDGE_EPS;
+  return deck.radius > 0 && onRim(seg.ax, seg.az) && onRim(seg.bx, seg.bz);
+}
+
+/** AM7's partitions, drawn with the bright line: the glass balustrade round the island. */
+export function isAm7Partition(seg: HqSegment, layout: HqLayout): boolean {
+  return segmentOnDeck(seg, layout.deck);
+}
+
 export type SignPlacement = {
   x: number;
   y: number;
   z: number;
-  /** rotation.y so the sign's +Z faces away from the office. */
+  /** rotation.y so the sign's +Z faces away from AM7's island. */
   rotY: number;
 };
 
+/** Offset of the sign's face out from the balustrade's glass. */
+const SIGN_OUT = 0.04;
+
 /**
- * The AM7 sign sits above the office front the camera sees: the south or the
- * east side (the camera looks from +x,+z), whichever has the door (else more
- * glass), centred on that side's glass front.
+ * Where an "AM7" sign reads from the default camera, which looks from the
+ * south / south-east: on the south face of the island's balustrade (the side
+ * facing the rows), low on the glass so it never stands in AM7's way, facing
+ * +Z. Falls back to the front of the bounding square when there is no
+ * balustrade.
  */
 export function am7SignPlacement(layout: HqLayout): SignPlacement {
+  const { deck } = layout;
+  const rim = layout.partitions.filter((s) => segmentOnDeck(s, deck));
+  const height = rim.reduce((acc, s) => Math.max(acc, s.height), 0);
+  if (height > 0) {
+    return { x: deck.x, y: height * 0.55, z: deck.z + deck.radius + SIGN_OUT, rotY: 0 };
+  }
   const r = layout.am7Office;
-  const { bounds } = layout;
-  const segs = layout.partitions.filter((s) => segmentOnRect(s, r));
-  const sides: Array<{ name: "south" | "east"; open: boolean; along: (s: HqSegment) => boolean }> = [
-    {
-      name: "south",
-      open: r.z1 < bounds.z1 - 0.5,
-      along: (s) => Math.abs(s.az - r.z1) < EDGE_EPS && Math.abs(s.bz - r.z1) < EDGE_EPS,
-    },
-    {
-      name: "east",
-      open: r.x1 < bounds.x1 - 0.5,
-      along: (s) => Math.abs(s.ax - r.x1) < EDGE_EPS && Math.abs(s.bx - r.x1) < EDGE_EPS,
-    },
-  ];
-  // Prefer a side with a door, then the side with the most glass.
-  let best: { name: "south" | "east"; segs: HqSegment[]; score: number } | null = null;
-  for (const side of sides) {
-    if (!side.open) continue;
-    const on = segs.filter(side.along);
-    const length = on.reduce((acc, s) => acc + Math.hypot(s.bx - s.ax, s.bz - s.az), 0);
-    const score = length + (on.some((s) => s.kind === "glass-door") ? 100 : 0);
-    if (!best || score > best.score) best = { name: side.name, segs: on, score };
-  }
-  const sideName = best?.name ?? "south";
-  const onSide = best?.segs ?? [];
-  const height = onSide.reduce((acc, s) => Math.max(acc, s.height), 0) || 2.6;
-  const y = height + 0.55;
-  const out = 0.04;
-  // Centred on that side's glass front: hugging the door reads as an accident.
-  const centre = (pick: (s: HqSegment) => [number, number], lo: number, hi: number) => {
-    if (onSide.length === 0) return (lo + hi) / 2;
-    let a = Infinity;
-    let b = -Infinity;
-    for (const s of onSide) {
-      const [p, q] = pick(s);
-      a = Math.min(a, p, q);
-      b = Math.max(b, p, q);
-    }
-    return (a + b) / 2;
-  };
-  if (sideName === "south") {
-    return { x: centre((s) => [s.ax, s.bx], r.x0, r.x1), y, z: r.z1 + out, rotY: 0 };
-  }
-  return { x: r.x1 + out, y, z: centre((s) => [s.az, s.bz], r.z0, r.z1), rotY: Math.PI / 2 };
+  return { x: (r.x0 + r.x1) / 2, y: 0.6, z: r.z1 + SIGN_OUT, rotY: 0 };
 }
 
 export function clamp(v: number, lo: number, hi: number): number {

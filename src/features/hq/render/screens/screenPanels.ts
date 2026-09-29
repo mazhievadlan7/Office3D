@@ -91,7 +91,8 @@ function teamRows(feed: HqScreenFeed, max: number): Array<{ name: string; total:
   ];
 }
 
-function backdrop(p: Painter, glowX: number, glowY: number, glowR: number): void {
+/** The big panels' ground: near black, a red glow round (glowX, glowY). The briefing's panels share it. */
+export function backdrop(p: Painter, glowX: number, glowY: number, glowR: number): void {
   const { w, h } = p;
   const c = p.ctx;
   c.fillStyle = linear(c, 0, 0, 0, h, [[0, "#090405"], [1, "#030202"]]);
@@ -316,9 +317,47 @@ export function paintExecWall(p: Painter, t: number, feed: HqScreenFeed): void {
 }
 
 // --- the map wall's side panels ---------------------------------------------------------------------
+/** A rectangle on a panel's canvas, in pixels from its top-left corner. */
+export type PanelRect = { x: number; y: number; w: number; h: number };
+
+// Cards start under the title block and keep this margin to the canvas's bottom.
+const CARD_TOP = 118;
+const CARD_BOTTOM = 20;
+const KPI_W = 322;
+const KPI_H = 222;
+const KPI_GAP = 18;
+/** The title and subtitle, with room for wider fallback fonts. */
+const TITLE_W = 664;
+
+/**
+ * Where paintMapLeft puts its title and its cards. The video wall shows the
+ * cards one by one (map/mapWings.ts), so the painter draws from these.
+ */
+export function mapLeftCards(w: number, h: number): Record<"title" | "kpi" | "feed" | "teams", PanelRect> {
+  const ch = h - CARD_TOP - CARD_BOTTOM;
+  return {
+    title: { x: 16, y: 8, w: TITLE_W, h: 100 },
+    kpi: { x: 40, y: CARD_TOP, w: KPI_W * 2 + KPI_GAP, h: ch },
+    feed: { x: 740, y: CARD_TOP, w: 620, h: ch },
+    teams: { x: 1380, y: CARD_TOP, w: w - 1380 - 40, h: ch },
+  };
+}
+
+/** Where paintMapRight puts its title and its cards (see mapLeftCards). */
+export function mapRightCards(w: number, h: number): Record<"title" | "clocks" | "earth" | "traffic", PanelRect> {
+  const ch = h - CARD_TOP - CARD_BOTTOM;
+  return {
+    title: { x: w - 16 - TITLE_W, y: 8, w: TITLE_W, h: 100 },
+    clocks: { x: 40, y: CARD_TOP, w: 640, h: ch },
+    earth: { x: 700, y: CARD_TOP, w: 560, h: ch },
+    traffic: { x: 1280, y: CARD_TOP, w: w - 1280 - 40, h: ch },
+  };
+}
+
 export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
   const { w, h } = p;
   const c = p.ctx;
+  const cards = mapLeftCards(w, h);
   backdrop(p, 300, 0, 900);
   p.setFont(36, 600, DISPLAY);
   const tw = p.text("ГЛОБАЛЬНАЯ АКТИВНОСТЬ", 40, 60, TV.white);
@@ -333,11 +372,11 @@ export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
     ["Ожидают", feed.idle, feed.total > 0 ? `${Math.round((feed.idle / feed.total) * 100)}% штаба` : "нет данных", false],
     ["Ошибки", feed.error, feed.total > 0 ? `${decimal((feed.error / feed.total) * 100)}% штаба` : "нет данных", feed.error > 0],
   ];
-  const tw0 = 322;
-  const th0 = 222;
+  const tw0 = KPI_W;
+  const th0 = KPI_H;
   tiles.forEach(([name, value, note, alarm], i) => {
-    const x = 40 + (i % 2) * (tw0 + 18);
-    const y = 118 + Math.floor(i / 2) * (th0 + 18);
+    const x = cards.kpi.x + (i % 2) * (tw0 + KPI_GAP);
+    const y = cards.kpi.y + Math.floor(i / 2) * (th0 + KPI_GAP);
     glassCard(p, x, y, tw0, th0, { accent: alarm || i === 1, radius: 10 });
     label(p, name, x + 22, y + 38, TV.white45, 15);
     p.setFont(92, 700, DISPLAY);
@@ -349,10 +388,7 @@ export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
   });
 
   // The event feed.
-  const fx = 740;
-  const fw = 620;
-  const fy = 118;
-  const fh = h - fy - 20;
+  const { x: fx, y: fy, w: fw, h: fh } = cards.feed;
   glassCard(p, fx, fy, fw, fh, { radius: 10 });
   label(p, "Лента событий", fx + 22, fy + 38, TV.white45, 15);
   p.setFont(17, 500, SANS);
@@ -374,8 +410,7 @@ export function paintMapLeft(p: Painter, t: number, feed: HqScreenFeed): void {
   });
 
   // Departments.
-  const dx = 1380;
-  const dw = w - dx - 40;
+  const { x: dx, w: dw } = cards.teams;
   glassCard(p, dx, fy, dw, fh, { radius: 10 });
   label(p, "Активность операций", dx + 22, fy + 38, TV.white45, 15);
   const rows = teamRows(feed, 7);
@@ -407,16 +442,14 @@ const CLOCK_CITIES = ["Нью-Йорк", "Лондон", "Москва", "Дуб
 export function paintMapRight(p: Painter, t: number, feed: HqScreenFeed): void {
   const { w, h } = p;
   const c = p.ctx;
+  const cards = mapRightCards(w, h);
   backdrop(p, w - 300, 0, 900);
   p.setFont(36, 600, DISPLAY);
   p.text("СЕТЬ И ВЫЧИСЛЕНИЯ", w - 40, 60, TV.white, "right");
   label(p, `Кластер prod-eu · ${Math.round(96 + wave(t * 0.1, 7) * 4)}% узлов в строю`, w - 40, 90, TV.white45, 15, "right");
 
   // World clocks, day and night where the Sun really is.
-  const kx = 40;
-  const ky = 118;
-  const kw = 640;
-  const kh = h - ky - 20;
+  const { x: kx, y: ky, w: kw, h: kh } = cards.clocks;
   glassCard(p, kx, ky, kw, kh, { radius: 10 });
   label(p, "Мировое время", kx + 22, ky + 38, TV.white45, 15);
   const cellW = (kw - 44) / 4;
@@ -478,16 +511,14 @@ export function paintMapRight(p: Painter, t: number, feed: HqScreenFeed): void {
   });
 
   // The Earth right now.
-  const gx = 700;
-  const gw = 560;
+  const { x: gx, w: gw } = cards.earth;
   glassCard(p, gx, ky, gw, kh, { radius: 10 });
   label(p, "Орбитальный вид · день и ночь сейчас", gx + 22, ky + 38, TV.white45, 15);
   mapGlobe ??= new GlobeView(196, 20);
   drawEarth(p, mapGlobe, gx + gw / 2, ky + 258, 20 - t * 1.2, t, feed, { routes: 8, callouts: [WORLD_CITIES[0]], scale: 1.2 });
 
   // Traffic and resources.
-  const rx = 1280;
-  const rw = w - rx - 40;
+  const { x: rx, w: rw } = cards.traffic;
   const th = (kh - 18) / 2;
   glassCard(p, rx, ky, rw, th, { radius: 10 });
   label(p, "Входящий трафик · Гбит/с", rx + 22, ky + 38, TV.white45, 15);

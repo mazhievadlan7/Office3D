@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, type MutableRefObject } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import type { Group } from "three";
@@ -18,6 +18,11 @@ export type HqCrowdProps = {
   hoveredIdRef: MutableRefObject<string | null>;
   selectedId: string | null;
   quality: HqQuality;
+  /**
+   * Called with the action names of the character GLB once it has loaded (the
+   * host enables archive-cart runs only when "Push" is among them).
+   */
+  onClipsChange?: (names: readonly string[]) => void;
 };
 
 // Long frames (tab switch) must not snap the gaze smoothing.
@@ -32,10 +37,11 @@ const MAX_DT = 0.1;
  * Until the character GLB is loaded (or if it fails) the same agents are
  * drawn as capsule figures, so the scene never goes empty.
  */
-export function HqCrowd({ simRef, agentsRef, hoveredIdRef, selectedId, quality }: HqCrowdProps) {
+export function HqCrowd({ simRef, agentsRef, hoveredIdRef, selectedId, quality, onClipsChange }: HqCrowdProps) {
   const groupRef = useRef<Group>(null);
   const runtimeRef = useRef<HqCrowdRuntime | null>(null);
   const characterRef = useRef<HqCharacterSource | null>(null);
+  const [clipNames, setClipNames] = useState<readonly string[] | null>(null);
 
   // Created in an effect (not during render) so StrictMode's mount, unmount,
   // mount leaves exactly one live runtime and every GPU resource is freed.
@@ -54,7 +60,13 @@ export function HqCrowd({ simRef, agentsRef, hoveredIdRef, selectedId, quality }
 
   const onCharacter = useCallback((source: HqCharacterSource | null) => {
     characterRef.current = source;
+    if (source) setClipNames(source.animations.map((clip) => clip.name));
   }, []);
+
+  // Reported from an effect, so the host's callback never runs during render.
+  useEffect(() => {
+    if (clipNames) onClipsChange?.(clipNames);
+  }, [clipNames, onClipsChange]);
 
   useFrame((state, delta) => {
     const runtime = runtimeRef.current;

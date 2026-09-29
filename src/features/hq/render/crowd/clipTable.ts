@@ -5,8 +5,9 @@ import { HQ_CLIPS, HQ_CLIP_INFO, HqClip, type HqClipName } from "@/features/hq/c
  *
  * The character GLB is produced in parallel and may ship only some clips, so
  * a missing clip borrows the closest pose that exists instead of erroring:
- * a seated clip prefers another seated clip, Run prefers Walk, and everything
- * ends at Idle. Pure so it can be tested without three.js.
+ * a seated clip prefers another seated clip, Run and Push prefer Walk,
+ * Present prefers Talk, and everything ends at Idle. Pure so it can be tested
+ * without three.js.
  */
 const CLIP_FALLBACKS: Record<HqClipName, readonly HqClipName[]> = {
   Idle: [],
@@ -16,6 +17,8 @@ const CLIP_FALLBACKS: Record<HqClipName, readonly HqClipName[]> = {
   SitType: ["SitIdle", "Idle"],
   SitIdle: ["SitType", "Idle"],
   Talk: ["Idle"],
+  Present: ["Talk", "Idle"],
+  Push: ["Walk", "Idle"],
 };
 
 export const HQ_CLIP_COUNT = HQ_CLIPS.length;

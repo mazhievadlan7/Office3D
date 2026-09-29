@@ -1,4 +1,5 @@
-"""Mesh for the hacker character: a black humanoid robot in a hooded top.
+"""Mesh for the hacker character: a black android in techwear (hoodie, open
+jacket, harness, cargo pants, gloves, combat boots; see outfit.py).
 
 Everything goes into ONE skinned mesh with ONE material so each character is a
 single draw call. The material reads a small texture atlas: every part's UVs
@@ -16,23 +17,42 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-from rig import BONE, FOREARM, HAND, UPPER_ARM, _arm_dir, _palm_normal, head_of, tail_of
+from rig import BONE, FOREARM, UPPER_ARM, _arm_dir, tail_of
 
 # --- material atlas ---------------------------------------------------------
 ATLAS = 64
 BLOCK = 16  # 4 x 4 blocks
 # name: (base rgb (linear), roughness, metallic, emission rgb (linear))
 REGIONS = {
-    "hoodie": ((0.007, 0.007, 0.008), 0.88, 0.0, (0, 0, 0)),
-    "pants": ((0.01, 0.01, 0.011), 0.82, 0.0, (0, 0, 0)),
-    "metal": ((0.018, 0.018, 0.02), 0.2, 0.92, (0, 0, 0)),
-    "eyes": ((1.0, 0.05, 0.03), 0.3, 0.0, (1.0, 0.04, 0.02)),
+    "hoodie": ((0.0065, 0.0065, 0.007), 0.88, 0.0, (0, 0, 0)),
+    "pants": ((0.0078, 0.0078, 0.0082), 0.84, 0.0, (0, 0, 0)),
+    # Satin graphite rather than chrome: the face reads as metal without
+    # white hotspots or grey smudges that compete with the eyes.
+    "metal": ((0.016, 0.016, 0.017), 0.6, 0.85, (0, 0, 0)),
+    # Eye globe and pupil: glowing red metal, no dark tones; the brighter part
+    # is the iris ring ("eyecore").
+    # Pure red with no green/blue, and emission kept low: brighter red washes
+    # out to pink under the tone mapping.
+    "eyes": ((0.8, 0.003, 0.0015), 0.3, 1.0, (0.16, 0.0008, 0.0004)),
     "accent": ((0.6, 0.02, 0.015), 0.4, 0.0, (0.55, 0.012, 0.008)),
     "boots": ((0.006, 0.006, 0.007), 0.72, 0.0, (0, 0, 0)),
-    "sole": ((0.008, 0.008, 0.009), 0.8, 0.0, (0, 0, 0)),
+    "sole": ((0.0045, 0.0045, 0.005), 0.85, 0.0, (0, 0, 0)),
     "joint": ((0.05, 0.05, 0.055), 0.35, 0.85, (0, 0, 0)),
-    "visor": ((0.004, 0.004, 0.005), 0.08, 0.6, (0, 0, 0)),
-    "eyecore": ((1.0, 0.45, 0.35), 0.3, 0.0, (1.0, 0.32, 0.22)),
+    # Panel seams: near black and satin, so seams read as thin lines.
+    "visor": ((0.002, 0.002, 0.0025), 0.5, 0.3, (0, 0, 0)),
+    # Iris ring: the brightest red, still short of clipping to pink or white.
+    "eyecore": ((0.9, 0.003, 0.0015), 0.26, 1.0, (0.3, 0.0015, 0.0007)),
+    # Outfit (outfit.py). Everything is near black (sRGB #141414-#1a1a1a);
+    # the layers separate by their edges and by the jacket's slight nylon
+    # sheen (a higher specular level, see SPECULAR), not by greyness.
+    "jacket": ((0.0085, 0.0085, 0.009), 0.8, 0.0, (0, 0, 0)),
+    "rib": ((0.006, 0.006, 0.0065), 0.95, 0.0, (0, 0, 0)),
+    "mask": ((0.0055, 0.0055, 0.006), 0.93, 0.0, (0, 0, 0)),
+    "glove": ((0.0075, 0.0075, 0.008), 0.8, 0.0, (0, 0, 0)),
+    # Webbing is as black as the cloth (a touch of sheen via SPECULAR); the
+    # buckles are dark gunmetal.
+    "strap": ((0.0068, 0.0068, 0.0072), 0.8, 0.0, (0, 0, 0)),
+    "buckle": ((0.024, 0.024, 0.026), 0.5, 0.5, (0, 0, 0)),
 }
 REGION_INDEX = {name: i for i, name in enumerate(REGIONS)}
 
@@ -192,42 +212,62 @@ def smooth01(x):
 
 
 # --- parts --------------------------------------------------------------------
-def add_hoodie(mb):
+def torso_weights(z):
+    """Blend weights up the spine chain (shared by every garment on the torso)."""
+    chain = [(0.96, "Hips"), (1.12, "Spine"), (1.24, "Spine1"), (1.38, "Spine2"), (1.52, "Neck")]
+    if z <= chain[0][0]:
+        return {"Hips": 1.0}
+    for (z0, b0), (z1, b1) in zip(chain, chain[1:]):
+        if z <= z1:
+            t = smooth01((z - z0) / (z1 - z0))
+            return {b0: 1 - t, b1: t}
+    return {"Neck": 1.0}
+
+
+# The neckline layers (gaiter, hood base, hoodie funnel, jacket collar) share
+# one Neck/Spine2 blend, so head turns cannot pull them through each other.
+NECKLINE_W = {"Neck": 0.45, "Spine2": 0.55}
+
+
+def neckline_weights(z):
+    """torso_weights with the Neck share capped at the shared neckline blend."""
+    w = torso_weights(z)
+    return dict(NECKLINE_W) if w.get("Neck", 0.0) > NECKLINE_W["Neck"] else w
+
+
+HOODIE_PROFILE = [
+    # z, half-width, half-depth, y-shift (neg = forward), exponent
+    # The hem sits at the top of the thighs (not the crotch), so the legs
+    # read long below the short bomber.
+    (0.85, 0.172, 0.126, 0.006, 2.6),
+    (0.866, 0.177, 0.13, 0.006, 2.6),  # hem band
+    (0.89, 0.174, 0.127, 0.005, 2.6),
+    (0.92, 0.172, 0.124, 0.004, 2.6),
+    (0.95, 0.171, 0.121, 0.002, 2.5),
+    (1.04, 0.163, 0.116, 0.0, 2.4),
+    (1.12, 0.161, 0.117, -0.002, 2.4),
+    (1.20, 0.168, 0.122, -0.006, 2.4),
+    (1.28, 0.177, 0.128, -0.009, 2.4),
+    (1.35, 0.181, 0.13, -0.008, 2.3),
+    (1.395, 0.176, 0.125, -0.004, 2.2),
+    (1.435, 0.152, 0.112, 0.0, 2.1),
+    (1.47, 0.118, 0.096, 0.006, 2.0),
+    # Funnel neckline: wide enough that the gaiter and the hood base tuck
+    # inside it, narrow enough to sit inside the jacket's stand collar.
+    (1.50, 0.093, 0.088, 0.01, 2.0),
+    (1.527, 0.087, 0.084, 0.01, 2.0),
+]
+
+
+def add_hoodie(mb, sleeves=True):
+    """The hoodie torso; its sleeves are left out under the jacket."""
     Z = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-
-    def w_torso(z):
-        # Blend weights up the spine chain.
-        chain = [(0.96, "Hips"), (1.12, "Spine"), (1.24, "Spine1"), (1.38, "Spine2"), (1.52, "Neck")]
-        if z <= chain[0][0]:
-            return {"Hips": 1.0}
-        for (z0, b0), (z1, b1) in zip(chain, chain[1:]):
-            if z <= z1:
-                t = smooth01((z - z0) / (z1 - z0))
-                return {b0: 1 - t, b1: t}
-        return {"Neck": 1.0}
-
-    profile = [
-        # z, half-width, half-depth, y-shift (neg = forward), exponent
-        (0.785, 0.176, 0.128, 0.006, 2.6),
-        (0.805, 0.181, 0.132, 0.006, 2.6),  # hem band
-        (0.83, 0.177, 0.128, 0.005, 2.6),
-        (0.885, 0.174, 0.125, 0.004, 2.6),
-        (0.95, 0.171, 0.121, 0.002, 2.5),
-        (1.04, 0.163, 0.116, 0.0, 2.4),
-        (1.12, 0.161, 0.117, -0.002, 2.4),
-        (1.20, 0.168, 0.122, -0.006, 2.4),
-        (1.28, 0.177, 0.128, -0.009, 2.4),
-        (1.35, 0.181, 0.13, -0.008, 2.3),
-        (1.395, 0.176, 0.125, -0.004, 2.2),
-        (1.435, 0.152, 0.112, 0.0, 2.1),
-        (1.47, 0.118, 0.096, 0.006, 2.0),
-        (1.50, 0.088, 0.082, 0.01, 2.0),
-        (1.525, 0.072, 0.07, 0.012, 2.0),
-    ]
     rings = []
-    for z, rx, ry, dy, ex in profile:
-        rings.append((Vector((0, dy, z)), Z, rx, ry, w_torso(z), ex))
+    for z, rx, ry, dy, ex in HOODIE_PROFILE:
+        rings.append((Vector((0, dy, z)), Z, rx, ry, neckline_weights(z), ex))
     mb.loft(rings, "hoodie", segs=24, cap_start=True)
+    if not sleeves:
+        return
 
     # Sleeves
     for side, pre in ((1, "Left"), (-1, "Right")):
@@ -271,156 +311,24 @@ def add_hoodie(mb):
         mb.loft(rings, "hoodie", segs=18, cap_start=True)
 
 
-def add_pants(mb):
-    Z = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-    pelvis = [
-        (1.0, 0.152, 0.11, 0.0),
-        (0.93, 0.155, 0.113, 0.004),
-        (0.86, 0.156, 0.114, 0.008),
-        (0.815, 0.142, 0.105, 0.01),
-        (0.78, 0.1, 0.08, 0.01),
-    ]
-    rings = [(Vector((0, dy, z)), Z, rx, ry, {"Hips": 1.0}, 2.6) for z, rx, ry, dy in pelvis]
-    mb.loft(rings, "pants", segs=24, cap_end=True)
-
-    for side, pre in ((1, "Left"), (-1, "Right")):
-        hip = head_of(f"{pre}UpLeg")
-        knee = head_of(f"{pre}Leg")
-        ankle = head_of(f"{pre}Foot")
-        thigh_d = (knee - hip).normalized()
-        shin_d = (ankle - knee).normalized()
-        fr_t = frame_from_axis(-thigh_d, Vector((0, -1, 0)))
-        fr_s = frame_from_axis(-shin_d, Vector((0, -1, 0)))
-        rings = []
-        thigh_len = (knee - hip).length
-        for t, r, wt in (
-            (-0.03, 0.084, {"Hips": 0.55, f"{pre}UpLeg": 0.45}),
-            (0.03, 0.084, {"Hips": 0.25, f"{pre}UpLeg": 0.75}),
-            (0.1, 0.082, {f"{pre}UpLeg": 1.0}),
-            (0.2, 0.077, {f"{pre}UpLeg": 1.0}),
-            (0.3, 0.071, {f"{pre}UpLeg": 1.0}),
-            (thigh_len - 0.04, 0.064, {f"{pre}UpLeg": 0.8, f"{pre}Leg": 0.2}),
-        ):
-            rings.append((hip + thigh_d * t, fr_t, r, r * 0.98, wt, 2.0))
-        shin_len = (ankle - knee).length
-        for t, r, wt in (
-            (0.0, 0.062, {f"{pre}UpLeg": 0.5, f"{pre}Leg": 0.5}),
-            (0.04, 0.061, {f"{pre}UpLeg": 0.2, f"{pre}Leg": 0.8}),
-            (0.12, 0.06, {f"{pre}Leg": 1.0}),
-            (0.22, 0.057, {f"{pre}Leg": 1.0}),
-            (0.3, 0.054, {f"{pre}Leg": 1.0}),
-            (shin_len - 0.04, 0.056, {f"{pre}Leg": 1.0}),
-            (shin_len + 0.0, 0.058, {f"{pre}Leg": 1.0}),
-        ):
-            rings.append((knee + shin_d * t, fr_s, r, r, wt, 2.0))
-        mb.loft(rings, "pants", segs=18)
-
-
-def add_boots(mb):
-    for side, pre in ((1, "Left"), (-1, "Right")):
-        x = 0.095 * side
-        Y = Matrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))  # axis = -Y (toward toes)
-        prof = [
-            # y, half-width, z-bottom, z-top, bone weights
-            (0.075, 0.042, 0.0, 0.085, {f"{pre}Foot": 1.0}),
-            (0.06, 0.05, 0.0, 0.11, {f"{pre}Foot": 1.0}),
-            (0.0, 0.054, 0.0, 0.115, {f"{pre}Foot": 1.0}),
-            (-0.06, 0.055, 0.0, 0.085, {f"{pre}Foot": 1.0}),
-            (-0.095, 0.054, 0.0, 0.07, {f"{pre}Foot": 0.5, f"{pre}ToeBase": 0.5}),
-            (-0.14, 0.05, 0.0, 0.06, {f"{pre}ToeBase": 1.0}),
-            (-0.175, 0.038, 0.004, 0.05, {f"{pre}ToeBase": 1.0}),
-            (-0.19, 0.022, 0.012, 0.038, {f"{pre}ToeBase": 1.0}),
-        ]
-        rings = []
-        for y, hw, zb, zt, wt in prof:
-            c = Vector((x, y, (zb + zt) / 2))
-            rings.append((c, Y, hw, (zt - zb) / 2, wt, 3.2))
-        mb.loft(rings, "boots", segs=18, cap_start=True, cap_end=True)
-        # Sole slab
-        rings = []
-        for y, hw, zb, zt, wt in prof[:-1]:
-            c = Vector((x, y, 0.009))
-            rings.append((c, Y, hw * 1.06 + 0.003, 0.011, wt, 6.0))
-        mb.loft(rings, "sole", segs=16, cap_start=True, cap_end=True)
-        # Shaft around the ankle
-        Z = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-        shaft = [
-            (0.06, 0.056, {f"{pre}Foot": 1.0}),
-            (0.12, 0.058, {f"{pre}Foot": 0.8, f"{pre}Leg": 0.2}),
-            (0.17, 0.06, {f"{pre}Foot": 0.3, f"{pre}Leg": 0.7}),
-            (0.185, 0.061, {f"{pre}Leg": 1.0}),
-        ]
-        rings = [(Vector((x, 0.018, z)), Z, r, r * 1.05, wt, 2.2) for z, r, wt in shaft]
-        mb.loft(rings, "boots", segs=16)
-        # Collar at the top of the shaft, black like the rest of the boot.
-        rings = [
-            (Vector((x, 0.018, 0.176)), Z, 0.0625, 0.0655, {f"{pre}Leg": 1.0}, 2.2),
-            (Vector((x, 0.018, 0.183)), Z, 0.0625, 0.0655, {f"{pre}Leg": 1.0}, 2.2),
-        ]
-        mb.loft(rings, "boots", segs=16)
-
-
 # The head, neck and hood live in head.py (imported after the helpers it uses).
 from head import add_head, add_hood  # noqa: E402
-
-
-def add_hands(mb):
-    for side, pre in ((1, "Left"), (-1, "Right")):
-        d = _arm_dir(side)
-        n = _palm_normal(side)
-        wrist = head_of(f"{pre}Hand")
-        # Wrist joint
-        fr = frame_from_axis(d)
-        rings = [
-            (wrist - d * 0.03, fr, 0.03, 0.026, {f"{pre}ForeArm": 1.0}, 2.0),
-            (wrist, fr, 0.028, 0.024, {f"{pre}ForeArm": 0.5, f"{pre}Hand": 0.5}, 2.0),
-            (wrist + d * 0.012, fr, 0.027, 0.023, {f"{pre}Hand": 1.0}, 2.0),
-        ]
-        mb.loft(rings, "joint", segs=12)
-        # Palm: a flat rounded box, width along Y, thickness along n.
-        side_axis = Vector((0, 1, 0))
-        palm_frame = Matrix((side_axis, n, d)).transposed()
-        pc = wrist + d * 0.05
-        mb.box(pc, (0.082, 0.03, 0.085), palm_frame, {f"{pre}Hand": 1.0}, "metal", bevel=0.18)
-        # Fingers
-        for fname, r in (("Index", 0.0092), ("Middle", 0.0097), ("Ring", 0.0092), ("Pinky", 0.0082)):
-            for seg in (1, 2):
-                b = f"{pre}Hand{fname}{seg}"
-                h, t = head_of(b), tail_of(b)
-                ax = (t - h).normalized()
-                ff = frame_from_axis(ax)
-                L = (t - h).length
-                rr = r * (1.0 if seg == 1 else 0.9)
-                rings = [
-                    (h - ax * 0.004, ff, rr, rr * 0.9, {b: 1.0}, 2.2),
-                    (h + ax * (L * 0.5), ff, rr * 1.05, rr * 0.95, {b: 1.0}, 2.2),
-                    (t - ax * 0.002, ff, rr * 0.92, rr * 0.85, {b: 1.0}, 2.2),
-                ]
-                mb.loft(rings, "metal" if seg == 1 else "metal", segs=8, cap_start=True, cap_end=True)
-                # knuckle joint
-                mb.ellipsoid(h, (rr * 1.12, rr * 1.12, rr * 1.12), {b: 1.0}, "joint", segs=8, rings=5)
-        for seg in (1, 2):
-            b = f"{pre}HandThumb{seg}"
-            h, t = head_of(b), tail_of(b)
-            ax = (t - h).normalized()
-            ff = frame_from_axis(ax)
-            rr = 0.0115 if seg == 1 else 0.0102
-            rings = [
-                (h - ax * 0.004, ff, rr, rr * 0.9, {b: 1.0}, 2.2),
-                (t - ax * 0.002, ff, rr * 0.92, rr * 0.85, {b: 1.0}, 2.2),
-            ]
-            mb.loft(rings, "metal", segs=8, cap_start=True, cap_end=True)
-            mb.ellipsoid(h, (rr * 1.1,) * 3, {b: 1.0}, "joint", segs=8, rings=5)
+import outfit  # noqa: E402
 
 
 def build_body(arm_obj):
     mb = MeshBuilder()
-    add_hoodie(mb)
-    add_pants(mb)
-    add_boots(mb)
+    add_hoodie(mb, sleeves=False)
+    outfit.add_hoodie_pocket(mb)
+    outfit.add_jacket(mb)
+    outfit.add_harness(mb)
+    outfit.add_cargo_pants(mb)
+    outfit.add_combat_boots(mb)
     add_head(mb)
     add_hood(mb)
-    add_hands(mb)
+    if outfit.MASK:
+        outfit.add_mask(mb)
+    outfit.add_gloves(mb)
     obj = mb.build("HackerBody", arm_obj)
     obj.data.materials.append(build_material())
     print(f"[body] verts={len(mb.verts)} faces={len(mb.faces)}")
@@ -448,7 +356,8 @@ def _atlas_image(name, fn, colorspace):
 
 
 # Specular IOR level per region (0.5 = default dielectric F0 of 4%).
-SPECULAR = {"hoodie": 0.03, "pants": 0.04, "boots": 0.06, "sole": 0.04}
+SPECULAR = {"hoodie": 0.03, "pants": 0.04, "boots": 0.06, "sole": 0.03, "jacket": 0.1, "rib": 0.02,
+            "mask": 0.02, "glove": 0.04, "strap": 0.08, "buckle": 0.3, "metal": 0.3, "visor": 0.2}
 
 
 def _specular_image():

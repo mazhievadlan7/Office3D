@@ -2,11 +2,12 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { HqLayout } from "@/features/hq/core/types";
 import { entranceGap } from "./layoutGeometry";
-import { CURB_HEIGHT, WALL_THICKNESS } from "./palette";
+import { CURB_HEIGHT, WALL_LINE, WALL_THICKNESS } from "./palette";
 
-// The room shell as a handful of merged geometries: tall north and west walls,
-// low south and east curbs (so they never hide the room from the south-east
-// camera), metal caps, and the emissive lines. Five draw calls in total.
+// The room shell as a handful of merged geometries: tall north and west walls
+// (the north one taller still: it carries the video wall), low south and east
+// curbs (so they never hide the room from the south-east camera), metal caps,
+// and the emissive lines. Five draw calls in total.
 
 export type RoomShellGeometry = {
   walls: THREE.BufferGeometry;
@@ -37,29 +38,32 @@ export function boxesToGeometry(boxes: Box[]): THREE.BufferGeometry {
 export function buildRoomShell(layout: HqLayout): RoomShellGeometry {
   const { x0, z0, x1, z1 } = layout.bounds;
   const t = WALL_THICKNESS;
+  // The west wall and the north wall (the video wall's) have heights of their own.
   const H = layout.wallHeight;
+  const N = layout.northWallHeight;
   const c = CURB_HEIGHT;
   const gap = entranceGap(layout);
 
   const walls: Box[] = [
     // North wall runs the full width, including the corners.
-    [x0 - t, 0, z0 - t, x1 + t, H, z0],
-    // West wall.
+    [x0 - t, 0, z0 - t, x1 + t, N, z0],
+    // West wall, butting into the north wall.
     [x0 - t, 0, z0, x0, H, z1 + t],
   ];
   const caps: Box[] = [
-    [x0 - t - 0.01, H, z0 - t - 0.01, x1 + t + 0.01, H + 0.035, z0 + 0.01],
+    [x0 - t - 0.01, N, z0 - t - 0.01, x1 + t + 0.01, N + 0.035, z0 + 0.01],
     [x0 - t - 0.01, H, z0 + 0.01, x0 + 0.01, H + 0.035, z1 + t + 0.01],
   ];
   // Emissive line profile: 2.5 cm tall, standing 1.2 cm proud of the wall.
-  const lh = 0.025;
+  const lh = WALL_LINE.height;
   const lp = 0.012;
-  const topY = H - 0.13;
-  const skirtY = 0.11;
+  const northTopY = N - WALL_LINE.belowTop;
+  const westTopY = H - WALL_LINE.belowTop;
+  const skirtY = WALL_LINE.skirt;
   const lines: Box[] = [
-    [x0, topY - lh / 2, z0, x1, topY + lh / 2, z0 + lp],
+    [x0, northTopY - lh / 2, z0, x1, northTopY + lh / 2, z0 + lp],
     [x0, skirtY - lh / 2, z0, x1, skirtY + lh / 2, z0 + lp],
-    [x0, topY - lh / 2, z0, x0 + lp, topY + lh / 2, z1],
+    [x0, westTopY - lh / 2, z0, x0 + lp, westTopY + lh / 2, z1],
     [x0, skirtY - lh / 2, z0, x0 + lp, skirtY + lh / 2, z1],
   ];
 

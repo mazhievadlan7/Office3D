@@ -7,6 +7,13 @@ export const ENTRANCE_WIDTH = 3.2;
 export const FLOOR_TILE = 1.2;
 
 /**
+ * The emissive lines along the tall walls (and the video wall's case): the
+ * top line's centre this far under the top, the skirt line's this high, each
+ * this tall.
+ */
+export const WALL_LINE = { belowTop: 0.13, skirt: 0.11, height: 0.025 } as const;
+
+/**
  * Emissive multipliers in linear space. Bloom only picks up values well above
  * 1, and saturated red carries a fifth of white's luminance, so red light has to be
  * pushed much harder than a white light would be.

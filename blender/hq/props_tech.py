@@ -1,7 +1,7 @@
 """Server rack, server pillar, data monolith, coffee bar, AM7's shelf, wall
-screen and floor lamp (AM7's desk and chair are in props_exec.py). Blender
-frame: metres, Z up, front faces -Y, origin at the centre of the footprint on
-the floor.
+screen, floor lamp and AM7's briefing tribune (AM7's desk and chair are in
+props_exec.py). Blender frame: metres, Z up, front faces -Y, origin at the
+centre of the footprint on the floor.
 
 LED convention for "emissive_red" (as three.js reads the GLB): every LED quad
 carries a constant UV, (phase, 1) for a blinking LED with a random phase in
@@ -11,7 +11,10 @@ shader can blink the rack LEDs individually without extra attributes.
 
 import math
 
-from props_lib import led_uv
+import bmesh
+from mathutils import Vector
+
+from props_lib import _autosharp, _new_bm, led_uv
 
 PI = math.pi
 U = 0.04445  # one rack unit
@@ -449,3 +452,221 @@ def floor_lamp(p):
         p.tube("metal_dark", [(0, 0, z1 - 0.05), (math.cos(a) * (r - 0.004), math.sin(a) * (r - 0.004), z1 - 0.004)],
                0.003, segs=5)
     p.cyl("metal_dark", 0.018, 0.05, (0, 0, z1 - 0.05), segs=12)
+
+
+# --- tribune ---------------------------------------------------------------------------------
+# AM7's briefing lectern. The app rises it up through the floor (the floor hides what is below
+# and draws the floor seam), so the body is closed all round and at the bottom. The audience
+# side is the front (-Y here, +Z in three.js); the speaker stands 0.9 m behind the centre (+Y
+# here), where the reading desk slopes down to him and the microphone leans in.
+# Plan sizes are flat-to-centre distances of the hexagon (a flat face on -Y and +Y, corners on
+# +-X): the head is 0.874 m flat to flat and 0.997 m corner to corner.
+TRIB_ROUND = 0.04     # corner rounding of every hexagon ring
+TRIB_FOOT = 0.425     # foot plinth
+TRIB_RECESS = 0.395   # shadow gap the shaft floats on
+TRIB_SHAFT = 0.412    # shaft at the foot ...
+TRIB_WAIST = 0.37     # ... tapering to the waist
+TRIB_HEAD = 0.437     # the head housing the desk sits on
+TRIB_Z = {"recess": (0.044, 0.074), "shaft": 0.885, "band": 0.927, "head": (0.975, 1.058), "top": 1.07}
+TRIB_DESK = {"w": 0.56, "d": 0.40, "t": 0.028, "tilt": 0.26, "y": 0.03, "z": 1.150}
+TRIB_MOUTH = (0.0, 0.9, 1.62)  # where the microphone points: the speaker's mouth
+COS30 = math.cos(math.radians(30))
+
+
+def _hex2d(flat, round_r=TRIB_ROUND, seg=6):
+    """Rounded regular hexagon, CCW (x, y, nx, ny), `flat` from the centre to each flat face;
+    a flat face is centred on -Y and +Y, the corners point along +-X."""
+    R = flat / COS30
+    off = round_r / COS30
+    pts = []
+    for k in range(6):
+        a = math.radians(60 * k)
+        cx, cy = (R - off) * math.cos(a), (R - off) * math.sin(a)
+        for j in range(seg + 1):
+            b = a + math.radians(-30 + 60 * j / seg)
+            pts.append((cx + round_r * math.cos(b), cy + round_r * math.sin(b), math.cos(b), math.sin(b)))
+    return pts
+
+
+def _hex_loft(profile, cap_bottom=False, cap_top=False, sharp=38.0):
+    """Loft rounded hexagons through [(flat, z), ...] from the bottom up (faces outward); every
+    ring keeps the same corner rounding, so a taper stays clean at the corners."""
+    bm = _new_bm()
+    uvl = bm.loops.layers.uv.active
+    rings = [[bm.verts.new((x, y, z)) for x, y, _, _ in _hex2d(f)] for f, z in profile]
+    n = len(rings[0])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(n):
+            k2 = (k + 1) % n
+            bm.faces.new((a[k], a[k2], b[k2], b[k]))
+    if cap_bottom:
+        bm.faces.new(list(reversed(rings[0])))
+    if cap_top:
+        bm.faces.new(rings[-1])
+    for f in bm.faces:
+        for lp in f.loops:
+            lp[uvl].uv = (lp.vert.co.x, lp.vert.co.y)
+    _autosharp(bm, sharp)
+    return bm
+
+
+def _shaft_flat(z):
+    """Flat-to-centre distance of the tapered shaft at height z."""
+    z0, z1 = TRIB_Z["recess"][1], TRIB_Z["shaft"]
+    return TRIB_SHAFT + (TRIB_WAIST - TRIB_SHAFT) * (z - z0) / (z1 - z0)
+
+
+def _corners(flat, inward=0.0):
+    """The six outermost corner points of a hexagon ring (less `inward`), as (x, y)."""
+    reach = (flat - TRIB_ROUND) / COS30 + TRIB_ROUND - inward
+    return [(reach * math.cos(math.radians(60 * k)), reach * math.sin(math.radians(60 * k))) for k in range(6)]
+
+
+def tribune(p):
+    """AM7's briefing lectern: 0.87 m flat to flat (1.0 m corner to corner), the reading desk's
+    centre at about 1.16 m, the body 1.22 m tall, the microphone tip at about 1.45 m.
+
+    A matte-black hexagonal column floats on a shadow gap over a low plinth (a soft red glow
+    in the gap), tapers to a slim brushed waist band split by a red seam and flares out again
+    to the head. Thin red light lines run up every corner; the plain front face (the audience
+    side) carries a single red status line. On the head sits the reading desk, a floating
+    matte plate on a recessed wedge, sloping down toward the speaker: two small red readouts,
+    a row of touch keys along his edge and a red seam along the audience edge. A slim
+    gooseneck microphone rises on his side and leans in to him. Only emissive materials glow
+    (no "screen": nothing here is a dashboard)."""
+    zr0, zr1 = TRIB_Z["recess"]
+    zs, zb = TRIB_Z["shaft"], TRIB_Z["band"]
+    zh0, zh1 = TRIB_Z["head"]
+    zt = TRIB_Z["top"]
+
+    # ---- column: plinth (closed underneath), shadow gap, tapered shaft ----
+    p.merge("black_matte", _hex_loft([
+        (TRIB_FOOT, 0.0), (TRIB_FOOT, zr0 - 0.008), (TRIB_FOOT - 0.008, zr0),
+        (TRIB_RECESS, zr0), (TRIB_RECESS, zr1), (TRIB_SHAFT, zr1), (TRIB_SHAFT, zr1 + 0.006),
+        (TRIB_WAIST, zs),
+    ], cap_bottom=True))
+    # the soft glow in the shadow gap
+    p.merge("emissive_red_soft", _hex_loft([(TRIB_RECESS + 0.0015, zr0 + 0.012),
+                                            (TRIB_RECESS + 0.0015, zr1 - 0.012)]))
+
+    # ---- waist: a slim brushed band, a hair proud, split by a red seam ----
+    band = TRIB_WAIST + 0.005
+    p.merge("metal_brushed", _hex_loft([
+        (TRIB_WAIST, zs), (band, zs + 0.002), (band, zb - 0.002), (TRIB_WAIST, zb),
+    ], sharp=30.0))
+    zm = (zs + zb) / 2
+    p.merge("emissive_red", _hex_loft([(band + 0.0012, zm - 0.004), (band + 0.0012, zm + 0.004)]))
+
+    # ---- head: flares back out, closed by a chamfered flat top ----
+    p.merge("black_matte", _hex_loft([
+        (TRIB_WAIST, zb), (TRIB_WAIST + 0.022, zb + 0.008), (TRIB_HEAD - 0.012, zh0 - 0.012),
+        (TRIB_HEAD, zh0), (TRIB_HEAD, zh1), (TRIB_HEAD - 0.012, zt),
+    ], cap_top=True))
+
+    # ---- thin red light lines up every corner of the shaft and the head ----
+    z_lo, z_hi = zr1 + 0.03, zs - 0.03
+    lo, hi = _corners(_shaft_flat(z_lo), 0.0025), _corners(_shaft_flat(z_hi), 0.0025)
+    for (x0, y0), (x1, y1) in zip(lo, hi):
+        p.tube("emissive_red", [(x0, y0, z_lo), (x1, y1, z_hi)], 0.0045, segs=6)
+    for x, y in _corners(TRIB_HEAD, 0.0025):
+        p.tube("emissive_red", [(x, y, zh0 + 0.012), (x, y, zh1 - 0.012)], 0.0045, segs=6)
+
+    # ---- the audience face: one red status line down its centre, following the taper ----
+    z0, z1 = 0.22, 0.76
+    zc = (z0 + z1) / 2
+    lean = math.atan2(TRIB_SHAFT - TRIB_WAIST, zs - zr1)
+    p.box("black_matte", (0.03, 0.006, z1 - z0 + 0.024), (0.0, -_shaft_flat(zc) - 0.0015, zc),
+          rot=(-lean, 0, 0), bevel=0.002)
+    p.box("emissive_red", (0.012, 0.004, z1 - z0), (0.0, -_shaft_flat(zc) - 0.004, zc),
+          rot=(-lean, 0, 0), bevel=0.0)
+
+    _tribune_desk(p)
+    _tribune_mic(p)
+
+
+def _desk_point(v, w):
+    """World (y, z) of a point in the desk plate's frame: v along its slope (+ downhill,
+    toward the speaker), w along its normal."""
+    d = TRIB_DESK
+    c, s = math.cos(d["tilt"]), math.sin(d["tilt"])
+    return d["y"] + v * c + w * s, d["z"] - v * s + w * c
+
+
+def _tribune_desk(p):
+    d = TRIB_DESK
+    W, D, T = d["w"], d["d"], d["t"]
+    # the wedge under the plate, set back from its edges so the plate floats on a shadow line
+    bm = _new_bm()
+    zt = TRIB_Z["top"] - 0.004
+    hw = W / 2 - 0.035
+    for v in (-D / 2 + 0.06, D / 2 - 0.035):
+        y, z = _desk_point(v, -T / 2 + 0.002)
+        for x in (-hw, hw):
+            bm.verts.new((x, y, z))
+            bm.verts.new((x, y, zt))
+    bmesh.ops.convex_hull(bm, input=list(bm.verts))
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    _autosharp(bm, smooth=False)
+    p.merge("black_matte", bm)
+
+    with p.frame((0.0, d["y"], d["z"]), (-d["tilt"], 0, 0)):
+        # the plate; its local +Y runs downhill to the speaker, +Z is the reading face
+        p.slab("black_matte", W, D, T, (0, 0, 0), corner=0.045, csegs=5, bevel=0.005)
+        top = T / 2
+        # red seam along the audience edge of the plate
+        p.box("emissive_red", (W - 0.12, 0.004, 0.006), (0, -D / 2 - 0.0012, -0.002), bevel=0.0)
+        # two readouts, their data rising away from the speaker (toward -Y)
+        _desk_readout(p, 0.25, 0.17, (-0.07, -0.035, top))
+        _desk_readout(p, 0.1, 0.17, (0.155, -0.035, top), bars=False)
+        # a row of touch keys along the speaker's edge, two round buttons on the far corners
+        for k in range(8):
+            p.box("emissive_red", (0.02, 0.012, 0.003), (-0.175 + k * 0.05, 0.132, top + 0.0015), bevel=0.0)
+        for sx in (-1, 1):
+            p.cyl("emissive_red", 0.01, 0.003, (sx * 0.225, -0.15, top + 0.0015), segs=14)
+
+
+def _desk_readout(p, w, h, loc, bars=True):
+    """A small red readout lying on the plate: a matte bezel, a dim red field, a bright thin
+    frame and a little content, read from +Y (the speaker's side)."""
+    x, y, z = loc
+    p.box("black_matte", (w + 0.016, h + 0.016, 0.006), (x, y, z + 0.0015), bevel=0.002)
+    p.box("emissive_red_dim", (w, h, 0.002), (x, y, z + 0.004), bevel=0.0)
+    for sx in (-1, 1):
+        p.box("emissive_red", (0.004, h, 0.003), (x + sx * w / 2, y, z + 0.005), bevel=0.0)
+    for sy in (-1, 1):
+        p.box("emissive_red", (w + 0.004, 0.004, 0.003), (x, y + sy * h / 2, z + 0.005), bevel=0.0)
+    if bars:
+        # three data bars on the speaker's left (+X), rising from his edge (+Y), two text lines
+        for k in range(3):
+            bh = h * (0.3 + 0.2 * k)
+            p.box("emissive_red_soft", (0.022, bh, 0.002),
+                  (x + w / 2 - 0.045 - k * 0.045, y + h / 2 - 0.02 - bh / 2, z + 0.0048), bevel=0.0)
+        p.box("emissive_red_soft", (w * 0.42, 0.006, 0.002), (x - w * 0.18, y - h * 0.3, z + 0.0048), bevel=0.0)
+        p.box("emissive_red_soft", (w * 0.3, 0.006, 0.002), (x - w * 0.24, y - h * 0.12, z + 0.0048), bevel=0.0)
+    else:
+        for k in range(4):
+            p.box("emissive_red_soft", (w * 0.6, 0.008, 0.002), (x, y - h / 2 + 0.03 + k * 0.035, z + 0.0048),
+                  bevel=0.0)
+
+
+def _tribune_mic(p):
+    """A slim gooseneck on the speaker's side of the head, rising and leaning in to him."""
+    base = Vector((0.33, 0.16, TRIB_Z["top"]))
+    tip = Vector((0.265, 0.275, 1.40))
+    aim = (Vector(TRIB_MOUTH) - tip).normalized()
+    ctrl = tip - aim * 0.13
+    ctrl.x, ctrl.y = base.x - 0.017, base.y + 0.001  # rise straight up, then bend over
+    p.cyl("metal_dark", 0.022, 0.012, (base.x, base.y, base.z + 0.006), segs=18)
+    p.cyl("black_matte", 0.012, 0.02, (base.x, base.y, base.z + 0.02), segs=14)
+    start = base + Vector((0, 0, 0.03))
+    pts = []
+    for k in range(11):
+        t = k / 10
+        pts.append(tuple((1 - t) ** 2 * start + 2 * (1 - t) * t * ctrl + t * t * tip))
+    p.tube("metal_dark", pts, 0.0055, segs=8)
+    rot = Vector((0, 0, 1)).rotation_difference(aim).to_euler()
+    p.cyl("metal_dark", 0.009, 0.02, tuple(tip + aim * 0.008), rot=rot, segs=12)
+    p.lathe("black_matte", [(0.0, 0.0), (0.012, 0.0), (0.017, 0.008), (0.02, 0.02), (0.02, 0.066),
+                            (0.016, 0.08), (0.0, 0.086)], loc=tuple(tip + aim * 0.016), rot=rot, segs=18,
+            true_poles=True)
+    p.cyl("emissive_red", 0.0205, 0.004, tuple(tip + aim * 0.034), rot=rot, segs=18)

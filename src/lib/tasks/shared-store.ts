@@ -1,12 +1,16 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { t } from "@/lib/i18n";
 // import os from "node:os";
 import path from "node:path";
 
-import type { TaskBoardCard, TaskBoardSource, TaskBoardStatus } from "@/features/office/tasks/types";
-import { isTaskBoardSource, isTaskBoardStatus } from "@/features/office/tasks/types";
+import type { TaskBoardCard, TaskBoardStatus } from "@/features/office/tasks/types";
 import { resolveStateDir } from "@/lib/clawdbot/paths";
+import {
+  mergeSharedTaskRecord,
+  normalizeTaskRecord,
+  trimString,
+  type SharedTaskUpsertInput,
+} from "@/lib/tasks/shared-task-merge";
 
 export type SharedTaskHistoryEntry = {
   at: string;
@@ -42,66 +46,6 @@ const resolveStorePath = () => {
   return path.join(dir, STORE_FILE);
 };
 
-const trimString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
-
-const normalizeStringArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-    : [];
-
-const normalizeHistoryEntry = (value: unknown): SharedTaskHistoryEntry | null => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const at = trimString(record.at);
-  const type = trimString(record.type);
-  if (!at) return null;
-  if (!["created", "updated", "status_changed", "archived"].includes(type)) return null;
-  return {
-    at,
-    type: type as SharedTaskHistoryEntry["type"],
-    note: trimString(record.note) || null,
-    fromStatus: isTaskBoardStatus(record.fromStatus) ? record.fromStatus : null,
-    toStatus: isTaskBoardStatus(record.toStatus) ? record.toStatus : null,
-  };
-};
-
-const normalizeTaskRecord = (value: unknown): SharedTaskRecord | null => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const id = trimString(record.id);
-  const title = trimString(record.title);
-  const createdAt = trimString(record.createdAt);
-  const updatedAt = trimString(record.updatedAt);
-  if (!id || !title || !createdAt || !updatedAt) return null;
-  return {
-    id,
-    title,
-    description: trimString(record.description),
-    status: isTaskBoardStatus(record.status) ? record.status : "todo",
-    source: isTaskBoardSource(record.source) ? record.source : "office3d_manual",
-    sourceEventId: trimString(record.sourceEventId) || null,
-    assignedAgentId: trimString(record.assignedAgentId) || null,
-    createdAt,
-    updatedAt,
-    playbookJobId: trimString(record.playbookJobId) || null,
-    runId: trimString(record.runId) || null,
-    channel: trimString(record.channel) || null,
-    externalThreadId: trimString(record.externalThreadId) || null,
-    lastActivityAt: trimString(record.lastActivityAt) || null,
-    notes: normalizeStringArray(record.notes),
-    isArchived: Boolean(record.isArchived),
-    isInferred: false,
-    history: Array.isArray(record.history)
-      ? record.history
-          .map((entry) => normalizeHistoryEntry(entry))
-          .filter((entry): entry is SharedTaskHistoryEntry => Boolean(entry))
-      : [],
-  };
-};
-
 const defaultStore = (): SharedTaskStore => ({
   schemaVersion: 1,
   updatedAt: new Date(0).toISOString(),
@@ -126,29 +70,59 @@ const normalizeStore = (value: unknown): SharedTaskStore => {
   };
 };
 
+// The parsed store is kept between requests and reused while the file on disk
+// is unchanged (same path, file, mtime and size; every write replaces the file
+// by rename, so it is a new file), so the office's periodic reads do
+// not re-read and re-parse the whole file each time.
+type StoreCache = { path: string; ino: number; mtimeMs: number; size: number; store: SharedTaskStore };
+
+const sameFile = (cache: StoreCache, storePath: string, stat: fs.Stats) =>
+  cache.path === storePath && cache.ino === stat.ino && cache.mtimeMs === stat.mtimeMs && cache.size === stat.size;
+let storeCache: StoreCache | null = null;
+
+const statStore = (storePath: string): fs.Stats | null => {
+  try {
+    return fs.statSync(storePath);
+  } catch {
+    return null;
+  }
+};
+
+// Callers get their own task array; records themselves are never mutated.
+const copyStore = (store: SharedTaskStore): SharedTaskStore => ({ ...store, tasks: store.tasks.slice() });
+
 const readStore = (): SharedTaskStore => {
   const storePath = resolveStorePath();
-  if (!fs.existsSync(storePath)) return defaultStore();
+  const stat = statStore(storePath);
+  if (!stat) {
+    storeCache = null;
+    return defaultStore();
+  }
+  const cache = storeCache;
+  if (cache && sameFile(cache, storePath, stat)) {
+    return copyStore(cache.store);
+  }
   try {
     const raw = fs.readFileSync(storePath, "utf8");
-    return normalizeStore(JSON.parse(raw));
+    const store = normalizeStore(JSON.parse(raw));
+    storeCache = { path: storePath, ino: stat.ino, mtimeMs: stat.mtimeMs, size: stat.size, store };
+    return copyStore(store);
   } catch {
+    storeCache = null;
     return defaultStore();
   }
 };
 
-const MAX_TITLE_LENGTH = 500;
-const MAX_DESCRIPTION_LENGTH = 5_000;
-const MAX_NOTE_LENGTH = 2_000;
-const MAX_NOTES_COUNT = 50;
 const MAX_TASKS = 500;
 
 const writeStore = (store: SharedTaskStore) => {
   const storePath = resolveStorePath();
   const dir = path.dirname(storePath);
   const tmpPath = path.join(dir, `.tasks-${crypto.randomUUID()}.tmp`);
+  storeCache = null;
   try {
-    fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), "utf8");
+    // Compact: the file is read by code, not people.
+    fs.writeFileSync(tmpPath, JSON.stringify(store), "utf8");
     fs.renameSync(tmpPath, storePath);
   } catch (error) {
     try {
@@ -158,104 +132,23 @@ const writeStore = (store: SharedTaskStore) => {
     }
     throw error;
   }
+  const stat = statStore(storePath);
+  if (stat) {
+    storeCache = { path: storePath, ino: stat.ino, mtimeMs: stat.mtimeMs, size: stat.size, store: copyStore(store) };
+  }
 };
 
-const truncateField = (value: string, max: number) =>
-  value.length <= max ? value : value.slice(0, max);
-
-const appendHistory = (
-  existing: SharedTaskRecord | null,
-  next: SharedTaskRecord
-): SharedTaskHistoryEntry[] => {
-  if (!existing) {
-    return [
-      {
-        at: next.updatedAt,
-        type: "created",
-        note: t("libTasks.historyCreated"),
-        fromStatus: null,
-        toStatus: next.status,
-      },
-    ];
-  }
-  const prior = existing.history ?? [];
-  if (existing.isArchived !== next.isArchived && next.isArchived) {
-    return [
-      ...prior,
-      {
-        at: next.updatedAt,
-        type: "archived",
-        note: t("libTasks.historyArchived"),
-        fromStatus: existing.status,
-        toStatus: existing.status,
-      },
-    ];
-  }
-  if (existing.status !== next.status) {
-    return [
-      ...prior,
-      {
-        at: next.updatedAt,
-        type: "status_changed",
-        note: null,
-        fromStatus: existing.status,
-        toStatus: next.status,
-      },
-    ];
-  }
-  if (existing.updatedAt !== next.updatedAt) {
-    return [
-      ...prior,
-      {
-        at: next.updatedAt,
-        type: "updated",
-        note: null,
-        fromStatus: existing.status,
-        toStatus: next.status,
-      },
-    ];
-  }
-  return prior;
-};
-
-export const listSharedTasks = (): SharedTaskRecord[] => readStore().tasks;
-
-export const upsertSharedTask = (
-  task: Partial<SharedTaskRecord> & Pick<SharedTaskRecord, "id" | "title">
-): SharedTaskRecord => {
-  const store = readStore();
+// Upserts one task into an in-memory store (no I/O). The store keeps the
+// record as a later read of the file would return it (normalized), so tasks
+// applied one after another in memory see what separate requests would have.
+const applyUpsert = (store: SharedTaskStore, task: SharedTaskUpsertInput): SharedTaskRecord => {
   const existing = store.tasks.find((entry) => entry.id === task.id) ?? null;
-  const nowIso = task.updatedAt?.trim() || new Date().toISOString();
-  const rawStatus = task.status ?? existing?.status ?? "todo";
-  const rawSource = (task.source as TaskBoardSource | undefined) ?? existing?.source ?? "office3d_manual";
-  const notes = (task.notes ? [...task.notes] : [...(existing?.notes ?? [])])
-    .slice(0, MAX_NOTES_COUNT)
-    .map((n) => truncateField(n, MAX_NOTE_LENGTH));
-
-  const next: SharedTaskRecord = {
-    id: task.id.trim(),
-    title: truncateField(task.title.trim() || existing?.title || t("libTasks.untitled"), MAX_TITLE_LENGTH),
-    description: truncateField(task.description?.trim() ?? existing?.description ?? "", MAX_DESCRIPTION_LENGTH),
-    status: isTaskBoardStatus(rawStatus) ? rawStatus : "todo",
-    source: isTaskBoardSource(rawSource) ? rawSource : "office3d_manual",
-    sourceEventId: task.sourceEventId ?? existing?.sourceEventId ?? null,
-    assignedAgentId: task.assignedAgentId ?? existing?.assignedAgentId ?? null,
-    createdAt: task.createdAt?.trim() || existing?.createdAt || nowIso,
-    updatedAt: nowIso,
-    playbookJobId: task.playbookJobId ?? existing?.playbookJobId ?? null,
-    runId: task.runId ?? existing?.runId ?? null,
-    channel: task.channel ?? existing?.channel ?? null,
-    externalThreadId: task.externalThreadId ?? existing?.externalThreadId ?? null,
-    lastActivityAt: task.lastActivityAt ?? existing?.lastActivityAt ?? nowIso,
-    notes,
-    isArchived: task.isArchived ?? existing?.isArchived ?? false,
-    isInferred: false,
-    history: [],
-  };
-  next.history = appendHistory(existing, next);
+  const next = mergeSharedTaskRecord(task, existing);
+  const stored = normalizeTaskRecord(next);
   const index = store.tasks.findIndex((entry) => entry.id === next.id);
   if (index >= 0) {
-    store.tasks[index] = next;
+    if (stored) store.tasks[index] = stored;
+    else store.tasks.splice(index, 1);
   } else {
     if (store.tasks.length >= MAX_TASKS) {
       const archivedIndex = store.tasks.findIndex((t) => t.isArchived);
@@ -265,11 +158,31 @@ export const upsertSharedTask = (
         store.tasks.shift();
       }
     }
-    store.tasks.push(next);
+    if (stored) store.tasks.push(stored);
   }
-  store.updatedAt = nowIso;
+  store.updatedAt = next.updatedAt;
+  return next;
+};
+
+export const listSharedTasks = (): SharedTaskRecord[] => readStore().tasks;
+
+export const upsertSharedTask = (task: SharedTaskUpsertInput): SharedTaskRecord => {
+  const store = readStore();
+  const next = applyUpsert(store, task);
   writeStore(store);
   return next;
+};
+
+/**
+ * Upserts several tasks in order, exactly as that many single upserts would,
+ * with one read and one atomic write: either all of them are stored or none.
+ */
+export const upsertSharedTasks = (tasks: SharedTaskUpsertInput[]): SharedTaskRecord[] => {
+  if (tasks.length === 0) return [];
+  const store = readStore();
+  const saved = tasks.map((task) => applyUpsert(store, task));
+  writeStore(store);
+  return saved;
 };
 
 export const archiveSharedTask = (taskId: string): SharedTaskRecord | null => {

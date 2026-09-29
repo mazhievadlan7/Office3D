@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { HqLayout, HqSegment } from "@/features/hq/core/types";
 import type { EnvMaterials } from "./envMaterials";
 import { noRaycast } from "./glsl";
-import { segmentOnRect } from "./layoutGeometry";
+import { isAm7Partition } from "./layoutGeometry";
 
 // Partitions as five instanced meshes (glass, metal frame, solid panels, and
 // the two line brightnesses) over one shared unit box. A thousand-desk floor
@@ -46,7 +46,8 @@ export function buildPartitions(layout: HqLayout, materials: EnvMaterials, unitB
     // Local +X runs from a to b: rotation.y = -atan2(dz, dx).
     q.setFromAxisAngle(up, -Math.atan2(dz, dx));
     frame.compose(new THREE.Vector3((seg.ax + seg.bx) / 2, 0, (seg.az + seg.bz) / 2), q, new THREE.Vector3(1, 1, 1));
-    const lead = segmentOnRect(seg, layout.am7Office);
+    // The balustrade round AM7's island carries the bright line all the way round.
+    const lead = isAm7Partition(seg, layout);
     const push = (bucket: THREE.Matrix4[], p: Part) => {
       const local = new THREE.Matrix4().compose(
         new THREE.Vector3(p.x, p.y, p.z ?? 0),

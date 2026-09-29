@@ -3,6 +3,7 @@
 // north (z = bounds.z0) and west (x = bounds.x0) walls are the visible back
 // walls; the south and east walls are kept low so they never hide the room.
 
+
 // Hall sizes the layout, simulation and renderers are built and tested for.
 export const HQ_CAPACITIES = [100, 300, 1000] as const;
 export type HqCapacity = (typeof HQ_CAPACITIES)[number];
@@ -48,7 +49,8 @@ export const POD = {
 } as const;
 
 // Character clips exported from blender/hacker (action names in the GLB).
-export const HQ_CLIPS = ["Idle", "Walk", "Run", "SitDown", "SitType", "SitIdle", "Talk"] as const;
+// New clips go at the end so existing codes never change.
+export const HQ_CLIPS = ["Idle", "Walk", "Run", "SitDown", "SitType", "SitIdle", "Talk", "Present", "Push"] as const;
 export type HqClipName = (typeof HQ_CLIPS)[number];
 // Clip codes used in HqAgentFrame.clip; HQ_CLIPS[code] is the action name.
 export const HqClip = {
@@ -59,6 +61,15 @@ export const HqClip = {
   SitType: 4,
   SitIdle: 5,
   Talk: 6,
+  // AM7 at the briefing podium, in place: from facing the rows he half turns
+  // right (feet planted), presents the video wall behind him to his right with
+  // his right hand, turns back and explains. The root keeps facing the rows.
+  Present: 7,
+  // Walking behind the archive cart, both hands on its grip bar, in place
+  // (blender/hacker/anims/push.py): the sim moves the root along the cart's
+  // lane and carries the cart HQ_ARCHIVE_CART.reach ahead of it. Played
+  // backward while the cart is pulled out of its bay.
+  Push: 8,
 } as const;
 export type HqClip = (typeof HqClip)[keyof typeof HqClip];
 export const HQ_CLIP_FPS = 30;
@@ -72,13 +83,16 @@ export const HQ_CLIP_INFO: Record<HqClipName, { duration: number; loop: boolean;
   SitType: { duration: 96 / 30, loop: true, speed: 0 },
   SitIdle: { duration: 150 / 30, loop: true, speed: 0 },
   Talk: { duration: 144 / 30, loop: true, speed: 0 },
+  Present: { duration: 168 / 30, loop: true, speed: 0 },
+  // 32 frames, stride 1.12 m: 1.05 m/s, the same foot timing as Walk.
+  Push: { duration: 32 / 30, loop: true, speed: 1.12 / (32 / 30) },
 };
 
 /**
  * Bumped whenever a model under public/office-assets/models is rebuilt, so
  * browsers and proxies holding the old file fetch the new one.
  */
-const HQ_MODELS_VERSION = "2026-09-25c";
+const HQ_MODELS_VERSION = "2026-09-28e";
 export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;
@@ -92,30 +106,48 @@ export const HQ_WORLD_COUNTRIES_URL = "/office-assets/data/countries-50m.json";
 export const HQ_MAP_DAY_URL = "/office-assets/textures/earth-topo-bathy-5400.jpg";
 export const HQ_MAP_NIGHT_URL = "/office-assets/textures/earth-night-3600.jpg";
 
+// The archive cart (blender/hq/props_archive.py archive_cart), in its own
+// frame: origin = deck centre on the floor, nose toward +Z, the handle's grips
+// behind it. `nose` and `tail` are how far the cart reaches ahead of and
+// behind its origin (length = nose + tail); `reach` is the pusher's root to
+// the cart origin while pushing (blender/hacker/anims/push.py CART_OFFSET).
+export const HQ_ARCHIVE_CART = { length: 1.153, width: 0.625, reach: 1.02, nose: 0.513, tail: 0.64 } as const;
+// Where the pusher's hands close on the grips, from his root: `reach` ahead,
+// `height` up, `halfSpan` either side; `holdFrame` is the Push frame he holds
+// when he stops. Must match push.py (GRIP_X, GRIP_Y, GRIP_Z).
+export const HQ_PUSH_GRIP = { reach: 0.4, height: 0.97, halfSpan: 0.2, holdFrame: 9 } as const;
+
 // Crossfade between clips, seconds.
 export const HQ_BLEND_TIME = 0.28;
 export const HQ_WALK_SPEED = 1.31;
 export const HQ_AGENT_RADIUS = 0.32;
 
-// Visual theme. Everything in the HQ reads colours from here.
+// Visual theme. Everything in the HQ reads colours from here: a realistic
+// operations centre — grey polished stone, graphite walls and desks, warm
+// white light, amber strips under the desks; the world map, the server racks
+// and the lead's island keep their red.
 export const HQ_THEME = {
-  background: "#040405",
-  fog: "#060607",
-  floor: "#0c0c0e",
-  floorGrout: "#050506",
-  wall: "#0b0b0d",
-  wallPanel: "#101013",
-  ceilingTrim: "#141417",
-  deskTop: "#0d0d0f",
-  metal: "#1a1b1e",
-  glass: "#1b2126",
-  glassEdge: "#2a2d31",
-  accent: "#ff1a1a",
-  accentSoft: "#ff4d4d",
-  accentDeep: "#6e0000",
-  ledWarm: "#ffb070",
-  screenText: "#ff3b30",
-  screenBackground: "#070203",
+  background: "#0d0c0b",
+  fog: "#12110f",
+  floor: "#2f2d2b",
+  floorGrout: "#1a1918",
+  wall: "#1f1e1d",
+  wallPanel: "#2a2927",
+  ceilingTrim: "#34322f",
+  deskTop: "#232326",
+  metal: "#4a4a4f",
+  glass: "#3c4852",
+  glassEdge: "#5c6167",
+  accent: "#e8352a",
+  accentSoft: "#ff6a50",
+  accentDeep: "#5a140a",
+  ledWarm: "#ffb36b",
+  /** Light lines along the walls, curbs and partition rails. */
+  trim: "#ffd2a0",
+  /** The LED strip under every desk front and its glow on the floor. */
+  deskLed: "#ffa24a",
+  screenText: "#ff6a4a",
+  screenBackground: "#070506",
   statusWorking: "#ff2a2a",
   statusIdle: "#ffb020",
   statusError: "#ff00aa",

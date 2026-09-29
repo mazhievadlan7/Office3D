@@ -52,7 +52,41 @@ export type HqPropKind =
   | "exec_chair"
   | "exec_shelf"
   | "wall_screen"
-  | "floor_lamp";
+  | "floor_lamp"
+  /**
+   * AM7's briefing lectern (HqLayout.tribune). Never placed as a static prop:
+   * the tribune renderer rises it from the floor for a briefing.
+   */
+  | "tribune"
+  // The archive station (HqLayout.archive). None of these is placed as a
+  // static prop: the archive renderer draws them from the sim's archive view.
+  /** The wheeled archive cart (blender/hq/props_archive.py): origin = deck centre, nose +Z, grips -Z. */
+  | "archive_cart"
+  /** The cart's handle light strip, shown only while it is loaded or moving. */
+  | "archive_cart_lit"
+  /** The cart tablet's content: loaded / empty. */
+  | "archive_cart_display_full"
+  | "archive_cart_display_empty"
+  /** Additive load tiers on the cart deck: tier k is shown when k <= level. */
+  | "archive_load_1"
+  | "archive_load_2"
+  | "archive_load_3"
+  | "archive_load_4"
+  /** The docking bay: its mouth faces local +Z; a parked cart noses in toward -Z (bay heading + pi). */
+  | "archive_bay"
+  /** The bay's lit gauge segments, bottom to top (4 blinks at full). */
+  | "archive_bay_led_1"
+  | "archive_bay_led_2"
+  | "archive_bay_led_3"
+  | "archive_bay_led_4"
+  /** The intake cabinet on the apron outside the entrance; roller lip and slot at local +Z. */
+  | "archive_chute"
+  /** The chute's slatted shutter (rolled up about the slot top while a case feeds). */
+  | "archive_chute_shutter"
+  /** The glow inside the chute's slot (driven 0..1). */
+  | "archive_chute_slot"
+  /** One loose hard case, for the unload animation. */
+  | "archive_case";
 
 export type HqProp = {
   kind: HqPropKind;
@@ -115,6 +149,130 @@ export type HqMapWall = {
   z: number;
   width: number;
   height: number;
+  /**
+   * The display is concave toward the room: a circular arc whose two ends
+   * stand this far (metres) in front of the wall while its middle touches it.
+   * 0 is a flat display.
+   */
+  curve: number;
+};
+
+/**
+ * AM7's command island in front of the video wall: a round dais with a glass
+ * balustrade (open to the north, where AM7 steps in behind the chair).
+ */
+export type HqDeck = { x: number; z: number; radius: number };
+
+/**
+ * AM7's briefing lectern between the island and the rows. It stays under the
+ * floor until a briefing; then it rises, AM7 steps behind it at (standX,
+ * standZ) and addresses the rows with the video wall at his back. Its front
+ * (rotY; 0 faces +Z) faces the rows.
+ */
+export type HqTribune = { x: number; z: number; rotY: number; standX: number; standZ: number };
+
+/**
+ * The amphitheatre of desks: rows on concentric arcs round (x, z), every
+ * desk facing the centre (the video wall). Angles are measured from due south
+ * (+Z), positive toward the east (+X): a point at angle a and radius r is at
+ * (x + r sin a, z + r cos a).
+ */
+export type HqArena = {
+  x: number;
+  z: number;
+  /** Chair-centre radius of each row, inner first. */
+  rows: number[];
+  /** Half the angle each row's desks span (radians), per row. */
+  spans: number[];
+  /** Radius of the walkway ring behind each row (in front of the next one), per row. */
+  rings: number[];
+  /** Angles of the straight aisles that run out from the stage through the rows. */
+  aisles: number[];
+  /** Radius of the walkway arc in front of the first row. */
+  stage: number;
+};
+
+/** A position on the floor with a heading (rotation.y; 0 faces +Z). */
+export type HqPose = { x: number; z: number; rotY: number };
+
+/**
+ * A pre-sampled path of the archive cart. Every sample is the pusher's root
+ * and the cart's heading; the cart origin is always root + forward(rotY) *
+ * HQ_ARCHIVE_CART.reach. Samples are at most HQ_ARCHIVE.step apart.
+ */
+export type HqArchiveLane = {
+  x: Float32Array;
+  z: Float32Array;
+  /** Cart heading per sample, unwrapped (continuous along the lane). */
+  rotY: Float32Array;
+  /** Distance along the lane (metres) per sample, from 0. */
+  s: Float32Array;
+  /** 1 where the cart must not be left standing: the doorway and walkway crossings. */
+  noStop: Uint8Array;
+  /**
+   * 1 where the cart travels backward, handle first (the pusher pulls it out
+   * of the bay: the Push clip plays in reverse); 0 where it is pushed nose first.
+   */
+  reverse: Uint8Array;
+  /** Total length in metres (= s[last]). The sample count is x.length. */
+  length: number;
+};
+
+/**
+ * The archive station by the entrance: a docking bay where the cart fills up,
+ * the lanes out through the entrance to the intake chute on the apron and back,
+ * and the nav spur the hauler walks in on.
+ */
+export type HqArchiveStation = {
+  /** archive_bay prop pose (its mouth faces rotY, into the hall). */
+  bay: HqPose;
+  /** The parked cart's origin and heading (the bay's heading + pi: nose in). */
+  cart: HqPose;
+  /** The pusher's root while gripping the parked cart (= laneOut start = laneBack end). */
+  stand: HqPose;
+  /** Where the hauler walks up to before stepping to the handle (stand - forward * 0.8). */
+  approach: Vec2;
+  /** From the stand out through the entrance to the handover pose beside the chute. */
+  laneOut: HqArchiveLane;
+  /** From the handover pose (= laneOut end) back into the bay (ends at the stand). */
+  laneBack: HqArchiveLane;
+  /** The floor outside the entrance the cart may use (the apron plane). */
+  apron: HqRect;
+  /** archive_chute pose; `slot` is its slot mouth on the floor plan, facing the cart at the handover. */
+  chute: HqPose & { slot: Vec2 };
+  /** The entrance jambs (inner faces of the curb cut, on the curb's centre line), west then east. */
+  gate: { from: Vec2; to: Vec2 };
+  /** Nav node at the end of the station's spur (at `approach`): where the hauler walks to. */
+  entryNode: number;
+  /** Nav node the hauler walks away from after parking (the same spur end). */
+  leaveNode: number;
+};
+
+/** What the archive renderer and the host read from the sim, one reused object. */
+export type HqArchiveView = {
+  /** Cart origin and heading. */
+  x: number;
+  z: number;
+  rotY: number;
+  /** Load tiers shown (0..4). */
+  level: number;
+  /** Unload progress at the handover (0..1). */
+  unload: number;
+  /** Entrance gate posts' glow (0..1). */
+  gate: number;
+  /** Chute slot glow (0..1). */
+  chute: number;
+  phase: "parked" | "fetch" | "push-out" | "handover" | "push-back" | "left";
+  pusherId: string | null;
+};
+
+export type HqArchiveEvent = {
+  type: "taken" | "paused" | "resumed" | "reassigned" | "handover" | "parked" | "auto";
+  runId: string;
+  agentId: string | null;
+  name: string;
+  previousName?: string;
+  freedBytes: number;
 };
 
 export type HqNavGraph = {
@@ -128,13 +286,26 @@ export type HqLayout = {
   capacity: HqCapacity;
   /** Interior floor rectangle (inside the walls). */
   bounds: HqRect;
+  /** Height of the west wall (the south and east sides are low curbs). */
   wallHeight: number;
+  /** Height of the north wall, which carries the video wall. */
+  northWallHeight: number;
   desks: HqDesk[];
   leadDesk: HqDesk;
+  /** Bounding square of AM7's command island (`deck`). */
   am7Office: HqRect;
+  deck: HqDeck;
+  tribune: HqTribune;
+  arena: HqArena;
   meetingRooms: HqRect[];
+  /** The west lounge, with the coffee bar (`lounges[0]`). */
   lounge: HqRect;
+  /** Every lounge: the west one first, then the east one. */
+  lounges: HqRect[];
+  /** The west server room in the north-west corner (`serverRooms[0]`). */
   serverRoom: HqRect;
+  /** Every server room: the west one, then the east rack gallery. */
+  serverRooms: HqRect[];
   mapWall: HqMapWall;
   partitions: HqSegment[];
   props: HqProp[];
@@ -145,6 +316,8 @@ export type HqLayout = {
   nav: HqNavGraph;
   /** Entrance, where new agents appear. */
   spawn: Vec2;
+  /** The archive station east of the entrance (bay, lanes, chute, nav spur). */
+  archive: HqArchiveStation;
   /** Camera framing hint: centre of the interesting area and its radius. */
   focus: { x: number; z: number; radius: number };
 };
@@ -155,7 +328,7 @@ export type HqAgentStatus = "working" | "idle" | "error";
  * Where an agent currently is, for the hover card. `none` means "use the
  * status label"; the others name a place that overrides it («на киберполигоне»).
  */
-export const HQ_PLACE = { none: 0, lounge: 1, cyberrange: 2 } as const;
+export const HQ_PLACE = { none: 0, lounge: 1, cyberrange: 2, briefing: 3, podium: 4 } as const;
 export type HqPlace = (typeof HQ_PLACE)[keyof typeof HQ_PLACE];
 
 /** What the scene receives per agent from the app. */

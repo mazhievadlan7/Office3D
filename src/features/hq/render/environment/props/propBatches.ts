@@ -52,9 +52,28 @@ const KIND_NAMES: ReadonlySet<string> = new Set<HqPropKind>([
   "exec_shelf",
   "wall_screen",
   "floor_lamp",
+  "tribune",
+  "archive_cart",
+  "archive_cart_lit",
+  "archive_cart_display_full",
+  "archive_cart_display_empty",
+  "archive_load_1",
+  "archive_load_2",
+  "archive_load_3",
+  "archive_load_4",
+  "archive_bay",
+  "archive_bay_led_1",
+  "archive_bay_led_2",
+  "archive_bay_led_3",
+  "archive_bay_led_4",
+  "archive_chute",
+  "archive_chute_shutter",
+  "archive_chute_slot",
+  "archive_case",
 ]);
 
-// Kinds whose "emissive_red" LEDs blink (the same shader path for all).
+// Kinds whose "emissive_red" LEDs blink (the same shader path for all). Only
+// quads flagged in their UVs blink; strips and accent lines stay steady.
 const BLINKING: ReadonlySet<HqPropKind> = new Set<HqPropKind>(["server_rack", "server_pillar"]);
 
 // Kinds whose red lights glow at a set level instead of the bloom floor: the

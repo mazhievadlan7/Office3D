@@ -12,6 +12,7 @@ import type { HqSimulation } from "../../core/sim";
 import {
   HQ_CAMERA,
   am7Pose,
+  briefingPose,
   distanceLimits,
   homePose,
   mapPose,
@@ -41,6 +42,8 @@ const FOLLOW_BREAK_EVENTS = 4;
 const _box = new Box3();
 const _min = new Vector3();
 const _max = new Vector3();
+/** Longest step (s) the fly-through advances in one frame. */
+const INTRO_MAX_STEP = 1 / 20;
 const _introPosition = new Vector3();
 const _introTarget = new Vector3();
 
@@ -110,7 +113,8 @@ export function HqCameraRig({
   const lastFollow = useRef({ x: NaN, y: NaN, z: NaN });
   const flightRef = useRef(0);
   const introPlayedRef = useRef(false);
-  const introRef = useRef<{ path: HqIntroPath; start: number | null } | null>(null);
+  // The fly-through and how far into it the camera is (seconds of frames shown).
+  const introRef = useRef<{ path: HqIntroPath; elapsed: number } | null>(null);
   const onIntroChangeRef = useRef(onIntroChange);
   const gl = useThree((state) => state.gl);
 
@@ -197,7 +201,7 @@ export function HqCameraRig({
     controls.dollyToCursor = true;
     if (!introPlayedRef.current) {
       introPlayedRef.current = true;
-      introRef.current = { path: buildIntroPath(layout, home), start: null };
+      introRef.current = { path: buildIntroPath(layout, home), elapsed: 0 };
       liftLimits(controls);
       controls.enabled = false;
       onIntroChangeRef.current?.(true);
@@ -264,7 +268,9 @@ export function HqCameraRig({
             ? am7Pose(current, ratio)
             : preset === "map"
               ? mapPose(current, ratio)
-              : overviewPose(current, ratio);
+              : preset === "briefing"
+                ? briefingPose(current, ratio)
+                : overviewPose(current, ratio);
         flyTo(pose, SMOOTH_PRESET);
         setMode(preset);
       },
@@ -309,13 +315,15 @@ export function HqCameraRig({
 
   // After the sim has moved everyone (priority -100), before the controls
   // integrate this frame (priority -1).
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
     const intro = introRef.current;
     if (intro) {
-      if (intro.start === null) intro.start = state.clock.elapsedTime;
-      const playing = sampleIntro(intro.path, state.clock.elapsedTime - intro.start, _introPosition, _introTarget);
+      // Advanced by the frames actually shown, a step at most per frame: a
+      // stall while the HQ loads pauses the flight instead of skipping it.
+      intro.elapsed += Math.min(Math.max(delta, 0), INTRO_MAX_STEP);
+      const playing = sampleIntro(intro.path, intro.elapsed, _introPosition, _introTarget);
       void controls.setLookAt(
         _introPosition.x,
         _introPosition.y,

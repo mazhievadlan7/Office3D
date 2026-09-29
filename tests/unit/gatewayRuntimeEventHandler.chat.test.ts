@@ -960,4 +960,71 @@ describe("gateway runtime event handler (chat)", () => {
 
     expect(queueLivePatch).not.toHaveBeenCalled();
   });
+
+  it("never console-warns about a missing thinking trace, and reports it once per session on the debug channel", () => {
+    const metricSpy = vi
+      .spyOn(transcriptState, "logTranscriptDebugMetric")
+      .mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // A big demo team: every agent finishes several runs without a thinking trace.
+      const agentCount = 40;
+      const runsPerAgent = 3;
+      const agents = Array.from({ length: agentCount }, (_, index) =>
+        createAgent({
+          agentId: `agent-${index}`,
+          sessionKey: `agent:agent-${index}:main`,
+          status: "running",
+          runId: null,
+        })
+      );
+      const logWarn = vi.fn();
+      const handler = createGatewayRuntimeEventHandler({
+        getStatus: () => "connected",
+        getAgents: () => agents,
+        dispatch: vi.fn(),
+        queueLivePatch: vi.fn(),
+        clearPendingLivePatch: vi.fn(),
+        now: () => 1000,
+        loadSummarySnapshot: vi.fn(async () => {}),
+        requestHistoryRefresh: vi.fn(async () => {}),
+        refreshHeartbeatLatestUpdate: vi.fn(),
+        bumpHeartbeatTick: vi.fn(),
+        setTimeout: () => 0,
+        clearTimeout: () => {},
+        isDisconnectLikeError: () => false,
+        logWarn,
+        updateSpecialLatestUpdate: vi.fn(),
+      });
+
+      for (let run = 0; run < runsPerAgent; run += 1) {
+        for (const agent of agents) {
+          handler.handleEvent({
+            type: "event",
+            event: "chat",
+            payload: {
+              runId: `${agent.agentId}-run-${run}`,
+              seq: 1,
+              sessionKey: agent.sessionKey,
+              state: "final",
+              message: { role: "assistant", content: `done ${run}` },
+            },
+          });
+        }
+      }
+
+      expect(logWarn).not.toHaveBeenCalled();
+      expect(consoleWarn).not.toHaveBeenCalled();
+      const missing = metricSpy.mock.calls.filter(
+        ([metric]) => metric === "thinking_trace_missing"
+      );
+      expect(missing).toHaveLength(agentCount);
+      expect(new Set(missing.map(([, meta]) => (meta as { sessionKey: string }).sessionKey)).size).toBe(
+        agentCount
+      );
+    } finally {
+      metricSpy.mockRestore();
+      consoleWarn.mockRestore();
+    }
+  });
 });

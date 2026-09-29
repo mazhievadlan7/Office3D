@@ -4,6 +4,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 
 import { t } from "@/lib/i18n";
 import { HQ_LEAD_AGENT_IDS, HQ_LEAD_AGENT_NAME, HQ_THEME } from "../core/config";
+import { HQ_PLACE_ARCHIVE } from "../core/sim";
 import { HQ_PLACE, type HqAgentInput, type HqAgentStatus } from "../core/types";
 import type { HqHoverSink } from "../render/scene/HqPicking";
 
@@ -27,7 +28,13 @@ const metaLabel = (status: HqAgentStatus, place: number): string =>
     ? t("hqScene.placeCyberrange")
     : place === HQ_PLACE.lounge
       ? t("hqScene.placeLounge")
-      : statusLabel(status);
+      : place === HQ_PLACE.briefing
+        ? t("hqScene.placeBriefing")
+        : place === HQ_PLACE.podium
+          ? t("hqScene.placePodium")
+          : place === HQ_PLACE_ARCHIVE
+            ? t("hqScene.placeArchive")
+            : statusLabel(status);
 
 export const isHqLeadAgent = (agent: Pick<HqAgentInput, "id" | "name">): boolean =>
   (HQ_LEAD_AGENT_IDS as readonly string[]).includes(agent.id.toLowerCase()) ||

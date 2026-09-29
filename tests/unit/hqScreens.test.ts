@@ -123,18 +123,25 @@ describe("wall screens", () => {
   });
 
   for (const capacity of HQ_CAPACITIES) {
-    it(`shows AM7's report in his office and different channels in the lounge (${capacity})`, () => {
+    it(`shows AM7's report in the briefing room and different channels in the lounges (${capacity})`, () => {
       const layout = generateHqLayout(capacity);
       const screens = layout.props.filter((p) => p.kind === "wall_screen");
-      const office = layout.am7Office;
-      const inOffice = screens.filter((p) => p.x >= office.x0 && p.x <= office.x1 && p.z >= office.z0 && p.z <= office.z1);
-      expect(inOffice).toHaveLength(1);
-      expect(inOffice[0].screen).toBe(HQ_WALL_SCREEN.exec);
-      const lounge = screens.filter((p) => !inOffice.includes(p));
-      expect(lounge.length).toBeGreaterThanOrEqual(capacity === 100 ? 1 : 2);
-      for (const p of lounge) expect(p.screen).not.toBe(HQ_WALL_SCREEN.exec);
-      // Neighbours differ.
-      for (let i = 1; i < lounge.length; i++) expect(lounge[i].screen).not.toBe(lounge[i - 1].screen);
+      const inside = (p: { x: number; z: number }, r: { x0: number; z0: number; x1: number; z1: number }) =>
+        p.x >= r.x0 && p.x <= r.x1 && p.z >= r.z0 && p.z <= r.z1;
+      // The briefing room is the east column's meeting room.
+      const briefing = layout.meetingRooms[layout.meetingRooms.length - 1];
+      expect(briefing.x1).toBeCloseTo(layout.bounds.x1);
+      const report = screens.filter((p) => p.screen === HQ_WALL_SCREEN.exec);
+      expect(report).toHaveLength(1);
+      expect(inside(report[0], briefing)).toBe(true);
+      for (const lounge of layout.lounges) {
+        const tvs = screens.filter((p) => inside(p, lounge));
+        expect(tvs.length).toBeGreaterThanOrEqual(1);
+        for (const p of tvs) expect(p.screen).not.toBe(HQ_WALL_SCREEN.exec);
+        // Neighbours differ.
+        for (let i = 1; i < tvs.length; i++) expect(tvs[i].screen).not.toBe(tvs[i - 1].screen);
+      }
+      expect(screens.length).toBe(1 + layout.loungeGroups.length);
     });
   }
 });

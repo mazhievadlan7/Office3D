@@ -203,6 +203,15 @@ EXTRA_VIEWS = {
     "server_pillar": [(12.0, 8.0), (72.0, 16.0)],
     "data_monolith": [(14.0, 6.0)],
     "dark_plant": [(30.0, 52.0)],
+    # the audience head-on, then the speaker's side (desk, readouts, mic)
+    "tribune": [(0.0, 10.0), (200.0, 34.0)],
+    # the pusher's side (handle, tablet), then low from the nose
+    "archive_cart": [(200.0, 30.0), (20.0, 8.0)],
+    "archive_bay": [(0.0, 12.0)],
+    "archive_chute": [(0.0, 14.0)],
+    # the tablet read-outs face the pusher (+Y)
+    "archive_cart_display_full": [(180.0, 40.0)],
+    "archive_cart_display_empty": [(180.0, 40.0)],
 }
 
 

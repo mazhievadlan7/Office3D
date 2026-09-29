@@ -1,5 +1,6 @@
 import { HQ_SCREEN_APPS } from "./screenApps";
 import { paintMarkets, paintMusic, paintNews } from "./screenBroadcast";
+import { paintBriefingBanner, paintBriefingPlan, paintBriefingTask } from "./screenBriefing";
 import { APP_PAINTERS, type HqScreenFeed, type Painter } from "./screenPaint";
 import { paintExecMonitor, paintExecWall, paintMapLeft, paintMapRight } from "./screenPanels";
 
@@ -9,8 +10,10 @@ import { paintExecMonitor, paintExecWall, paintMapLeft, paintMapRight } from "./
  * Pure (no three.js, no DOM), so it runs in a worker.
  *
  * Desk monitor apps and wall channels are tiles of two 2D atlases (a gutter
- * round every tile keeps mipmaps from bleeding between them); AM7's monitor
- * and the map panels are textures of their own. 2D textures, not texture
+ * round every tile keeps mipmaps from bleeding between them); AM7's monitor,
+ * the video wall's side panels and its briefing banner are textures of their
+ * own. During a briefing (feed.briefing) the side panels show the task and
+ * the plan instead, and the banner the goal. 2D textures, not texture
  * arrays: browsers copy an ImageBitmap into a 2D texture on the GPU, while
  * array layers go through a slow CPU readback.
  *
@@ -25,10 +28,15 @@ export const WALL_W = 1024;
 export const WALL_H = 576;
 export const EXEC_W = 1792;
 export const EXEC_H = 480;
+/** The video wall's two side canvases; its wings show their cards one by one (map/mapWings.ts). */
 export const MAP_W = 2048;
 export const MAP_H = 600;
-/** Width over height of the map wall's data panels (HqWorldMap sizes its planes by it). */
-export const MAP_PANEL_ASPECT = MAP_W / MAP_H;
+/**
+ * The briefing's goal banner across the top of the map: thin, so it hides as
+ * little of the northern latitudes as it can (about 0.67 m of the 5 m map).
+ */
+export const BANNER_W = 2560;
+export const BANNER_H = 96;
 
 /** Wall screen channels, in tile order (HQ_WALL_SCREEN: AM7's report, news, business, radio). */
 export const WALL_LAYERS = 4;
@@ -58,7 +66,7 @@ export const WALL_ATLAS = atlas(WALL_W, WALL_H, WALL_LAYERS, 2);
 
 export type ScreenTarget =
   | { kind: "layer"; set: "monitors" | "walls"; layer: number }
-  | { kind: "single"; id: "exec" | "mapLeft" | "mapRight" };
+  | { kind: "single"; id: "exec" | "mapLeft" | "mapRight" | "mapBanner" };
 
 /**
  * The big screens the hub can see or not (screenViews.ts): a surface with a
@@ -76,6 +84,10 @@ export type ScreenSurface = {
   /** Seconds between repaints while none of its screens is in view. */
   idlePeriod?: number;
   view?: ScreenView;
+  /** Shows the briefing when there is one: repainted at once when it changes. */
+  briefing?: boolean;
+  /** Painted only while this holds (otherwise its picture is not shown either). */
+  when?: (feed: HqScreenFeed) => boolean;
   paint: (p: Painter, t: number, feed: HqScreenFeed) => void;
 };
 
@@ -116,9 +128,39 @@ export const SCREEN_SURFACES: readonly ScreenSurface[] = [
   { target: { kind: "layer", set: "walls", layer: 2 }, w: WALL_W, h: WALL_H, period: 1 / 16, idlePeriod: IDLE_PERIOD, view: "markets", paint: paintMarkets },
   { target: { kind: "layer", set: "walls", layer: 3 }, w: WALL_W, h: WALL_H, period: 1 / 15, idlePeriod: IDLE_PERIOD, view: "music", paint: paintMusic },
   { target: { kind: "single", id: "exec" }, w: EXEC_W, h: EXEC_H, period: 1 / 6, idlePeriod: IDLE_PERIOD, view: "exec", paint: paintExecMonitor },
-  { target: { kind: "single", id: "mapLeft" }, w: MAP_W, h: MAP_H, period: 0.25, paint: paintMapLeft },
-  { target: { kind: "single", id: "mapRight" }, w: MAP_W, h: MAP_H, period: 0.2, paint: paintMapRight },
+  {
+    target: { kind: "single", id: "mapLeft" },
+    w: MAP_W,
+    h: MAP_H,
+    period: 0.25,
+    briefing: true,
+    paint: (p, t, feed) => (feed.briefing ? paintBriefingTask(p, t, feed.briefing) : paintMapLeft(p, t, feed)),
+  },
+  {
+    target: { kind: "single", id: "mapRight" },
+    w: MAP_W,
+    h: MAP_H,
+    period: 0.2,
+    briefing: true,
+    paint: (p, t, feed) => (feed.briefing ? paintBriefingPlan(p, t, feed.briefing) : paintMapRight(p, t, feed)),
+  },
+  {
+    target: { kind: "single", id: "mapBanner" },
+    w: BANNER_W,
+    h: BANNER_H,
+    period: 0.25,
+    briefing: true,
+    when: (feed) => feed.briefing !== null,
+    paint: (p, t, feed) => {
+      if (feed.briefing) paintBriefingBanner(p, t, feed.briefing);
+    },
+  },
 ];
+
+/** Index in SCREEN_SURFACES of a single-texture surface. */
+export function singleSurface(id: Extract<ScreenTarget, { kind: "single" }>["id"]): number {
+  return SCREEN_SURFACES.findIndex((s) => s.target.kind === "single" && s.target.id === id);
+}
 
 /** Seconds between repaints of a surface, given whether any of its screens is in view. */
 export function surfacePeriod(surface: ScreenSurface, inView: boolean): number {

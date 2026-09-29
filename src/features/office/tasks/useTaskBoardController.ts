@@ -51,6 +51,7 @@ import {
 } from "@/lib/tasks/gateway";
 import {
   archiveSharedTaskRecord,
+  createSharedTaskUpsertQueue,
   listSharedTaskRecords,
   TaskStoreRequestError,
   upsertSharedTaskRecord,
@@ -61,6 +62,10 @@ import { LOCALE, t } from "@/lib/i18n";
 
 // How long board changes are collected before they are saved to the studio settings.
 const TASK_BOARD_SAVE_DEBOUNCE_MS = 1500;
+// The patch is the whole board (hundreds of cards, ~400 KB). A live team changes
+// it every second, so it is saved at most once per 15 s, and at the latest 15 s
+// after the first unsaved change. A quiet board still saves 1.5 s after an edit.
+const TASK_BOARD_SAVE_THROTTLE = { minIntervalMs: 15_000, maxWaitMs: 15_000 } as const;
 
 const TASK_EVENT_NAMES = new Set([
   "task_created",
@@ -296,7 +301,7 @@ const buildCardFromGatewayTask = (
     isInferred: false,
   });
 
-const buildCardFromSharedTaskRecord = (
+export const buildCardFromSharedTaskRecord = (
   task: SharedTaskRecord,
   existing?: TaskBoardCard | null,
 ): TaskBoardCard =>
@@ -326,7 +331,7 @@ const buildCardFromSharedTaskRecord = (
 const cardTextKey = (card: Pick<TaskBoardCard, "title" | "assignedAgentId">) =>
   `${card.assignedAgentId ?? "-"}:${normalizeTaskRequestText(card.title).toLowerCase()}`;
 
-const matchesExplicitCard = (
+export const matchesExplicitCard = (
   candidate: TaskBoardCard,
   explicitCard: TaskBoardCard,
 ) => {
@@ -346,6 +351,131 @@ const matchesExplicitCard = (
     return true;
   }
   return cardTextKey(candidate) === cardTextKey(explicitCard);
+};
+
+const sameStringList = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
+/** Field-by-field equality of two cards. */
+export const sameTaskBoardCard = (left: TaskBoardCard, right: TaskBoardCard): boolean =>
+  left === right ||
+  (left.id === right.id &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.status === right.status &&
+    left.source === right.source &&
+    left.sourceEventId === right.sourceEventId &&
+    left.assignedAgentId === right.assignedAgentId &&
+    left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt &&
+    left.playbookJobId === right.playbookJobId &&
+    left.runId === right.runId &&
+    left.channel === right.channel &&
+    left.externalThreadId === right.externalThreadId &&
+    left.lastActivityAt === right.lastActivityAt &&
+    left.isArchived === right.isArchived &&
+    left.isInferred === right.isInferred &&
+    sameStringList(left.notes, right.notes));
+
+/**
+ * The cards that change when the whole shared store (the periodic read) is
+ * applied to the board: each record upserted onto the board's copy, then every
+ * active inferred card matching any record's card archived, stamped with the
+ * last matching record's time. That is what upserting the records one by one
+ * did, computed with lookups instead of a scan of the board per record.
+ * Records named by skip are left out. Cards equal to the board's are not
+ * returned, so an unchanged store changes nothing.
+ */
+export const planSharedTaskRefresh = (
+  cards: TaskBoardCard[],
+  records: SharedTaskRecord[],
+  skip: (id: string) => boolean = () => false,
+): TaskBoardCard[] => {
+  const byId = new Map<string, TaskBoardCard>();
+  for (const card of cards) byId.set(card.id, card);
+  const changed = new Map<string, TaskBoardCard>();
+  const applied: TaskBoardCard[] = [];
+  for (const record of records) {
+    if (skip(record.id)) continue;
+    const existing = byId.get(record.id) ?? null;
+    const next = buildCardFromSharedTaskRecord(record, existing);
+    if (existing && sameTaskBoardCard(existing, next)) changed.delete(next.id);
+    else changed.set(next.id, next);
+    applied.push(next);
+  }
+  const candidates = cards.filter((card) => card.isInferred && !card.isArchived);
+  if (candidates.length > 0 && applied.length > 0) {
+    // Where each key was last seen among the applied cards.
+    const lastById = new Map<string, number>();
+    const lastBySourceEvent = new Map<string, number>();
+    const lastByThread = new Map<string, number>();
+    const lastByText = new Map<string, number>();
+    applied.forEach((card, index) => {
+      lastById.set(card.id, index);
+      if (card.sourceEventId) lastBySourceEvent.set(card.sourceEventId, index);
+      if (card.externalThreadId) lastByThread.set(card.externalThreadId, index);
+      lastByText.set(cardTextKey(card), index);
+    });
+    for (const candidate of candidates) {
+      let last = lastById.get(candidate.id) ?? -1;
+      if (candidate.sourceEventId) {
+        last = Math.max(last, lastBySourceEvent.get(candidate.sourceEventId) ?? -1);
+      }
+      if (candidate.externalThreadId) {
+        last = Math.max(last, lastByThread.get(candidate.externalThreadId) ?? -1);
+      }
+      last = Math.max(last, lastByText.get(cardTextKey(candidate)) ?? -1);
+      if (last < 0) continue;
+      const target = changed.get(candidate.id) ?? byId.get(candidate.id);
+      if (!target) continue;
+      changed.set(candidate.id, {
+        ...target,
+        isArchived: true,
+        updatedAt: applied[last].updatedAt,
+      });
+    }
+  }
+  return [...changed.values()];
+};
+
+/**
+ * The cards that change when records the store just saved are applied in
+ * order, each as if it had arrived on its own: upserted onto the board, then
+ * every active inferred card (as the board stood before that record) matching
+ * it archived. Cards equal to the board's are not returned.
+ */
+export const planSharedTaskResponses = (
+  cards: TaskBoardCard[],
+  records: SharedTaskRecord[],
+): TaskBoardCard[] => {
+  const original = new Map<string, TaskBoardCard>();
+  for (const card of cards) original.set(card.id, card);
+  const working = new Map(original);
+  const touched = new Set<string>();
+  for (const record of records) {
+    const existing = working.get(record.id) ?? null;
+    const next = buildCardFromSharedTaskRecord(record, existing);
+    const matched: string[] = [];
+    for (const card of working.values()) {
+      if (!card.isInferred || card.isArchived) continue;
+      if (matchesExplicitCard(card, next)) matched.push(card.id);
+    }
+    working.set(next.id, next);
+    touched.add(next.id);
+    for (const id of matched) {
+      const current = working.get(id);
+      if (!current) continue;
+      working.set(id, { ...current, isArchived: true, updatedAt: next.updatedAt });
+      touched.add(id);
+    }
+  }
+  const changed: TaskBoardCard[] = [];
+  for (const id of touched) {
+    const card = working.get(id);
+    const before = original.get(id);
+    if (card && !(before && sameTaskBoardCard(before, card))) changed.push(card);
+  }
+  return changed;
 };
 
 const deriveChatRequestCard = (
@@ -644,6 +774,16 @@ type TaskCaptureDebugState = {
   detectedCount: number;
 };
 
+const INITIAL_TASK_CAPTURE_DEBUG: TaskCaptureDebugState = {
+  lastStatus: "idle",
+  lastUpdatedAt: null,
+  lastTitle: null,
+  lastTaskId: null,
+  lastSessionKey: null,
+  lastMessage: null,
+  detectedCount: 0,
+};
+
 const buildActiveRunOptions = (runs: RunRecord[]) =>
   runs
     .filter((run) => run.endedAt === null)
@@ -664,6 +804,7 @@ export const useTaskBoardController = ({
   agents,
   runLog,
   standup,
+  captureDebugEnabled = true,
 }: {
   gatewayUrl: string;
   settingsCoordinator: StudioSettingsCoordinator;
@@ -673,6 +814,12 @@ export const useTaskBoardController = ({
   agents: AgentState[];
   runLog: RunRecord[];
   standup: OfficeStandupController;
+  /**
+   * Whether anything shows taskCaptureDebug (the OpenClaw console). When
+   * nothing does, capture updates are tracked without re-rendering the office;
+   * the latest values are published as soon as it is turned on.
+   */
+  captureDebugEnabled?: boolean;
 }) => {
   const [state, dispatch] = useReducer(
     taskBoardReducer,
@@ -689,15 +836,10 @@ export const useTaskBoardController = ({
   const [sharedTasksError, setSharedTasksError] = useState<string | null>(null);
   const [sharedTasksSupported, setSharedTasksSupported] = useState(true);
   const [taskCaptureDebug, setTaskCaptureDebug] =
-    useState<TaskCaptureDebugState>({
-      lastStatus: "idle",
-      lastUpdatedAt: null,
-      lastTitle: null,
-      lastTaskId: null,
-      lastSessionKey: null,
-      lastMessage: null,
-      detectedCount: 0,
-    });
+    useState<TaskCaptureDebugState>(INITIAL_TASK_CAPTURE_DEBUG);
+  const taskCaptureDebugRef = useRef<TaskCaptureDebugState>(
+    INITIAL_TASK_CAPTURE_DEBUG,
+  );
   const [gatewayTasksLoading, setGatewayTasksLoading] = useState(false);
   const [gatewayTasksError, setGatewayTasksError] = useState<string | null>(
     null,
@@ -720,6 +862,50 @@ export const useTaskBoardController = ({
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const updateTaskCaptureDebug = useCallback(
+    (update: (current: TaskCaptureDebugState) => TaskCaptureDebugState) => {
+      const next = update(taskCaptureDebugRef.current);
+      taskCaptureDebugRef.current = next;
+      if (captureDebugEnabled) setTaskCaptureDebug(next);
+    },
+    [captureDebugEnabled],
+  );
+
+  useEffect(() => {
+    if (captureDebugEnabled) setTaskCaptureDebug(taskCaptureDebugRef.current);
+  }, [captureDebugEnabled]);
+
+  // Upserts to the shared store are collected and sent about once a second;
+  // the saved records of a batch are applied to the board with one dispatch.
+  const [taskWriteQueue] = useState(() => {
+    const queue = createSharedTaskUpsertQueue({
+      onApplied: (records) => {
+        // A card with a newer upsert already queued keeps showing that edit
+        // until its own answer arrives. Separate requests answered within
+        // milliseconds of each other; with the batching delay the older
+        // answer would otherwise put the card back for about a second.
+        const cards = planSharedTaskResponses(
+          stateRef.current.cards,
+          records,
+        ).filter((card) => !queue.hasPending(card.id));
+        if (cards.length > 0) dispatch({ type: "upsertMany", cards });
+      },
+    });
+    return queue;
+  });
+
+  useEffect(() => {
+    // Whatever is still queued when the page goes away is sent right then.
+    const flushOnHide = () => {
+      void taskWriteQueue.flush({ keepalive: true });
+    };
+    window.addEventListener("pagehide", flushOnHide);
+    return () => {
+      window.removeEventListener("pagehide", flushOnHide);
+      taskWriteQueue.dispose();
+    };
+  }, [taskWriteQueue]);
 
   const archiveMatchingInferredCards = useCallback(
     (explicitCard: TaskBoardCard) => {
@@ -767,7 +953,8 @@ export const useTaskBoardController = ({
     async (task: TaskBoardCard) => {
       if (!sharedTasksSupported) return;
       try {
-        const saved = await upsertSharedTaskRecord({
+        // The saved record is applied to the board with the rest of its batch.
+        const saved = await taskWriteQueue.enqueue({
           ...task,
           id: task.id,
           title: task.title,
@@ -775,8 +962,7 @@ export const useTaskBoardController = ({
           sourceEventId: task.sourceEventId ?? task.id,
           isInferred: false,
         });
-        applySharedTaskRecord(saved);
-        setTaskCaptureDebug((current) => ({
+        updateTaskCaptureDebug((current) => ({
           ...current,
           lastStatus: "persisted",
           lastUpdatedAt: saved.updatedAt,
@@ -791,7 +977,7 @@ export const useTaskBoardController = ({
           setSharedTasksError(
             t("opsTasks.storeRouteUnavailableRestart"),
           );
-          setTaskCaptureDebug((current) => ({
+          updateTaskCaptureDebug((current) => ({
             ...current,
             lastStatus: "unsupported",
             lastUpdatedAt: new Date().toISOString(),
@@ -807,7 +993,7 @@ export const useTaskBoardController = ({
             ? error.message
             : t("opsTasks.syncLiveFailed"),
         );
-        setTaskCaptureDebug((current) => ({
+        updateTaskCaptureDebug((current) => ({
           ...current,
           lastStatus: "failed",
           lastUpdatedAt: new Date().toISOString(),
@@ -821,7 +1007,7 @@ export const useTaskBoardController = ({
         }));
       }
     },
-    [applySharedTaskRecord, sharedTasksSupported],
+    [sharedTasksSupported, taskWriteQueue, updateTaskCaptureDebug],
   );
 
   useEffect(() => {
@@ -829,6 +1015,12 @@ export const useTaskBoardController = ({
     hydratedRef.current = false;
     setLoading(true);
     const task = async () => {
+      // A board save can be held back for up to 15 s (throttle below). Send it,
+      // and wait for saves in flight, before reading: otherwise switching back
+      // to a gateway within that window hydrates its older board, and the next
+      // save overwrites the held-back changes with it.
+      await settingsCoordinator.flushPending().catch(() => {});
+      if (cancelled) return;
       const settings = await settingsCoordinator.loadSettings({ maxAgeMs: 0 });
       const preference: StudioTaskBoardPreference = settings
         ? resolveTaskBoardPreference(settings, gatewayUrl)
@@ -879,8 +1071,31 @@ export const useTaskBoardController = ({
       },
       // A live team changes the board several times a second; save it in batches.
       TASK_BOARD_SAVE_DEBOUNCE_MS,
+      TASK_BOARD_SAVE_THROTTLE,
     );
   }, [gatewayUrl, settingsCoordinator, state.cards, state.selectedCardId]);
+
+  useEffect(() => {
+    // A throttled board save can be waiting up to 15 s. Send it when the tab is
+    // hidden, when the page goes away, and when the board unmounts. Switching
+    // tabs leaves the page alive, so that request completes. Closing the page
+    // also fires "hidden" first, but a plain fetch may be cancelled by the
+    // unload, and the ~400 KB board is over the 64 KB keepalive limit, so the
+    // last few seconds of automatic cards can still be lost on close.
+    const flush = () => {
+      void settingsCoordinator.flushPending().catch(() => {});
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [settingsCoordinator]);
 
   const refreshCronJobs = useCallback(async () => {
     if (!cronEnabled || status !== "connected") {
@@ -913,11 +1128,17 @@ export const useTaskBoardController = ({
     setSharedTasksLoading(true);
     setSharedTasksError(null);
     try {
+      const readToken = taskWriteQueue.beginRead();
       const tasks = await listSharedTaskRecords();
       setSharedTasksSupported(true);
-      for (const task of tasks) {
-        applySharedTaskRecord(task);
-      }
+      taskWriteQueue.rememberList(tasks, readToken);
+      // One dispatch for whatever changed, none when nothing did. Tasks with an
+      // upsert queued or saved since this read started are left to that
+      // upsert's answer, so an older copy never overwrites them meanwhile.
+      const cards = planSharedTaskRefresh(stateRef.current.cards, tasks, (id) =>
+        taskWriteQueue.isNewerThan(id, readToken),
+      );
+      if (cards.length > 0) dispatch({ type: "upsertMany", cards });
     } catch (error) {
       if (error instanceof TaskStoreRequestError && error.status === 404) {
         setSharedTasksSupported(false);
@@ -935,7 +1156,7 @@ export const useTaskBoardController = ({
       sharedRefreshInFlightRef.current = false;
       setSharedTasksLoading(false);
     }
-  }, [applySharedTaskRecord, sharedTasksSupported]);
+  }, [sharedTasksSupported, taskWriteQueue]);
 
   const refreshRemoteTasks = useCallback(async () => {
     if (status !== "connected") {
@@ -1053,7 +1274,7 @@ export const useTaskBoardController = ({
           !card.isArchived &&
           matchesExplicitCard(recoveredTask, card),
       );
-      setTaskCaptureDebug((current) => ({
+      updateTaskCaptureDebug((current) => ({
         lastStatus: hasPersistedMatch ? current.lastStatus : "detected",
         lastUpdatedAt: recoveredTask.updatedAt,
         lastTitle: recoveredTask.title,
@@ -1070,7 +1291,7 @@ export const useTaskBoardController = ({
       dispatch({ type: "upsert", card: recoveredTask });
       void persistLiveSessionTask(recoveredTask);
     }
-  }, [agents, persistLiveSessionTask]);
+  }, [agents, persistLiveSessionTask, updateTaskCaptureDebug]);
 
   const selectCard = useCallback((cardId: string | null) => {
     dispatch({ type: "select", cardId });
@@ -1113,6 +1334,7 @@ export const useTaskBoardController = ({
           ...card,
           isInferred: false,
         });
+        taskWriteQueue.remember(saved);
         const nextCard = applySharedTaskRecord(saved);
         dispatch({ type: "select", cardId: nextCard.id });
         return nextCard;
@@ -1127,7 +1349,7 @@ export const useTaskBoardController = ({
         return card;
       }
     },
-    [applyGatewayTaskRecord, applySharedTaskRecord, client],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client, taskWriteQueue],
   );
 
   const updateCard = useCallback(
@@ -1152,7 +1374,8 @@ export const useTaskBoardController = ({
         return;
       }
       try {
-        const updated = await upsertSharedTaskRecord({
+        // Applied to the board with the rest of its batch.
+        await taskWriteQueue.enqueue({
           ...existing,
           ...patch,
           id: cardId,
@@ -1160,7 +1383,6 @@ export const useTaskBoardController = ({
           updatedAt: new Date().toISOString(),
           isInferred: false,
         });
-        applySharedTaskRecord(updated);
       } catch (error) {
         dispatch({ type: "upsert", card: existing });
         setSharedTasksError(
@@ -1170,7 +1392,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applyGatewayTaskRecord, applySharedTaskRecord, client],
+    [applyGatewayTaskRecord, client, taskWriteQueue],
   );
 
   const moveCard = useCallback(
@@ -1189,7 +1411,8 @@ export const useTaskBoardController = ({
         return;
       }
       try {
-        const updated = await upsertSharedTaskRecord({
+        // Queued with the other upserts so they reach the store in order.
+        await taskWriteQueue.enqueue({
           ...existing,
           id: cardId,
           title: existing.title,
@@ -1197,7 +1420,6 @@ export const useTaskBoardController = ({
           updatedAt: new Date().toISOString(),
           isInferred: false,
         });
-        applySharedTaskRecord(updated);
       } catch (error) {
         dispatch({ type: "upsert", card: existing });
         setSharedTasksError(
@@ -1207,7 +1429,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applyGatewayTaskRecord, applySharedTaskRecord, client],
+    [applyGatewayTaskRecord, client, taskWriteQueue],
   );
 
   const removeCard = useCallback(
@@ -1237,7 +1459,10 @@ export const useTaskBoardController = ({
         return;
       }
       try {
+        // Upserts already queued for this card reach the store first.
+        if (taskWriteQueue.hasPending(cardId)) await taskWriteQueue.flush();
         const archived = await archiveSharedTaskRecord(cardId);
+        taskWriteQueue.remember(archived);
         applySharedTaskRecord(archived);
       } catch (error) {
         dispatch({ type: "upsert", card: existing });
@@ -1248,7 +1473,7 @@ export const useTaskBoardController = ({
         );
       }
     },
-    [applyGatewayTaskRecord, applySharedTaskRecord, client],
+    [applyGatewayTaskRecord, applySharedTaskRecord, client, taskWriteQueue],
   );
 
   const lastDedupeSnapshotRef = useRef<string | null>(null);
@@ -1321,7 +1546,7 @@ export const useTaskBoardController = ({
 
       const liveSessionTask = deriveLiveSessionTaskCard(event, agents);
       if (liveSessionTask) {
-        setTaskCaptureDebug((current) => ({
+        updateTaskCaptureDebug((current) => ({
           lastStatus: "detected",
           lastUpdatedAt: liveSessionTask.updatedAt,
           lastTitle: liveSessionTask.title,
@@ -1421,7 +1646,13 @@ export const useTaskBoardController = ({
         }
       }
     },
-    [agents, archiveMatchingInferredCards, persistLiveSessionTask, updateCard],
+    [
+      agents,
+      archiveMatchingInferredCards,
+      persistLiveSessionTask,
+      updateCard,
+      updateTaskCaptureDebug,
+    ],
   );
 
   const selectedCard = state.selectedCardId

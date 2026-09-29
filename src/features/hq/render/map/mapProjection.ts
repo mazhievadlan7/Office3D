@@ -39,6 +39,10 @@ export function cropRows(imageHeight: number): { y: number; height: number } {
 /**
  * Display geometry in display-local metres: origin at the centre of the map
  * surface, +x east (to the viewer's right), +y up, +z out of the wall.
+ *
+ * The display is concave toward the room (HqMapWall.curve): every layer is
+ * the flat layout below pushed out of the wall by arcSag(arcK, x), so x and y
+ * stay the flat "display-local metres" the shaders work in.
  */
 export type MapFit = {
   outerW: number;
@@ -56,7 +60,61 @@ export type MapFit = {
   mapY1: number;
   /** Size unit for markers, ripples and arcs: the map width / MAP_MARKER_COLUMNS. */
   unit: number;
+  /** Curvature (1 / radius, per metre) of the display's arc; 0 when it is flat. */
+  arcK: number;
 };
+
+/**
+ * Curvature of a display `width` wide whose middle touches the wall and whose
+ * ends stand `curve` metres in front of it: a circular arc through the three
+ * points, 1/r with r = (width²/4 + curve²) / (2 curve). 0 (flat) for no curve.
+ * The curve is capped at a quarter of the width, well short of a half circle.
+ */
+export function arcCurvature(width: number, curve: number): number {
+  if (!(width > 0) || !(curve > 0)) return 0;
+  const c = Math.min(curve, width / 4);
+  const half = width / 2;
+  return (2 * c) / (half * half + c * c);
+}
+
+/**
+ * How far the arc stands in front of the wall at display-local x (its
+ * sagitta r - sqrt(r² - x²)), written so it holds for k = 0 and never
+ * cancels: 0 in the middle, `curve` at the display's ends.
+ */
+export function arcSag(k: number, x: number): number {
+  const kx = k * x;
+  return (k * x * x) / (1 + Math.sqrt(Math.max(0, 1 - kx * kx)));
+}
+
+/** The arc's slope dz/dx at x: how fast it comes toward the room. */
+export function arcSlope(k: number, x: number): number {
+  const kx = k * x;
+  return kx / Math.sqrt(Math.max(1e-6, 1 - kx * kx));
+}
+
+/** The same sagitta in GLSL, for layers placed in their vertex shader (`k` a uniform). */
+export const ARC_SAG_GLSL = /* glsl */ `
+float hqArcSag(float k, float x) {
+  float kx = k * x;
+  return k * x * x / (1.0 + sqrt(max(0.0, 1.0 - kx * kx)));
+}
+`;
+
+/**
+ * The display's case: a matte block from the floor to just above the bezel
+ * that fills the space between the arc and the wall, so the forward-standing
+ * ends read as one built-in piece. Its front is the arc (`front` off the wall
+ * in the middle, clear of the wall's LED lines); it reaches `side` past the
+ * bezel at each end and `top` above it. Nothing stands out in front of the
+ * arc but the 7 cm bezel.
+ */
+export const MAP_CASE = { front: 0.02, side: 0.3, top: 0.3 } as const;
+
+/** Half the case's width and its top, display-local metres. */
+export function mapCaseExtent(fit: Pick<MapFit, "outerW" | "outerH">): { halfW: number; top: number } {
+  return { halfW: fit.outerW / 2 + MAP_CASE.side, top: fit.outerH / 2 + MAP_CASE.top };
+}
 
 // The land may stretch a little away from true equirectangular proportions so
 // it fills walls of other aspect ratios; beyond that it is letterboxed. Kept
@@ -65,7 +123,7 @@ export type MapFit = {
 const MAX_STRETCH_X = 1.35;
 const MAX_STRETCH_Y = 1.15;
 
-export function fitMap(width: number, height: number): MapFit {
+export function fitMap(width: number, height: number, curve = 0): MapFit {
   const outerW = Math.max(width, 0.5);
   const outerH = Math.max(height, 0.3);
   const bezel = clamp(Math.min(outerW, outerH) * 0.018, 0.05, 0.14);
@@ -100,6 +158,7 @@ export function fitMap(width: number, height: number): MapFit {
     mapX1: mapW / 2,
     mapY1: mapH / 2,
     unit: mapW / MAP_MARKER_COLUMNS,
+    arcK: arcCurvature(outerW, curve),
   };
 }
 

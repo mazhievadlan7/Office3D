@@ -263,9 +263,14 @@ export const planRuntimeChatEvent = (
         kind: "markThinkingDebugSession",
         sessionKey: payload.sessionKey,
       });
+      // Many models (and every demo agent) simply do not stream a thinking
+      // trace, so this is a diagnostic, not a warning: with hundreds of agents a
+      // console.warn per session flooded the console and kept every meta object
+      // alive. It goes through the transcript debug channel instead, which logs
+      // only when NEXT_PUBLIC_STUDIO_TRANSCRIPT_DEBUG is on (still once per session).
       commands.push({
-        kind: "logWarn",
-        message: "No thinking trace extracted from chat event.",
+        kind: "logMetric",
+        metric: "thinking_trace_missing",
         meta: {
           sessionKey: payload.sessionKey,
           message: summarizeThinkingMessage(payload.message ?? payload),

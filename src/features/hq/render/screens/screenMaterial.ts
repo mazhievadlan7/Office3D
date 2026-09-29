@@ -73,7 +73,28 @@ export type ScreenGlass = {
  * highlights keeps big white numerals glowing rather than blown out, while
  * the darks and mid-tones keep their level.
  */
-export function createScreenTextureMaterial(map: THREE.Texture, gain: number, name: string, glass?: ScreenGlass): THREE.MeshBasicMaterial {
+/**
+ * The video wall's warm ramp: whatever a tile was painted in, its lightness
+ * maps from near black through deep red and red-orange to pale amber, so the
+ * wings read as one wall of live red and orange data.
+ */
+const WARM_RAMP_GLSL = /* glsl */ `
+vec3 hqWarmRamp(vec3 c) {
+  float l = max(max(c.r, c.g), c.b);
+  vec3 r = mix(vec3(0.004, 0.001, 0.001), vec3(0.3, 0.025, 0.012), smoothstep(0.0, 0.22, l));
+  r = mix(r, vec3(1.0, 0.14, 0.04), smoothstep(0.18, 0.55, l));
+  r = mix(r, vec3(1.0, 0.48, 0.1), smoothstep(0.5, 0.85, l));
+  return mix(r, vec3(1.0, 0.84, 0.55), smoothstep(0.85, 1.0, l));
+}
+`;
+
+export function createScreenTextureMaterial(
+  map: THREE.Texture,
+  gain: number,
+  name: string,
+  glass?: ScreenGlass,
+  warm = false,
+): THREE.MeshBasicMaterial {
   const material = new THREE.MeshBasicMaterial({ map, toneMapped: false });
   material.color.setScalar(glass ? 1 : gain);
   material.name = name;
@@ -87,17 +108,19 @@ export function createScreenTextureMaterial(map: THREE.Texture, gain: number, na
         .replace("#include <project_vertex>", `#include <project_vertex>\n${GLASS_VERTEX}`);
     }
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", `#include <common>\n${SRGB_DECODE_GLSL}${glass ? GLASS_FRAGMENT_PARS : ""}`)
+      .replace("#include <common>", `#include <common>\n${SRGB_DECODE_GLSL}${glass ? GLASS_FRAGMENT_PARS : ""}${warm ? WARM_RAMP_GLSL : ""}`)
       .replace(
         "#include <map_fragment>",
         `#ifdef USE_MAP
   vec4 sampledDiffuseColor = texture2D( map, vMapUv );
   sampledDiffuseColor.rgb = hqSrgbToLinear( sampledDiffuseColor.rgb );
+  ${warm ? "sampledDiffuseColor.rgb = hqWarmRamp( sampledDiffuseColor.rgb );" : ""}
   ${shade}
   diffuseColor *= sampledDiffuseColor;
 #endif`,
       );
   };
-  material.customProgramCacheKey = () => (glass ? `hq-screen-glass-v1:${glass.texels.join("x")}:${gain.toFixed(4)}` : "hq-screen-texture-v2");
+  material.customProgramCacheKey = () =>
+    glass ? `hq-screen-glass-v1:${glass.texels.join("x")}:${gain.toFixed(4)}:${warm ? 1 : 0}` : `hq-screen-texture-v2:${warm ? 1 : 0}`;
   return material;
 }

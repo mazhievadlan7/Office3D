@@ -107,3 +107,54 @@ describe("sign-in page", () => {
     expect(blocked.status).toBe(429);
   });
 });
+
+describe("sign-in with a login name", () => {
+  const servers: http.Server[] = [];
+  afterEach(async () => {
+    await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => server.close(resolve))));
+  });
+
+  it("asks_for_login_and_password_and_greets_the_owner_once_signed_in", async () => {
+    const { server, request } = await serve(createAccessGate({ token: "secret-token", login: "Operator", ownerName: "Командир" }));
+    servers.push(server);
+    const post = (fields: Record<string, string>) =>
+      request("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ next: "/office", ...fields }).toString(),
+      });
+
+    const form = await (await request("/login")).text();
+    expect(form).toContain('name="login"');
+    expect(form).toContain('name="token"');
+
+    // A wrong login and a wrong password look the same from outside.
+    const wrongLogin = await post({ login: "someone", token: "secret-token" });
+    expect(wrongLogin.status).toBe(401);
+    const wrongPassword = await post({ login: "operator", token: "nope" });
+    expect(wrongPassword.status).toBe(401);
+    expect(await wrongLogin.text()).toContain("Неверный логин или пароль.");
+    expect(await wrongPassword.text()).toContain("Неверный логин или пароль.");
+
+    // The login name is not case sensitive.
+    const ok = await post({ login: "operator", token: "secret-token" });
+    expect(ok.status).toBe(303);
+    const cookies = ok.headers.get("set-cookie") ?? "";
+    expect(cookies).toMatch(/studio_session=[^;]+; Path=\/; HttpOnly/);
+    // The greeting marker: readable by the page (not HttpOnly), short-lived, the name only.
+    const greet = /hq_greet=([^;]*)((?:;[^,]*)*)/.exec(cookies);
+    expect(greet).not.toBeNull();
+    expect(decodeURIComponent(greet![1])).toBe("Командир");
+    expect(greet![2]).not.toMatch(/HttpOnly/);
+    expect(greet![2]).toMatch(/Max-Age=300/);
+    expect(cookies).not.toContain("secret-token");
+  });
+
+  it("keeps_the_token_only_form_without_a_login_name", async () => {
+    const { server, request } = await serve(createAccessGate({ token: "secret-token" }));
+    servers.push(server);
+    const form = await (await request("/login")).text();
+    expect(form).not.toContain('name="login"');
+    expect(form).toContain('name="token"');
+  });
+});

@@ -233,7 +233,8 @@ export function createWorkstationMaterials(screens: HqScreenHub | null): Worksta
   };
   const ledUniforms = {
     uTime,
-    uLedWorking: { value: linearColor(HQ_THEME.accent) },
+    // The warm strips read far brighter than red at the same value.
+    uLedWorking: { value: linearColor(HQ_THEME.deskLed).multiplyScalar(0.7) },
     uLedError: { value: linearColor(HQ_THEME.statusError) },
     uLedEmpty: { value: linearColor(HQ_THEME.accentDeep) },
   };
@@ -249,7 +250,7 @@ export function createWorkstationMaterials(screens: HqScreenHub | null): Worksta
       .replace("#include <common>", `#include <common>\n${SCREEN_FRAGMENT_HEADER}`)
       .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb = hqScreenColor();");
   };
-  screen.customProgramCacheKey = () => "hq-ws-screen-4";
+  screen.customProgramCacheKey = () => "hq-ws-screen-5";
 
   const led = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
   led.name = "hq-ws-led";
@@ -283,9 +284,9 @@ export function createWorkstationMaterials(screens: HqScreenHub | null): Worksta
   const desk = new THREE.MeshStandardMaterial({
     name: "hq-ws-desk",
     color: HQ_THEME.deskTop,
-    roughness: 1,
+    roughness: 0.7,
     metalness: 0,
-    envMapIntensity: 0.1,
+    envMapIntensity: 0.25,
   });
   const metal = new THREE.MeshStandardMaterial({
     name: "hq-ws-metal",

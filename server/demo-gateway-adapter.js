@@ -15,7 +15,9 @@ const LEAD_AGENT_ID = "main";
 const LEAD_AGENT_NAME = "AM7";
 const LEAD_ROLE = "Lead";
 
-const DEFAULT_AGENT_COUNT = 300;
+// The HQ's default hall has 332 desks (10 whole rows) plus AM7's island:
+// 333 agents fill every seat with none left empty.
+const DEFAULT_AGENT_COUNT = 333;
 const MIN_AGENT_COUNT = 1;
 const MAX_AGENT_COUNT = 1000;
 
@@ -81,19 +83,23 @@ const ROLE_LABELS = {
   Reporting: "Отчётность",
 };
 
-// Call signs: short, Latin, no trailing digits (a number suffix makes them
-// unique past the end of the list), at most 7 letters so "Name12" fits in 10.
-const CALL_SIGNS = [
-  "Nyx", "Vex", "Kade", "Rune", "Mika", "Juno", "Orion", "Lyra", "Echo", "Nova",
-  "Zed", "Ash", "Sol", "Iris", "Pixel", "Byte", "Atlas", "Cleo", "Dex", "Ember",
-  "Finn", "Gale", "Halo", "Ion", "Jett", "Kai", "Lumen", "Milo", "Neo", "Onyx",
-  "Pax", "Quill", "Rex", "Sage", "Tess", "Uma", "Vega", "Wren", "Xan", "Yuki",
-  "Zara", "Arlo", "Blaze", "Cyra", "Drift", "Enzo", "Flux", "Glyph", "Hex", "Indy",
-  "Jinx", "Koda", "Lux", "Moss", "Nico", "Opal", "Pike", "Rook", "Skye", "Talon",
-  "Umbra", "Volt", "Wisp", "Xeno", "Yara", "Zephyr", "Axel", "Bolt", "Cove", "Dune",
-  "Elio", "Fern", "Grit", "Haze", "Ivo", "Jade", "Kit", "Lark", "Mako", "Nash",
-  "Otto", "Pip", "Quinn", "Rae", "Shay", "Tao", "Ula", "Vim", "Wynn", "Yves",
-  "Zoe", "Aria", "Bram", "Cass", "Dax", "Eos", "Fox",
+// Call signs are hacker / APT-style handles: an upper-case Latin root plus a
+// hex unit tag, e.g. "WRAITH-1F". The roots are a fixed pool; the tag is the
+// agent's index in hex, so every handle is unique and stable per id. The lead
+// keeps its own name (AM7).
+const CALLSIGN_ROOTS = [
+  "WRAITH", "SPECTER", "VOID", "NYX", "OBSIDIAN", "VANTA", "RAVEN", "CIPHER",
+  "VECTOR", "PHANTOM", "HALON", "KRAKEN", "BASILISK", "COBALT", "ONYX", "HELIX",
+  "RIFT", "NULL", "GLITCH", "DAEMON", "KERNEL", "SABLE", "UMBRA", "TEMPEST",
+  "VIPER", "LOCUST", "MANTIS", "HORNET", "SCARAB", "WIDOW", "REVENANT", "SHADE",
+  "GRIM", "EMBER", "FROST", "STATIC", "SURGE", "PULSE", "QUASAR", "PROXY",
+  "PAYLOAD", "SPOOF", "ROOTKIT", "BLACKOUT", "OVERRIDE", "SEVER", "HOLLOW", "DUSK",
+  "NOCturne".toUpperCase(), "ABYSS", "CINDER", "IRONCLAD", "MIRAGE", "VENOM", "TALON", "RIPTIDE",
+  "GALLOWS", "MONOLITH", "OBELISK", "SENTINEL", "WARDEN", "ORACLE", "HAVOC", "FALLOUT",
+  "MERIDIAN", "ZENITH", "VORTEX", "CRYPT", "SABOTAGE", "SIPHON", "BREACH", "GHOST",
+  "SHROUD", "NIGHTFALL", "BLACKICE", "DEADBOLT", "TRIPWIRE", "SNARE", "VANDAL", "HEXFALL",
+  "COLDSTEEL", "REDLINE", "DARKMATTER", "SILENCE", "OMEN", "REQUIEM", "PARIAH", "WITHER",
+  "SCORCH", "BLIGHT", "RAZOR", "VELVET", "IRONHIDE", "STORMbreak".toUpperCase(), "NULLSET", "ZERODAY",
 ];
 
 // What each role says and does. Ambient tasks arrive in the office as user
@@ -318,7 +324,7 @@ const roleLabel = (role) => ROLE_LABELS[role] || role;
 const profileFor = (role) => ROLE_PROFILES[role] || GENERIC_PROFILE;
 
 /**
- * DEMO_AGENT_COUNT as a team size: 300 when unset or unreadable, clamped to 1..1000.
+ * DEMO_AGENT_COUNT as a team size: 333 when unset or unreadable (every desk of the HQ filled), clamped to 1..1000.
  * @param {unknown} value
  * @returns {number}
  */
@@ -327,6 +333,19 @@ function resolveAgentCount(value) {
     typeof value === "number" ? Math.trunc(value) : parseInt(String(value ?? "").trim(), 10);
   if (!Number.isFinite(parsed)) return DEFAULT_AGENT_COUNT;
   return clamp(parsed, MIN_AGENT_COUNT, MAX_AGENT_COUNT);
+}
+
+/**
+ * A hacker/APT handle for the agent at `index` (1-based): a root from the pool
+ * plus the index as an upper-case hex tag, e.g. index 31 -> "VOID-1F". Unique
+ * and stable per index; roots repeat with different tags past the pool length.
+ * @param {number} index
+ * @returns {string}
+ */
+function callSign(index) {
+  const root = CALLSIGN_ROOTS[(index - 1) % CALLSIGN_ROOTS.length];
+  const tag = index.toString(16).toUpperCase().padStart(2, "0");
+  return `${root}-${tag}`;
 }
 
 /**
@@ -339,26 +358,11 @@ function buildDemoTeam(count) {
   const team = [
     { id: LEAD_AGENT_ID, name: LEAD_AGENT_NAME, role: LEAD_ROLE, workspace: `/demo/${LEAD_AGENT_ID}` },
   ];
-  // The first pass uses the call signs as they are; later passes pair each one
-  // with another (no digits in names), up to 10 letters, never repeating.
-  const used = new Set(CALL_SIGNS.map((sign) => sign.toLowerCase()));
   for (let index = 1; index < total; index += 1) {
-    const slot = (index - 1) % CALL_SIGNS.length;
-    const base = CALL_SIGNS[slot];
-    const round = Math.floor((index - 1) / CALL_SIGNS.length);
-    let name = base;
-    for (let step = round; round > 0; step += 1) {
-      const candidate = `${base}${CALL_SIGNS[(slot + step) % CALL_SIGNS.length]}`;
-      if (candidate.length <= 10 && !used.has(candidate.toLowerCase())) {
-        name = candidate;
-        used.add(candidate.toLowerCase());
-        break;
-      }
-    }
     const id = `agent-${String(index).padStart(3, "0")}`;
     team.push({
       id,
-      name,
+      name: callSign(index),
       role: TEAM_ROLES[(index - 1) % TEAM_ROLES.length],
       workspace: `/demo/${id}`,
     });

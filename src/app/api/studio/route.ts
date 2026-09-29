@@ -38,13 +38,34 @@ export async function GET() {
   }
 }
 
+const invalidSettingsResponse = () =>
+  NextResponse.json({ error: t("apiStudio.invalidSettings") }, { status: 400 });
+
+// A page reload / HMR that aborts the (large) PUT mid-flight leaves a truncated
+// body. That is a client-side condition: answer 400 and log one short line.
+const logUnreadableBody = (reason: string) => {
+  console.warn(`[studio] ignoring settings save with an unreadable request body: ${reason}`);
+};
+
 export async function PUT(request: Request) {
+  let rawBody: string;
   try {
-    const rawBody = await request.text();
-    if (!rawBody.trim()) {
-      return NextResponse.json({ error: t("apiStudio.invalidSettings") }, { status: 400 });
-    }
-    const body = JSON.parse(rawBody) as unknown;
+    rawBody = await request.text();
+  } catch (err) {
+    logUnreadableBody(err instanceof Error ? err.message : String(err));
+    return invalidSettingsResponse();
+  }
+  if (!rawBody.trim()) {
+    return invalidSettingsResponse();
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody) as unknown;
+  } catch (err) {
+    logUnreadableBody(err instanceof Error ? err.message : String(err));
+    return invalidSettingsResponse();
+  }
+  try {
     if (!isPatch(body)) {
       return NextResponse.json({ error: t("apiStudio.invalidSettings") }, { status: 400 });
     }

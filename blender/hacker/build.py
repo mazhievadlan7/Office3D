@@ -12,6 +12,8 @@ Options:
   --props               add the reference workstation (chair, desk, keyboard,
                         mouse, monitors) to the preview scene
   --report CLIP         print per-frame world positions of feet, hands and head
+  --no-mask             leave the fabric face mask off (outfit.MASK); the
+                        exported character wears it
 
 Workstation contract (character root = chair centre on the floor, facing -Y):
   seat top z=0.47 (seat centre y=+0.02), backrest from y=+0.24
@@ -30,10 +32,14 @@ sys.path.insert(0, HERE)
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 import body  # noqa: E402
+import outfit  # noqa: E402
 import pose  # noqa: E402
 import rig  # noqa: E402
 
 CLIP_ORDER = ["idle", "walk", "sit_type", "sit_idle", "talk", "stand_type"]
+# Clips added after the original eight, built last in this order (Push = HQ_CLIPS code 8).
+# The GLB lists actions by name either way; the app looks clips up by name.
+CLIP_LAST = ["push"]
 
 
 def parse_args():
@@ -56,6 +62,8 @@ def parse_args():
             opts["export"] = False
         elif a == "--props":
             opts["props"] = True
+        elif a == "--no-mask":
+            opts["mask"] = False
         elif a == "--report":
             opts["report"] = argv[i + 1]; i += 1
         i += 1
@@ -75,7 +83,8 @@ def available_clips():
     for fn in sorted(os.listdir(adir)):
         if fn.endswith(".py") and not fn.startswith("_"):
             names.append(fn[:-3])
-    ordered = [n for n in CLIP_ORDER if n in names] + [n for n in names if n not in CLIP_ORDER]
+    rest = [n for n in names if n not in CLIP_ORDER and n not in CLIP_LAST]
+    ordered = [n for n in CLIP_ORDER if n in names] + rest + [n for n in CLIP_LAST if n in names]
     return ordered
 
 
@@ -83,6 +92,7 @@ def build_clips(arm, only=None):
     sys.path.insert(0, os.path.join(HERE, "anims"))
     animator = pose.Animator(arm)
     built = []
+    checks = []
     for name in available_clips():
         if only and name not in only:
             continue
@@ -93,6 +103,12 @@ def build_clips(arm, only=None):
         animator.finish()
         built.append(act)
         print(f"[clip] {mod.NAME}: {mod.FRAMES} frames")
+        if hasattr(mod, "check"):
+            checks.append((mod, act))
+    # Clips with a contract to meet (e.g. Push's palms on the cart's grip) measure
+    # themselves on the evaluated rig once everything is keyed.
+    for mod, act in checks:
+        mod.check(bpy.context.scene, arm, act)
     # Leave the armature in rest pose with no active action, so the export
     # does not bake one clip into the rest pose.
     arm.animation_data.action = None
@@ -280,6 +296,7 @@ def report(scene, arm, clip):
 
 def main():
     opts = parse_args()
+    outfit.MASK = opts.get("mask", True)
     scene = reset_scene()
     arm = rig.build_armature()
     body.build_body(arm)

@@ -13,6 +13,10 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic, X } from "lucide-react";
 import type { HqAgentInput } from "@/features/hq/core/types";
 import { HQ_LEAD_AGENT_NAME } from "@/features/hq/core/config";
+import {
+  describeMaintenanceLogEvent,
+  type HqMaintenanceLogEvent,
+} from "@/features/hq/maintenance/maintenanceStatus";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
@@ -187,6 +191,14 @@ import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
 import { t } from "@/lib/i18n";
 import { messageRoleLabel } from "@/lib/i18n/labels";
+import type { HqBriefing } from "@/features/hq/HqOffice";
+import { hqTimeZone } from "@/features/hq/core/hqTime";
+import { hqGreetingOpening, hqGreetingStatus } from "@/lib/office/greeting";
+import { hqSoundOn } from "@/features/hq/core/soundPreference";
+import { prepareSystemSpeech, speakAgent, speakSystem, type PreparedSpeech } from "@/lib/voice/systemVoice";
+
+/** Without an opening fly-through, the greeting starts this long after the page (ms). */
+const GREET_WITHOUT_INTRO_MS = 30_000;
 
 // The 3D HQ is client-only: three.js and its loaders never run on the server.
 const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mod.HqOffice), {
@@ -829,6 +841,8 @@ export function OfficeScreen({
   const { state, dispatch, hydrateAgents, setError, setLoading } =
     useAgentStore();
   const [agentsLoaded, setAgentsLoaded] = useState(false);
+  // The team as the gateway reports it has loaded (not the offline demo seed).
+  const [rosterFromGateway, setRosterFromGateway] = useState(false);
   const [didAttemptGatewayConnect, setDidAttemptGatewayConnect] = useState(false);
   const [showDelayedGatewayLoadingOverlay, setShowDelayedGatewayLoadingOverlay] =
     useState(false);
@@ -853,6 +867,10 @@ export function OfficeScreen({
   );
   const gatewayConfigSnapshot = useRef<GatewayModelPolicySnapshot | null>(null);
   const loadAgentsInFlightRef = useRef<Promise<void> | null>(null);
+  // True while the roster is only the offline demo seed (AM7 alone, shown
+  // before the gateway connects): it counts as loaded for the offline office,
+  // but the real team must still be fetched the moment the gateway connects.
+  const rosterIsPlaceholderRef = useRef(false);
   const connectionEpochRef = useRef(0);
   const lastLoadAgentsStartedAtRef = useRef(0);
   const lastGatewayActivityAtRef = useRef(0);
@@ -1066,6 +1084,7 @@ export function OfficeScreen({
     enqueue: enqueueVoiceReply,
     preview: previewVoiceReply,
     stop: stopVoiceReplyPlayback,
+    playing: voiceReplyPlaying,
   } = useVoiceReplyPlayback({
     enabled: voiceRepliesEnabled,
     provider: voiceRepliesPreference.provider,
@@ -1306,6 +1325,8 @@ export function OfficeScreen({
           console.info("[office-debug] Reconciled agent state.", debugCollector);
         }
         lastGatewayActivityAtRef.current = Date.now();
+        rosterIsPlaceholderRef.current = false;
+        setRosterFromGateway(true);
         setAgentsLoaded(true);
       } finally {
         if (!options?.silent) {
@@ -1855,7 +1876,9 @@ export function OfficeScreen({
   );
 
   useEffect(() => {
-    if (status !== "connected" || agentsLoaded) return;
+    if (status !== "connected") return;
+    // Loaded already, unless all we have is the offline demo seed.
+    if (agentsLoaded && !rosterIsPlaceholderRef.current) return;
     void loadAgents({ forceSettings: true });
   }, [agentsLoaded, loadAgents, status]);
 
@@ -1886,6 +1909,7 @@ export function OfficeScreen({
       if (stateRef.current.agents.length === 0) {
         if (selectedAdapterType === "demo") {
           hydrateAgents([createDemoMainAgentSeed()], MAIN_AGENT_ID);
+          rosterIsPlaceholderRef.current = true;
           setAgentsLoaded(true);
         } else {
           setAgentsLoaded(false);
@@ -1902,6 +1926,7 @@ export function OfficeScreen({
     if (status !== "disconnected") return;
     if (state.agents.length > 0) return;
     hydrateAgents([createDemoMainAgentSeed()], MAIN_AGENT_ID);
+    rosterIsPlaceholderRef.current = true;
     setAgentsLoaded(true);
   }, [hydrateAgents, selectedAdapterType, state.agents.length, status]);
 
@@ -2182,6 +2207,8 @@ export function OfficeScreen({
     agents: state.agents,
     runLog,
     standup: standupController,
+    // The capture debug is only shown in the OpenClaw console.
+    captureDebugEnabled: showOpenClawConsole,
   });
   const ingestTaskBoardEvent = taskBoard.ingestGatewayEvent;
   taskBoardEventHandlerRef.current = ingestTaskBoardEvent;
@@ -2822,6 +2849,79 @@ export function OfficeScreen({
     [focusedChatAgent, sendVoicePayloadToAgent],
   );
 
+  // A voice command to the whole team becomes a briefing in the HQ: the
+  // tribune rises, AM7 walks to it, everyone stands at their desk (running
+  // back to it if away), AM7's answer goes up on the wall and is spoken once
+  // he stands behind the tribune. It ends a few seconds after it was heard.
+  const [hqBriefing, setHqBriefing] = useState<HqBriefing | null>(null);
+  const hqBriefingRef = useRef<HqBriefing | null>(null);
+  const briefingSpokeRef = useRef(false);
+  // The briefing AM7 has reached the tribune for (the HQ reports it once).
+  const [hqArrivedId, setHqArrivedId] = useState<string | null>(null);
+  const hqArrivedRef = useRef<string | null>(null);
+  // AM7's answer, waiting for him to reach the tribune before it is spoken.
+  const pendingBriefingSpeechRef = useRef<{ id: string; text: string } | null>(null);
+  useEffect(() => {
+    hqBriefingRef.current = hqBriefing;
+  }, [hqBriefing]);
+  const startHqBriefing = useCallback((task: string) => {
+    briefingSpokeRef.current = false;
+    pendingBriefingSpeechRef.current = null;
+    const next: HqBriefing = { id: `briefing-${Date.now().toString(36)}`, task, reply: "", speaking: false };
+    hqBriefingRef.current = next;
+    setHqBriefing(next);
+  }, []);
+  useEffect(() => {
+    // AM7's answer is spoken while the voice plays and the answer has arrived.
+    setHqBriefing((current) => {
+      if (!current) return current;
+      const speaking = voiceReplyPlaying && Boolean(current.reply);
+      if (speaking) briefingSpokeRef.current = true;
+      return current.speaking === speaking ? current : { ...current, speaking };
+    });
+  }, [voiceReplyPlaying]);
+  useEffect(() => {
+    if (!hqBriefing || hqBriefing.speaking) return;
+    const voiced = voiceRepliesLoaded && voiceRepliesEnabled;
+    const reply = hqBriefing.reply;
+    // No answer yet: wait for it (two minutes at most). AM7 not behind the
+    // tribune yet: wait for him (the answer is spoken from there). Then:
+    // voiced, a few seconds after it was heard (or if its voice never starts);
+    // unvoiced, reading time.
+    const delay = !reply
+      ? 120_000
+      : hqArrivedId !== hqBriefing.id
+        ? 90_000
+        : briefingSpokeRef.current
+        ? 5_000
+        : voiced
+          ? 25_000
+          : Math.min(60_000, Math.max(10_000, reply.length * 70));
+    const id = hqBriefing.id;
+    const timer = window.setTimeout(() => {
+      setHqBriefing((current) => (current && current.id === id ? null : current));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [hqBriefing, hqArrivedId, voiceRepliesEnabled, voiceRepliesLoaded]);
+
+  // After a sign-in the server leaves a short-lived hq_greet cookie (the name
+  // to greet, server/access-gate.js): once the team has loaded, the HQ system
+  // (not an agent) greets the operator by name, out loud only — the date and
+  // time, unread news, operations and security. The cookie is cleared at once.
+  const greetNameRef = useRef<string | null>(null);
+  useEffect(() => {
+    const match = /(?:^|;\s*)hq_greet=([^;]*)/.exec(document.cookie);
+    if (!match) return;
+    document.cookie = "hq_greet=; Max-Age=0; Path=/; SameSite=Lax";
+    let name = "";
+    try {
+      name = decodeURIComponent(match[1]);
+    } catch {
+      name = "";
+    }
+    greetNameRef.current = name === "-" ? "" : name;
+  }, []);
+
   // Hold Alt to talk to the main agent; Alt+Shift to address the whole team,
   // each of whom answers in their own voice.
   const voiceTargetRef = useRef<"main" | "all">("main");
@@ -2830,6 +2930,7 @@ export function OfficeScreen({
     async (payload: VoiceSendPayload) => {
       const transcript = await transcribeVoicePayload(payload);
       if (!transcript) return;
+      startHqBriefing(transcript);
       const team = state.agents.filter((agent) => !isRemoteOfficeAgentId(agent.agentId));
       if (team.length === 0) throw new Error(t("office.targetNotFound"));
       for (const agent of team) {
@@ -2838,7 +2939,7 @@ export function OfficeScreen({
         await handleChatSend(agent.agentId, agent.sessionKey, `${transcript}\n\n${note}`);
       }
     },
-    [handleChatSend, state.agents, transcribeVoicePayload],
+    [handleChatSend, startHqBriefing, state.agents, transcribeVoicePayload],
   );
   const {
     state: mainVoiceState,
@@ -2861,7 +2962,94 @@ export function OfficeScreen({
     },
   });
 
+  /** Speaks AM7's briefing answer: in the office's reply voice, else (HQ sound on) straight out. */
+  const speakBriefingReply = useCallback(
+    (id: string, text: string) => {
+      if (voiceRepliesLoaded && voiceRepliesEnabled) {
+        enqueueVoiceReply({ text, provider: voiceRepliesPreference.provider, voiceId: voiceForAgent(MAIN_AGENT_ID) });
+        return;
+      }
+      // AM7 answers the floor out loud even with the office's voice replies
+      // off, as long as the HQ's sound is on.
+      if (!hqSoundOn()) return;
+      const mark = (speaking: boolean) =>
+        setHqBriefing((current) => (current && current.id === id ? { ...current, speaking } : current));
+      mark(true);
+      void speakAgent(text, { voiceId: voiceForAgent(MAIN_AGENT_ID), speed: voiceRepliesPreference.speed }).then(
+        (spoken) => {
+          if (spoken) briefingSpokeRef.current = true;
+          mark(false);
+        },
+      );
+    },
+    [enqueueVoiceReply, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference],
+  );
+  /**
+   * AM7's first answer at a briefing: up on the wall at once, spoken once he
+   * stands behind the tribune. False when there is no briefing waiting for one.
+   */
+  const takeBriefingReply = useCallback(
+    (text: string): boolean => {
+      const briefing = hqBriefingRef.current;
+      if (!briefing || briefing.reply) return false;
+      const id = briefing.id;
+      hqBriefingRef.current = { ...briefing, reply: text };
+      setHqBriefing((current) => (current && current.id === id && !current.reply ? { ...current, reply: text } : current));
+      if (hqArrivedRef.current === id) speakBriefingReply(id, text);
+      else pendingBriefingSpeechRef.current = { id, text };
+      return true;
+    },
+    [speakBriefingReply],
+  );
+  const handleLeadAtTribune = useCallback(
+    (id: string) => {
+      hqArrivedRef.current = id;
+      setHqArrivedId(id);
+      const pending = pendingBriefingSpeechRef.current;
+      if (pending && pending.id === id) {
+        pendingBriefingSpeechRef.current = null;
+        speakBriefingReply(id, pending.text);
+      }
+    },
+    [speakBriefingReply],
+  );
+  // The archive cart and the maintenance service, as console lines: who took
+  // the cart out and what it freed, a run with nothing to take out, and the dev
+  // server's memory when it needs a restart. The cart parking stays quiet.
+  const handleHqArchiveEvent = useCallback((event: HqMaintenanceLogEvent) => {
+    const line = describeMaintenanceLogEvent(event);
+    if (!line) return;
+    const entry = createOpenClawLogEntry({
+      eventName: "hq-archive",
+      eventKind: "derived",
+      summary: line,
+      payload: event,
+    });
+    setOpenClawLogEntries((previous) =>
+      [...previous, entry].slice(-MAX_OPENCLAW_LOG_ENTRIES),
+    );
+  }, []);
+  useEffect(() => {
+    // Development aid: start a briefing without a microphone, e.g.
+    // window.__hqBriefing("Проверить периметр", "Цель: … План: …").
+    if (process.env.NODE_ENV === "production") return;
+    const w = window as unknown as { __hqBriefing?: (task: string, reply?: string) => void };
+    w.__hqBriefing = (task: string, reply?: string) => {
+      startHqBriefing(task);
+      if (reply) takeBriefingReply(reply);
+    };
+    return () => {
+      delete w.__hqBriefing;
+    };
+  }, [startHqBriefing, takeBriefingReply]);
+
   useFinalizedAssistantReplyListener(state.agents, ({ agentId, text }) => {
+    if (hqBriefingRef.current) {
+      // At a briefing AM7's first answer goes up on the screens; the rest of
+      // the team answers in their chats, not all out loud at once.
+      if (agentId !== MAIN_AGENT_ID) return;
+      if (takeBriefingReply(text)) return;
+    }
     if (!voiceRepliesLoaded || !voiceRepliesEnabled) return;
     enqueueVoiceReply({
       text,
@@ -3081,6 +3269,81 @@ export function OfficeScreen({
       })),
     [officeAgents, remoteOfficeAgents],
   );
+  // The greeting is composed a moment after the team has loaded, so the
+  // statuses it reports have arrived (the same ones the HQ's counters show).
+  const greetAgentsRef = useRef({ hq: hqAgents, all: state.agents });
+  useEffect(() => {
+    greetAgentsRef.current = { hq: hqAgents, all: state.agents };
+  }, [hqAgents, state.agents]);
+  // The system speaks in the office's own voice (not AM7's), treated to sound synthetic.
+  const greetVoiceRef = useRef<string | null>(voiceRepliesPreference.voiceId ?? null);
+  useEffect(() => {
+    greetVoiceRef.current = voiceRepliesPreference.voiceId ?? null;
+  }, [voiceRepliesPreference.voiceId]);
+  // The greeting, in step with the opening fly-through. The opening (the
+  // welcome, today's date and the time) is fetched as soon as the page knows
+  // it is a fresh sign-in and starts with the camera; the status report
+  // (unread, operations, security) follows once the opening has finished and
+  // the whole team has loaded, in the same voice. Silent while the HQ's sound
+  // is off; if the browser holds sound back, it plays at the first click.
+  const greetOpeningRef = useRef<PreparedSpeech | null>(null);
+  const greetVoiceUsedRef = useRef<string | null>(null);
+  const greetStartedRef = useRef(false);
+  const greetStatusSpokenRef = useRef(false);
+  const [greetOpeningDone, setGreetOpeningDone] = useState(false);
+  useEffect(() => {
+    const name = greetNameRef.current;
+    if (name === null || greetOpeningRef.current) return;
+    if (!hqSoundOn()) {
+      greetNameRef.current = null;
+      return;
+    }
+    greetVoiceUsedRef.current = greetVoiceRef.current;
+    greetOpeningRef.current = prepareSystemSpeech(
+      hqGreetingOpening({ name, now: new Date(), timeZone: hqTimeZone() }).join(" "),
+      { voiceId: greetVoiceUsedRef.current },
+    );
+  }, []);
+  useEffect(() => {
+    const opening = greetOpeningRef.current;
+    if (!opening || greetStartedRef.current) return;
+    const start = () => {
+      if (greetStartedRef.current) return;
+      greetStartedRef.current = true;
+      void opening.play().finally(() => setGreetOpeningDone(true));
+    };
+    if (hqIntroPlaying) {
+      start();
+      return;
+    }
+    // No fly-through (another view, or it never starts): speak anyway.
+    const timer = window.setTimeout(start, GREET_WITHOUT_INTRO_MS);
+    return () => window.clearTimeout(timer);
+  }, [hqIntroPlaying]);
+  useEffect(() => {
+    if (!greetOpeningDone || greetStatusSpokenRef.current) return;
+    if (!rosterFromGateway || status !== "connected") return;
+    greetStatusSpokenRef.current = true;
+    greetNameRef.current = null;
+    const { hq, all } = greetAgentsRef.current;
+    let working = 0;
+    let errors = 0;
+    for (const agent of hq) {
+      if (agent.status === "working") working += 1;
+      else if (agent.status === "error") errors += 1;
+    }
+    const lines = hqGreetingStatus({
+      name: "",
+      now: new Date(),
+      timeZone: hqTimeZone(),
+      unread: all.filter((agent) => agent.hasUnseenActivity).length,
+      working,
+      idle: hq.length - working - errors,
+      errors,
+      connected: true,
+    });
+    void speakSystem(lines.join(" "), { voiceId: greetVoiceUsedRef.current });
+  }, [greetOpeningDone, rosterFromGateway, status]);
   const remoteMessagingAvailable =
     remoteOfficeSourceKind === "openclaw_gateway" &&
     remoteOfficeGatewayUrl.trim().length > 0;
@@ -3393,6 +3656,9 @@ export function OfficeScreen({
           onOpenSettings={() => setSettingsOpen((open) => !open)}
           onOpenCombat={() => setCombatOpen(true)}
           onIntroChange={setHqIntroPlaying}
+          briefing={hqBriefing}
+          onLeadAtTribune={handleLeadAtTribune}
+          onArchiveEvent={handleHqArchiveEvent}
         />
         {jukeboxOpen ? (
           soundclawReady ? (

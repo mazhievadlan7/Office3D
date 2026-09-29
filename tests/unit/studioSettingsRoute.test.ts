@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET, PUT } from "@/app/api/studio/route";
 
@@ -100,6 +100,49 @@ describe("studio settings route", () => {
     expect(response.status).toBe(400);
     expect(typeof body.error).toBe("string");
     expect(body.error?.length).toBeGreaterThan(0);
+  });
+
+  it("PUT returns 400 for a truncated JSON body and logs one [studio] line", async () => {
+    tempDir = makeTempDir("studio-settings-put-truncated");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const full = JSON.stringify({ office: { "ws://example.test:1": { title: "Cut" } } });
+      const response = await PUT({
+        text: async () => full.slice(0, Math.floor(full.length / 2)),
+      } as unknown as Request);
+      const body = (await response.json()) as { error?: string };
+
+      expect(response.status).toBe(400);
+      expect(typeof body.error).toBe("string");
+      expect(body.error?.length).toBeGreaterThan(0);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(/^\[studio\] /);
+      expect(error).not.toHaveBeenCalled();
+      expect(fs.existsSync(path.join(tempDir, "office3d", "settings.json"))).toBe(false);
+    } finally {
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it("PUT returns 400 when reading the body fails (aborted request)", async () => {
+    tempDir = makeTempDir("studio-settings-put-aborted");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const response = await PUT({
+        text: async () => {
+          throw new Error("aborted");
+        },
+      } as unknown as Request);
+      expect(response.status).toBe(400);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(/^\[studio\] /);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("PUT persists a patch and GET returns merged settings", async () => {

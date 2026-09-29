@@ -1,19 +1,20 @@
 import * as THREE from "three";
 import { HQ_THEME } from "@/features/hq/core/config";
-import type { HqLayout, HqRect } from "@/features/hq/core/types";
+import type { HqLayout, HqProp, HqRect } from "@/features/hq/core/types";
 import type { FloorGlow } from "./floorGlow";
 import { GLSL_HQ_NOISE, GLSL_HQ_WORLD_VARYING, GLSL_HQ_WORLD_VERTEX, patchMaterial } from "./glsl";
 import { FLOOR_TILE, themeColor } from "./palette";
 
 // The floor: one plane, one MeshStandardMaterial. Tiles, the room insets
-// (AM7's office, meeting room carpet, rugs under the lounge groups, the
-// server room's raised floor) and the fake reflections are all procedural in
+// (AM7's island, meeting room carpet, rugs under the lounge groups, the
+// server rooms' raised floor) and the fake reflections are all procedural in
 // its fragment shader, so the whole floor is a single draw call with no
 // z-fighting overlays.
 
 /** Fixed array sizes keep a single shader program whatever the capacity. */
 const MAX_MEETING_ROOMS = 12;
-const MAX_RUGS = 12;
+const MAX_SERVER_ROOMS = 4;
+const MAX_RUGS = 16;
 /** Rug half extents in a coffee table's local frame (x across, z front-back). */
 const RUG_HALF = { x: 1.6, z: 1.65 };
 
@@ -26,8 +27,10 @@ export type FloorUniforms = {
   uHqTile: THREE.IUniform<number>;
   uHqGrout: THREE.IUniform<THREE.Color>;
   uHqAccent: THREE.IUniform<THREE.Color>;
+  /** AM7's zone: the circle inscribed in HqLayout.am7Office (x, z, radius; radius 0 = none). */
   uHqAm7: THREE.IUniform<THREE.Vector4>;
-  uHqServer: THREE.IUniform<THREE.Vector4>;
+  uHqServers: THREE.IUniform<THREE.Vector4[]>;
+  uHqServerCount: THREE.IUniform<number>;
   uHqMeeting: THREE.IUniform<THREE.Vector4[]>;
   uHqMeetingCount: THREE.IUniform<number>;
   uHqRugs: THREE.IUniform<THREE.Vector4[]>;
@@ -46,7 +49,8 @@ uniform float uHqTile;
 uniform vec3 uHqGrout;
 uniform vec3 uHqAccent;
 uniform vec4 uHqAm7;
-uniform vec4 uHqServer;
+uniform vec4 uHqServers[${MAX_SERVER_ROOMS}];
+uniform int uHqServerCount;
 uniform vec4 uHqMeeting[${MAX_MEETING_ROOMS}];
 uniform int uHqMeetingCount;
 uniform vec4 uHqRugs[${MAX_RUGS}];
@@ -70,6 +74,42 @@ float hqLine(float d, float halfWidth, float aa) {
 }
 `;
 
+// Polished grey stone slabs with a fine grout; the zones
+// change the finish (the island glossier and darker, carpet in the meeting
+// rooms and under the lounge groups, a raised floor in the server rooms).
+const ZONES = /* glsl */ `
+// Slabs differ only a little in tone: a stronger spread reads as a checkerboard.
+hqTone = 0.94 + 0.1 * hqR1;
+if (hqZone == 1) {
+  hqTone *= 0.55;
+  hqRough = 0.12 + 0.06 * hqR2;
+  hqGloss = 1.25;
+  hqGrout *= 0.6;
+  // A thin red inlay tracing the island's rim.
+  float hqInlay = hqLine(abs(hqAm7Edge - 0.32), 0.008, hqAA);
+  hqEmissiveExtra += uHqAccent * hqInlay * 1.4;
+} else if (hqZone == 2 || hqZone == 3) {
+  // Carpet: no grout, fine fibre noise, matte and darker than the stone.
+  hqGrout = 0.0;
+  hqTone = hqZone == 2 ? 0.46 : 0.52;
+  hqStone = hqNoise(hqXZ * 38.0) * hqDetail * 0.8 + hqNoise(hqXZ * 3.0) * 0.4;
+  hqRough = 0.9;
+  hqGloss = 0.1;
+  hqSpecular = 0.3;
+  if (hqZone == 3) {
+    // Rug: a darker woven border band with a thin red thread inside it.
+    hqTone *= mix(0.65, 1.0, smoothstep(0.2, 0.24, hqRugEdge));
+    hqEmissiveExtra += uHqAccent * hqLine(abs(hqRugEdge - 0.3), 0.006, hqAA) * 0.5;
+  }
+} else if (hqZone == 4) {
+  // Raised floor: slightly lighter satin tiles, a dim red glow in the joints.
+  hqTone = 1.15 + 0.12 * hqR1;
+  hqRough = 0.36 + 0.1 * hqR2;
+  hqGloss = 0.7;
+  hqEmissiveExtra += uHqAccent * hqLine(hqEdge, 0.004, hqAA) * mix(0.08, 0.22, hqDetail);
+}
+`;
+
 // Runs after <color_fragment>: sets diffuse colour and keeps the zone data
 // for the roughness and emissive stages below (same scope in main()).
 const FRAGMENT_SURFACE = /* glsl */ `
@@ -78,19 +118,26 @@ float hqAA = max(length(fwidth(hqXZ)), 1e-4);
 // Beyond a few centimetres per pixel the fine detail would only shimmer.
 float hqDetail = 1.0 - smoothstep(0.015, 0.09, hqAA);
 
-// 0 main floor, 1 AM7 office, 2 meeting room carpet, 3 rug, 4 server room.
+// 0 main floor, 1 AM7's island, 2 meeting room carpet, 3 rug, 4 server room.
 int hqZone = 0;
 float hqRugEdge = 0.0;
+// Distance in from the rim of AM7's round zone (negative outside it).
+float hqAm7Edge = uHqAm7.z - distance(hqXZ, uHqAm7.xy);
+vec4 hqServerRect = vec4(0.0);
 for (int i = 0; i < ${MAX_RUGS}; i++) {
   if (i >= uHqRugCount) break;
   if (hqInRect(hqXZ, uHqRugs[i])) { hqZone = 3; hqRugEdge = hqRectEdge(hqXZ, uHqRugs[i]); break; }
 }
 if (hqZone == 0) {
-  if (hqInRect(hqXZ, uHqAm7)) {
+  if (uHqAm7.z > 0.0 && hqAm7Edge >= 0.0) {
     hqZone = 1;
-  } else if (hqInRect(hqXZ, uHqServer)) {
-    hqZone = 4;
   } else {
+    for (int i = 0; i < ${MAX_SERVER_ROOMS}; i++) {
+      if (i >= uHqServerCount) break;
+      if (hqInRect(hqXZ, uHqServers[i])) { hqZone = 4; hqServerRect = uHqServers[i]; break; }
+    }
+  }
+  if (hqZone == 0) {
     for (int i = 0; i < ${MAX_MEETING_ROOMS}; i++) {
       if (i >= uHqMeetingCount) break;
       if (hqInRect(hqXZ, uHqMeeting[i]) && hqRectEdge(hqXZ, uHqMeeting[i]) > 0.35) { hqZone = 2; break; }
@@ -101,13 +148,13 @@ if (hqZone == 0) {
 vec2 hqSize = vec2(uHqTile);
 vec2 hqP = hqXZ - uHqOrigin;
 if (hqZone == 1) {
-  // Large-format slabs in a running bond.
+  // Large-format slabs in a running bond, set out from the island's centre.
   hqSize = vec2(1.8, 0.9);
-  hqP -= uHqAm7.xy;
+  hqP = hqXZ - uHqAm7.xy;
   hqP.x += step(1.0, mod(floor(hqP.y / hqSize.y), 2.0)) * hqSize.x * 0.5;
 } else if (hqZone == 4) {
   hqSize = vec2(0.6);
-  hqP = hqXZ - uHqServer.xy;
+  hqP = hqXZ - hqServerRect.xy;
 }
 vec2 hqCell = hqP / hqSize;
 vec2 hqId = floor(hqCell);
@@ -131,64 +178,7 @@ float hqTone = 0.84 + 0.3 * hqR1;
 vec3 hqEmissiveExtra = vec3(0.0);
 vec3 hqBase = diffuseColor.rgb;
 
-// Every zone shares one look: a truly black, matte hacker floor with a sparse
-// red circuit. Zones differ only by their red accents and how dense the
-// circuit is, so the rooms still read as rooms.
-float hqCircCell = 1.1;
-float hqCircSeed = 3.7;
-if (hqZone == 1) {
-  // AM7's office: a finer circuit and a red inlay tracing the office outline.
-  hqCircCell = 0.7;
-  hqCircSeed = 17.3;
-  float hqInlay = hqLine(abs(hqRectEdge(hqXZ, uHqAm7) - 0.32), 0.008, hqAA);
-  hqEmissiveExtra += uHqAccent * hqInlay * 1.4;
-} else if (hqZone == 2) {
-  // Meeting rooms: a medium circuit.
-  hqCircCell = 0.9;
-  hqCircSeed = 29.1;
-} else if (hqZone == 3) {
-  // Rug: a thin red thread inside its border.
-  hqCircCell = 0.8;
-  hqCircSeed = 41.7;
-  hqEmissiveExtra += uHqAccent * hqLine(abs(hqRugEdge - 0.3), 0.006, hqAA) * 0.5;
-} else if (hqZone == 4) {
-  // Server room: a dim red glow in the raised-floor joints.
-  hqCircCell = 0.9;
-  hqCircSeed = 53.9;
-  hqEmissiveExtra += uHqAccent * hqLine(hqEdge, 0.004, hqAA) * mix(0.08, 0.22, hqDetail);
-}
-
-// Black and matte, with no specular at all: a dielectric still mirrors ~4 % of
-// the light whatever its colour, and under the bright even lighting that alone
-// lifted a near-black floor to grey. Near-zero albedo and no grout grid.
-hqBase = vec3(0.0025, 0.0022, 0.003);
-hqStone = 0.0;
-hqTone = 1.0;
-hqGrout = 0.0;
-hqRough = 1.0;
-hqGloss = 0.0;
-hqSpecular = 0.0;
-{
-  // A sparse printed-circuit look: most of the floor stays black. Traces run in
-  // long segments (three cells at a time) on a line that is offset per row or
-  // column, so it never reads as a regular grid, and a small pad marks where a
-  // horizontal and a vertical run cross. Dim, below the bloom: crisp, no glow.
-  float hqC = hqCircCell;
-  vec2 hqCl = floor(hqXZ / hqC);
-  vec2 hqF = hqXZ - hqCl * hqC;
-  float hqRowOff = (0.2 + 0.6 * hqHash12(vec2(hqCl.y, hqCircSeed))) * hqC;
-  float hqColOff = (0.2 + 0.6 * hqHash12(vec2(hqCl.x, hqCircSeed + 7.0))) * hqC;
-  float hqHOn = step(hqHash12(vec2(floor(hqCl.x / 3.0), hqCl.y + hqCircSeed * 3.1)), 0.26);
-  float hqVOn = step(hqHash12(vec2(hqCl.x + hqCircSeed * 5.3, floor(hqCl.y / 3.0))), 0.18);
-  float hqHLine = hqHOn * hqLine(abs(hqF.y - hqRowOff), 0.012, hqAA);
-  float hqVLine = hqVOn * hqLine(abs(hqF.x - hqColOff), 0.012, hqAA);
-  vec2 hqPd = abs(hqF - vec2(hqColOff, hqRowOff));
-  float hqPad = hqHOn * hqVOn * hqLine(max(hqPd.x, hqPd.y), 0.032, hqAA);
-  // Dimmer far off rather than gone, so the pattern still reads across the hall.
-  float hqFade = 0.5 + 0.5 * hqDetail;
-  hqEmissiveExtra += uHqAccent * ((hqHLine + hqVLine) * 0.24 + hqPad * 0.8) * hqFade;
-}
-
+${ZONES}
 hqBase *= hqTone * (0.9 + 0.2 * hqStone);
 diffuseColor.rgb = mix(hqBase, uHqGrout, hqGrout);
 `;
@@ -202,10 +192,28 @@ reflectedLight.directSpecular *= hqSpecular;
 reflectedLight.indirectSpecular *= hqSpecular;
 `;
 
-// No floor glow / reflections at all: the floor is black and matte, its only
-// light is the red hacker traces baked into hqEmissiveExtra above.
+// Fake reflections on the polished stone: taps
+// pushed away from the camera across the floor pick up glow from lights
+// further back, which is where a glossy floor would mirror them. Tap distance
+// scales with (horizontal distance / camera height), the geometry of a
+// reflection off a plane.
 const FRAGMENT_EMISSIVE = /* glsl */ `
-totalEmissiveRadiance += hqEmissiveExtra;
+{
+  vec3 hqToCam = cameraPosition - vHqWorld;
+  float hqCamH = max(hqToCam.y, 0.5);
+  float hqFlat = max(length(hqToCam.xz), 1e-3);
+  vec2 hqAway = -hqToCam.xz / hqFlat;
+  float hqReach = clamp(hqFlat / hqCamH, 0.15, 3.0);
+  vec3 hqRefl = hqGlowTap(hqXZ, 0.12) * 0.5;
+  hqRefl += hqGlowTap(hqXZ + hqAway * (0.3 * hqReach), 0.22) * 0.42;
+  hqRefl += hqGlowTap(hqXZ + hqAway * (0.8 * hqReach), 0.42) * 0.32;
+  hqRefl += hqGlowTap(hqXZ + hqAway * (1.6 * hqReach), 0.8) * 0.2;
+  hqRefl += hqGlowTap(hqXZ + hqAway * (2.9 * hqReach), 1.4) * 0.12;
+  float hqFresnel = 0.6 + 0.4 * pow(1.0 - clamp(hqCamH / length(hqToCam), 0.0, 1.0), 2.0);
+  float hqSheen = hqGloss * clamp(1.35 - roughnessFactor * 1.6, 0.1, 1.2);
+  totalEmissiveRadiance += hqRefl * (uHqGlowStrength * hqSheen * hqFresnel * (1.0 - hqGrout));
+  totalEmissiveRadiance += hqEmissiveExtra;
+}
 `;
 
 export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; uniforms: FloorUniforms } {
@@ -213,31 +221,30 @@ export function createFloorMaterial(): { material: THREE.MeshStandardMaterial; u
     uHqGlowMap: { value: null },
     uHqGlowRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     uHqGlowPpm: { value: 1 },
-    // The even (view-independent) floor glow strength: red under the LEDs and
-    // screens, the same from any camera angle.
-    uHqGlowStrength: { value: 0.55 },
+    // How strongly the stone mirrors the glow under the LEDs and screens.
+    uHqGlowStrength: { value: 0.95 },
     uHqOrigin: { value: new THREE.Vector2() },
     uHqTile: { value: FLOOR_TILE },
     uHqGrout: { value: themeColor(HQ_THEME.floorGrout) },
     uHqAccent: { value: themeColor(HQ_THEME.accent) },
-    uHqAm7: { value: new THREE.Vector4(1, 1, -1, -1) },
-    uHqServer: { value: new THREE.Vector4(1, 1, -1, -1) },
+    uHqAm7: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uHqServers: { value: Array.from({ length: MAX_SERVER_ROOMS }, () => new THREE.Vector4(1, 1, -1, -1)) },
+    uHqServerCount: { value: 0 },
     uHqMeeting: { value: Array.from({ length: MAX_MEETING_ROOMS }, () => new THREE.Vector4(1, 1, -1, -1)) },
     uHqMeetingCount: { value: 0 },
     uHqRugs: { value: Array.from({ length: MAX_RUGS }, () => new THREE.Vector4(1, 1, -1, -1)) },
     uHqRugCount: { value: 0 },
   };
+  // Polished stone that reflects its surroundings.
   const material = new THREE.MeshStandardMaterial({
     color: HQ_THEME.floor,
-    // Black and matte: no environment reflection and a very rough lobe, so the
-    // floor never mirrors the lights into a white glare that follows the view.
-    roughness: 0.95,
+    roughness: 0.25,
     metalness: 0,
-    envMapIntensity: 0,
+    envMapIntensity: 0.85,
   });
   material.name = "hq-floor";
   patchMaterial(material, {
-    key: "hq-floor-v1",
+    key: "hq-floor-v3",
     uniforms: uniforms as unknown as Record<string, THREE.IUniform>,
     vertexPars: GLSL_HQ_WORLD_VARYING,
     fragmentPars: FRAGMENT_PARS,
@@ -258,13 +265,21 @@ function rectToVec(r: HqRect, target: THREE.Vector4): THREE.Vector4 {
 
 export function applyLayoutToFloor(uniforms: FloorUniforms, layout: HqLayout): void {
   uniforms.uHqOrigin.value.set(layout.bounds.x0, layout.bounds.z0);
-  rectToVec(layout.am7Office, uniforms.uHqAm7.value);
-  rectToVec(layout.serverRoom, uniforms.uHqServer.value);
+  // AM7's round island: the circle inscribed in its bounding square.
+  const am7 = layout.am7Office;
+  const am7Radius = Math.max(0, Math.min(am7.x1 - am7.x0, am7.z1 - am7.z0) / 2);
+  uniforms.uHqAm7.value.set((am7.x0 + am7.x1) / 2, (am7.z0 + am7.z1) / 2, am7Radius, 0);
+  const servers = layout.serverRooms.slice(0, MAX_SERVER_ROOMS);
+  servers.forEach((r, i) => rectToVec(r, uniforms.uHqServers.value[i]));
+  uniforms.uHqServerCount.value = servers.length;
   const rooms = layout.meetingRooms.slice(0, MAX_MEETING_ROOMS);
   rooms.forEach((r, i) => rectToVec(r, uniforms.uHqMeeting.value[i]));
   uniforms.uHqMeetingCount.value = rooms.length;
-  // A rug under every lounge group, centred on its coffee table.
-  const tables = layout.props.filter((p) => p.kind === "coffee_table").slice(0, MAX_RUGS);
+  // A rug under every lounge group, centred on its coffee table; the lounges'
+  // tables come first, so every lounge keeps its rugs if there are too many.
+  const inLounge = (p: HqProp) => layout.lounges.some((r) => p.x >= r.x0 && p.x <= r.x1 && p.z >= r.z0 && p.z <= r.z1);
+  const coffee = layout.props.filter((p) => p.kind === "coffee_table");
+  const tables = [...coffee.filter(inLounge), ...coffee.filter((p) => !inLounge(p))].slice(0, MAX_RUGS);
   tables.forEach((p, i) => {
     const quarterTurn = Math.abs(Math.sin(p.rotY)) > 0.7;
     const hx = quarterTurn ? RUG_HALF.z : RUG_HALF.x;

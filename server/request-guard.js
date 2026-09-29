@@ -4,6 +4,8 @@
 //   (Origin equals Host), so another site open in the same browser cannot
 //   drive the office through the person's session (cross-site WebSocket
 //   hijacking). Clients that send no Origin (scripts) are not browsers.
+// - allowHttpOrigin: the same idea for state-changing HTTP endpoints that
+//   live outside Next (the maintenance run), stricter: same-origin only.
 // - Without an access token the office serves only loopback, and then only
 //   requests addressed to a loopback name are answered: a public DNS name
 //   rebound to 127.0.0.1 cannot read the office from another site.
@@ -23,6 +25,30 @@ const hostnameOf = (hostHeader) => {
 };
 
 const isLoopbackName = (name) => LOOPBACK_NAMES.has(name) || /^127\.\d+\.\d+\.\d+$/.test(name) || name.endsWith(".localhost");
+
+/**
+ * Whether a state-changing HTTP request comes from this site's own pages.
+ * Browsers send Sec-Fetch-Site, which pages cannot forge: when present it
+ * must be "same-origin". Otherwise the Origin's host must equal Host. A
+ * request with neither (a script, another site's form in an old browser) is
+ * refused. OFFICE3D_ALLOWED_ORIGINS does not apply here.
+ */
+const allowHttpOrigin = (req) => {
+  const headers = req?.headers ?? {};
+  const fetchSite = headers["sec-fetch-site"];
+  if (fetchSite !== undefined) return String(fetchSite).trim().toLowerCase() === "same-origin";
+  const origin = headers.origin;
+  if (origin === undefined || origin === null) return false;
+  let parsed;
+  try {
+    parsed = new URL(String(origin));
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  const host = String(headers.host ?? "").trim().toLowerCase();
+  return Boolean(host) && parsed.host.toLowerCase() === host;
+};
 
 /**
  * @param {object} [options]
@@ -48,7 +74,7 @@ const createRequestGuard = ({ allowedOrigins = [] } = {}) => {
   /** Whether a request is addressed to a loopback name (for the token-less local mode). */
   const addressedToLoopback = (req) => isLoopbackName(hostnameOf(req.headers?.host));
 
-  return { allowWebSocketOrigin, addressedToLoopback };
+  return { allowWebSocketOrigin, addressedToLoopback, allowHttpOrigin };
 };
 
 /**
@@ -80,4 +106,4 @@ const createTrustedProxies = ({ hosts, lookup = dns.promises.lookup, log = () =>
   return { isTrusted: (ip) => addresses.has(String(ip ?? "")), refresh, close: () => clearInterval(timer) };
 };
 
-module.exports = { createRequestGuard, createTrustedProxies, hostnameOf, isLoopbackName };
+module.exports = { allowHttpOrigin, createRequestGuard, createTrustedProxies, hostnameOf, isLoopbackName };

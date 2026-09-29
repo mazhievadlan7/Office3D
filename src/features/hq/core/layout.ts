@@ -1,25 +1,30 @@
 // Procedural floor plan of the HQ hall. Pure and deterministic: the same
 // capacity always yields the same layout, so desk indices can be persisted.
 //
-// Plan (north = -z is the tall back wall, west = -x the other back wall):
+// Plan (north = -z carries the video wall, west = -x):
 //
-//   +---------------------------------------------+------------+
-//   |  map plaza  (world map on the north wall)    | AM7 office |
-//   +-----------+---------------------------------+------------+
-//   | server    |                                               |
-//   +-----------+                                               |
-//   | meeting 1 |              pods of 4 desks                  |
-//   +-----------+       (aisles, avenues, server pillars)       |
-//   | meeting 2 |                                               |
-//   +-----------+                                               |
-//   | lounge +  |                                               |
-//   | coffee    |   (every west room is glass; the lounge has   |
-//   |           |    a door per seating group and one for coffee)
-//   +--entrance-+-----------------------------------------------+
+//   +--------+================ video wall ================+---------+
+//   | server |   map spots     ( AM7's island )  map spots |  rack   |
+//   |  room  |                  ( tribune )              | gallery |
+//   +--------+   \  \   \    stage walkway    /   /  /    +---------+
+//   | meet 1 |    \  \   \   rows of desks   /   /  /     | briefing|
+//   +--------+     \  \   \  on arcs, all   /   /  /      +---------+
+//   | meet 2 |      \  \   | facing the    |   /  /       | lounge  |
+//   +--------+       \  \  |  video wall   |  /  /        |    2    |
+//   | lounge |                                            |         |
+//   | coffee |   (every side room is glass; the lounges   |         |
+//   |        |    have a door per seating group)          |         |
+//   +--entr--+--------------------------------------------+---------+
+//
+// The rows form an amphitheatre round a centre just in front of the video
+// wall: every desk faces the wall, straight aisles run out from the stage
+// through the rows, and a walkway ring runs behind every row.
 
+import { buildArchiveStation } from "./archiveLayout";
 import { POD, WORKSTATION, type HqCapacity } from "./config";
 import { HqNavBuilder, nearestNode } from "./nav";
 import type {
+  HqArena,
   HqDesk,
   HqLayout,
   HqLoungeGroup,
@@ -39,22 +44,71 @@ const HALF_PI = Math.PI / 2;
 /** Lounge wall screens, group by group: the news first, then business, then radio. */
 const LOUNGE_CHANNELS = [HQ_WALL_SCREEN.news, HQ_WALL_SCREEN.markets, HQ_WALL_SCREEN.music] as const;
 
-/** Floor space behind a chair centre that belongs to its pod (chair pushed back). */
+/** Floor space behind a chair centre that belongs to its desk (chair pushed back). */
 export const HQ_CHAIR_CLEARANCE = 0.5;
-export const HQ_POD_WIDTH = POD.deskPitchX * 2;
-export const HQ_POD_DEPTH = POD.rowGap + HQ_CHAIR_CLEARANCE * 2;
-/** Wider aisle that splits big pod blocks into districts. */
-export const HQ_AVENUE = 4.2;
 export const HQ_WALL_HEIGHT = 5;
+/** The north wall is taller: it carries the (now larger) video wall. */
+export const HQ_NORTH_WALL_HEIGHT = 9;
 export const HQ_GLASS_HEIGHT = 2.8;
 export const HQ_DOOR_WIDTH = 1.2;
-const MAP_HEIGHT = 4.1;
-const MAP_BOTTOM = 0.6;
-const MAP_MAX_WIDTH = 40;
-const MAP_SHARE = 0.46;
 /** Longest edge between two aisle nodes. */
 const NAV_MAX_GAP = 3;
-const DESKS_PER_POD = 4;
+
+// --- Amphitheatre -------------------------------------------------------------
+/** Chair-centre radius step from one row to the next. */
+export const HQ_ROW_PITCH = 2.8;
+/** The walkway ring behind a row runs this far behind its chair centres. */
+export const HQ_RING_BEHIND = 1.1;
+/** Gap between the front corners of two desks side by side on an arc. */
+const DESK_GAP = 0.12;
+/** Half the width of a straight aisle through the rows, to the desks' edges. */
+const AISLE_HALF = 0.9;
+/** Widest half angle a row may span. */
+const MAX_HALF_SPAN = Math.PI / 3;
+/** Straight aisles from the stage out through the rows. */
+const RADIAL_AISLES = [-Math.PI / 6, 0, Math.PI / 6] as const;
+/**
+ * A desk reaches at most this far sideways past its chair centre's x (its
+ * back corner, at any angle), plus a margin: seat centres stay this far
+ * inside the floor between the side walkways.
+ */
+const DESK_SIDE_REACH = 1.3;
+/** A ring runs on past its row's end desk by about this much (metres) before it turns off. */
+const RING_RUN_OUT = 1.8;
+/** Samples along an arc so its chords stay close to the circle. */
+const ARC_STEP = 2.4;
+/** The rows' centre stands this far in front of the video wall. */
+const ARENA_CENTRE_OFFSET = 1.6;
+/** The walkway arc in front of the first row runs this far inside its chair radius. */
+const STAGE_INSIDE = 2.1;
+/** Walkway ring behind the last row to the south wall. */
+const BACK_MARGIN = 3.0;
+
+// --- Stage: AM7's island and the briefing tribune ------------------------------
+export const HQ_DECK_RADIUS = 3.3;
+/** Floor kept free round the tribune (radius): the stage's spacing, not its size. */
+export const HQ_TRIBUNE_CLEAR = 1.5;
+/** AM7 stands this far behind the tribune's centre to address the rows. */
+export const HQ_TRIBUNE_STAND = 0.9;
+const BALUSTRADE_HEIGHT = 1.05;
+/**
+ * Segments of the balustrade ring; the four round due north are left out (the
+ * way in, 3.3 m wide), and the two round due south (1.7 m, AM7's way down to
+ * the tribune).
+ */
+const BALUSTRADE_SEGMENTS = 24;
+/** Map spots stand this far in front of the video wall's ends. */
+const SPOTS_FROM_SCREEN = 1.0;
+/** The stage walkway runs this far south of the map spots. */
+const STAGE_LINE_FROM_SPOTS = 1.8;
+
+// --- Video wall ------------------------------------------------------------------
+const MAP_BOTTOM = 0.8;
+const MAP_HEIGHT = 7.4;
+const MAP_MAX_WIDTH = 60;
+/** How far the display's ends come forward, per metre of its width. */
+const MAP_CURVE_PER_WIDTH = 0.045;
+const MAP_MAX_CURVE = 2.6;
 
 // Soft seats (props.glb sofa and lounge_chair, blender/hq/props_furniture.py):
 // the seated root sits this far in front of the prop origin, 0.24 m in front
@@ -71,8 +125,6 @@ export const HQ_LOUNGE_CHAIR_SEAT_DEPTH = 0.195;
 export const HQ_SOFT_SEAT_AISLE = 0.85;
 /** Seat spacing along a sofa: one per cushion of its three. */
 const SOFA_SEAT_PITCH = 0.6;
-/** Width of one props.glb exec_shelf unit (blender/hq/props_tech.py). */
-const EXEC_SHELF_WIDTH = 2.0;
 /**
  * AM7's command-arc desk (props.glb exec_desk, blender/hq/props_exec.py) in
  * the seat frame (origin = chair centre, sitter facing +Z): a C round the
@@ -113,13 +165,36 @@ export const HQ_PROP_FOOTPRINT: Readonly<Record<HqPropKind, readonly [number, nu
   exec_shelf: [2.0, 0.4],
   wall_screen: [2.2, 0.05],
   floor_lamp: [0.39, 0.39],
+  tribune: [1.0, 0.87],
+  // The archive station's kinds are dynamic (HqLayout.archive), never in
+  // layout.props. The cart reaches 0.513 m ahead of its origin and 0.64 m
+  // behind it; its footprint here is the symmetric box round both.
+  archive_cart: [0.63, 1.28],
+  archive_cart_lit: [0, 0],
+  archive_cart_display_full: [0, 0],
+  archive_cart_display_empty: [0, 0],
+  archive_load_1: [0, 0],
+  archive_load_2: [0, 0],
+  archive_load_3: [0, 0],
+  archive_load_4: [0, 0],
+  archive_bay: [0.95, 1.4],
+  archive_bay_led_1: [0, 0],
+  archive_bay_led_2: [0, 0],
+  archive_bay_led_3: [0, 0],
+  archive_bay_led_4: [0, 0],
+  archive_chute: [0.7, 0.6],
+  archive_chute_shutter: [0, 0],
+  archive_chute_slot: [0, 0],
+  archive_case: [0, 0],
 };
 
-// Lounge seating group, in a frame of u = metres east of the lounge's west
-// wall and v = metres south of the group centre (its coffee table). Every seat
-// faces the table and has its nav node on one of four aisles around it,
-// HQ_SOFT_SEAT_AISLE in front of the seat; the south aisle leads east to the
-// group's door, with a standing spot on a short spur off that corridor.
+// Lounge seating group, in a frame of u = metres in from the lounge's outer
+// wall (west wall for the west lounge, east wall for the east one) and
+// v = metres south of the group centre (its coffee table). Every seat faces
+// the table and has its nav node on one of four aisles around it,
+// HQ_SOFT_SEAT_AISLE in front of the seat; the south aisle leads to the
+// group's door in the inner glass, with a standing spot on a short spur off
+// that corridor. Drawn for the west lounge; the east one is its mirror image.
 //
 //        lamp [======= sofa B =======]
 //        [s]  + - - north aisle - - -+- -+     spot (standing ring)
@@ -129,11 +204,11 @@ export const HQ_PROP_FOOTPRINT: Readonly<Record<HqPropKind, readonly [number, nu
 //        [A]  + - - south aisle - - -+ - - - - - - - + - - - door
 //    monolith        [chair S]
 const LOUNGE = {
-  /** Sofa A's origin from the west wall: its back 0.1 m off the wall. */
+  /** Sofa A's origin from the outer wall: its back 0.1 m off the wall. */
   sofaAU: 0.55,
   /** Aisle centre to table centre, across the table's 0.6 m width. */
   tableGap: 0.625,
-  /** Sofa B's centre east of the table's, so its west end clears the lamp. */
+  /** Sofa B's centre past the table's, so its outer end clears the lamp. */
   sofaBShift: 0.2,
   northAisleV: -1.0,
   southAisleV: 1.0,
@@ -145,52 +220,24 @@ const LOUNGE = {
   /** Coffee bar centre from the lounge's north glass; its monoliths either side. */
   coffeeV: 2.4,
   coffeeMonolith: 1.8,
-  /** Earliest first group centre from the north glass; group pitch range. */
+  /** Earliest first group centre from the north glass, after the coffee bar or without one. */
   firstGroup: 7.1,
+  firstGroupNoBar: 3.2,
   pitch: 5.3,
   maxPitch: 6,
   maxGroups: 4,
 } as const;
 
-type Tier = { westW: number; officeW: number; officeD: number };
+type Tier = { westW: number; eastW: number; halfWidth: number };
 
-// West column width and AM7 office size grow with the hall.
+// Side column widths and the half width of the floor the rows may use
+// (between the side walkways) grow with the hall.
 const TIERS: Record<HqCapacity, Tier> = {
-  100: { westW: 8, officeW: 9, officeD: 8 },
-  300: { westW: 11, officeW: 11, officeD: 9 },
-  1000: { westW: 11, officeW: 13, officeD: 10 },
+  100: { westW: 8, eastW: 8, halfWidth: 20 },
+  // Wide enough that every row is a whole arc (to MAX_HALF_SPAN): a full fan, no clipped corners.
+  300: { westW: 11, eastW: 9, halfWidth: 40 },
+  1000: { westW: 11, eastW: 11, halfWidth: 44 },
 };
-
-/** Picks the pod grid closest to a pleasant hall aspect with few empty slots. */
-function chooseGrid(pods: number): { cols: number; rows: number } {
-  let best = { cols: pods, rows: 1 };
-  let bestScore = Infinity;
-  for (let cols = 1; cols <= pods; cols++) {
-    const rows = Math.ceil(pods / cols);
-    const empty = rows * cols - pods;
-    const aspect = (cols * (HQ_POD_WIDTH + POD.aisle)) / (rows * (HQ_POD_DEPTH + POD.aisle));
-    const score = Math.abs(Math.log(aspect / 1.3)) + empty / cols;
-    if (score < bestScore - 1e-9) {
-      bestScore = score;
-      best = { cols, rows };
-    }
-  }
-  return best;
-}
-
-/** Gap widths between consecutive pod columns (or rows); big blocks get avenues. */
-function gapWidths(n: number): number[] {
-  const gaps: number[] = [];
-  for (let i = 0; i < n - 1; i++) gaps.push(POD.aisle);
-  if (n >= 10) {
-    const avenues = Math.floor((n - 1) / 6);
-    for (let k = 1; k <= avenues; k++) {
-      const after = Math.round((k * n) / (avenues + 1)) - 1;
-      if (after >= 0 && after < n - 1) gaps[after] = HQ_AVENUE;
-    }
-  }
-  return gaps;
-}
 
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 const round2 = (v: number) => Math.round(v * 100) / 100;
@@ -228,6 +275,40 @@ function makeSeat(
     navNode,
     podId,
   };
+}
+
+/** One row of the amphitheatre: seat angles (west to east) and the row's half span. */
+export type HqArenaRowPlan = { radius: number; span: number; angles: number[] };
+
+/**
+ * Seat angles of a row at chair radius `radius`: desks side by side on the
+ * arc with DESK_GAP between their front corners, a clear AISLE_HALF either
+ * side of every straight aisle, and no seat centre past `halfWidth -
+ * DESK_SIDE_REACH` from the centre line (so the desks stay off the side
+ * walkways). Each run between aisles is centred in its sector.
+ */
+export function planArenaRow(radius: number, halfWidth: number): HqArenaRowPlan {
+  const halfDesk = WORKSTATION.width / 2;
+  const inner = radius - WORKSTATION.deskBack;
+  const pitch = 2 * Math.atan((halfDesk + DESK_GAP / 2) / inner);
+  // Smallest angle between an aisle line and a seat centre whose desk's near
+  // edge (worst at its front corner) stays AISLE_HALF from the line.
+  const offset = Math.asin(Math.min(1, AISLE_HALF / Math.hypot(inner, halfDesk))) + Math.atan(halfDesk / inner);
+  const reach = halfWidth - DESK_SIDE_REACH;
+  const span = Math.min(MAX_HALF_SPAN, reach >= radius ? HALF_PI : Math.asin(Math.max(0, reach / radius)));
+  // An aisle just past the row's end still needs its clearance: it runs on
+  // outward, so it counts as a cut whenever a desk could reach it.
+  const cuts = [-span, ...RADIAL_AISLES.filter((a) => Math.abs(a) < span + offset), span];
+  const angles: number[] = [];
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const lo = Math.max(-span, cuts[i] + (i === 0 ? 0 : offset));
+    const hi = Math.min(span, cuts[i + 1] - (i + 2 === cuts.length ? 0 : offset));
+    if (hi < lo - 1e-9) continue;
+    const n = Math.floor((hi - lo) / pitch + 1e-9) + 1;
+    const start = (lo + hi) / 2 - ((n - 1) * pitch) / 2;
+    for (let k = 0; k < n; k++) angles.push(start + k * pitch);
+  }
+  return { radius, span, angles };
 }
 
 /** Collects the stops of one straight aisle; nodes are made in `finish`. */
@@ -327,202 +408,60 @@ function pushWallWithDoor(
 
 export function generateHqLayout(capacity: HqCapacity): HqLayout {
   const tier = TIERS[capacity] ?? TIERS[100];
-  const { westW, officeW, officeD } = tier;
+  const { westW, eastW, halfWidth } = tier;
   const aisle = POD.aisle;
-  const plazaD = officeD;
 
-  // --- Pod grid ---------------------------------------------------------
-  const podCount = Math.ceil(capacity / DESKS_PER_POD);
-  const { cols, rows } = chooseGrid(podCount);
-  const gapX = gapWidths(cols);
-  const gapZ = gapWidths(rows);
-  const podsW = cols * HQ_POD_WIDTH + gapX.reduce((a, b) => a + b, 0);
-  const podsD = rows * HQ_POD_DEPTH + gapZ.reduce((a, b) => a + b, 0);
+  // --- Stage stack, in metres south of the north wall ------------------------
+  // The video wall's ends come forward; the map spots stand clear of them,
+  // then the stage walkway, AM7's island, the tribune and the walkway arc
+  // in front of the first row follow, each clear of the next.
+  const mapW = Math.min(MAP_MAX_WIDTH, halfWidth * 2 - 4);
+  const curve = round2(Math.min(MAP_MAX_CURVE, mapW * MAP_CURVE_PER_WIDTH));
+  const spotsD = curve + SPOTS_FROM_SCREEN;
+  const stageD = spotsD + STAGE_LINE_FROM_SPOTS;
+  const deckD = stageD + 1.1 + HQ_DECK_RADIUS;
+  const tribuneD = deckD + HQ_DECK_RADIUS + 1.2 + HQ_TRIBUNE_CLEAR;
+  const stageArcD = tribuneD + HQ_TRIBUNE_CLEAR + 1.0;
+  const stageR = stageArcD - ARENA_CENTRE_OFFSET;
+  const firstRow = stageR + STAGE_INSIDE;
 
-  const W = westW + aisle + podsW + aisle;
-  // The west column (server room, two meeting rooms, lounge) needs ~27 m.
-  const D = Math.max(plazaD + aisle + podsD + aisle, plazaD + 27);
+  // --- Rows ------------------------------------------------------------------
+  // Rows are added outward until every desk has a seat, and every row is
+  // whole: the last one is never cut short (a ragged back row reads as gaps),
+  // so a hall has at least `capacity` desks, a few more to finish its last
+  // row. Desks are numbered row by row from the centre out, so a small team
+  // sits together in front of the wall.
+  const rows: HqArenaRowPlan[] = [];
+  let seats = 0;
+  for (let k = 0; seats < capacity; k++) {
+    const row = planArenaRow(firstRow + k * HQ_ROW_PITCH, halfWidth);
+    if (row.angles.length === 0) throw new Error("HQ layout: the hall is too narrow for its rows");
+    seats += row.angles.length;
+    rows.push(row);
+  }
+  const lastRow = rows[rows.length - 1].radius;
+
+  // --- Hall ------------------------------------------------------------------
+  const W = westW + aisle + halfWidth * 2 + aisle + eastW;
+  // The side columns (server room, meeting rooms, lounge) need ~27 m.
+  const D = Math.max(ARENA_CENTRE_OFFSET + lastRow + HQ_RING_BEHIND + BACK_MARGIN, 27);
   const x0 = -W / 2;
   const x1 = W / 2;
   const z0 = -D / 2;
   const z1 = D / 2;
   const bounds: HqRect = { x0: round3(x0), z0: round3(z0), x1: round3(x1), z1: round3(z1) };
 
-  const podX0 = x0 + westW + aisle;
-  const podZ0 = z0 + plazaD + aisle;
-  const colX: number[] = [];
-  for (let c = 0, x = podX0; c < cols; c++) {
-    colX.push(x + HQ_POD_WIDTH / 2);
-    x += HQ_POD_WIDTH + (gapX[c] ?? 0);
-  }
-  const rowZ: number[] = [];
-  for (let r = 0, z = podZ0; r < rows; r++) {
-    rowZ.push(z + HQ_POD_DEPTH / 2);
-    z += HQ_POD_DEPTH + (gapZ[r] ?? 0);
-  }
-  // Aisle centre lines: west of each column / north of each row, plus the last.
-  const vAisles: number[] = [x0 + westW + aisle / 2];
-  for (let c = 0; c < cols - 1; c++) vAisles.push(colX[c] + HQ_POD_WIDTH / 2 + gapX[c] / 2);
-  vAisles.push(colX[cols - 1] + HQ_POD_WIDTH / 2 + aisle / 2);
-  const hAisles: number[] = [z0 + plazaD + aisle / 2];
-  for (let r = 0; r < rows - 1; r++) hAisles.push(rowZ[r] + HQ_POD_DEPTH / 2 + gapZ[r] / 2);
-  hAisles.push(rowZ[rows - 1] + HQ_POD_DEPTH / 2 + aisle / 2);
-  const westAisleX = vAisles[0];
-  const northAisleZ = hAisles[0];
-  const southAisleZ = hAisles[hAisles.length - 1];
-
-  // --- Zones ------------------------------------------------------------
-  const ox0 = x1 - officeW;
-  const oz1 = z0 + officeD;
-  const am7Office: HqRect = { x0: round3(ox0), z0: round3(z0), x1: round3(x1), z1: round3(oz1) };
-
-  const colZ0 = z0 + plazaD;
-  const colLen = z1 - colZ0;
-  const serverL = Math.max(6, colLen * 0.24);
-  const meetL = Math.max(5.5, colLen * 0.2);
-  const serverRoom: HqRect = { x0: round3(x0), z0: round3(colZ0), x1: round3(x0 + westW), z1: round3(colZ0 + serverL) };
-  const meetingRooms: HqRect[] = [0, 1].map((i) => ({
-    x0: round3(x0),
-    z0: round3(colZ0 + serverL + meetL * i),
-    x1: round3(x0 + westW),
-    z1: round3(colZ0 + serverL + meetL * (i + 1)),
-  }));
-  const lounge: HqRect = { x0: round3(x0), z0: meetingRooms[1].z1, x1: round3(x0 + westW), z1: round3(z1) };
-
-  const mapCx = (x0 + ox0) / 2;
-  const mapW = Math.min(MAP_MAX_WIDTH, W * MAP_SHARE, ox0 - x0 - 2);
-  const mapWall: HqMapWall = {
-    x: round3(mapCx),
-    y: MAP_BOTTOM + MAP_HEIGHT / 2,
-    z: round3(z0),
-    width: round3(mapW),
-    height: MAP_HEIGHT,
-  };
+  const cx = x0 + westW + aisle + halfWidth;
+  const cz = z0 + ARENA_CENTRE_OFFSET;
+  const westAisleX = x0 + westW + aisle / 2;
+  const eastAisleX = x1 - eastW - aisle / 2;
+  const at = (radius: number, angle: number) => ({ x: cx + radius * Math.sin(angle), z: cz + radius * Math.cos(angle) });
 
   const nav = new HqNavBuilder();
   const props: HqProp[] = [];
   const partitions: HqSegment[] = [];
   const addProp = (kind: HqPropKind, x: number, z: number, rotY = 0) =>
     props.push({ kind, x: round3(x), z: round3(z), rotY });
-
-  // --- Aisle lines --------------------------------------------------------
-  const plazaLineZ = z0 + plazaD - 2.6;
-  const plazaX1 = ox0 - 1.5;
-  // Just east of the west aisle's south end, so the entrance cut centred on
-  // it stays clear of the lounge glass; linked to the aisle below.
-  const spawn = { x: round3(Math.max(westAisleX, x0 + westW + ENTRANCE_CLEAR)), z: round3(z1 - 0.5) };
-  const vLines = vAisles.map((x, i) => {
-    const inPlaza = x < plazaX1;
-    const top = inPlaza ? plazaLineZ : northAisleZ;
-    const bottom = i === 0 ? spawn.z : southAisleZ;
-    return new NavLine(true, x, top, bottom);
-  });
-  const hLines = hAisles.map((z) => new NavLine(false, z, westAisleX, vAisles[vAisles.length - 1]));
-  const plazaLine = new NavLine(false, plazaLineZ, x0 + 1.5, plazaX1);
-  for (const v of vLines) {
-    for (const z of hAisles) v.add(z);
-    v.add(plazaLineZ);
-    plazaLine.add(v.fixed);
-  }
-  for (const h of hLines) for (const x of vAisles) h.add(x);
-  const westLine = vLines[0];
-  const northLine = hLines[0];
-
-  // --- Pods and desks -----------------------------------------------------
-  // The partial row (if any) is the northmost one, packed to the west, so the
-  // spare slots open up the space in front of AM7's office.
-  const empty = rows * cols - podCount;
-  type Slot = { c: number; r: number; x: number; z: number };
-  const used: Slot[] = [];
-  const spare: Slot[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const slot = { c, r, x: colX[c], z: rowZ[r] };
-      if (r === 0 && c >= cols - empty) spare.push(slot);
-      else used.push(slot);
-    }
-  }
-  // Desks fill from the heart of the room outward, so a small team sits
-  // together near the map and the lead's office instead of in one corner.
-  const anchorX = (colX[0] + colX[cols - 1]) / 2;
-  const anchorZ = podZ0 + podsD * 0.35;
-  used.sort((a, b) => {
-    const da = (a.x - anchorX) ** 2 + (a.z - anchorZ) ** 2;
-    const db = (b.x - anchorX) ** 2 + (b.z - anchorZ) ** 2;
-    return da - db || a.r - b.r || a.c - b.c;
-  });
-
-  const desks: HqDesk[] = [];
-  const halfRow = POD.rowGap / 2;
-  const deskNodes: Array<{ line: NavLine; x: number; desk: number }> = [];
-  used.forEach((slot, podId) => {
-    const northLineRef = hLines[slot.r];
-    const southLineRef = hLines[slot.r + 1];
-    const seats = [
-      { dx: -POD.deskPitchX / 2, dz: -halfRow, rot: 0, line: northLineRef },
-      { dx: POD.deskPitchX / 2, dz: -halfRow, rot: 0, line: northLineRef },
-      { dx: -POD.deskPitchX / 2, dz: halfRow, rot: Math.PI, line: southLineRef },
-      { dx: POD.deskPitchX / 2, dz: halfRow, rot: Math.PI, line: southLineRef },
-    ];
-    for (const s of seats) {
-      if (desks.length >= capacity) return;
-      const index = desks.length;
-      const x = slot.x + s.dx;
-      s.line.add(x);
-      deskNodes.push({ line: s.line, x, desk: index });
-      desks.push(
-        makeSeat(index, `hq-desk-${String(index).padStart(4, "0")}`, x, slot.z + s.dz, s.rot, -1, podId),
-      );
-    }
-  });
-  const usedPods = used.slice(0, Math.ceil(desks.length / DESKS_PER_POD));
-
-  // --- AM7 office ---------------------------------------------------------
-  // Far enough from the west glass for a dark plant on either side, inside.
-  const officeDoorX = ox0 + 2.2;
-  pushWallWithDoor(partitions, ox0, z0, ox0, oz1, null);
-  pushWallWithDoor(partitions, ox0, oz1, x1, oz1, officeDoorX - ox0);
-  northLine.add(officeDoorX);
-  const leadX = ox0 + officeW * 0.6;
-  const leadZ = z0 + 2.4 + (officeD - 8) * 0.3;
-  const officeInside = nav.node(officeDoorX, oz1 - 1.1);
-  // The command-arc desk wraps round the chair's front and sides, so AM7
-  // comes in from behind the chair: round the desk's west pod, then between
-  // the pods to the seat.
-  const leadRound = nav.node(leadX - 2.2, leadZ + 0.1);
-  const leadNode = nav.node(leadX - 1.0, leadZ - 1.1);
-  nav.link(officeInside, leadRound);
-  nav.link(leadRound, leadNode);
-  addProp("exec_desk", leadX, leadZ, 0);
-  addProp("exec_chair", leadX, leadZ, 0);
-  // A wall of shelves behind AM7 from the wall screen (2.2 m, centred at
-  // ox0 + 2.4) to the data monolith (0.9 m base at x1 - 0.6): as many whole
-  // 2 m units as fit, side by side and centred, 0.1 m clear of both.
-  {
-    const from = ox0 + 2.4 + 2.2 / 2 + 0.1;
-    const to = x1 - 0.6 - 0.9 / 2 - 0.1;
-    const units = Math.max(1, Math.floor((to - from) / EXEC_SHELF_WIDTH + 1e-6));
-    const start = (from + to) / 2 - (units * EXEC_SHELF_WIDTH) / 2;
-    for (let k = 0; k < units; k++) addProp("exec_shelf", start + EXEC_SHELF_WIDTH * (k + 0.5), z0 + 0.25, 0);
-  }
-  // props.glb frames: origin at the footprint centre, front +Z; the wall
-  // screen body is 5 cm deep and hangs 2.5 cm off the wall.
-  props.push({ kind: "wall_screen", x: round3(ox0 + 2.4), z: round3(z0 + 0.025), rotY: 0, screen: HQ_WALL_SCREEN.exec });
-  addProp("sofa", x1 - 0.7, oz1 - 2.6, -HALF_PI);
-  addProp("coffee_table", x1 - 1.9, oz1 - 2.6, -HALF_PI);
-  addProp("floor_lamp", x1 - 0.55, oz1 - 4.2);
-  // The only plants in the HQ: two dark ones in the office's south corners,
-  // one west of the door and one past the sofa, their leaves just clear of
-  // the glass.
-  const plantInset = HQ_PROP_FOOTPRINT.dark_plant[0] / 2 + 0.08;
-  addProp("dark_plant", ox0 + plantInset, oz1 - plantInset);
-  addProp("dark_plant", x1 - plantInset, oz1 - plantInset);
-  // The work wall behind AM7: a server pillar at its west end, clear of the
-  // wall screen, and a data monolith at its east end, clear of the shelf.
-  addProp("server_pillar", ox0 + 0.6, z0 + 0.45);
-  addProp("data_monolith", x1 - 0.6, z0 + 0.35);
-
-  // --- Map plaza ----------------------------------------------------------
   const socialSpots: HqSocialSpot[] = [];
   const spotNodes: Array<{ spot: HqSocialSpot; node: number }> = [];
   const addSpot = (kind: HqSocialSpotKind, x: number, z: number, rotY: number, cap: number) => {
@@ -532,98 +471,354 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     spotNodes.push({ spot, node });
     return node;
   };
-  const mapSpotCount = Math.max(3, Math.min(8, Math.round(mapW / 5)));
-  const mapSpotZ = z0 + Math.min(3.4, plazaD * 0.42);
-  for (let i = 0; i < mapSpotCount; i++) {
-    const x = mapCx + (i - (mapSpotCount - 1) / 2) * (mapW / mapSpotCount);
-    const node = addSpot("map", x, mapSpotZ, Math.PI, 3);
-    plazaLine.add(x);
-    nav.link(node, nav.node(x, plazaLineZ));
+
+  // Spawn: at the south wall, just east of the west column so the entrance
+  // cut centred on it stays clear of the lounge glass.
+  const spawn = { x: round3(Math.max(westAisleX, x0 + westW + ENTRANCE_CLEAR)), z: round3(z1 - 0.5) };
+  // The side walkways along the columns' glass, from the north wall to the south.
+  const westLine = new NavLine(true, westAisleX, z0 + 1.0, spawn.z);
+  const eastLine = new NavLine(true, eastAisleX, z0 + 1.0, z1 - 1.0);
+  const stageZ = z0 + stageD;
+  const stageLine = new NavLine(false, stageZ, westAisleX, eastAisleX);
+  westLine.add(stageZ);
+  eastLine.add(stageZ);
+  /** Links a point to the side walkway on its side with a straight run at its z. */
+  const toSideWalkway = (node: number, x: number, z: number) => {
+    const line = x < cx ? westLine : eastLine;
+    line.add(z);
+    nav.link(node, nav.node(line.fixed, z));
+  };
+
+  // --- Arcs --------------------------------------------------------------------
+  /**
+   * Chains nodes along the arc of `radius` through `angles` (any order), with
+   * extra samples so no chord is longer than ARC_STEP. Returns the node at
+   * each requested angle, in angle order.
+   */
+  const chainArc = (radius: number, angles: readonly number[]): Array<{ angle: number; node: number }> => {
+    const sorted = [...angles].sort((a, b) => a - b).filter((a, i, all) => i === 0 || a - all[i - 1] > 1e-7);
+    const out: Array<{ angle: number; node: number }> = [];
+    const chain: number[] = [];
+    sorted.forEach((angle, i) => {
+      if (i > 0) {
+        const prev = sorted[i - 1];
+        const parts = Math.ceil((radius * (angle - prev)) / ARC_STEP - 1e-6);
+        for (let k = 1; k < parts; k++) {
+          const p = at(radius, prev + ((angle - prev) * k) / parts);
+          chain.push(nav.node(p.x, p.z));
+        }
+      }
+      const p = at(radius, angle);
+      const node = nav.node(p.x, p.z);
+      chain.push(node);
+      out.push({ angle, node });
+    });
+    nav.chain(chain);
+    return out;
+  };
+  /** Where an arc of `radius` stops: past `lastSeat` by RING_RUN_OUT, but still on the floor. */
+  const arcEnd = (radius: number, lastSeat: number, seatRadius: number) => {
+    const past = lastSeat + RING_RUN_OUT / Math.max(1, seatRadius - WORKSTATION.deskBack);
+    const edge = Math.asin(Math.min(1, (halfWidth + 0.5) / radius));
+    return Math.min(past, edge, HALF_PI);
+  };
+
+  // --- Desks ---------------------------------------------------------------------
+  type Placed = { row: number; angle: number; x: number; z: number; rotY: number };
+  const placed: Placed[] = [];
+  rows.forEach((row, r) => {
+    for (const angle of row.angles) {
+      const p = at(row.radius, angle);
+      placed.push({ row: r, angle, x: p.x, z: p.z, rotY: Math.atan2(-Math.sin(angle), -Math.cos(angle)) });
+    }
+  });
+  placed.sort((a, b) => a.row - b.row || Math.abs(a.angle) - Math.abs(b.angle) || a.angle - b.angle);
+  const desks: HqDesk[] = placed.map((s, index) =>
+    makeSeat(index, `hq-desk-${String(index).padStart(4, "0")}`, s.x, s.z, s.rotY, -1, s.row),
+  );
+
+  // Walkway rings: one behind every row, with a node behind each of its
+  // chairs; they run on past the row's ends and turn off to the side walkways.
+  const ringEnds: number[] = [];
+  const rings: number[] = [];
+  const spans: number[] = [];
+  const deskAngle = placed.map((s) => s.angle);
+  rows.forEach((row) => {
+    const ring = row.radius + HQ_RING_BEHIND;
+    const west = Math.min(...row.angles);
+    const east = Math.max(...row.angles);
+    const endW = -arcEnd(ring, -west, row.radius);
+    const endE = arcEnd(ring, east, row.radius);
+    const stops = [endW, endE, ...row.angles, ...RADIAL_AISLES.filter((a) => a > endW && a < endE)];
+    const nodes = chainArc(ring, stops);
+    for (const { angle, node } of [nodes[0], nodes[nodes.length - 1]]) {
+      const p = at(ring, angle);
+      toSideWalkway(node, p.x, p.z);
+    }
+    rings.push(round3(ring));
+    spans.push(round3(Math.max(-west, east)));
+    ringEnds.push(Math.min(-endW, endE));
+  });
+  desks.forEach((d, i) => {
+    const ring = rows[placed[i].row].radius + HQ_RING_BEHIND;
+    const p = at(ring, deskAngle[i]);
+    d.navNode = nav.node(p.x, p.z);
+  });
+
+  // The stage walkway arc in front of the first row, and the straight aisles
+  // from it out through the rows, stopping at every ring they cross.
+  const row0 = rows[0];
+  const stageEnd = Math.min(
+    arcEnd(stageR, -Math.min(...row0.angles), row0.radius),
+    arcEnd(stageR, Math.max(...row0.angles), row0.radius),
+  );
+  // Two short runs from the stage walkway (north of the island) down past the
+  // island's sides to the arc.
+  const besideDeck = HQ_DECK_RADIUS + 1.6;
+  const besideAngle = Math.asin(besideDeck / stageR);
+  const stageNodes = chainArc(stageR, [-stageEnd, stageEnd, -besideAngle, besideAngle, ...RADIAL_AISLES]);
+  for (const { angle, node } of [stageNodes[0], stageNodes[stageNodes.length - 1]]) {
+    const p = at(stageR, angle);
+    toSideWalkway(node, p.x, p.z);
   }
-  // Data monoliths frame the map and line the rest of the north wall.
   for (const side of [-1, 1]) {
-    for (let x = mapCx + side * (mapW / 2 + 1); x > x0 + 0.6 && x < ox0 - 0.6; x += side * 4.5) {
-      addProp("data_monolith", x, z0 + 0.3);
+    const x = cx + side * besideDeck;
+    const p = at(stageR, side * besideAngle);
+    stageLine.add(x);
+    nav.link(nav.node(x, stageZ), nav.node(p.x, p.z));
+  }
+  for (const angle of RADIAL_AISLES) {
+    const chain: number[] = [];
+    const s = at(stageR, angle);
+    chain.push(nav.node(s.x, s.z));
+    for (let r = 0; r < rows.length && Math.abs(angle) < ringEnds[r] - 1e-9; r++) {
+      const p = at(rings[r], angle);
+      chain.push(nav.node(p.x, p.z));
+    }
+    nav.chain(chain);
+  }
+
+  // --- AM7's island and the briefing tribune ------------------------------------
+  const deckZ = z0 + deckD;
+  const deck = { x: round3(cx), z: round3(deckZ), radius: HQ_DECK_RADIUS };
+  const am7Office: HqRect = {
+    x0: round3(cx - HQ_DECK_RADIUS),
+    z0: round3(deckZ - HQ_DECK_RADIUS),
+    x1: round3(cx + HQ_DECK_RADIUS),
+    z1: round3(deckZ + HQ_DECK_RADIUS),
+  };
+  // AM7 faces the rows, the command-arc desk in front; the balustrade is open
+  // to the north, where AM7 comes in from the stage walkway behind the chair.
+  const leadX = cx;
+  const leadZ = deckZ;
+  const leadNode = nav.node(leadX - 1.0, leadZ - 1.1);
+  stageLine.add(leadX - 1.0);
+  nav.link(nav.node(leadX - 1.0, stageZ), leadNode);
+  addProp("exec_desk", leadX, leadZ, 0);
+  addProp("exec_chair", leadX, leadZ, 0);
+  {
+    const step = (Math.PI * 2) / BALUSTRADE_SEGMENTS;
+    for (let i = 0; i < BALUSTRADE_SEGMENTS; i++) {
+      // Angle from due south; the segments within 30 degrees of due north (pi)
+      // are the way in, the two either side of due south the way to the tribune.
+      const a0 = i * step;
+      const a1 = (i + 1) * step;
+      const mid = (a0 + a1) / 2;
+      if (Math.abs(mid - Math.PI) < step * 2) continue;
+      if (Math.min(mid, Math.PI * 2 - mid) < step) continue;
+      const pa = { x: cx + HQ_DECK_RADIUS * Math.sin(a0), z: deckZ + HQ_DECK_RADIUS * Math.cos(a0) };
+      const pb = { x: cx + HQ_DECK_RADIUS * Math.sin(a1), z: deckZ + HQ_DECK_RADIUS * Math.cos(a1) };
+      partitions.push({
+        ax: round3(pa.x),
+        az: round3(pa.z),
+        bx: round3(pb.x),
+        bz: round3(pb.z),
+        height: BALUSTRADE_HEIGHT,
+        kind: "glass",
+      });
+    }
+  }
+  // The tribune faces the rows; AM7 comes round it from the stage walkway arc
+  // (either side) to the spot behind it, the video wall at his back, or
+  // straight down from the island: from behind his chair round the west end
+  // of the command desk and out through the balustrade's south opening.
+  const tribuneZ = z0 + tribuneD;
+  const tribune = {
+    x: round3(cx),
+    z: round3(tribuneZ),
+    rotY: 0,
+    standX: round3(cx),
+    standZ: round3(tribuneZ - HQ_TRIBUNE_STAND),
+  };
+  {
+    const front = at(stageR, 0);
+    const stand = nav.node(tribune.standX, tribune.standZ);
+    nav.chain([
+      leadNode,
+      nav.node(leadX - 2.1, leadZ - 0.2),
+      nav.node(leadX - 2.1, leadZ + 1.7),
+      nav.node(leadX, leadZ + HQ_DECK_RADIUS),
+      stand,
+    ]);
+    for (const side of [-1, 1]) {
+      nav.chain([
+        nav.node(front.x, front.z),
+        nav.node(cx + side * 1.3, tribuneZ + 0.9),
+        nav.node(cx + side * 1.2, tribune.standZ),
+        stand,
+      ]);
     }
   }
 
-  // --- West column: server room, meeting rooms, lounge ---------------------
-  const doorX = x0 + westW;
-  // Server room: rows of racks facing south, a walkway along the glass.
+  // --- Video wall and the map spots in front of it --------------------------------
+  const mapWall: HqMapWall = {
+    x: round3(cx),
+    y: MAP_BOTTOM + MAP_HEIGHT / 2,
+    z: round3(z0),
+    width: round3(mapW),
+    height: MAP_HEIGHT,
+    curve,
+  };
   {
-    const rackW = 0.6;
-    const rackD = 1.1;
-    const rx0 = serverRoom.x0 + 0.5;
-    const racks = Math.floor((doorX - 2 - rx0) / rackW);
-    const rowsZ: number[] = [];
-    for (let z = serverRoom.z0 + 0.6 + rackD / 2; z + rackD / 2 + 1.4 <= serverRoom.z1 - 0.2; z += 2.4) rowsZ.push(z);
-    for (const z of rowsZ) {
-      for (let k = 0; k < racks; k++) addProp("server_rack", rx0 + rackW * (k + 0.5), z, 0);
+    const inner = HQ_DECK_RADIUS + 2.4;
+    const outer = mapW / 2 - 1.5;
+    const perSide = Math.max(1, Math.min(4, Math.floor((outer - inner) / 5) + 1));
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < perSide; i++) {
+        const t = perSide === 1 ? 0.5 : i / (perSide - 1);
+        const x = cx + side * (inner + (outer - inner) * t);
+        const node = addSpot("map", x, z0 + spotsD, Math.PI, 3);
+        stageLine.add(x);
+        nav.link(node, nav.node(x, stageZ));
+      }
     }
-    const lastRow = rowsZ[rowsZ.length - 1] ?? serverRoom.z0 + 1.1;
-    const spotZ = lastRow + rackD / 2 + 0.7;
-    const spotX = rx0 + (racks * rackW) / 2;
-    pushWallWithDoor(partitions, serverRoom.x0, serverRoom.z0, doorX, serverRoom.z0, null);
-    pushWallWithDoor(partitions, doorX, serverRoom.z0, doorX, serverRoom.z1, spotZ - serverRoom.z0);
-    pushWallWithDoor(partitions, serverRoom.x0, serverRoom.z1, doorX, serverRoom.z1, null);
-    const node = addSpot("server", spotX, spotZ, Math.PI, 3);
-    westLine.add(spotZ);
-    nav.link(node, nav.node(westAisleX, spotZ));
+    // Data monoliths stand at the video wall's two ends.
+    for (const side of [-1, 1]) addProp("data_monolith", cx + side * (mapW / 2 + 1.2), z0 + 0.35);
   }
-  // Meeting rooms: table(s) with chairs, a standing spot between table and door.
-  meetingRooms.forEach((room, i) => {
-    const cz = (room.z0 + room.z1) / 2;
-    const ax0 = room.x0 + 0.6;
-    const ax1 = doorX - 3.2;
-    const tx = (ax0 + ax1) / 2;
-    const alongZ = room.z1 - room.z0 - 1.2 > ax1 - ax0;
-    if (alongZ) {
-      const tables = Math.max(1, Math.min(3, Math.floor((room.z1 - room.z0 - 2.4) / 3.4)));
-      for (let t = 0; t < tables; t++) {
-        const tz = cz + (t - (tables - 1) / 2) * 3.3;
-        addProp("meeting_table", tx, tz, HALF_PI);
-        for (const dz of [-1.1, 0, 1.1]) {
-          addProp("meeting_chair", tx - 1.05, tz + dz, HALF_PI);
-          addProp("meeting_chair", tx + 1.05, tz + dz, -HALF_PI);
-        }
-      }
-    } else {
-      addProp("meeting_table", tx, cz, 0);
-      for (const dx of [-1.1, 0, 1.1]) {
-        addProp("meeting_chair", tx + dx, cz - 1.05, 0);
-        addProp("meeting_chair", tx + dx, cz + 1.05, Math.PI);
-      }
-    }
-    addProp("data_monolith", room.x0 + 0.3, i === 0 ? room.z0 + 0.6 : room.z1 - 0.6, HALF_PI);
-    pushWallWithDoor(partitions, doorX, room.z0, doorX, room.z1, cz - room.z0);
-    pushWallWithDoor(partitions, room.x0, room.z1, doorX, room.z1, null);
-    const node = addSpot("meeting", doorX - 1.9, cz, -HALF_PI, 6);
-    westLine.add(cz);
-    nav.link(node, nav.node(westAisleX, cz));
-  });
-  // Lounge: smoked glass like the meeting rooms, a door per way in. Coffee
-  // bar on the west wall between two data monoliths, then seating groups.
+
+  // --- Side columns: server rooms, meeting rooms, lounges ---------------------------
+  const colLen = z1 - z0;
+  const serverL = Math.max(6, colLen * 0.24);
+  // Compact meeting rooms leave the lounges room for three or four groups.
+  const meetL = Math.max(5.5, colLen * 0.17);
+  const westRooms = {
+    server: { x0: round3(x0), z0: round3(z0), x1: round3(x0 + westW), z1: round3(z0 + serverL) },
+    meetings: [0, 1].map((i) => ({
+      x0: round3(x0),
+      z0: round3(z0 + serverL + meetL * i),
+      x1: round3(x0 + westW),
+      z1: round3(z0 + serverL + meetL * (i + 1)),
+    })),
+  };
+  const lounge: HqRect = { x0: round3(x0), z0: westRooms.meetings[1].z1, x1: round3(x0 + westW), z1: round3(z1) };
+  const eastRooms = {
+    server: { x0: round3(x1 - eastW), z0: round3(z0), x1: round3(x1), z1: round3(z0 + serverL) },
+    meetings: [{ x0: round3(x1 - eastW), z0: round3(z0 + serverL), x1: round3(x1), z1: round3(z0 + serverL + meetL) }],
+  };
+  const eastLounge: HqRect = { x0: round3(x1 - eastW), z0: eastRooms.meetings[0].z1, x1: round3(x1), z1: round3(z1) };
+
   const loungeSeats: HqSeat[] = [];
   const loungeGroups: HqLoungeGroup[] = [];
   const loungeLines: NavLine[] = [];
   const seatAisles: Vec2[] = [];
-  {
-    const lx0 = lounge.x0;
-    const doors: number[] = [];
-    const coffeeZ = lounge.z0 + LOUNGE.coffeeV;
-    addProp("coffee_bar", lx0 + 0.45, coffeeZ, HALF_PI);
-    addProp("data_monolith", lx0 + 0.3, coffeeZ - LOUNGE.coffeeMonolith, HALF_PI);
-    addProp("data_monolith", lx0 + 0.3, coffeeZ + LOUNGE.coffeeMonolith, HALF_PI);
-    const coffeeNode = addSpot("coffee", lx0 + 2.4, coffeeZ, -HALF_PI, 5);
-    westLine.add(coffeeZ);
-    nav.link(coffeeNode, nav.node(westAisleX, coffeeZ));
-    doors.push(coffeeZ - lounge.z0);
 
-    // As many groups as fit below the coffee bar (at most four), spread evenly.
-    const room = Math.max(0, lounge.z1 - lounge.z0 - LOUNGE.south - 0.3 - LOUNGE.firstGroup);
-    const groups = Math.max(1, Math.min(LOUNGE.maxGroups, 1 + Math.floor(room / LOUNGE.pitch)));
-    const pitch = groups > 1 ? Math.min(LOUNGE.maxPitch, room / (groups - 1)) : 0;
-    const first = LOUNGE.firstGroup + (room - pitch * (groups - 1)) / 2;
+  /**
+   * One column of glass rooms along a side wall. `side` -1 is the west wall,
+   * +1 the east wall; u is metres in from that wall, and headings are
+   * mirrored for the east so both columns open toward the hall.
+   */
+  const buildColumn = (
+    side: -1 | 1,
+    colW: number,
+    line: NavLine,
+    server: HqRect,
+    meetings: HqRect[],
+    room: HqRect,
+    coffee: boolean,
+  ) => {
+    const ux = (u: number) => (side < 0 ? x0 + u : x1 - u);
+    const rot = (r: number) => (side < 0 ? r : -r);
+    const doorX = ux(colW);
+    const lineX = line.fixed;
+
+    // Server room: rows of racks facing south, a walkway along the glass.
+    {
+      const rackW = 0.6;
+      const rackD = 1.1;
+      const racks = Math.floor((colW - 2.5) / rackW);
+      const rowsZ: number[] = [];
+      for (let z = server.z0 + 0.6 + rackD / 2; z + rackD / 2 + 1.4 <= server.z1 - 0.2; z += 2.4) rowsZ.push(z);
+      for (const z of rowsZ) {
+        for (let k = 0; k < racks; k++) addProp("server_rack", ux(0.5 + rackW * (k + 0.5)), z, 0);
+      }
+      const lastRack = rowsZ[rowsZ.length - 1] ?? server.z0 + 1.1;
+      const spotZ = lastRack + rackD / 2 + 0.7;
+      const spotX = ux(0.5 + (racks * rackW) / 2);
+      if (server.z0 > z0 + 1e-6) pushWallWithDoor(partitions, ux(0), server.z0, doorX, server.z0, null);
+      pushWallWithDoor(partitions, doorX, server.z0, doorX, server.z1, spotZ - server.z0);
+      pushWallWithDoor(partitions, ux(0), server.z1, doorX, server.z1, null);
+      const node = addSpot("server", spotX, spotZ, Math.PI, 3);
+      line.add(spotZ);
+      nav.link(node, nav.node(lineX, spotZ));
+    }
+
+    // Meeting rooms: table(s) with chairs, a standing spot between table and door.
+    meetings.forEach((m, i) => {
+      const mz = (m.z0 + m.z1) / 2;
+      const a0 = 0.6;
+      const a1 = colW - 3.2;
+      const tu = (a0 + a1) / 2;
+      const tx = ux(tu);
+      if (m.z1 - m.z0 - 1.2 > a1 - a0) {
+        const tables = Math.max(1, Math.min(3, Math.floor((m.z1 - m.z0 - 2.4) / 3.4)));
+        for (let t = 0; t < tables; t++) {
+          const tz = mz + (t - (tables - 1) / 2) * 3.3;
+          addProp("meeting_table", tx, tz, HALF_PI);
+          for (const dz of [-1.1, 0, 1.1]) {
+            addProp("meeting_chair", ux(tu - 1.05), tz + dz, rot(HALF_PI));
+            addProp("meeting_chair", ux(tu + 1.05), tz + dz, rot(-HALF_PI));
+          }
+        }
+      } else {
+        addProp("meeting_table", tx, mz, 0);
+        for (const dx of [-1.1, 0, 1.1]) {
+          addProp("meeting_chair", tx + dx, mz - 1.05, 0);
+          addProp("meeting_chair", tx + dx, mz + 1.05, Math.PI);
+        }
+      }
+      addProp("data_monolith", ux(0.3), i === 0 ? m.z0 + 0.6 : m.z1 - 0.6, rot(HALF_PI));
+      // The east column's room is the briefing room: AM7's report on its outer wall.
+      if (side > 0) {
+        props.push({ kind: "wall_screen", x: round3(ux(0.025)), z: round3(mz), rotY: rot(HALF_PI), screen: HQ_WALL_SCREEN.exec });
+      }
+      pushWallWithDoor(partitions, doorX, m.z0, doorX, m.z1, mz - m.z0);
+      pushWallWithDoor(partitions, ux(0), m.z1, doorX, m.z1, null);
+      const node = addSpot("meeting", ux(colW - 1.9), mz, rot(-HALF_PI), 6);
+      line.add(mz);
+      nav.link(node, nav.node(lineX, mz));
+    });
+
+    // Lounge: smoked glass like the meeting rooms, a door per way in; the
+    // west one has the coffee bar on its outer wall between two monoliths.
+    const doors: number[] = [];
+    let first: number = LOUNGE.firstGroupNoBar;
+    if (coffee) {
+      const coffeeZ = room.z0 + LOUNGE.coffeeV;
+      addProp("coffee_bar", ux(0.45), coffeeZ, rot(HALF_PI));
+      addProp("data_monolith", ux(0.3), coffeeZ - LOUNGE.coffeeMonolith, rot(HALF_PI));
+      addProp("data_monolith", ux(0.3), coffeeZ + LOUNGE.coffeeMonolith, rot(HALF_PI));
+      const coffeeNode = addSpot("coffee", ux(2.4), coffeeZ, rot(-HALF_PI), 5);
+      line.add(coffeeZ);
+      nav.link(coffeeNode, nav.node(lineX, coffeeZ));
+      doors.push(coffeeZ - room.z0);
+      first = LOUNGE.firstGroup;
+    }
+
+    // As many groups as fit (at most four), spread evenly.
+    const free = Math.max(0, room.z1 - room.z0 - LOUNGE.south - 0.3 - first);
+    const groups = Math.max(1, Math.min(LOUNGE.maxGroups, 1 + Math.floor(free / LOUNGE.pitch)));
+    const pitch = groups > 1 ? Math.min(LOUNGE.maxPitch, free / (groups - 1)) : 0;
+    const start = first + (free - pitch * (groups - 1)) / 2;
     const { northAisleV: nv, southAisleV: sv } = LOUNGE;
     // Seat root to prop origin, and seat root to its aisle node, per kind.
     const sofaReach = HQ_SOFA_SEAT_DEPTH + HQ_SOFT_SEAT_AISLE;
@@ -633,43 +828,52 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     const tableU = round2(wu + LOUNGE.tableGap);
     const eu = round2(tableU + LOUNGE.tableGap);
     const sofaBU = tableU + LOUNGE.sofaBShift;
+    const span = (a: number, b: number): [number, number] => [Math.min(ux(a), ux(b)), Math.max(ux(a), ux(b))];
 
     for (let g = 0; g < groups; g++) {
-      const gz = round2(lounge.z0 + first + g * pitch);
-      const at = (u: number, v: number) => ({ x: round3(lx0 + u), z: round3(gz + v) });
-      const sofaA = at(wu - sofaReach, 0);
-      const sofaB = at(sofaBU, nv - sofaReach);
-      const chairE = at(eu + chairReach, 0);
-      const chairS = at(tableU, sv + chairReach);
-      const table = at(tableU, 0);
-      addProp("sofa", sofaA.x, sofaA.z, HALF_PI);
+      const gz = round2(room.z0 + start + g * pitch);
+      const pos = (u: number, v: number) => ({ x: round3(ux(u)), z: round3(gz + v) });
+      const sofaA = pos(wu - sofaReach, 0);
+      const sofaB = pos(sofaBU, nv - sofaReach);
+      const chairE = pos(eu + chairReach, 0);
+      const chairS = pos(tableU, sv + chairReach);
+      const table = pos(tableU, 0);
+      addProp("sofa", sofaA.x, sofaA.z, rot(HALF_PI));
       addProp("sofa", sofaB.x, sofaB.z, 0);
-      addProp("lounge_chair", chairE.x, chairE.z, -HALF_PI);
+      addProp("lounge_chair", chairE.x, chairE.z, rot(-HALF_PI));
       addProp("lounge_chair", chairS.x, chairS.z, Math.PI);
-      addProp("coffee_table", table.x, table.z, HALF_PI);
+      addProp("coffee_table", table.x, table.z, rot(HALF_PI));
       // A lamp in the corner of the L, a monolith closing the group to the
-      // south, a dashboard on the wall above the wall sofa (hung like AM7's).
+      // south, a dashboard on the wall above the wall sofa.
       addProp("floor_lamp", sofaA.x, sofaB.z);
-      addProp("data_monolith", lx0 + 0.3, gz + 1.75, HALF_PI);
+      addProp("data_monolith", ux(0.3), gz + 1.75, rot(HALF_PI));
       // The lounge screens take turns: news, business, radio.
-      props.push({ kind: "wall_screen", x: round3(lx0 + 0.025), z: round3(gz), rotY: HALF_PI, screen: LOUNGE_CHANNELS[g % LOUNGE_CHANNELS.length] });
+      props.push({
+        kind: "wall_screen",
+        x: round3(ux(0.025)),
+        z: round3(gz),
+        rotY: rot(HALF_PI),
+        screen: LOUNGE_CHANNELS[loungeGroups.length % LOUNGE_CHANNELS.length],
+      });
       const group = loungeGroups.length;
       loungeGroups.push({ tableX: table.x, tableZ: table.z });
 
       // Four aisles around the table; every seat's node lies on one of them.
-      const west = new NavLine(true, lx0 + wu, gz + nv, gz + sv);
-      const east = new NavLine(true, lx0 + eu, gz + nv, gz + sv);
-      const north = new NavLine(false, gz + nv, lx0 + wu, lx0 + sofaBU + SOFA_SEAT_PITCH);
-      const south = new NavLine(false, gz + sv, lx0 + wu, lx0 + eu);
-      north.add(lx0 + eu);
-      loungeLines.push(west, east, north, south);
-      const seatsOn = (prop: Vec2, rotY: number, depth: number, offsets: readonly number[], line: NavLine) => {
+      const [nx0, nx1] = span(wu, sofaBU + SOFA_SEAT_PITCH);
+      const [sx0, sx1] = span(wu, eu);
+      const outerAisle = new NavLine(true, ux(wu), gz + nv, gz + sv);
+      const innerAisle = new NavLine(true, ux(eu), gz + nv, gz + sv);
+      const north = new NavLine(false, gz + nv, nx0, nx1);
+      const south = new NavLine(false, gz + sv, sx0, sx1);
+      north.add(ux(eu));
+      loungeLines.push(outerAisle, innerAisle, north, south);
+      const seatsOn = (prop: Vec2, rotY: number, depth: number, offsets: readonly number[], aisleLine: NavLine) => {
         for (const lx of offsets) {
           const root = seatToWorld(prop.x, prop.z, rotY, lx, depth);
           const approach = seatToWorld(prop.x, prop.z, rotY, lx, depth + WORKSTATION.approachOffset);
-          const aisle = seatToWorld(prop.x, prop.z, rotY, lx, depth + HQ_SOFT_SEAT_AISLE);
-          line.add(line.vertical ? aisle.z : aisle.x);
-          seatAisles.push({ x: aisle.x, z: aisle.z });
+          const node = seatToWorld(prop.x, prop.z, rotY, lx, depth + HQ_SOFT_SEAT_AISLE);
+          aisleLine.add(aisleLine.vertical ? node.z : node.x);
+          seatAisles.push({ x: node.x, z: node.z });
           loungeSeats.push({
             x: round3(root.x),
             z: round3(root.z),
@@ -681,48 +885,60 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
         }
       };
       const along = [-SOFA_SEAT_PITCH, 0, SOFA_SEAT_PITCH];
-      seatsOn(sofaA, HALF_PI, HQ_SOFA_SEAT_DEPTH, along, west);
+      seatsOn(sofaA, rot(HALF_PI), HQ_SOFA_SEAT_DEPTH, along, outerAisle);
       seatsOn(sofaB, 0, HQ_SOFA_SEAT_DEPTH, along, north);
-      seatsOn(chairE, -HALF_PI, HQ_LOUNGE_CHAIR_SEAT_DEPTH, [0], east);
+      seatsOn(chairE, rot(-HALF_PI), HQ_LOUNGE_CHAIR_SEAT_DEPTH, [0], innerAisle);
       seatsOn(chairS, Math.PI, HQ_LOUNGE_CHAIR_SEAT_DEPTH, [0], south);
 
-      // South aisle -> corridor -> door -> the west aisle outside. The
+      // South aisle -> corridor -> door -> the side walkway outside. The
       // standing spot hangs off the corridor on a short spur to the north,
       // turned so the spur comes in between two of its four places: nobody
       // stands where people walk.
       const doorZ = gz + sv;
-      const corridor = nav.node(lx0 + LOUNGE.spotU, doorZ);
-      nav.link(nav.node(lx0 + eu, doorZ), corridor);
-      westLine.add(doorZ);
-      nav.link(corridor, nav.node(westAisleX, doorZ));
-      const spotNode = addSpot("lounge", lx0 + LOUNGE.spotU, gz + LOUNGE.spotV, -Math.PI / 4, 4);
+      const corridor = nav.node(ux(LOUNGE.spotU), doorZ);
+      nav.link(nav.node(ux(eu), doorZ), corridor);
+      line.add(doorZ);
+      nav.link(corridor, nav.node(lineX, doorZ));
+      const spotNode = addSpot("lounge", ux(LOUNGE.spotU), gz + LOUNGE.spotV, rot(-Math.PI / 4), 4);
       nav.link(spotNode, corridor);
-      doors.push(doorZ - lounge.z0);
+      doors.push(doorZ - room.z0);
     }
-    pushWallWithDoors(partitions, doorX, lounge.z0, doorX, lounge.z1, doors);
+    pushWallWithDoors(partitions, doorX, room.z0, doorX, room.z1, doors);
+  };
+
+  buildColumn(-1, westW, westLine, westRooms.server, westRooms.meetings, lounge, true);
+  buildColumn(1, eastW, eastLine, eastRooms.server, eastRooms.meetings, eastLounge, false);
+
+  // --- South curb ------------------------------------------------------------------
+  // Data monoliths along the low south curb, facing out toward the camera, clear
+  // of the entrance.
+  {
+    const from = x0 + westW + aisle + 1;
+    const to = x1 - eastW - aisle - 1;
+    const count = Math.max(1, Math.floor((to - from) / 6) + 1);
+    for (let i = 0; i < count; i++) {
+      const x = count === 1 ? (from + to) / 2 : from + ((to - from) * i) / (count - 1);
+      if (Math.abs(x - spawn.x) > 3) addProp("data_monolith", x, z1 - 0.3, 0);
+    }
   }
 
-  // --- Tech on the work floor ----------------------------------------------
-  // A server pillar at the east end of every pod, two monoliths on every empty
-  // pod slot, monoliths along the low south and east walls. Those face out,
-  // toward the camera (south-east), so it sees their red slits, not their backs.
-  usedPods.forEach((slot) => {
-    addProp("server_pillar", slot.x + HQ_POD_WIDTH / 2 + 0.45, slot.z, 0);
-  });
-  colX.forEach((px, c) => {
-    if (c % 2 === 0 && Math.abs(px - spawn.x) > 3) addProp("data_monolith", px, z1 - 0.3, 0);
-  });
-  rowZ.forEach((pz, r) => {
-    if (r % 2 === 0) addProp("data_monolith", x1 - 0.3, pz, HALF_PI);
+  // --- Archive station ---------------------------------------------------------------
+  // The cart's docking bay east of the entrance, its lanes out to the chute on
+  // the apron and back, and a spur off the west walkway to the bay.
+  const archivePlan = buildArchiveStation({
+    nav,
+    bounds,
+    spawn,
+    westAisleX,
+    addWestStop: (z) => westLine.add(z),
   });
 
-  // --- Nav graph ----------------------------------------------------------
+  // --- Nav graph ----------------------------------------------------------------
   westLine.add(spawn.z);
-  for (const line of [...vLines, ...hLines, plazaLine, ...loungeLines]) line.finish(nav);
+  for (const line of [westLine, eastLine, stageLine, ...loungeLines]) line.finish(nav);
   nav.link(nav.node(westAisleX, spawn.z), nav.node(spawn.x, spawn.z));
-  nav.link(nav.node(officeDoorX, northAisleZ), officeInside);
   const navGraph = nav.build();
-  for (const { line, x, desk } of deskNodes) desks[desk].navNode = nav.find(x, line.fixed);
+  const archive = archivePlan.complete(navGraph);
   for (const { spot, node } of spotNodes) spot.navNode = node;
   loungeSeats.forEach((seat, i) => {
     seat.navNode = nav.find(seatAisles[i].x, seatAisles[i].z);
@@ -738,16 +954,32 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     throw new Error("HQ layout: a desk or seat is not attached to the nav graph");
   }
 
+  const arena: HqArena = {
+    x: round3(cx),
+    z: round3(cz),
+    rows: rows.map((r) => round3(r.radius)),
+    spans,
+    rings,
+    aisles: [...RADIAL_AISLES],
+    stage: round3(stageR),
+  };
+
   return {
     capacity,
     bounds,
     wallHeight: HQ_WALL_HEIGHT,
+    northWallHeight: HQ_NORTH_WALL_HEIGHT,
     desks,
     leadDesk,
     am7Office,
-    meetingRooms,
+    deck,
+    tribune,
+    arena,
+    meetingRooms: [...westRooms.meetings, ...eastRooms.meetings],
     lounge,
-    serverRoom,
+    lounges: [lounge, eastLounge],
+    serverRoom: westRooms.server,
+    serverRooms: [westRooms.server, eastRooms.server],
     mapWall,
     partitions,
     props,
@@ -756,6 +988,7 @@ export function generateHqLayout(capacity: HqCapacity): HqLayout {
     loungeGroups,
     nav: navGraph,
     spawn,
-    focus: { x: 0, z: 0, radius: round3(Math.hypot(W, D) / 2) },
+    archive,
+    focus: { x: round3(cx), z: 0, radius: round3(Math.hypot(W, D) / 2) },
   };
 }

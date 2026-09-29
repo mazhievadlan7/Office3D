@@ -1,12 +1,15 @@
 const http = require("node:http");
 const https = require("node:https");
+const path = require("node:path");
 const next = require("next");
+const { loadEnvConfig } = require("@next/env");
 
 const { createAccessGate } = require("./access-gate");
 const { createRequestGuard, createTrustedProxies } = require("./request-guard");
 const { createGatewayProxy } = require("./gateway-proxy");
 const { assertPublicHostAllowed, isOptionalListenFailure, resolveHosts } = require("./network-policy");
 const { startHermesRuntime } = require("./hermes");
+const { createMaintenanceService } = require("./maintenance");
 const { loadUpstreamGatewaySettings, resolveStateDir } = require("./studio-settings");
 
 const resolvePort = () => {
@@ -67,6 +70,10 @@ const generateHttpsCert = async () => {
 
 async function main() {
   const dev = process.argv.includes("--dev");
+  // Load .env now, the way Next.js does: Next reads it only when the app is
+  // prepared, after the access gate and the network policy have already read
+  // STUDIO_ACCESS_TOKEN and friends. Variables already set win over the file.
+  loadEnvConfig(path.resolve(__dirname, ".."), dev);
   const useHttps = process.argv.includes("--https") || process.env.HTTPS === "true";
   const hostnames = Array.from(new Set(resolveHosts(process.env)));
   const hostname = hostnames[0] ?? "127.0.0.1";
@@ -92,6 +99,8 @@ async function main() {
   });
   const accessGate = createAccessGate({
     token: process.env.STUDIO_ACCESS_TOKEN,
+    login: process.env.STUDIO_LOGIN,
+    ownerName: process.env.STUDIO_OWNER_NAME,
     isTrustedProxy: trustedProxies.isTrusted,
   });
   const requestGuard = createRequestGuard({
@@ -106,6 +115,17 @@ async function main() {
   // every connect later.
   const hermes = await startHermesRuntime({ env: process.env, stateDir: resolveStateDir(process.env) });
   if (hermes) console.info("Hermes backend: in-process adapter.");
+
+  // Disk litter and memory report (server/maintenance). Started once the
+  // server listens; its timers never keep the process alive.
+  const maintenance = createMaintenanceService({
+    env: process.env,
+    dev,
+    projectRoot: path.resolve(__dirname, ".."),
+    stateDir: resolveStateDir(process.env),
+    tmpDir: require("node:os").tmpdir(),
+    log: (message) => console.info(message),
+  });
 
   const proxy = createGatewayProxy({
     loadUpstreamSettings: async () => {
@@ -163,12 +183,14 @@ async function main() {
       ? https.createServer(httpsCert, (req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (maintenance.handleHttp(req, res)) return;
           if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
         })
       : http.createServer((req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (maintenance.handleHttp(req, res)) return;
           if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
         });
@@ -188,6 +210,7 @@ async function main() {
 
   for (const server of servers) {
     attachUpgradeHandlers(server);
+    server.on("close", () => maintenance.stop());
   }
 
   const listenOnHost = (server, host) =>
@@ -228,6 +251,8 @@ async function main() {
       );
     }
   });
+
+  void maintenance.start();
 
   const hostForBrowser = hostnames.some((value) => value === "127.0.0.1" || value === "::1")
     ? "localhost"

@@ -158,38 +158,46 @@ describe("HqSimulation lounge breaks", () => {
     expect(seatedLater).toBeGreaterThan(0);
   });
 
-  it("falls back to standing in the lounge when every seat is taken", () => {
+  it("falls back to standing in the lounge when a seating group is full", () => {
     const busy = new HqSimulation(layout, { seed: 11 });
     busy.setAgents(team(300, () => "idle"));
-    let standingInLounge = 0;
-    let seatedMax = 0;
-    const lounge = layout.lounge;
-    // Twenty simulated minutes: the wider lounge has more seats, so filling
-    // every one takes longer than it used to.
+    // Per seating group: the most sat at once, and the most standing in its
+    // lounge (past the coffee bar) while the group was full.
+    const groups = layout.loungeGroups.map((g, gi) => ({
+      room: layout.lounges.find((r) => g.tableX > r.x0 && g.tableX < r.x1 && g.tableZ > r.z0 && g.tableZ < r.z1)!,
+      seats: new Set(seats.map((s, k) => (s.group === gi ? k : -1)).filter((k) => k >= 0)),
+      seatedMax: 0,
+      standingFull: 0,
+    }));
+    // Twenty simulated minutes.
     for (let step = 0; step < 12000; step++) {
       busy.update(DT);
       if (step % 10 !== 0) continue;
       const f = busy.frame;
-      let seated = 0;
-      let standing = 0;
+      const seatedIn = new Int32Array(groups.length);
+      const standingIn = new Map<HqLayout["lounge"], number>();
       for (let i = 0; i < f.count; i++) {
-        if (seatOf(layout, f.x[i], f.z[i]) >= 0) seated++;
-        else if (
-          f.clip[i] !== HqClip.Walk &&
-          f.x[i] > lounge.x0 &&
-          f.x[i] < lounge.x1 &&
-          f.z[i] > lounge.z0 + 4.5 &&
-          f.z[i] < lounge.z1
-        ) {
-          standing++;
+        const k = seatOf(layout, f.x[i], f.z[i]);
+        if (k >= 0) {
+          seatedIn[seats[k].group]++;
+          continue;
+        }
+        if (f.clip[i] === HqClip.Walk) continue;
+        for (const room of layout.lounges) {
+          if (f.x[i] > room.x0 && f.x[i] < room.x1 && f.z[i] > room.z0 + 4.5 && f.z[i] < room.z1) {
+            standingIn.set(room, (standingIn.get(room) ?? 0) + 1);
+          }
         }
       }
-      seatedMax = Math.max(seatedMax, seated);
-      // "Every seat taken", give or take the couple being left or walked to.
-      if (seated >= seats.length - 2) standingInLounge = Math.max(standingInLounge, standing);
+      groups.forEach((g, gi) => {
+        g.seatedMax = Math.max(g.seatedMax, seatedIn[gi]);
+        // "Every seat taken", give or take one being left or walked to.
+        if (seatedIn[gi] >= g.seats.size - 1) g.standingFull = Math.max(g.standingFull, standingIn.get(g.room) ?? 0);
+      });
     }
-    expect(seatedMax).toBeGreaterThanOrEqual(seats.length - 2);
-    expect(standingInLounge).toBeGreaterThan(0);
+    const full = groups.filter((g) => g.seatedMax >= g.seats.size - 1);
+    expect(full.length).toBeGreaterThan(0);
+    expect(Math.max(...full.map((g) => g.standingFull))).toBeGreaterThan(0);
   });
 });
 
@@ -198,7 +206,8 @@ describe("HqSimulation standing places", () => {
   // spots fill up and deskless agents spill into the overflow rings.
   const layout = generateHqLayout(300);
   const sim = new HqSimulation(layout, { seed: 9 });
-  sim.setAgents(team(420, (i) => (i % 4 === 0 ? "working" : "idle")));
+  // 120 more agents than desks, whatever the hall size.
+  sim.setAgents(team(layout.desks.length + 120, (i) => (i % 4 === 0 ? "working" : "idle")));
   const lounge = layout.lounge;
   const inLounge = (x: number, z: number) => x > lounge.x0 && x < lounge.x1 && z > lounge.z0 && z < lounge.z1;
   const standing = (clip: number) => clip === HqClip.Idle || clip === HqClip.Talk;
@@ -339,5 +348,148 @@ describe("HqSimulation cyber-range from the workstation", () => {
     let stillOn = 0;
     for (let i = 0; i < f.count; i++) if (f.place[i] === CY) stillOn++;
     expect(stillOn).toBe(0);
+  });
+});
+
+describe("HqSimulation briefing call to the floor", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 33 });
+  // Many idle, so plenty of them are out on breaks when the call comes.
+  sim.setAgents([{ id: "am7", name: "AM7", status: "working" }, ...team(150, (i) => (i % 2 === 0 ? "idle" : "working"))]);
+  const DT = 0.1;
+  for (let step = 0; step < 1800; step++) sim.update(DT);
+
+  it("runs those away from their desks back to them, holds an early end until AM7 has spoken from the tribune", () => {
+    sim.startBriefing(600);
+    // The screen ends it at once (as if the answer had come and gone).
+    sim.endBriefing();
+    expect(sim.briefing.active).toBe(true);
+    let runners = 0;
+    let arrivedAt = -1;
+    let endedAt = -1;
+    for (let step = 0; step < 1200 && endedAt < 0; step++) {
+      sim.update(DT);
+      const f = sim.frame;
+      for (let i = 0; i < f.count; i++) if (f.clip[i] === HqClip.Run && !f.lead[i]) runners++;
+      if (arrivedAt < 0 && sim.briefing.leadAtPodium) arrivedAt = step;
+      if (!sim.briefing.active) endedAt = step;
+    }
+    expect(runners).toBeGreaterThan(0);
+    // Straight down from the island: behind the tribune within ~15 s.
+    expect(arrivedAt).toBeGreaterThanOrEqual(0);
+    expect(arrivedAt * DT).toBeLessThan(15);
+    // And it ended only after a full cycle of talking and presenting there.
+    expect(endedAt).toBeGreaterThan(arrivedAt);
+    expect((endedAt - arrivedAt) * DT).toBeGreaterThan(8.4);
+  });
+});
+
+describe("HqSimulation briefing", () => {
+  const layout = generateHqLayout(300);
+  const sim = new HqSimulation(layout, { seed: 21 });
+  // AM7 (the lead, by id) and a team: most working at their desks, some idle out on breaks.
+  const people: HqAgentInput[] = [
+    { id: "am7", name: "AM7", status: "working" },
+    ...team(150, (i) => (i % 4 === 0 ? "idle" : "working")),
+  ];
+  sim.setAgents(people);
+  const DT = 0.1;
+  for (let step = 0; step < 1200; step++) sim.update(DT); // two minutes of ordinary work
+  // AM7's spot behind the tribune, facing the rows.
+  const podium = { x: layout.tribune.standX, z: layout.tribune.standZ };
+  const leadIndex = () => sim.frame.ids.indexOf("am7");
+
+  it("keeps the tribune under the floor until a briefing", () => {
+    expect(sim.tribuneUp).toBe(false);
+  });
+
+  it("brings the lead to the podium and everyone to their own desks, standing and facing the lead", () => {
+    sim.startBriefing(600);
+    expect(sim.tribuneUp).toBe(true);
+    let atPodium = -1;
+    for (let step = 0; step < 1800; step++) {
+      sim.update(DT);
+      if (atPodium < 0 && sim.briefing.leadAtPodium) atPodium = step;
+    }
+    expect(sim.briefing.active).toBe(true);
+    expect(atPodium).toBeGreaterThanOrEqual(0);
+    const f = sim.frame;
+    const li = leadIndex();
+    expect(Math.hypot(f.x[li] - podium.x, f.z[li] - podium.z)).toBeLessThan(0.3);
+    expect(f.place[li]).toBe(HQ_PLACE.podium);
+    expect([HqClip.Talk, HqClip.Idle, HqClip.Present]).toContain(f.clip[li]);
+    // Behind the tribune, facing the rows (the wall at his back) while he talks.
+    if (f.clip[li] !== HqClip.Present) expect(angleDiff(f.facing[li], layout.tribune.rotY)).toBeLessThan(0.15);
+    let standing = 0;
+    for (let i = 0; i < f.count; i++) {
+      if (i === li) continue;
+      const desk = layout.desks.find((d) => Math.hypot(d.approach.x - f.x[i], d.approach.z - f.z[i]) < 0.05);
+      expect(desk, `${f.ids[i]} at ${f.x[i].toFixed(2)},${f.z[i].toFixed(2)}`).toBeDefined();
+      expect(f.clip[i]).toBe(HqClip.Idle);
+      expect(f.place[i]).toBe(HQ_PLACE.briefing);
+      // Turned to the lead.
+      const toLead = Math.atan2(f.x[li] - f.x[i], f.z[li] - f.z[i]);
+      expect(angleDiff(f.facing[i], toLead), f.ids[i]).toBeLessThan(0.15);
+      expect(Math.hypot(f.lookX[i] - f.x[li], f.lookZ[i] - f.z[li])).toBeLessThan(0.5);
+      standing++;
+    }
+    expect(standing).toBe(150);
+  });
+
+  it("alternates addressing the rows with presenting the wall, the head left to the clip while presenting", () => {
+    // Still at the podium from the test above: watch two full cycles.
+    const li = leadIndex();
+    const seen = new Set<number>();
+    let presentingLooks = 0;
+    let presentingFrames = 0;
+    for (let step = 0; step < 300; step++) {
+      sim.update(DT);
+      const f = sim.frame;
+      seen.add(f.clip[li]);
+      if (f.clip[li] === HqClip.Present && f.blend[li] >= 1) {
+        presentingFrames++;
+        if (f.lookWeight[li] < 0.05) presentingLooks++;
+      }
+      // The feet stay on the podium throughout.
+      expect(Math.hypot(f.x[li] - podium.x, f.z[li] - podium.z)).toBeLessThan(0.3);
+    }
+    expect(seen.has(HqClip.Present)).toBe(true);
+    expect(seen.has(HqClip.Talk)).toBe(true);
+    expect(presentingFrames).toBeGreaterThan(20);
+    expect(presentingLooks / presentingFrames).toBeGreaterThan(0.9);
+  });
+
+  it("sends everyone back to work when it ends, the lead to the island", () => {
+    sim.endBriefing();
+    expect(sim.briefing.active).toBe(false);
+    // The tribune stays up while the lead is still behind it.
+    expect(sim.tribuneUp).toBe(true);
+    let backOnIsland = false;
+    let tribuneDownAt = -1;
+    for (let step = 0; step < 1800; step++) {
+      sim.update(DT);
+      const li = leadIndex();
+      const f = sim.frame;
+      if (tribuneDownAt < 0 && !sim.tribuneUp) tribuneDownAt = step;
+      if (Math.hypot(f.x[li] - layout.leadDesk.x, f.z[li] - layout.leadDesk.z) < 0.05 && f.clip[li] === HqClip.SitType) backOnIsland = true;
+    }
+    // It sinks once he has walked off, well before he is back in his chair.
+    expect(tribuneDownAt).toBeGreaterThan(0);
+    expect(tribuneDownAt).toBeLessThan(100);
+    // Back in the command chair (later outings of the lead's own are fine).
+    expect(backOnIsland).toBe(true);
+    const f = sim.frame;
+    let typing = 0;
+    for (let i = 0; i < f.count; i++) {
+      expect(f.place[i] === HQ_PLACE.briefing || f.place[i] === HQ_PLACE.podium).toBe(false);
+      if (f.clip[i] === HqClip.SitType) typing++;
+    }
+    expect(typing).toBeGreaterThan(80);
+  });
+
+  it("ends by itself when its time is up", () => {
+    sim.startBriefing(5);
+    for (let step = 0; step < 60; step++) sim.update(DT);
+    expect(sim.briefing.active).toBe(false);
   });
 });

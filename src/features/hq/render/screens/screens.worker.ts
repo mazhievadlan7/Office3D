@@ -10,11 +10,14 @@ import { setHqTimeZone } from "@/features/hq/core/hqTime";
  * uploads it straight into its texture and acks, and the surface is not
  * painted again until then, so a busy or hidden page never piles frames up.
  * The big screens repaint at their full rate only while one of them is in
- * view ("views"); the NASA Earth images for the globes load here, once.
+ * view ("views"); the NASA Earth images for the globes load here, once. A
+ * new briefing in the feed repaints the surfaces that show it at once, and
+ * every picture says which briefing it shows, so the wall switches its
+ * layout only once the pictures are there.
  *
  * Messages in:  { type: "feed", feed } | { type: "slowdown", value } | { type: "ack", index }
  *               | { type: "views", value: number[] (1 = in view, per surface) }
- * Messages out: { index, bitmap }
+ * Messages out: { index, bitmap, briefing (the briefing's id painted, 0 for none) }
  */
 
 type Incoming =
@@ -74,6 +77,7 @@ function tick(): void {
     if (inFlight[i] || t < next[i]) continue;
     const surface = SCREEN_SURFACES[i];
     next[i] = t + surfacePeriod(surface, inView[i] === 1) * slowdown;
+    if (surface.when && !surface.when(feed)) continue;
     const painter = painterFor(surface.w, surface.h);
     // The feed comes about once a second, stamped at a frame's time; the
     // on-screen clocks read the wall clock now, so their seconds never lag,
@@ -82,7 +86,7 @@ function tick(): void {
     surface.paint(painter, t, feed);
     const bitmap = (painter.ctx.canvas as OffscreenCanvas).transferToImageBitmap();
     inFlight[i] = 1;
-    scope.postMessage({ index: i, bitmap }, [bitmap]);
+    scope.postMessage({ index: i, bitmap, briefing: feed.briefing?.id ?? 0 }, [bitmap]);
   }
   cursor = (cursor + 1) % count;
 }
@@ -91,7 +95,13 @@ scope.onmessage = (event: MessageEvent<Incoming>) => {
   const message = event.data;
   if (message.type === "ack") inFlight[message.index] = 0;
   else if (message.type === "feed") {
+    const briefing = feed.briefing?.id ?? 0;
     feed = message.feed;
+    // A briefing on or off (or a new one): the wall shows it at once.
+    if ((feed.briefing?.id ?? 0) !== briefing) {
+      const t = now();
+      for (let i = 0; i < count; i++) if (SCREEN_SURFACES[i].briefing) next[i] = Math.min(next[i], t);
+    }
     // The worker has its own copy of the HQ's time module: keep its zone in step.
     setHqTimeZone(feed.timeZone);
   }

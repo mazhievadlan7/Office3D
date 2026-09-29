@@ -3,8 +3,19 @@ import { HQ_ROLE_FAMILY_COUNT, hqRoleFamily } from "@/features/hq/core/roles";
 import { HQ_STATUS_CODE, type HqAgentInput } from "@/features/hq/core/types";
 import { hqTimeZone } from "@/features/hq/core/hqTime";
 import type { HqQuality } from "@/features/hq/render/scene/quality";
-import { EMPTY_FEED, Painter, type Ctx2D, type HqScreenFeed, type HqTeamStat } from "./screenPaint";
+import { nextBriefing } from "./screenBriefing";
 import {
+  EMPTY_FEED,
+  Painter,
+  type Ctx2D,
+  type HqBriefingText,
+  type HqScreenBriefing,
+  type HqScreenFeed,
+  type HqTeamStat,
+} from "./screenPaint";
+import {
+  BANNER_H,
+  BANNER_W,
   EXEC_H,
   EXEC_W,
   MAP_H,
@@ -12,6 +23,7 @@ import {
   MONITOR_ATLAS,
   SCREEN_SURFACES,
   WALL_ATLAS,
+  singleSurface,
   surfacePeriod,
   tileOrigin,
   type ScreenAtlas,
@@ -19,8 +31,6 @@ import {
   type ScreenView,
 } from "./screenSurfaces";
 import { anchorFacing, type ScreenAnchor } from "./screenViews";
-
-export { MAP_PANEL_ASPECT } from "./screenSurfaces";
 
 /**
  * Owns every screen texture in the HQ and keeps them moving:
@@ -31,7 +41,10 @@ export { MAP_PANEL_ASPECT } from "./screenSurfaces";
  *  - `walls`: an atlas for the wall screens, one tile per channel
  *    (HQ_WALL_SCREEN): AM7's report, the lounge's news, business and radio.
  *  - `exec`: AM7's curved command monitor.
- *  - `mapLeft` / `mapRight`: the data panels either side of the world map.
+ *  - `mapLeft` / `mapRight`: the video wall's data panels; its wings tile
+ *    their cards, with a few `monitors` apps, either side of the world map.
+ *    During a briefing (setBriefing) they show the task and the plan, and
+ *    `mapBanner` the goal across the top of the map.
  *
  * The painting (Canvas 2D, SCREEN_SURFACES) runs in a worker on
  * OffscreenCanvases; finished frames arrive as ImageBitmaps and go straight
@@ -71,7 +84,12 @@ const VIEW_PERIOD = 0.2;
 const TEAM_HISTORY = 60;
 const NO_ANCHORS: readonly ScreenAnchor[] = [];
 
-type Ready = { index: number; bitmap: ImageBitmap };
+/** A finished picture from the worker, and the briefing it shows (0 for none). */
+type Ready = { index: number; bitmap: ImageBitmap; briefing?: number };
+
+const MAP_LEFT = singleSurface("mapLeft");
+const MAP_RIGHT = singleSurface("mapRight");
+const MAP_BANNER = singleSurface("mapBanner");
 
 function planeTexture(width: number, height: number): THREE.DataTexture {
   const data = new Uint8Array(width * height * 4);
@@ -99,9 +117,16 @@ export class HqScreenHub {
   readonly exec = planeTexture(EXEC_W, EXEC_H);
   readonly mapLeft = planeTexture(MAP_W, MAP_H);
   readonly mapRight = planeTexture(MAP_W, MAP_H);
+  readonly mapBanner = planeTexture(BANNER_W, BANNER_H);
 
   private worker: Worker | null = null;
-  private readonly ready = new Map<number, ImageBitmap>();
+  private readonly ready = new Map<number, { bitmap: ImageBitmap; briefing: number }>();
+  private briefing: HqScreenBriefing | null = null;
+  private briefingIds = 0;
+  /** The first id of the briefing on now: its banner never shows an earlier briefing's goal. */
+  private briefingSince = 0;
+  /** Per surface: the briefing its picture on the GPU shows (0 = its usual content). */
+  private readonly shown = new Uint32Array(SCREEN_SURFACES.length);
   private fallback: { painters: Map<string, { ctx: Ctx2D; painter: Painter }>; next: Float64Array } | null = null;
   private feed: HqScreenFeed = { ...EMPTY_FEED };
   private feedAt = -Infinity;
@@ -129,13 +154,13 @@ export class HqScreenHub {
       try {
         const worker = new Worker(new URL("./screens.worker.ts", import.meta.url), { type: "module" });
         worker.onmessage = (event: MessageEvent<Ready>) => {
-          const { index, bitmap } = event.data;
+          const { index, bitmap, briefing = 0 } = event.data;
           if (this.disposed) {
             bitmap.close();
             return;
           }
-          this.ready.get(index)?.close();
-          this.ready.set(index, bitmap);
+          this.ready.get(index)?.bitmap.close();
+          this.ready.set(index, { bitmap, briefing });
         };
         worker.onerror = () => this.useFallback();
         this.worker = worker;
@@ -145,6 +170,47 @@ export class HqScreenHub {
     } else {
       this.useFallback();
     }
+  }
+
+  /**
+   * Puts AM7's briefing on the video wall, or takes it off (null): the west
+   * wing shows «ЗАДАЧА» and the task, the east wing «ПЛАН» and the plan (its
+   * steps numbered when it is written as a list), and a banner across the top
+   * of the map «ЦЕЛЬ» and the goal, with the «БРИФИНГ · AM7» live tag. Empty
+   * parts show that AM7 is still on them, so the plan can come in later. Cheap
+   * to call on every render: the same text changes nothing. The wall switches
+   * as soon as the pictures are painted (briefingOnWings, briefingBanner).
+   */
+  setBriefing(briefing: HqBriefingText | null): void {
+    const next = nextBriefing(this.briefing, briefing, this.briefingIds + 1);
+    if (next === this.briefing) return;
+    if (next) {
+      this.briefingIds = next.id;
+      if (!this.briefing) this.briefingSince = next.id;
+    }
+    this.briefing = next;
+    // Straight to the painters, not with the next feed up to a second later
+    // (and without an extra history sample: the feed is the same otherwise).
+    this.feed = { ...this.feed, briefing: next };
+    this.worker?.postMessage({ type: "feed", feed: this.feed });
+    const fallback = this.fallback;
+    if (fallback) {
+      for (let i = 0; i < SCREEN_SURFACES.length; i++) if (SCREEN_SURFACES[i].briefing) fallback.next[i] = 0;
+    }
+  }
+
+  /**
+   * True while either side panel's picture is a briefing's: the wings then
+   * show both panels whole instead of tiling their cards. Follows what is
+   * painted, not what was asked, so the wall never shows a half-switched mix.
+   */
+  get briefingOnWings(): boolean {
+    return this.shown[MAP_LEFT] !== 0 || this.shown[MAP_RIGHT] !== 0;
+  }
+
+  /** True while there is a briefing and the banner shows it. */
+  get briefingBanner(): boolean {
+    return this.briefing !== null && this.shown[MAP_BANNER] >= this.briefingSince;
   }
 
   setQuality(quality: HqQuality): void {
@@ -217,18 +283,25 @@ export class HqScreenHub {
     let layers = 0;
     let singles = 0;
     const touched = this.mipmapDue;
-    for (const [index, bitmap] of this.ready) {
+    // Keys plus get (not entries): no [key, value] pair per ready picture.
+    // Deleting the current key while iterating a Map is safe.
+    for (const index of this.ready.keys()) {
       const target = SCREEN_SURFACES[index].target;
       if (target.kind === "layer" ? layers >= LAYER_UPLOADS_PER_FRAME : singles >= SINGLE_UPLOADS_PER_FRAME) continue;
+      const { bitmap, briefing } = this.ready.get(index)!;
       this.ready.delete(index);
       if (target.kind === "layer") {
         layers++;
-        const [texture, spec] = this.atlasOf(target.set);
-        const { x, y } = tileOrigin(spec, target.layer);
+        const monitors = target.set === "monitors";
+        const texture = monitors ? this.monitors : this.walls;
+        const { x, y } = tileOrigin(monitors ? MONITOR_ATLAS : WALL_ATLAS, target.layer);
         if (uploadRect(renderer, texture, x, y, bitmap)) touched.add(texture);
       } else {
         singles++;
-        if (uploadRect(renderer, this[target.id], 0, 0, bitmap)) touched.add(this[target.id]);
+        if (uploadRect(renderer, this[target.id], 0, 0, bitmap)) {
+          touched.add(this[target.id]);
+          this.shown[index] = briefing;
+        }
       }
       bitmap.close();
       this.worker?.postMessage({ type: "ack", index });
@@ -238,6 +311,8 @@ export class HqScreenHub {
 
   /** One mipmap pass per changed texture, at most every MIPMAP_PERIOD (faster for a watched wall channel). */
   private refreshMipmaps(renderer: THREE.WebGLRenderer, seconds: number): void {
+    // Nothing due: skip the Set iterator altogether.
+    if (this.mipmapDue.size === 0) return;
     for (const texture of this.mipmapDue) {
       const last = this.mipmapAt.get(texture) ?? -Infinity;
       const period = texture === this.walls && this.wallInView() ? WALL_MIPMAP_PERIOD : MIPMAP_PERIOD;
@@ -264,7 +339,7 @@ export class HqScreenHub {
   private useFallback(): void {
     this.worker?.terminate();
     this.worker = null;
-    for (const bitmap of this.ready.values()) bitmap.close();
+    for (const { bitmap } of this.ready.values()) bitmap.close();
     this.ready.clear();
     if (!this.fallback) this.fallback = { painters: new Map(), next: new Float64Array(SCREEN_SURFACES.length) };
   }
@@ -281,6 +356,7 @@ export class HqScreenHub {
       if (seconds < fallback.next[i]) continue;
       const surface = SCREEN_SURFACES[i];
       fallback.next[i] = seconds + surfacePeriod(surface, this.inView[i] === 1) * this.slowdown * FALLBACK_SLOWDOWN;
+      if (surface.when && !surface.when(this.feed)) continue;
       const { painter } = this.fallbackPainter(surface);
       // The clocks read the wall clock at paint time, as in the worker.
       this.feed.clock = Date.now();
@@ -303,6 +379,7 @@ export class HqScreenHub {
       // Only the rows of this tile go up again.
       texture.addUpdateRange(y * image.width * 4, surface.h * image.width * 4);
       texture.needsUpdate = true;
+      this.shown[i] = this.feed.briefing?.id ?? 0;
       painted++;
     }
   }
@@ -366,20 +443,34 @@ export class HqScreenHub {
     const ago = this.teamWorking[0];
     teams.forEach((team, f) => (team.workingAgo = ago[f] ?? team.working));
     this.sample++;
-    return { clock, timeZone: hqTimeZone(), sample: this.sample, total, working, idle, error, names, events: this.events.slice(), history: this.history.slice(), teams };
+    return {
+      clock,
+      timeZone: hqTimeZone(),
+      sample: this.sample,
+      total,
+      working,
+      idle,
+      error,
+      names,
+      events: this.events.slice(),
+      history: this.history.slice(),
+      teams,
+      briefing: this.briefing,
+    };
   }
 
   dispose(): void {
     this.disposed = true;
     this.worker?.terminate();
     this.worker = null;
-    for (const bitmap of this.ready.values()) bitmap.close();
+    for (const { bitmap } of this.ready.values()) bitmap.close();
     this.ready.clear();
     this.monitors.dispose();
     this.walls.dispose();
     this.exec.dispose();
     this.mapLeft.dispose();
     this.mapRight.dispose();
+    this.mapBanner.dispose();
   }
 }
 
@@ -398,16 +489,24 @@ function glTextureOf(renderer: THREE.WebGLRenderer, texture: THREE.Texture): Web
 }
 
 // three r184+ caches pixel-store state; set it through the cache when there is one.
+type PixelStoreCache = { pixelStorei?: (name: number, value: number | boolean) => void };
+
+// No closure per upload: the state (and its cache, when there is one) is passed along.
+function unpack(state: PixelStoreCache, gl: WebGL2RenderingContext, name: number, value: number | boolean): void {
+  const cached = state.pixelStorei;
+  if (cached) cached.call(state, name, value);
+  else gl.pixelStorei(name, value as number);
+}
+
 function resetUnpack(renderer: THREE.WebGLRenderer, gl: WebGL2RenderingContext): void {
-  const cached = (renderer.state as unknown as { pixelStorei?: (name: number, value: number | boolean) => void }).pixelStorei;
-  const set = cached ? (name: number, value: number | boolean) => cached.call(renderer.state, name, value) : (name: number, value: number | boolean) => gl.pixelStorei(name, value as number);
-  set(gl.UNPACK_FLIP_Y_WEBGL, false);
-  set(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-  set(gl.UNPACK_ROW_LENGTH, 0);
-  set(gl.UNPACK_IMAGE_HEIGHT, 0);
-  set(gl.UNPACK_SKIP_PIXELS, 0);
-  set(gl.UNPACK_SKIP_ROWS, 0);
-  set(gl.UNPACK_SKIP_IMAGES, 0);
+  const state = renderer.state as unknown as PixelStoreCache;
+  unpack(state, gl, gl.UNPACK_FLIP_Y_WEBGL, false);
+  unpack(state, gl, gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  unpack(state, gl, gl.UNPACK_ROW_LENGTH, 0);
+  unpack(state, gl, gl.UNPACK_IMAGE_HEIGHT, 0);
+  unpack(state, gl, gl.UNPACK_SKIP_PIXELS, 0);
+  unpack(state, gl, gl.UNPACK_SKIP_ROWS, 0);
+  unpack(state, gl, gl.UNPACK_SKIP_IMAGES, 0);
 }
 
 function uploadRect(renderer: THREE.WebGLRenderer, texture: THREE.DataTexture, x: number, y: number, bitmap: ImageBitmap): boolean {

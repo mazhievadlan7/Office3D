@@ -72,6 +72,39 @@ describe("task store route", () => {
     expect(deleteBody.task?.history?.some((entry) => entry.type === "archived")).toBe(true);
   });
 
+  it("PUT with a tasks array stores them in order and answers each entry", async () => {
+    tempDir = makeTempDir("task-store-route-put-batch");
+    process.env.OPENCLAW_STATE_DIR = tempDir;
+
+    const response = await PUT(
+      makeRequest("PUT", {
+        tasks: [
+          { id: "task-1", title: "First", status: "todo", updatedAt: "2026-09-28T10:00:00.000Z" },
+          { id: "task-2", title: "Bad", status: "banana" },
+          { id: "task-1", title: "First", status: "review", updatedAt: "2026-09-28T10:00:01.000Z" },
+          "not a task",
+        ],
+      })
+    );
+    const body = (await response.json()) as {
+      results?: Array<{ task?: { id?: string; status?: string }; error?: string; status?: number }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(body.results).toHaveLength(4);
+    expect(body.results?.[0]?.task).toEqual(expect.objectContaining({ id: "task-1", status: "todo" }));
+    expect(body.results?.[1]).toEqual({ error: "Некорректный статус: «banana».", status: 400 });
+    expect(body.results?.[2]?.task).toEqual(expect.objectContaining({ id: "task-1", status: "review" }));
+    expect(body.results?.[3]?.status).toBe(400);
+
+    const listed = (await (await GET()).json()) as {
+      tasks: Array<{ id: string; status: string; history: Array<{ type: string }> }>;
+    };
+    expect(listed.tasks.map((task) => [task.id, task.status])).toEqual([["task-1", "review"]]);
+    expect(listed.tasks[0].history.map((entry) => entry.type)).toEqual(["created", "status_changed"]);
+  });
+
   it("PUT returns 400 for missing task payload", async () => {
     tempDir = makeTempDir("task-store-route-put-no-task");
     process.env.OPENCLAW_STATE_DIR = tempDir;

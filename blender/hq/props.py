@@ -21,7 +21,10 @@ Materials are shared across props: black_matte, black_gloss, leather,
 fabric_dark, metal_dark, glass_dark, plant_leaf and plant_leaf_dark (COLOR_0),
 soil, emissive_red (LED quads: uv.x = blink phase, uv.y = 1 blink / 0 steady),
 emissive_red_dim (faint steady inlays, same UV convention), emissive_warm,
-screen (UV 0..1 over each display surface).
+screen (UV 0..1 over each display surface), and paper (COLOR_0; the archive's
+paper stacks and printed labels, added by props_archive.install_materials).
+The archive kinds (props_archive.py) are dynamic props the app moves itself:
+the cart and its load tiers share the cart's frame, the bay LEDs the bay's.
 """
 
 import os
@@ -35,6 +38,7 @@ sys.path.insert(0, HERE)
 sys.dont_write_bytecode = True  # keep blender/hq free of __pycache__
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
+import props_archive as archive  # noqa: E402
 import props_exec as executive  # noqa: E402
 import props_furniture as furniture  # noqa: E402
 import props_tech as tech  # noqa: E402
@@ -61,10 +65,17 @@ KINDS = [
     ("server_pillar", tech.server_pillar),
     ("data_monolith", tech.data_monolith),
     ("dark_plant", furniture.dark_plant),
+    # AM7's briefing lectern; the app rises it up through the floor for a briefing.
+    ("tribune", tech.tribune),
+    # The archive service (props_archive.py): cart, load tiers, bay, gauge LEDs, intake.
+    *archive.KINDS,
 ]
 TRI_BUDGET = 4200
-# AM7's desk and chair are drawn once, close up: they get a hero budget.
-HERO_BUDGET = {"exec_desk": 32000, "exec_chair": 18000}
+# AM7's desk and chair and the tribune are drawn once, close up: they get a hero budget.
+HERO_BUDGET = {"exec_desk": 32000, "exec_chair": 18000, "tribune": 6000}
+BUDGET = {**HERO_BUDGET, **archive.TRI_BUDGET}
+# Kinds that keep the seed of their approved preview instead of their position's.
+SEEDS = dict(archive.SEEDS)
 
 
 def parse_args():
@@ -91,6 +102,7 @@ def parse_args():
 def build_all():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
+    archive.install_materials()
     mats = make_materials()
     coll = bpy.data.collections.new("hq_props")
     scene.collection.children.link(coll)
@@ -98,13 +110,13 @@ def build_all():
     over = []
     for seed, (kind, fn) in enumerate(KINDS, start=1):
         t0 = time.time()
-        prop = Prop(kind, seed=seed * 7919)
+        prop = Prop(kind, seed=SEEDS.get(kind, seed * 7919))
         fn(prop)
         root, tris = prop.build(mats, coll)
         roots.append(root)
-        budget = HERO_BUDGET.get(kind, TRI_BUDGET)
+        budget = BUDGET.get(kind, TRI_BUDGET)
         flag = "  OVER BUDGET" if tris > budget else ""
-        print(f"[prop] {kind:14s} {tris:5d} tris  {len(root.children)} meshes  {time.time() - t0:.2f}s{flag}")
+        print(f"[prop] {kind:26s} {tris:5d} tris  {len(root.children)} meshes  {time.time() - t0:.2f}s{flag}")
         if tris > budget:
             over.append(kind)
     total = sum(sum(len(p.vertices) - 2 for p in ob.data.polygons) for r in roots for ob in r.children)

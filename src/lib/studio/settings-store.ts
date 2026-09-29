@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -184,15 +185,68 @@ export const loadLocalGatewayDefaults = (): StudioGatewaySettings | null => {
   return null;
 };
 
-export const loadStudioSettings = (): StudioSettings => {
-  const settingsPath = resolveStudioSettingsPath();
-  if (!fs.existsSync(settingsPath)) {
-    const defaults = defaultStudioSettings();
-    const gateway = loadLocalGatewayDefaults();
-    return gateway ? { ...defaults, gateway } : defaults;
+const buildMissingFileSettings = (): StudioSettings => {
+  const defaults = defaultStudioSettings();
+  const gateway = loadLocalGatewayDefaults();
+  return gateway ? { ...defaults, gateway } : defaults;
+};
+
+// Remembers which unreadable file version was already reported so frequent
+// polling of a corrupt settings file logs one line, not one per request.
+let lastReportedUnreadableSettings: string | null = null;
+
+const reportUnreadableSettings = (settingsPath: string, err: unknown) => {
+  let signature = settingsPath;
+  try {
+    const stat = fs.statSync(settingsPath);
+    signature = `${settingsPath}:${stat.size}:${stat.mtimeMs}`;
+  } catch {
+    // Keep the path-only signature.
   }
-  const raw = fs.readFileSync(settingsPath, "utf8");
-  const parsed = JSON.parse(raw) as unknown;
+  if (signature === lastReportedUnreadableSettings) return;
+  lastReportedUnreadableSettings = signature;
+  const reason = err instanceof Error ? err.message : String(err);
+  console.warn(
+    `[studio] settings file ${settingsPath} is unreadable (${reason}); using defaults without overwriting it.`
+  );
+};
+
+/**
+ * Reads and parses the settings file. Returns `{ found: false }` when the file
+ * does not exist. With `strict`, a partial/corrupt file throws (callers that
+ * would write the result back must not replace the user's file with defaults);
+ * otherwise it is treated exactly like a missing file. Other I/O errors
+ * (permissions, a locked file, ...) still throw as before: silently falling
+ * back to defaults there could point callers at the wrong gateway.
+ */
+const readStudioSettingsFile = (
+  settingsPath: string,
+  strict: boolean
+): { found: false } | { found: true; parsed: unknown } => {
+  if (!fs.existsSync(settingsPath)) return { found: false };
+  let raw: string;
+  try {
+    raw = fs.readFileSync(settingsPath, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException | null)?.code === "ENOENT") return { found: false };
+    throw err;
+  }
+  try {
+    return { found: true, parsed: JSON.parse(raw) as unknown };
+  } catch (err) {
+    if (strict) throw err;
+    reportUnreadableSettings(settingsPath, err);
+    return { found: false };
+  }
+};
+
+const loadStudioSettingsInternal = (strict: boolean): StudioSettings => {
+  const settingsPath = resolveStudioSettingsPath();
+  const file = readStudioSettingsFile(settingsPath, strict);
+  if (!file.found) {
+    return buildMissingFileSettings();
+  }
+  const parsed = file.parsed;
   const settings = normalizeStudioSettings(parsed);
   if (!settings.gateway?.token) {
     const gateway = loadLocalGatewayDefaults();
@@ -212,17 +266,88 @@ export const loadStudioSettings = (): StudioSettings => {
   return settings;
 };
 
+/**
+ * Loads settings for readers. A partial or corrupt settings file is treated
+ * exactly like a missing one (defaults + local gateway defaults) and is never
+ * rewritten here.
+ */
+export const loadStudioSettings = (): StudioSettings => loadStudioSettingsInternal(false);
+
+// Windows can briefly refuse to replace a file another process (editor,
+// antivirus, a concurrent reader) holds open. These codes are transient there.
+const TRANSIENT_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+const RENAME_RETRY_DELAYS_MS = [10, 25, 50];
+
+const sleepSync = (ms: number) => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+};
+
+const renameOverExisting = (from: string, to: string) => {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      // renameSync replaces an existing target on POSIX and on Windows
+      // (MoveFileEx with MOVEFILE_REPLACE_EXISTING), so readers observe either
+      // the old or the new complete file, never a partial one.
+      fs.renameSync(from, to);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | null)?.code;
+      const delay = RENAME_RETRY_DELAYS_MS[attempt];
+      if (process.platform !== "win32" || !code || !TRANSIENT_RENAME_CODES.has(code) || delay === undefined) {
+        throw err;
+      }
+      sleepSync(delay);
+    }
+  }
+};
+
 export const saveStudioSettings = (next: StudioSettings) => {
   const settingsPath = resolveStudioSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(settingsPath, JSON.stringify(next, null, 2), "utf8");
+  // The old in-place write followed a symlinked settings.json and kept the
+  // file's permissions (it holds the gateway token). Keep both: replace the
+  // real file, and give the replacement the existing file's mode.
+  let targetPath = settingsPath;
+  let existingMode: number | null = null;
+  try {
+    targetPath = fs.realpathSync(settingsPath);
+    existingMode = fs.statSync(targetPath).mode & 0o777;
+  } catch {
+    // No existing file yet: write a new one at the configured path.
+  }
+  // Write to a temp file in the same directory, then rename over the target,
+  // so a concurrent read or an interrupted write never sees a half-written file.
+  const tmpPath = path.join(path.dirname(targetPath), `.settings-${crypto.randomUUID()}.tmp`);
+  try {
+    // POSIX permission bits only; on Windows they map to a read-only flag that
+    // would make the temp file impossible to rename or clean up.
+    const posixMode = existingMode !== null && process.platform !== "win32" ? existingMode : null;
+    fs.writeFileSync(tmpPath, JSON.stringify(next, null, 2), {
+      encoding: "utf8",
+      mode: posixMode ?? 0o666,
+    });
+    if (posixMode !== null) {
+      // The create mode is masked by the umask; set the old bits exactly.
+      fs.chmodSync(tmpPath, posixMode);
+    }
+    renameOverExisting(tmpPath, targetPath);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // Best-effort cleanup.
+    }
+    throw error;
+  }
 };
 
 export const applyStudioSettingsPatch = (patch: StudioSettingsPatch): StudioSettings => {
-  const current = loadStudioSettings();
+  // Strict read: if the existing file is unreadable, fail instead of replacing
+  // the user's file with defaults + patch.
+  const current = loadStudioSettingsInternal(true);
   const next = mergeStudioSettings(current, patch);
   saveStudioSettings(next);
   return next;

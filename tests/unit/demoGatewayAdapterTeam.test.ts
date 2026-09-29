@@ -93,9 +93,9 @@ afterEach(() => {
 
 describe("demo team", () => {
   it("clamps DEMO_AGENT_COUNT to 1..1000 with 300 by default", () => {
-    expect(resolveAgentCount(undefined)).toBe(300);
-    expect(resolveAgentCount("")).toBe(300);
-    expect(resolveAgentCount("many")).toBe(300);
+    expect(resolveAgentCount(undefined)).toBe(333);
+    expect(resolveAgentCount("")).toBe(333);
+    expect(resolveAgentCount("many")).toBe(333);
     expect(resolveAgentCount("0")).toBe(1);
     expect(resolveAgentCount("-5")).toBe(1);
     expect(resolveAgentCount("5000")).toBe(1000);
@@ -115,7 +115,7 @@ describe("demo team", () => {
       expect((await call("agents.list")).agents).toHaveLength(7);
       delete process.env.DEMO_AGENT_COUNT;
       resetDemoState();
-      expect((await call("agents.list")).agents).toHaveLength(300);
+      expect((await call("agents.list")).agents).toHaveLength(333);
     } finally {
       if (previous === undefined) delete process.env.DEMO_AGENT_COUNT;
       else process.env.DEMO_AGENT_COUNT = previous;
@@ -143,7 +143,7 @@ describe("demo team", () => {
     expect((await call("agents.list")).agents[0].id).toBe("main");
   });
 
-  it("gives 1000 agents unique safe ids and unique short call signs", () => {
+  it("gives 1000 agents unique safe ids and unique APT-style call signs", () => {
     const team = buildDemoTeam(1000);
     expect(team).toHaveLength(1000);
     const ids = team.map((agent) => agent.id);
@@ -154,10 +154,12 @@ describe("demo team", () => {
 
     const names = team.map((agent) => agent.name);
     expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(1000);
-    for (const name of names) expect(name.length).toBeLessThanOrEqual(10);
-    // The team's call signs are letters only; the first pass is the plain list.
-    for (const name of names.slice(1)) expect(name).toMatch(/^[A-Za-z]+$/);
-    expect(names.slice(1, 4)).toEqual(["Nyx", "Vex", "Kade"]);
+    // Short enough for the name plates over the crowd (22 characters).
+    for (const name of names) expect(name.length).toBeLessThanOrEqual(16);
+    // APT-style handles: an upper-case root and the agent's index in hex.
+    for (const name of names.slice(1)) expect(name).toMatch(/^[A-Z]+-[0-9A-F]{2,3}$/);
+    expect(names.slice(1, 4)).toEqual(["WRAITH-01", "SPECTER-02", "VOID-03"]);
+    expect(names[0]).toBe("AM7");
 
     team.slice(1).forEach((agent, index) => {
       expect(agent.role).toBe(TEAM_ROLES[index % TEAM_ROLES.length]);
@@ -509,5 +511,13 @@ describe("ambient task wording", () => {
       // "heartbeat" and "cron" switch the office's latest-update panel.
       expect(task).not.toMatch(/heartbeat|cron/i);
     }
+  });
+});
+
+describe("the demo team and the HQ hall", () => {
+  it("fills every desk of the default hall, plus AM7 on the island", async () => {
+    const { generateHqLayout } = await import("@/features/hq/core/layout");
+    const { HQ_DEFAULT_CAPACITY } = await import("@/features/hq/core/config");
+    expect(resolveAgentCount(undefined)).toBe(generateHqLayout(HQ_DEFAULT_CAPACITY).desks.length + 1);
   });
 });

@@ -275,9 +275,16 @@ describe("runtime chat event workflow", () => {
       sessionKey: "agent:agent-1:studio:test-session",
     });
 
-    const warn = findCommand(result.commands, "logWarn");
-    expect(warn).toBeDefined();
-    expect(warn?.message).toBe("No thinking trace extracted from chat event.");
+    // Missing thinking is a debug-channel metric, never a console warning.
+    expect(findCommand(result.commands, "logWarn")).toBeUndefined();
+    const metric = result.commands.find(
+      (command) => command.kind === "logMetric" && command.metric === "thinking_trace_missing"
+    );
+    expect(metric).toMatchObject({
+      kind: "logMetric",
+      metric: "thinking_trace_missing",
+      meta: { sessionKey: "agent:agent-1:studio:test-session" },
+    });
 
     const policy = findCommand(result.commands, "applyPolicyIntents");
     expect(policy).toBeDefined();
