@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveOfficeCallDirective,
   resolveOfficeDeskDirective,
   resolveOfficeGithubDirective,
   resolveOfficeGymCommandDirective,
@@ -9,7 +8,6 @@ import {
   resolveOfficeIntentSnapshot,
   resolveOfficeQaDirective,
   resolveOfficeStandupDirective,
-  resolveOfficeTextDirective,
 } from "@/lib/office/deskDirectives";
 
 // The office is in Russian, so the commands people type to agents are too.
@@ -75,47 +73,6 @@ describe("русские команды офиса", () => {
     expect(resolveOfficeStandupDirective("пора на стендап")).toBe("standup");
     expect(resolveOfficeStandupDirective("время собрания")).toBe("standup");
     expect(resolveOfficeStandupDirective("как прошло собрание вчера?")).toBeNull();
-  });
-
-  it("звонит_и_передаёт_сообщение", () => {
-    expect(resolveOfficeCallDirective("Позвони маме и скажи, что я опоздаю")).toEqual({
-      callee: "маме",
-      message: "что я опоздаю",
-      phase: "ready_to_call",
-    });
-    expect(resolveOfficeCallDirective("позвони Ивану, передай ему: встреча в пять")).toEqual({
-      callee: "ивану",
-      message: "встреча в пять",
-      phase: "ready_to_call",
-    });
-    expect(resolveOfficeCallDirective("набери +79001234567")).toEqual({
-      callee: "+79001234567",
-      message: null,
-      phase: "needs_message",
-    });
-    expect(resolveOfficeCallDirective("позвони мне")).toBeNull();
-    expect(resolveOfficeCallDirective("подумай над звонками")).toBeNull();
-  });
-
-  it("пишет_сообщение_только_когда_оно_названо", () => {
-    expect(resolveOfficeTextDirective("напиши сообщение Ивану, что встреча переносится")).toEqual({
-      recipient: "ивану",
-      message: "встреча переносится",
-      phase: "ready_to_send",
-    });
-    expect(resolveOfficeTextDirective("отправь смс маме: буду поздно")).toEqual({
-      recipient: "маме",
-      message: "буду поздно",
-      phase: "ready_to_send",
-    });
-    expect(resolveOfficeTextDirective("напиши в ватсап Олегу")).toEqual({
-      recipient: "олегу",
-      message: null,
-      phase: "needs_message",
-    });
-    // Без слова «сообщение» это просьба написать код, а не письмо.
-    expect(resolveOfficeTextDirective("напиши тесты")).toBeNull();
-    expect(resolveOfficeTextDirective("напиши мне сообщение")).toBeNull();
   });
 
   it("по_прежнему_понимает_английский", () => {

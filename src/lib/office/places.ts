@@ -7,8 +7,6 @@ export const OFFICE_INTERACTION_TARGETS = [
   "gym",
   "jukebox",
   "qa_lab",
-  "sms_booth",
-  "phone_booth",
 ] as const;
 
 export type OfficeInteractionTargetId =

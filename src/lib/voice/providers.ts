@@ -3,19 +3,30 @@
 //
 // One interface per direction, one registry, chosen by the server's
 // environment (a speech service is infrastructure, not a browser preference):
-//   - elevenlabs         ElevenLabs Scribe (STT) and its voices (TTS);
-//   - openai-compatible  any server with OpenAI's audio API —
-//                        POST {url}/audio/transcriptions and /audio/speech.
-//                        That is the way to a free, local voice: e.g. a
-//                        faster-whisper server for STT and Kokoro for TTS,
-//                        next to the office on the same machine;
+//   - local-speech       (default) the office's own speech gateway
+//                        (services/speech, SPEECH_GATEWAY_URL): Silero TTS v5
+//                        for Russian with exact stress, VoiceStudio for the
+//                        designed voices and for speech recognition. Open
+//                        source, on this machine or the office's server;
+//   - openai-compatible  any other server with OpenAI's audio API —
+//                        POST {url}/audio/transcriptions and /audio/speech;
 //   - openclaw           (STT only) the OpenClaw runtime's own audio pipeline,
 //                        for offices still on OpenClaw.
 //
-// Upstream error bodies are logged, never passed to the browser: they can
-// carry account details. The browser gets a short message and a status.
+// Upstream error bodies are logged, never passed to the browser. The browser
+// gets a short message and a status.
 
-export type SpeechProviderId = "elevenlabs" | "openai-compatible" | "openclaw";
+import {
+  BUILTIN_SPEECH_VOICES,
+  DEFAULT_LEAD_VOICE,
+  DEFAULT_SYSTEM_VOICE,
+  isSpeechVoiceId,
+  parseGatewayVoices,
+  voicesWithRole,
+  type SpeechVoice,
+} from "@/lib/voice/voiceCatalog";
+
+export type SpeechProviderId = "local-speech" | "openai-compatible" | "openclaw";
 
 export type TranscriptionRequest = { buffer: Buffer; fileName: string; mimeType: string };
 export type TranscriptionResult = {
@@ -24,7 +35,13 @@ export type TranscriptionResult = {
   model: string | null;
   ignored: boolean;
 };
-export type SynthesisRequest = { text: string; voiceId?: string | null; speed?: number };
+export type SynthesisRequest = {
+  text: string;
+  voiceId?: string | null;
+  speed?: number;
+  /** "system": the HQ's own voice, whatever voice id was sent. */
+  role?: "system" | null;
+};
 
 export interface SttProvider {
   readonly id: SpeechProviderId;
@@ -34,7 +51,7 @@ export interface SttProvider {
 export interface TtsProvider {
   readonly id: SpeechProviderId;
   /** The default voice and the voices the office offers. */
-  voices(): { defaultVoiceId: string; options: Array<{ id: string; label: string }> };
+  voices(): { defaultVoiceId: string; options: Array<{ id: string; label: string; role?: string }> };
   synthesize(request: SynthesisRequest): Promise<Response>;
 }
 
@@ -54,17 +71,12 @@ const read = (env: Env, key: string) => env[key]?.trim() || "";
 
 const STT_TIMEOUT_MS = 60_000;
 const TTS_TIMEOUT_MS = 30_000;
+/** Designed voices render on the GPU (or slowly on a CPU); the gateway falls back to Silero itself. */
+const GATEWAY_TTS_TIMEOUT_MS = 120_000;
+const GATEWAY_STT_TIMEOUT_MS = 120_000;
+const GATEWAY_PROBE_TIMEOUT_MS = 2_500;
 
-const ELEVENLABS_API = "https://api.elevenlabs.io/v1";
-const ELEVENLABS_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"; // Rachel
-const ELEVENLABS_VOICES = [
-  { id: "21m00Tcm4TlvDq8ikWAM", label: "Rachel" },
-  { id: "EXAVITQu4vr4xnSDxMaL", label: "Bella" },
-  { id: "MF3mGyEYCl7XYWbV9V6O", label: "Elli" },
-  { id: "ErXwobaYiN019PkySvjV", label: "Antoni" },
-  { id: "TxGEqnHWrfWFTfGW9XjX", label: "Josh" },
-  { id: "pNInz6obpgDQGcFmaJgB", label: "Adam" },
-];
+export const DEFAULT_SPEECH_GATEWAY_URL = "http://127.0.0.1:8765";
 const OPENAI_DEFAULT_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 const VOICE_ID_RE = /^[A-Za-z0-9_.:-]{1,100}$/;
 
@@ -100,77 +112,105 @@ const timedFetch = async (service: string, url: string, init: RequestInit, timeo
 const audioBlob = (request: TranscriptionRequest) =>
   new Blob([new Uint8Array(request.buffer)], { type: request.mimeType || "application/octet-stream" });
 
-// --- ElevenLabs ------------------------------------------------------------------------
+// --- Local speech gateway (Silero + VoiceStudio) --------------------------------------
 
-const elevenLabsKey = (env: Env) => {
-  const key = read(env, "ELEVENLABS_API_KEY");
-  if (!key) throw new VoiceProviderError(503, "Голос не настроен: задайте ELEVENLABS_API_KEY на сервере.");
-  return key;
+const GATEWAY_SERVICE = "Сервер речи";
+
+/** The gateway's base URL, without a trailing /v1. */
+export const speechGatewayUrl = (env: Env) => {
+  const url = (read(env, "SPEECH_GATEWAY_URL") || DEFAULT_SPEECH_GATEWAY_URL).replace(/\/+$/, "").replace(/\/v1$/, "");
+  if (!/^https?:\/\//.test(url)) throw new VoiceProviderError(503, "SPEECH_GATEWAY_URL должен быть адресом http(s).");
+  return url;
 };
 
-const elevenLabsStt = (env: Env): SttProvider => ({
-  id: "elevenlabs",
+/** The HQ's own voice («Система штаба»): Silero by default, for exact Russian stress. */
+export const systemVoiceId = (env: Env) => {
+  const configured = read(env, "OFFICE3D_SYSTEM_VOICE");
+  return isSpeechVoiceId(configured) ? configured : DEFAULT_SYSTEM_VOICE;
+};
+
+const gatewayDefaultVoice = (env: Env) => {
+  const configured = read(env, "OFFICE3D_TTS_VOICE");
+  return isSpeechVoiceId(configured) ? configured : DEFAULT_LEAD_VOICE;
+};
+
+/** A voice id from the browser, or the default when it is not a gateway voice (e.g. an old saved id). */
+const pickGatewayVoice = (requested: string | null | undefined, fallback: string) => {
+  const value = requested?.trim();
+  return value && isSpeechVoiceId(value) ? value : fallback;
+};
+
+const gatewayUnavailable = (error: VoiceProviderError) =>
+  error.status === 502 && error.message === `${GATEWAY_SERVICE} недоступен.`
+    ? new VoiceProviderError(503, "Сервер речи не запущен: npm run speech (см. docs/deployment.md).")
+    : error;
+
+const gatewayFetch = async (url: string, init: RequestInit, timeoutMs: number) => {
+  try {
+    return await timedFetch(GATEWAY_SERVICE, url, init, timeoutMs);
+  } catch (error) {
+    throw error instanceof VoiceProviderError ? gatewayUnavailable(error) : error;
+  }
+};
+
+const localSpeechStt = (env: Env): SttProvider => ({
+  id: "local-speech",
   async transcribe(request) {
-    const key = elevenLabsKey(env);
-    const models = [read(env, "ELEVENLABS_STT_MODEL_ID") || "scribe_v2", "scribe_v1"];
-    for (const [index, model] of models.entries()) {
-      const form = new FormData();
-      form.set("model_id", model);
-      form.set("file", audioBlob(request), request.fileName || "voice-note.webm");
-      const language = read(env, "OFFICE3D_STT_LANGUAGE");
-      if (language) form.set("language_code", language);
-      const response = await timedFetch(
-        "ElevenLabs",
-        `${ELEVENLABS_API}/speech-to-text`,
-        { method: "POST", headers: { "xi-api-key": key }, body: form },
-        STT_TIMEOUT_MS,
-      );
-      // An account or region without the newer model gets the older one.
-      if ((response.status === 400 || response.status === 422) && index === 0 && !read(env, "ELEVENLABS_STT_MODEL_ID")) {
-        await response.text().catch(() => "");
-        continue;
-      }
-      if (!response.ok) await upstreamFailure("ElevenLabs", response);
-      const body = (await response.json().catch(() => ({}))) as { text?: unknown };
-      const transcript = typeof body.text === "string" ? body.text.trim() : "";
-      return { transcript, provider: "elevenlabs", model, ignored: transcript.length === 0 };
-    }
-    throw new VoiceProviderError(502, "ElevenLabs не смог распознать речь.");
+    const model = read(env, "OFFICE3D_STT_MODEL") || "whisper-1";
+    const form = new FormData();
+    form.set("model", model);
+    form.set("file", audioBlob(request), request.fileName || "voice-note.webm");
+    form.set("language", read(env, "OFFICE3D_STT_LANGUAGE") || "ru");
+    const response = await gatewayFetch(
+      `${speechGatewayUrl(env)}/v1/audio/transcriptions`,
+      { method: "POST", body: form },
+      GATEWAY_STT_TIMEOUT_MS,
+    );
+    if (!response.ok) await upstreamFailure(GATEWAY_SERVICE, response);
+    const body = (await response.json().catch(() => ({}))) as { text?: unknown };
+    const transcript = typeof body.text === "string" ? body.text.trim() : "";
+    return { transcript, provider: "local-speech", model, ignored: transcript.length === 0 };
   },
 });
 
-const elevenLabsTts = (env: Env): TtsProvider => {
-  const defaultVoiceId = read(env, "ELEVENLABS_VOICE_ID") || ELEVENLABS_DEFAULT_VOICE;
+const localSpeechTts = (env: Env): TtsProvider => {
+  const defaultVoiceId = gatewayDefaultVoice(env);
   return {
-    id: "elevenlabs",
-    voices: () => ({ defaultVoiceId, options: ELEVENLABS_VOICES }),
+    id: "local-speech",
+    voices: () => ({
+      defaultVoiceId,
+      options: BUILTIN_SPEECH_VOICES.map(({ id, label, role }) => ({ id, label, role })),
+    }),
     async synthesize(request) {
-      const key = elevenLabsKey(env);
-      const voiceId = pickVoice(request.voiceId, defaultVoiceId);
-      const response = await timedFetch(
-        "ElevenLabs",
-        `${ELEVENLABS_API}/text-to-speech/${encodeURIComponent(voiceId)}/stream?output_format=mp3_44100_128`,
+      const voice = request.role === "system" ? systemVoiceId(env) : pickGatewayVoice(request.voiceId, defaultVoiceId);
+      const response = await gatewayFetch(
+        `${speechGatewayUrl(env)}/v1/audio/speech`,
         {
           method: "POST",
-          headers: { Accept: "audio/mpeg", "Content-Type": "application/json", "xi-api-key": key },
-          body: JSON.stringify({
-            text: request.text,
-            model_id: read(env, "ELEVENLABS_MODEL_ID") || "eleven_flash_v2_5",
-            voice_settings: {
-              stability: 0.42,
-              similarity_boost: 0.88,
-              style: 0.2,
-              use_speaker_boost: true,
-              speed: clampSpeed(request.speed),
-            },
-          }),
+          headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
+          body: JSON.stringify({ input: request.text, voice, response_format: "mp3", speed: clampSpeed(request.speed) }),
         },
-        TTS_TIMEOUT_MS,
+        GATEWAY_TTS_TIMEOUT_MS,
       );
-      if (!response.ok) await upstreamFailure("ElevenLabs", response);
+      if (!response.ok) await upstreamFailure(GATEWAY_SERVICE, response);
       return response;
     },
   };
+};
+
+/** The gateway's live voice list, or null when it does not answer. */
+const fetchGatewayVoices = async (env: Env): Promise<SpeechVoice[] | null> => {
+  try {
+    const response = await fetch(`${speechGatewayUrl(env)}/v1/voices`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(GATEWAY_PROBE_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const voices = parseGatewayVoices(await response.json().catch(() => null));
+    return voices.length ? voices : null;
+  } catch {
+    return null;
+  }
 };
 
 // --- OpenAI-compatible (local or hosted) ---------------------------------------------
@@ -274,32 +314,61 @@ const choose = (value: string, allowed: SpeechProviderId[], fallback: SpeechProv
 
 /** The configured speech-to-text provider. */
 export const sttProvider = (env: Env = process.env): SttProvider => {
-  const fallback: SpeechProviderId = read(env, "ELEVENLABS_API_KEY") ? "elevenlabs" : "openclaw";
-  const id = choose(read(env, "OFFICE3D_STT_PROVIDER"), ["elevenlabs", "openai-compatible", "openclaw"], fallback);
+  const id = choose(read(env, "OFFICE3D_STT_PROVIDER"), ["local-speech", "openai-compatible", "openclaw"], "local-speech");
   if (id === "openai-compatible") return openAiStt(env);
   if (id === "openclaw") return openClawStt();
-  return elevenLabsStt(env);
+  return localSpeechStt(env);
 };
 
 /** The configured text-to-speech provider. */
 export const ttsProvider = (env: Env = process.env): TtsProvider => {
-  const id = choose(read(env, "OFFICE3D_TTS_PROVIDER"), ["elevenlabs", "openai-compatible"], "elevenlabs");
-  return id === "openai-compatible" ? openAiTts(env) : elevenLabsTts(env);
+  const id = choose(read(env, "OFFICE3D_TTS_PROVIDER"), ["local-speech", "openai-compatible"], "local-speech");
+  return id === "openai-compatible" ? openAiTts(env) : localSpeechTts(env);
 };
 
-/** What the office may know about the voice setup: providers and voices, no secrets. */
-export const describeVoiceSetup = (env: Env = process.env) => {
+/**
+ * What the office may know about the voice setup: providers, readiness and
+ * voices (with who speaks with which), no secrets. With the local gateway the
+ * voices and readiness come from the gateway itself.
+ */
+export const describeVoiceSetup = async (env: Env = process.env) => {
   const tts = ttsProvider(env);
   const stt = sttProvider(env);
-  const ttsReady = tts.id === "elevenlabs" ? Boolean(read(env, "ELEVENLABS_API_KEY")) : Boolean(read(env, "OFFICE3D_TTS_API_URL") || read(env, "OFFICE3D_VOICE_API_URL"));
-  const sttReady =
-    stt.id === "elevenlabs"
-      ? Boolean(read(env, "ELEVENLABS_API_KEY"))
-      : stt.id === "openai-compatible"
-        ? Boolean(read(env, "OFFICE3D_STT_API_URL") || read(env, "OFFICE3D_VOICE_API_URL"))
-        : true;
+  const usesGateway = tts.id === "local-speech" || stt.id === "local-speech";
+  const live = usesGateway ? await fetchGatewayVoices(env) : null;
+  const gatewayUp = live !== null;
+  const hasOpenAiUrl = (specific: string) => Boolean(read(env, specific) || read(env, "OFFICE3D_VOICE_API_URL"));
+
+  let voices = tts.voices();
+  let roles: { systemVoiceId: string | null; leadVoiceId: string | null; crewVoiceIds: string[] } = {
+    systemVoiceId: null,
+    leadVoiceId: null,
+    crewVoiceIds: [],
+  };
+  if (tts.id === "local-speech") {
+    const catalog = live ?? BUILTIN_SPEECH_VOICES;
+    const lead = read(env, "OFFICE3D_TTS_VOICE");
+    voices = {
+      defaultVoiceId: voices.defaultVoiceId,
+      options: catalog.map(({ id, label, role }) => ({ id, label, role })),
+    };
+    roles = {
+      systemVoiceId: systemVoiceId(env),
+      leadVoiceId: isSpeechVoiceId(lead) ? lead : (voicesWithRole(catalog, "lead")[0] ?? DEFAULT_LEAD_VOICE),
+      crewVoiceIds: voicesWithRole(catalog, "crew"),
+    };
+  }
   return {
-    tts: { provider: tts.id, ready: ttsReady, ...tts.voices() },
-    stt: { provider: stt.id, ready: sttReady },
+    tts: {
+      provider: tts.id,
+      ready: tts.id === "local-speech" ? gatewayUp : hasOpenAiUrl("OFFICE3D_TTS_API_URL"),
+      ...voices,
+      ...roles,
+    },
+    stt: {
+      provider: stt.id,
+      ready:
+        stt.id === "local-speech" ? gatewayUp : stt.id === "openai-compatible" ? hasOpenAiUrl("OFFICE3D_STT_API_URL") : true,
+    },
   };
 };

@@ -11,3 +11,6 @@ coverage
 .env.local
 .env.development
 .env.production
+
+# The speech gateway builds its own image (services/speech/Dockerfile).
+services/speech

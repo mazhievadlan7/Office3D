@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CURATED_ELEVENLABS_VOICES } from "@/lib/voiceReply/catalog";
+import { BUILTIN_SPEECH_VOICES, DEFAULT_LEAD_VOICE } from "@/lib/voice/voiceCatalog";
 import type { VoiceSetup } from "@/lib/voice/agentVoices";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { t } from "@/lib/i18n";
@@ -183,15 +183,21 @@ export function SettingsPanel({
   voiceAgents = [],
   onAgentVoiceChange,
 }: SettingsPanelProps) {
-  // Voices come from the server's provider; ElevenLabs keeps its curated
-  // list with descriptions.
-  const officeVoices =
-    voiceSetup && voiceSetup.tts.provider !== "elevenlabs"
-      ? voiceSetup.tts.options.map((option) => ({ id: option.id as string | null, label: option.label, description: "" }))
-      : CURATED_ELEVENLABS_VOICES;
-  const voiceChoices = voiceSetup?.tts.options ?? CURATED_ELEVENLABS_VOICES.map((voice) => ({ id: voice.id ?? "", label: voice.label })).filter((voice) => voice.id);
+  // Voices come from the server's speech provider (the local speech gateway's
+  // list); while it loads, the gateway's built-in catalogue. The HQ system's
+  // own voice is not an agent's voice, so it is not offered here.
+  const voiceChoices = (voiceSetup?.tts.options ?? BUILTIN_SPEECH_VOICES).filter((voice) => voice.role !== "system");
+  const officeVoices = voiceChoices.map((option) => ({ id: option.id as string | null, label: option.label, description: "" }));
+  // No office voice picked: AM7 speaks with the lead voice.
+  const effectiveOfficeVoiceId = voiceRepliesVoiceId ?? voiceSetup?.tts.leadVoiceId ?? DEFAULT_LEAD_VOICE;
   const providerLabel = (id: string) =>
-    id === "elevenlabs" ? "ElevenLabs" : id === "openai-compatible" ? t("settings.voiceProviderLocal") : id === "openclaw" ? "OpenClaw" : id;
+    id === "local-speech"
+      ? "Silero + VoiceStudio"
+      : id === "openai-compatible"
+        ? t("settings.voiceProviderLocal")
+        : id === "openclaw"
+          ? "OpenClaw"
+          : id;
   const normalizedGatewayUrl = gatewayUrl?.trim() ?? "";
   const normalizedGatewayToken = gatewayToken ?? "";
   const gatewayStateLabel = gatewayStatus
@@ -504,7 +510,7 @@ export function SettingsPanel({
         <SectionHeader title={t("settings.voice")} lead={t("settings.voiceLead")} />
         <div className="mt-3 grid grid-cols-2 gap-2">
           {officeVoices.map((voice) => {
-            const selected = voice.id === voiceRepliesVoiceId;
+            const selected = voice.id === effectiveOfficeVoiceId;
             return (
               <button
                 key={voice.id ?? "default"}

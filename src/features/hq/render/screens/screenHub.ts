@@ -186,7 +186,7 @@ export class HqScreenHub {
    *   __hqOperationPreview()          // a sample operation on the wall
    *   __hqOperationPreview(snapshot)  // a snapshot of your own
    *   __hqOperationPreview(null)      // back to the panels
-   * Never touches ElevenLabs or any paid API. Removed on dispose.
+   * Never touches the speech gateway or any paid API. Removed on dispose.
    */
   private installDevPreview(): void {
     if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;

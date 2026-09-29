@@ -1,0 +1,4 @@
+# NVIDIA GPUs with CUDA 12.8 wheels (required for RTX 50xx / Blackwell).
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch>=2.8,<3
+-r requirements.txt

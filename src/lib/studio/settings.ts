@@ -24,6 +24,7 @@ import {
 } from "@/features/office/tasks/types";
 import { t } from "@/lib/i18n";
 import { capAutomaticTaskCards } from "@/lib/tasks/taskBoardCap";
+import { isSpeechVoiceId } from "@/lib/voice/voiceCatalog";
 
 export type StudioGatewaySettings = {
   url: string;
@@ -129,7 +130,7 @@ export type StudioAnalyticsPreferencePatch = {
   budgets?: Partial<StudioAnalyticsBudgetSettings>;
 };
 
-export type StudioVoiceRepliesProvider = "elevenlabs";
+export type StudioVoiceRepliesProvider = "local-speech";
 
 export type StudioVoiceRepliesPreference = {
   enabled: boolean;
@@ -392,7 +393,7 @@ export const defaultStudioAnalyticsPreference = (): StudioAnalyticsPreference =>
 export const defaultStudioVoiceRepliesPreference =
   (): StudioVoiceRepliesPreference => ({
     enabled: false,
-    provider: "elevenlabs",
+    provider: "local-speech",
     voiceId: null,
     speed: 1,
     agentVoices: {},
@@ -1085,23 +1086,31 @@ const normalizeAnalytics = (value: unknown): Record<string, StudioAnalyticsPrefe
   return analytics;
 };
 
+// Every saved provider, including ones Office3D no longer ships, now means
+// the server's configured speech provider.
 const normalizeVoiceRepliesProvider = (
-  value: unknown,
-  fallback: StudioVoiceRepliesProvider = "elevenlabs"
-): StudioVoiceRepliesProvider => {
-  const provider = coerceString(value);
-  return provider === "elevenlabs" ? provider : fallback;
-};
+  _value: unknown,
+  _fallback: StudioVoiceRepliesProvider = "local-speech"
+): StudioVoiceRepliesProvider => "local-speech";
 
-const AGENT_VOICE_ID_RE = /^[A-Za-z0-9_.:-]{1,100}$/;
 const MAX_AGENT_VOICES = 500;
 
+/**
+ * A voice as the speech gateway names it (`silero:…`, `voicestudio:…`). Ids
+ * saved for a retired provider are dropped, so the agent gets a voice picked
+ * for it again instead of a voice nobody can speak.
+ */
+const normalizeSpeechVoiceId = (value: unknown, fallback: string | null): string | null => {
+  if (value === undefined) return isSpeechVoiceId(fallback) ? fallback.trim() : null;
+  return isSpeechVoiceId(value) ? value.trim() : null;
+};
+
 const normalizeAgentVoices = (value: unknown, fallback: Record<string, string>): Record<string, string> => {
-  if (!isRecord(value)) return fallback;
+  const source = isRecord(value) ? value : fallback;
   const voices: Record<string, string> = {};
-  for (const [agentId, voiceId] of Object.entries(value).slice(0, MAX_AGENT_VOICES)) {
+  for (const [agentId, voiceId] of Object.entries(source).slice(0, MAX_AGENT_VOICES)) {
     const id = agentId.trim();
-    if (!id || typeof voiceId !== "string" || !AGENT_VOICE_ID_RE.test(voiceId.trim())) continue;
+    if (!id || !isSpeechVoiceId(voiceId)) continue;
     voices[id] = voiceId.trim();
   }
   return voices;
@@ -1115,7 +1124,7 @@ const normalizeVoiceRepliesPreference = (
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : fallback.enabled,
     provider: normalizeVoiceRepliesProvider(value.provider, fallback.provider),
-    voiceId: normalizeSelectedAgentId(value.voiceId, fallback.voiceId),
+    voiceId: normalizeSpeechVoiceId(value.voiceId, fallback.voiceId),
     speed: normalizeVoiceReplySpeed(value.speed, fallback.speed),
     agentVoices: normalizeAgentVoices(value.agentVoices, fallback.agentVoices ?? {}),
   };

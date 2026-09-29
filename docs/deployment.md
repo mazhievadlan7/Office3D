@@ -16,13 +16,17 @@
 | `hermes` | Hermes Agent: агенты (профили), память, задачи, инструменты | нет |
 | `hermes-gate` | пропускает к панели Hermes только запросы с токеном | нет |
 | `updater` | обновления Hermes с откатом, ежедневные копии, восстановление | нет |
+| `speech` | шлюз речи: голос системы (Silero), единый API речи для офиса (профиль `speech`) | нет |
+| `voicestudio` | VoiceStudio: голоса AM7 и операторов, распознавание речи (профиль `speech`) | нет |
 
 Тома, в которых лежат данные:
 
 - `hermes-data` — всё, что хранит Hermes;
 - `office3d-state` — настройки офиса, задачи, организация;
 - `hermes-backups` — резервные копии;
-- `caddy-data` — сертификаты.
+- `caddy-data` — сертификаты;
+- `speech-data`, `voicestudio-data` — модели речи и кэш (их можно не копировать:
+  они скачиваются заново).
 
 `docker compose down` их не трогает, а `down -v` удаляет.
 
@@ -124,6 +128,206 @@ llama.cpp.
 
 Hermes сам проверяет адрес со своей стороны сети и хранит ключ в `.env`
 профиля.
+
+## Голос
+
+Штаб говорит и слушает только через открытые движки, которые работают на
+вашем сервере или машине, без платных API и ключей:
+
+| Что | Движок | Лицензия |
+| --- | --- | --- |
+| Голос «Системы штаба» (приветствие) и любой текст, где важно точное ударение | [Silero TTS v5](https://github.com/snakers4/silero-models) + [silero-stress](https://github.com/snakers4/silero-stress) | MIT |
+| Голоса AM7 и операторов (синтезированные по описанию, VoxCPM2) | [VoiceStudio](https://github.com/debpalash/VoiceStudio) | AGPL-3.0 |
+| Распознавание голосовых команд (Whisper large-v3) | VoiceStudio | AGPL-3.0 |
+
+Офис обращается к одному **шлюзу речи** (`services/speech`, наш код, MIT) по
+`SPEECH_GATEWAY_URL` — OpenAI-совместимый API:
+
+```
+office3d ──► шлюз речи :8765 ──► Silero (в самом шлюзе, CPU)
+                  │
+                  └────────────► VoiceStudio :3900 (голоса voicestudio:*, распознавание)
+```
+
+- `GET /v1/voices` — голоса `silero:<диктор>` и `voicestudio:<имя>` с ролями
+  (`system`, `lead`, `crew`); список и роли задаёт
+  `services/speech/voices.json`, произношение имён — `services/speech/lexicon.json`.
+- `POST /v1/audio/speech` — речь (`mp3`, `wav`, `opus`, `flac`, `pcm`). Silero
+  ставит ударения моделью silero-stress, текст режется по предложениям,
+  48 кГц, одинаковые фразы берутся из кэша.
+- `POST /v1/audio/transcriptions` — распознавание, пересылается в VoiceStudio.
+- `GET /health` — готовность обоих движков.
+
+Если VoiceStudio недоступен или не успел ответить, у каждого голоса AM7 и
+операторов есть запасной голос Silero (`fallback` в `voices.json`) — штаб не
+замолкает. Распознаванию запасного пути нет. Системного голоса браузера или ОС
+нет и не будет.
+
+Шлюз слушает только `127.0.0.1` (в контейнере — только внутреннюю сеть
+compose, порт не публикуется). VoiceStudio запускается без изменений, отдельным
+процессом, и общается со шлюзом по HTTP: его код не встраивается в офис.
+
+### Локально (разработка)
+
+Один раз установите движки — они ставятся **вне репозитория**, по умолчанию в
+`%LOCALAPPDATA%\office3d-speech` (Windows) или `~/.local/share/office3d-speech`
+(Linux, macOS); другое место — `OFFICE3D_SPEECH_HOME` в `.env`. Нужны Python
+3.11+, git и [uv](https://docs.astral.sh/uv/); видеокарта NVIDIA необязательна
+(колёса CUDA 12.8 подходят и для RTX 50xx).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\speech-setup.ps1
+```
+
+```bash
+bash scripts/speech-setup.sh
+```
+
+Скрипт создаёт venv шлюза и скачивает Silero, клонирует VoiceStudio
+(`VOICESTUDIO_REF`, по умолчанию `v0.5.6`) без настольного приложения, ставит
+его backend через `uv sync`, устанавливает движок VoxCPM2 в его собственный
+venv, скачивает веса VoxCPM2 и Whisper large-v3 (всего около 20 ГБ). Повторный запуск
+обновляет установку. Ключи `-SkipVoxcpm2`/`SKIP_VOXCPM2=1`,
+`-SkipAsr`/`SKIP_ASR=1`, `-AsrModel`/`ASR_MODEL` и
+`-SkipVoiceStudio`/`SKIP_VOICESTUDIO=1` сокращают установку.
+
+Запуск рядом с `npm run dev` (оба сервиса останавливаются вместе по Ctrl+C):
+
+```bash
+npm run speech
+npm run speech:check   # Silero, VoxCPM2 и распознавание, с временем ответа
+```
+
+Если веса VoxCPM2 ещё не скачаны (установка с `-SkipVoxcpm2`, а движок
+поставлен позже), первая фраза AM7 скачивает их: пока они качаются, он говорит
+запасным голосом Silero. На Windows не запускайте установку из
+упакованного (MSIX) приложения: его запись в `%LOCALAPPDATA%` видна только ему —
+в таком случае задайте `OFFICE3D_SPEECH_HOME` вне `AppData`.
+
+### На сервере: docker compose
+
+Оба сервиса описаны в `docker-compose.yml` под профилем `speech`:
+
+```bash
+# в .env: COMPOSE_PROFILES=https,speech
+docker compose build speech
+docker compose up -d
+# один раз: движок VoxCPM2 и веса Whisper (изнутри контейнера — это loopback VoiceStudio)
+docker compose exec voicestudio curl -fsS -X POST http://127.0.0.1:3900/engines/sidecar/voxcpm2/install
+docker compose exec voicestudio curl -fsS -X POST http://127.0.0.1:3900/models/install \
+  -H 'Content-Type: application/json' -d '{"repo_id":"Systran/faster-whisper-large-v3","target":"local"}'
+# веса VoxCPM2 скачаются при первой фразе AM7 (до тех пор говорит запасной голос Silero)
+```
+
+`office3d` находит шлюз по `SPEECH_GATEWAY_URL=http://speech:8765` (значение по
+умолчанию в compose). С видеокартой NVIDIA и NVIDIA Container Toolkit добавьте
+`docker-compose.speech-gpu.yml`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.speech-gpu.yml up -d
+```
+
+`VOICESTUDIO_API_KEY` (необязательно) закрывает VoiceStudio ключом: шлюз
+передаёт его как `Bearer`. Без него VoiceStudio открыт только внутренней сети
+`speech`.
+
+### На сервере без Docker: systemd
+
+После `bash scripts/speech-setup.sh` от имени пользователя `office3d`
+(`OFFICE3D_SPEECH_HOME=/opt/office3d-speech`, репозиторий в `/opt/Office3D`):
+
+```ini
+# /etc/systemd/system/office3d-voicestudio.service
+[Unit]
+Description=Office3D speech: VoiceStudio backend
+After=network-online.target
+
+[Service]
+User=office3d
+WorkingDirectory=/opt/office3d-speech/voicestudio
+Environment=OMNIVOICE_DATA_DIR=/opt/office3d-speech/voicestudio-data
+Environment=HF_HOME=/opt/office3d-speech/hf
+Environment=OMNIVOICE_BIND_HOST=127.0.0.1
+Environment=OMNIVOICE_PORT=3900
+ExecStart=/opt/office3d-speech/voicestudio/.venv/bin/python backend/main.py
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/systemd/system/office3d-speech.service
+[Unit]
+Description=Office3D speech gateway (Silero + VoiceStudio)
+After=network-online.target office3d-voicestudio.service
+Wants=office3d-voicestudio.service
+
+[Service]
+User=office3d
+WorkingDirectory=/opt/Office3D/services/speech
+Environment=OFFICE3D_SPEECH_HOME=/opt/office3d-speech
+Environment=SPEECH_HOST=127.0.0.1
+Environment=SPEECH_PORT=8765
+Environment=VOICESTUDIO_URL=http://127.0.0.1:3900
+ExecStart=/opt/office3d-speech/gateway-venv/bin/python -m speech_gateway
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now office3d-voicestudio office3d-speech
+curl -s http://127.0.0.1:8765/health
+```
+
+Если сам офис работает в Docker, а шлюз — на хосте, укажите
+`SPEECH_GATEWAY_URL=http://host.docker.internal:8765` и запустите шлюз с
+`SPEECH_HOST` на адресе docker-моста и `SPEECH_ALLOW_NON_LOOPBACK=1`, закрыв
+порт файрволом.
+
+### Сервер без видеокарты
+
+Silero работает быстрее реального времени на 2–4 ядрах (`SILERO_THREADS`), так
+что голос системы и запасные голоса есть всегда. VoxCPM2 на CPU медленный: на
+таком сервере ставьте `SKIP_VOXCPM2=1` — AM7 и операторы будут говорить своими
+запасными голосами Silero, либо назначьте им голоса `silero:*` в
+`voices.json`. Для распознавания на CPU легче `ASR_MODEL=Systran/faster-whisper-medium`
+(или `-small`).
+
+### Видеокарта на 8 ГБ
+
+VoxCPM2 держит в видеопамяти около 5 ГБ, Whisper large-v3 — около 3 ГБ. Когда
+вместе они не помещаются, VoiceStudio сам переводит распознавание на CPU (int8)
+и заново загружает модель на каждый запрос — это около 20 секунд на короткую
+команду. Быстрее — модель поменьше: `ASR_MODEL_WHISPERX=medium` (или `small`) в
+`.env` (`npm run speech` передаёт переменные VoiceStudio) и
+`-AsrModel Systran/faster-whisper-medium` при установке.
+
+### Настройки
+
+| Переменная | Где | Значение по умолчанию |
+| --- | --- | --- |
+| `SPEECH_GATEWAY_URL` | офис | `http://127.0.0.1:8765` |
+| `OFFICE3D_SYSTEM_VOICE` | офис | `silero:aidar` — голос «Системы штаба» |
+| `OFFICE3D_TTS_VOICE` | офис | `voicestudio:am7` — голос AM7, если в настройках не выбран другой |
+| `OFFICE3D_STT_LANGUAGE` | офис | `ru` |
+| `OFFICE3D_SPEECH_HOME` | установка, `npm run speech`, шлюз | см. выше |
+| `SPEECH_PORT`, `SPEECH_DEFAULT_VOICE` | шлюз | `8765`, `silero:aidar` |
+| `VOICESTUDIO_URL`, `VOICESTUDIO_MODEL`, `VOICESTUDIO_TIMEOUT_S`, `VOICESTUDIO_BACKOFF_S` | шлюз | `http://127.0.0.1:3900`, `voxcpm2`, `90`, `60` (после сбоя VoiceStudio столько секунд говорят запасные голоса) |
+| `SILERO_MODEL`, `SILERO_DEVICE`, `SILERO_THREADS` | шлюз | `v5_5_ru`, `cpu`, `4` |
+| `SPEECH_CACHE`, `SPEECH_CACHE_MAX_MB` | шлюз | `1`, `512` |
+
+Тесты шлюза не требуют моделей:
+
+```bash
+cd services/speech
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
 
 ## Резервные копии
 

@@ -1,0 +1,11 @@
+{
+  "_comment": "How names and terms are read aloud by Silero (case-insensitive, whole words). Values are plain Russian; add + before a vowel to force stress.",
+  "AM7": "эй эм с+емь",
+  "OpenClaw": "+оупен кл+оу",
+  "Office3D": "+офис три д+и",
+  "Kali": "к+али",
+  "Linux": "л+инукс",
+  "API": "эй пи +ай",
+  "SOC": "с+ок",
+  "HQ": "штаб"
+}

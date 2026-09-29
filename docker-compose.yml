@@ -167,12 +167,12 @@ services:
       # /api/runtime/custom and falls back to this list.
       UPSTREAM_ALLOWLIST: ${UPSTREAM_ALLOWLIST:-}
       CUSTOM_RUNTIME_ALLOWLIST: ${CUSTOM_RUNTIME_ALLOWLIST:-}
-      # Voice (speech recognition and replies).
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
-      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
-      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-}
-      ELEVENLABS_STT_MODEL_ID: ${ELEVENLABS_STT_MODEL_ID:-}
-      # Or your own OpenAI-compatible voice server (see .env.example).
+      # Voice (speech recognition and the HQ's voices): the speech gateway
+      # below (`speech` profile), reached over the speech network. See
+      # docs/deployment.md, "Голос".
+      SPEECH_GATEWAY_URL: ${SPEECH_GATEWAY_URL:-http://speech:8765}
+      OFFICE3D_SYSTEM_VOICE: ${OFFICE3D_SYSTEM_VOICE:-}
+      # Or another OpenAI-compatible voice server (see .env.example).
       OFFICE3D_STT_PROVIDER: ${OFFICE3D_STT_PROVIDER:-}
       OFFICE3D_TTS_PROVIDER: ${OFFICE3D_TTS_PROVIDER:-}
       OFFICE3D_VOICE_API_URL: ${OFFICE3D_VOICE_API_URL:-}
@@ -193,6 +193,7 @@ services:
       - backend
       - edge
       - control
+      - speech
     # The image declares its own HEALTHCHECK; this only shortens the grace
     # period used while the container is starting.
     healthcheck:
@@ -252,6 +253,86 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  # Speech (optional, `speech` profile: COMPOSE_PROFILES=speech, or
+  # speech,https). Two services on their own network, neither published:
+  #   speech       the office's speech gateway (services/speech, MIT): Silero
+  #                TTS v5 for Russian with exact stress, on CPU; forwards
+  #                designed voices and recognition to VoiceStudio;
+  #   voicestudio  VoiceStudio's backend (AGPL-3.0, unmodified upstream image):
+  #                VoxCPM2 voices and Whisper recognition.
+  # CPU by default. With an NVIDIA GPU and the container toolkit, add
+  # docker-compose.speech-gpu.yml (see docs/deployment.md).
+  speech:
+    build: ./services/speech
+    image: office3d-speech:local
+    container_name: office3d-speech
+    restart: unless-stopped
+    profiles: ["speech"]
+    environment:
+      # Listens on the container network (the port is not published); the
+      # gateway refuses a non-loopback address without this switch.
+      SPEECH_HOST: 0.0.0.0
+      SPEECH_ALLOW_NON_LOOPBACK: "1"
+      SPEECH_PORT: "8765"
+      OFFICE3D_SPEECH_HOME: /data
+      VOICESTUDIO_URL: http://voicestudio:3900
+      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:-}
+      VOICESTUDIO_MODEL: ${VOICESTUDIO_MODEL:-voxcpm2}
+      SILERO_DEVICE: cpu
+      SILERO_THREADS: ${SILERO_THREADS:-4}
+    volumes:
+      # Silero weights and the speech cache.
+      - speech-data:/data
+    networks:
+      - speech
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  voicestudio:
+    image: ghcr.io/debpalash/voicestudio:${VOICESTUDIO_IMAGE_TAG:-0.5.6}
+    container_name: office3d-voicestudio
+    restart: unless-stopped
+    profiles: ["speech"]
+    environment:
+      OMNIVOICE_BIND_HOST: 0.0.0.0
+      OMNIVOICE_DATA_DIR: /app/omnivoice_data
+      # Optional: when set, every non-loopback request needs it (the gateway
+      # sends it as a Bearer token). Unset, VoiceStudio is open to this
+      # private network only.
+      OMNIVOICE_API_KEY: ${VOICESTUDIO_API_KEY:-}
+    volumes:
+      - voicestudio-data:/app/omnivoice_data
+    networks:
+      - speech
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3900/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 12g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # HTTPS for your own domain: gets and renews the Let's Encrypt certificate
   # and forwards to office3d. Runs with the `https` profile.
   caddy:
@@ -295,17 +376,19 @@ services:
         max-file: "3"
 
 networks:
-  # Three networks keep each part to what it needs:
+  # Four networks keep each part to what it needs:
   #   backend: office3d and Hermes (agents' tools run here);
   #   edge:    caddy and office3d;
   #   control: office3d and the updater, which holds the Docker socket and is
-  #            thus kept away from the agents' network.
+  #            thus kept away from the agents' network;
+  #   speech:  office3d, the speech gateway and VoiceStudio (speech profile).
   # A plain bridge network: Hermes needs internet access for model providers
   # and tools, so it cannot be `internal: true`. Nothing on it is published
   # except Office3D's port above.
   backend:
   edge:
   control:
+  speech:
 
 volumes:
   # All Hermes state: profiles (agents), memory, sessions, skills, kanban.
@@ -320,3 +403,6 @@ volumes:
   # start would soon hit Let's Encrypt's rate limits.
   caddy-data:
   caddy-config:
+  # Speech models (Silero, VoiceStudio's engines and weights) and caches.
+  speech-data:
+  voicestudio-data:

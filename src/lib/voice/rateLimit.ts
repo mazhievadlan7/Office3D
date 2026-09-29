@@ -1,6 +1,6 @@
-// A small per-client limit for the voice routes: each call spends provider
-// credits, so a runaway loop in a tab (or anyone past the access gate) must
-// not be able to run up the bill. In memory, per server process.
+// A small per-client limit for the voice routes: each call spends GPU/CPU
+// time on the speech server, so a runaway loop in a tab (or anyone past the
+// access gate) must not be able to saturate it. In memory, per server process.
 
 type Window = { at: number[] };
 

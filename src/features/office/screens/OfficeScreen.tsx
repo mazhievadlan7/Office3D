@@ -135,7 +135,6 @@ import {
 } from "@/features/office/components/HQSidebar";
 import { AnalyticsPanel } from "@/features/office/components/panels/AnalyticsPanel";
 import { HistoryPanel } from "@/features/office/components/panels/HistoryPanel";
-import { CallFeedModal } from "@/features/office/components/panels/CallFeedModal";
 import { InboxPanel } from "@/features/office/components/panels/InboxPanel";
 import { PlaybooksPanel } from "@/features/office/components/panels/PlaybooksPanel";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
@@ -143,12 +142,6 @@ import { SkillsMarketplaceModal } from "@/features/office/components/panels/Skil
 import { AegisContourPanel } from "@/features/aegis/AegisContourPanel";
 import { CombatConsole } from "@/features/combat/CombatConsole";
 import { TaskBoardPanel } from "@/features/office/components/panels/TaskBoardPanel";
-import { useOfficeCallFeed } from "@/features/office/hooks/useOfficeCallFeed";
-import { useOfficeMessaging } from "@/features/office/hooks/useOfficeMessaging";
-import {
-  MessagingModal,
-  type MessageRequestDraft,
-} from "@/features/office/components/panels/MessagingPanel";
 import { JukeboxPanel } from "@/features/spotify-jukebox/components/JukeboxPanel";
 import { JukeboxDisabledPanel } from "@/features/spotify-jukebox/components/JukeboxDisabledPanel";
 import { executeBrowserJukeboxCommand } from "@/features/spotify-jukebox/agentBridge";
@@ -185,8 +178,6 @@ import {
   createOfficeAnimationTriggerState,
   reconcileOfficeAnimationTriggerState,
   reduceOfficeAnimationTriggerEvent,
-  type OfficePhoneCallRequest,
-  type OfficeTextMessageRequest,
 } from "@/lib/office/eventTriggers";
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
@@ -332,9 +323,6 @@ const formatOpenClawValue = (value: string | null | undefined) => {
   return trimmed || "-";
 };
 
-const buildPhoneCallOutputLine = (text: string) => t("office.phoneBoothLine", { text });
-const buildTextMessageOutputLine = (text: string) => t("office.smsBoothLine", { text });
-
 const buildIdentityFileDraft = (identity: AgentIdentityValues) => {
   const draft = createEmptyPersonalityDraft();
   draft.identity = {
@@ -358,32 +346,6 @@ const resolveOfficeMutationGuardMessage = (guardReason?: string) => {
     return t("office.fleetBusyDelete");
   }
   return t("office.fleetBusy");
-};
-
-const PHONE_BOOTH_ASSISTANT_FALLBACK_RE =
-  /\b(?:i\s+)?can(?:not|['’]t)\s+(?:place|make)\s+(?:phone\s+)?calls?\b/i;
-
-const shouldSuppressPhoneBoothAssistantReply = (params: {
-  agents: AgentState[];
-  event: EventFrame;
-  phoneCallByAgentId: Record<string, OfficePhoneCallRequest>;
-}): boolean => {
-  if (classifyGatewayEventKind(params.event.event) !== "runtime-chat") return false;
-  const payload = params.event.payload as ChatEventPayload | undefined;
-  if (!payload?.sessionKey) return false;
-  const message =
-    typeof payload.message === "object" && payload.message !== null
-      ? (payload.message as Record<string, unknown>)
-      : null;
-  const role = typeof message?.role === "string" ? message.role : null;
-  if (role !== "assistant") return false;
-  const text = extractText(payload.message)?.trim() ?? "";
-  if (!text || !PHONE_BOOTH_ASSISTANT_FALLBACK_RE.test(text)) return false;
-  const agentId =
-    params.agents.find((agent) => agent.sessionKey === payload.sessionKey)?.agentId ??
-    parseAgentIdFromSessionKey(payload.sessionKey);
-  if (!agentId) return false;
-  return Boolean(params.phoneCallByAgentId[agentId]);
 };
 
 const safeJsonStringify = (value: unknown) => {
@@ -901,10 +863,6 @@ export function OfficeScreen({
     useState<CreateAgentBlockState | null>(null);
   const [deleteAgentBlock, setDeleteAgentBlock] =
     useState<OfficeDeleteMutationBlockState | null>(null);
-  const promptedPhoneCallKeysRef = useRef<Set<string>>(new Set());
-  const preparedPhoneCallKeysRef = useRef<Set<string>>(new Set());
-  const promptedTextMessageKeysRef = useRef<Set<string>>(new Set());
-  const preparedTextMessageKeysRef = useRef<Set<string>>(new Set());
   const [activeFloorId, setActiveFloorId] = useState<FloorId>("lobby");
   const didAutoNavigateFromLobbyRef = useRef(false);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
@@ -914,15 +872,6 @@ export function OfficeScreen({
   // The HQ's opening fly-through: the console and sidebar tabs step aside for it.
   const [hqIntroPlaying, setHqIntroPlaying] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
-  const [callFeedOpen, setCallFeedOpen] = useState(false);
-  const [messagingOpen, setMessagingOpen] = useState(false);
-  const [messagingDraft, setMessagingDraft] =
-    useState<MessageRequestDraft | null>(null);
-  const [callFeedDraft, setCallFeedDraft] = useState<{
-    agentId: string;
-    callee: string;
-    message: string | null;
-  } | null>(null);
   const initJukeboxStore = useJukeboxStore((state) => state.init);
   const jukeboxToken = useJukeboxStore((state) => state.token);
   // Auto-open jukebox panel for legacy direct-auth callbacks.
@@ -1374,8 +1323,6 @@ export function OfficeScreen({
   const clearDeletedAgentUiState = useCallback((agentId: string) => {
     setSelectedChatAgentId((current) => (current === agentId ? null : current));
     setAgentEditorAgentId((current) => (current === agentId ? null : current));
-    setCallFeedDraft((current) => (current?.agentId === agentId ? null : current));
-    setMessagingDraft((current) => (current?.agentId === agentId ? null : current));
   }, []);
   const createAgentStatusLine = useMemo(() => {
     if (!createAgentBlock) return null;
@@ -1987,15 +1934,6 @@ export function OfficeScreen({
               : (event.payload ?? null),
         });
       }
-      if (
-        shouldSuppressPhoneBoothAssistantReply({
-          event,
-          agents: stateRef.current.agents,
-          phoneCallByAgentId: officeTriggerStateRef.current.phoneCallByAgentId,
-        })
-      ) {
-        return;
-      }
       taskBoardEventHandlerRef.current(event);
       runtimeHandler.handleEvent(event);
     };
@@ -2225,161 +2163,19 @@ export function OfficeScreen({
     agents: state.agents,
     preferredAgentId: selectedLocalChatAgentId,
   });
-  // Always on. It is a local request that backs off to every thirty seconds
-  // when nothing is live, and reaches the provider only for calls that
-  // actually are.
-  const callFeed = useOfficeCallFeed();
-  // Read when the panel is open, and after each send. A sent message does not
-  // change on its own, and there is no inbound channel for a reply.
-  const messaging = useOfficeMessaging({ enabled: messagingOpen });
-  const callFeedAgents = useMemo(
-    () =>
-      state.agents.map((agent) => ({
-        agentId: agent.agentId,
-        name: agent.name,
-        // The role is what the phone prompt is built from, so the agent says
-        // what it actually does rather than a generic greeting.
-        role: agent.role ?? null,
-      })),
-    [state.agents],
-  );
   const skillTriggers = useOfficeSkillTriggers({
     client,
     status,
     enabled: runtimeSupportsSkills,
     agents: state.agents,
   });
-  // What the office still acts on from chat and gateway traffic: a call or a
-  // text an agent was asked to make (the call feed and messaging panels open
-  // for a person to finish it), a standup request, and the short "working"
-  // latch that keeps an agent from flickering to idle between runs.
-  const {
-    pendingStandupRequest,
-    phoneCallByAgentId,
-    textMessageByAgentId,
-    workingUntilByAgentId,
-  } = useMemo(
+  // What the office still acts on from chat and gateway traffic: a standup
+  // request, and the short "working" latch that keeps an agent from
+  // flickering to idle between runs.
+  const { pendingStandupRequest, workingUntilByAgentId } = useMemo(
     () => buildOfficeAnimationState({ state: officeTriggerState, agents: state.agents }),
     [officeTriggerState, state.agents],
   );
-
-  useEffect(() => {
-    const activeKeys = new Set(
-      Object.values(phoneCallByAgentId).map((request) => request.key),
-    );
-    promptedPhoneCallKeysRef.current = new Set(
-      [...promptedPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
-    );
-    preparedPhoneCallKeysRef.current = new Set(
-      [...preparedPhoneCallKeysRef.current].filter((key) => activeKeys.has(key)),
-    );
-  }, [phoneCallByAgentId]);
-
-  useEffect(() => {
-    const requests = Object.entries(phoneCallByAgentId);
-    if (requests.length === 0) return;
-
-    // "Call my wife" names a person, not a number, and a real call costs
-    // money and rings a stranger. So a request opens the office phone with
-    // what was asked for, and a human supplies the number and dials. Nothing
-    // is placed, and nothing is invented, on an agent's say-so alone.
-    const askForMessage = (agentId: string, request: OfficePhoneCallRequest) => {
-      if (!state.agents.some((entry) => entry.agentId === agentId)) return;
-      promptedPhoneCallKeysRef.current.add(request.key);
-      focusLocalAgent(agentId);
-      dispatch({
-        type: "appendOutput",
-        agentId,
-        line: buildPhoneCallOutputLine(t("office.askCallScript", { callee: request.callee })),
-      });
-    };
-
-    const openPhoneForRequest = (agentId: string, request: OfficePhoneCallRequest) => {
-      preparedPhoneCallKeysRef.current.add(request.key);
-      setCallFeedDraft({
-        agentId,
-        callee: request.callee,
-        message: request.message,
-      });
-      setCallFeedOpen(true);
-    };
-
-    for (const [agentId, request] of requests) {
-      if (
-        request.phase === "needs_message" &&
-        !promptedPhoneCallKeysRef.current.has(request.key)
-      ) {
-        askForMessage(agentId, request);
-      }
-      if (
-        request.phase === "ready_to_call" &&
-        !preparedPhoneCallKeysRef.current.has(request.key)
-      ) {
-        openPhoneForRequest(agentId, request);
-      }
-    }
-  }, [dispatch, focusLocalAgent, phoneCallByAgentId, state.agents]);
-
-  useEffect(() => {
-    const activeKeys = new Set(
-      Object.values(textMessageByAgentId).map((request) => request.key),
-    );
-    promptedTextMessageKeysRef.current = new Set(
-      [...promptedTextMessageKeysRef.current].filter((key) => activeKeys.has(key)),
-    );
-    preparedTextMessageKeysRef.current = new Set(
-      [...preparedTextMessageKeysRef.current].filter((key) => activeKeys.has(key)),
-    );
-  }, [textMessageByAgentId]);
-
-  useEffect(() => {
-    const requests = Object.entries(textMessageByAgentId);
-    if (requests.length === 0) return;
-
-    // Same rule as calls: a name is not a number, and a message costs money
-    // and reaches a stranger. The request opens the messaging panel and a
-    // human sends it.
-    const askForText = (agentId: string, request: OfficeTextMessageRequest) => {
-      if (!state.agents.some((entry) => entry.agentId === agentId)) return;
-      promptedTextMessageKeysRef.current.add(request.key);
-      focusLocalAgent(agentId);
-      dispatch({
-        type: "appendOutput",
-        agentId,
-        line: buildTextMessageOutputLine(
-          t("office.askMessageText", { recipient: request.recipient }),
-        ),
-      });
-    };
-
-    const openMessagingForRequest = (
-      agentId: string,
-      request: OfficeTextMessageRequest,
-    ) => {
-      preparedTextMessageKeysRef.current.add(request.key);
-      setMessagingDraft({
-        agentId,
-        recipient: request.recipient,
-        message: request.message,
-      });
-      setMessagingOpen(true);
-    };
-
-    for (const [agentId, request] of requests) {
-      if (
-        request.phase === "needs_message" &&
-        !promptedTextMessageKeysRef.current.has(request.key)
-      ) {
-        askForText(agentId, request);
-      }
-      if (
-        request.phase === "ready_to_send" &&
-        !preparedTextMessageKeysRef.current.has(request.key)
-      ) {
-        openMessagingForRequest(agentId, request);
-      }
-    }
-  }, [dispatch, focusLocalAgent, state.agents, textMessageByAgentId]);
 
   const handleOpenAgentChat = useCallback(
     (agentId: string) => {
@@ -2650,7 +2446,7 @@ export function OfficeScreen({
           createOpenClawLogEntry({
             eventName: "office-intent",
             eventKind: "derived",
-            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? "-"} qa=${intentSnapshot.qa ?? "-"} github=${intentSnapshot.github ?? "-"} desk=${intentSnapshot.desk ?? "-"} text=${intentSnapshot.text?.phase ?? "-"}`,
+            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? "-"} qa=${intentSnapshot.qa ?? "-"} github=${intentSnapshot.github ?? "-"} desk=${intentSnapshot.desk ?? "-"}`,
             payload: {
               agentId,
               message: trimmed,
@@ -2661,38 +2457,9 @@ export function OfficeScreen({
         ];
         return next.slice(-MAX_OPENCLAW_LOG_ENTRIES);
       });
-      const pendingPhoneCall = phoneCallByAgentId[agentId] ?? null;
-      const pendingTextMessage = textMessageByAgentId[agentId] ?? null;
-      // A standup or a text request acts at once rather than waiting for the
-      // gateway to echo the message back.
-      const hasImmediateOfficeTrigger = Boolean(
-        intentSnapshot.standup || intentSnapshot.text,
-      );
-      const isPhoneCallFollowUp =
-        pendingPhoneCall?.phase === "needs_message" &&
-        !intentSnapshot.call &&
-        !intentSnapshot.text &&
-        !intentSnapshot.desk &&
-        !intentSnapshot.github &&
-        !intentSnapshot.gym &&
-        !intentSnapshot.qa &&
-        !intentSnapshot.standup;
-      const isTextMessageFollowUp =
-        pendingTextMessage?.phase === "needs_message" &&
-        !intentSnapshot.call &&
-        !intentSnapshot.text &&
-        !intentSnapshot.desk &&
-        !intentSnapshot.github &&
-        !intentSnapshot.gym &&
-        !intentSnapshot.qa &&
-        !intentSnapshot.standup;
-
-      if (
-        hasImmediateOfficeTrigger &&
-        !intentSnapshot.call &&
-        !isPhoneCallFollowUp &&
-        !isTextMessageFollowUp
-      ) {
+      // A standup request acts at once rather than waiting for the gateway to
+      // echo the message back.
+      if (intentSnapshot.standup) {
         const nowMs = Date.now();
         const runId = randomUUID();
         setOfficeTriggerState((previous) =>
@@ -2715,67 +2482,11 @@ export function OfficeScreen({
             },
           }),
         );
-      }
-
-      if (intentSnapshot.call || isPhoneCallFollowUp) {
-        const nowMs = Date.now();
-        const runId = randomUUID();
-        dispatch({
-          type: "updateAgent",
-          agentId,
-          patch: {
-            draft: "",
-            lastUserMessage: trimmed,
-            lastActivityAt: nowMs,
-          },
-        });
-        dispatch({
-          type: "appendOutput",
-          agentId,
-          line: `> ${trimmed}`,
-          transcript: {
-            source: "local-send",
-            runId,
-            sessionKey,
-            timestampMs: nowMs,
-            role: "user",
-            kind: "user",
-            confirmed: true,
-          },
-        });
-        setOfficeTriggerState((previous) =>
-          reduceOfficeAnimationTriggerEvent({
-            state: previous,
-            agents: stateRef.current.agents,
-            nowMs,
-            event: {
-              type: "event",
-              event: "chat",
-              payload: {
-                runId,
-                sessionKey,
-                state: "final",
-                message: {
-                  role: "user",
-                  content: trimmed,
-                },
-              },
-            },
-          }),
-        );
-        return;
       }
 
       await chatController.handleSend(agentId, sessionKey, trimmed);
     },
-    [
-      chatController,
-      dispatch,
-      handleRemoteAgentChatSend,
-      phoneCallByAgentId,
-      stopVoiceReplyPlayback,
-      textMessageByAgentId,
-    ],
+    [chatController, handleRemoteAgentChatSend, stopVoiceReplyPlayback],
   );
 
   useEffect(() => {
@@ -4002,28 +3713,6 @@ export function OfficeScreen({
           </div>
         </div>
       ) : null}
-
-      <MessagingModal
-        open={messagingOpen}
-        messaging={messaging}
-        agents={callFeedAgents}
-        draft={messagingDraft}
-        onClose={() => {
-          setMessagingOpen(false);
-          setMessagingDraft(null);
-        }}
-      />
-
-      <CallFeedModal
-        open={callFeedOpen}
-        feed={callFeed}
-        agents={callFeedAgents}
-        draft={callFeedDraft}
-        onClose={() => {
-          setCallFeedOpen(false);
-          setCallFeedDraft(null);
-        }}
-      />
 
       <SkillsMarketplaceModal
         open={marketplaceOpen}

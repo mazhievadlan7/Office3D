@@ -1,9 +1,7 @@
 import type {
-  OfficeCallDirective,
   OfficeGymDirective,
   OfficeQaDirective,
   OfficeStandupDirective,
-  OfficeTextDirective,
 } from "@/lib/office/deskDirectives";
 
 // Russian counterparts of the English office commands in deskDirectives.ts.
@@ -128,67 +126,3 @@ export const resolveRuQa = (text: string): OfficeQaDirective | null => {
 
 export const resolveRuStandup = (text: string): OfficeStandupDirective | null =>
   MEETING.test(text) && MEETING_START.test(text) ? "standup" : null;
-
-// «ему», «ей», «им» after «скажи» refer back to the person being called.
-const SAY = "(?:скажи|скажите|передай|передайте|сообщи|сообщите)(?:\\s+(?:ему|ей|им))?";
-const CALL_SEPARATORS = [
-  new RegExp(`,?\\s+и\\s+${SAY}[,:]?\\s+`, "u"),
-  new RegExp(`,?\\s+${SAY}[,:]?\\s+`, "u"),
-  /:\s+/u,
-];
-const CALL = /(?<![\p{L}\p{N}])(?:позвони|позвоните|набери|наберите|звякни|звякните|(?:сделай|сделайте|соверши|совершите)\s+звонок)(?:\s+(?:на\s+номер|по\s+номеру|пожалуйста))*\s+(.+)$/u;
-
-const cleanParty = (value: string) =>
-  value
-    .replace(/^(?:пожалуйста|срочно)\s+/u, "")
-    .replace(/[,:]+$/u, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const ME = /^(?:мне|меня|нам)$/u;
-
-export const resolveRuCall = (text: string): OfficeCallDirective | null => {
-  const tail = text.match(CALL)?.[1]?.trim();
-  if (!tail) return null;
-  for (const separator of CALL_SEPARATORS) {
-    const parts = tail.split(separator);
-    if (parts.length < 2) continue;
-    const callee = cleanParty(parts[0] ?? "");
-    const message = parts.slice(1).join(" ").trim();
-    if (!callee || !message || ME.test(callee)) continue;
-    return { callee, message, phase: "ready_to_call" };
-  }
-  const callee = cleanParty(tail);
-  if (!callee || ME.test(callee)) return null;
-  return { callee, message: null, phase: "needs_message" };
-};
-
-// A message needs a word that says it is one, so «напиши тесты» stays a QA
-// request rather than a text to someone called «тесты».
-const MESSAGE_WORD = word("сообщени\\p{L}*|смс\\p{L}*|sms|эсэмэс\\p{L}*|whatsapp|ватсап\\p{L}*|вотсап\\p{L}*|вацап\\p{L}*|slack|слак\\p{L}*|телеграм\\p{L}*|telegram|в\\s+личк\\p{L}*");
-const TEXT = /(?<![\p{L}\p{N}])(?:напиши|напишите|отправь|отправьте|пошли|пошлите|скинь|скиньте|черкни|черкните|кинь|киньте)\s+(.+)$/u;
-const TEXT_KIND = /^(?:(?:(?:сообщени|смс|sms|эсэмэс)\p{L}*|в\s+(?:whatsapp|ватсап\p{L}*|вотсап\p{L}*|вацап\p{L}*|slack|слак\p{L}*|телеграм\p{L}*|telegram|личк\p{L}*))\s+)+/u;
-const TEXT_SEPARATORS = [
-  /,?\s+что\s+/u,
-  /,?\s+(?:со\s+словами|с\s+текстом)\s+/u,
-  new RegExp(`,?\\s+и\\s+(?:напиши|${SAY})[,:]?\\s+`, "u"),
-  /:\s+/u,
-];
-
-export const resolveRuText = (text: string): OfficeTextDirective | null => {
-  if (!MESSAGE_WORD.test(text)) return null;
-  const tail = text.match(TEXT)?.[1]?.replace(TEXT_KIND, "").trim();
-  // «напиши мне сообщение» asks for a message to the user, not to someone else.
-  if (!tail || /^(?:мне|нам)(?![\p{L}\p{N}])/u.test(tail)) return null;
-  for (const separator of TEXT_SEPARATORS) {
-    const parts = tail.split(separator);
-    if (parts.length < 2) continue;
-    const recipient = cleanParty((parts[0] ?? "").replace(TEXT_KIND, ""));
-    const message = parts.slice(1).join(" ").trim();
-    if (!recipient || !message || ME.test(recipient)) continue;
-    return { recipient, message, phase: "ready_to_send" };
-  }
-  const recipient = cleanParty(tail);
-  if (!recipient || ME.test(recipient)) return null;
-  return { recipient, message: null, phase: "needs_message" };
-};

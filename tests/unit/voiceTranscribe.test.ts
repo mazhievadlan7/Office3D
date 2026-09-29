@@ -27,6 +27,10 @@ vi.mock("@/lib/openclaw/voiceTranscription", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+// The route under test is provider-agnostic; OpenClaw's pipeline (mocked
+// above) stands in for the default local speech gateway.
+process.env.OFFICE3D_STT_PROVIDER = "openclaw";
+
 const { MAX_VOICE_UPLOAD_BYTES, POST } = await import(
   "@/app/api/office/voice/transcribe/route"
 );
@@ -144,7 +148,6 @@ describe("POST /api/office/voice/transcribe — size limit enforcement (issue #7
     const response = await POST(request);
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Without an ElevenLabs key the server falls back to OpenClaw's pipeline;
     // `provider` names the Office3D provider that handled it.
     expect(body).toMatchObject({
       transcript: "hello world",

@@ -11,6 +11,8 @@ type VoiceReplyRequestBody = {
   provider?: string;
   voiceId?: string | null;
   speed?: number;
+  /** "system": the HQ's own voice (Silero), whatever voiceId says. */
+  role?: string | null;
 };
 
 const MAX_REPLY_CHARS = 5_000;
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
       text,
       voiceId: typeof body.voiceId === "string" ? body.voiceId : null,
       speed: typeof body.speed === "number" ? body.speed : undefined,
+      role: body.role === "system" ? "system" : null,
     });
     return new Response(response.body, {
       status: 200,

@@ -258,7 +258,7 @@ export function SkillsMarketplacePanel({
               onChange={(event) => marketplace.setSelectedAgentId(event.target.value || null)}
               className={`min-w-0 flex-1 px-2 py-2 ${FIELD}`}
             >
-              {marketplace.agents.length === 0 ? <option value="">{t("phone.noAgents")}</option> : null}
+              {marketplace.agents.length === 0 ? <option value="">{t("market.noAgents")}</option> : null}
               {marketplace.agents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>
                   {agent.name}

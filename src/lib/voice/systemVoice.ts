@@ -1,7 +1,8 @@
 /**
  * The HQ system's own voice — the autonomous platform, not an agent. The
  * speech comes from the same text-to-speech endpoint as the agents' replies
- * (/api/office/voice/reply), then goes through a clean, deep treatment
+ * (/api/office/voice/reply, asked for the system voice: Silero through the
+ * local speech gateway), then goes through a clean, deep treatment
  * (weight, presence, a subtle detuned chorus and a short plate reverb), so it
  * reads as a synthetic system voice and never like AM7 or the crew.
  *
@@ -187,7 +188,7 @@ export function prepareSystemSpeech(text: string, options: SystemVoiceOptions = 
 
 function prepare(text: string, options: SystemVoiceOptions, treated: boolean): PreparedSpeech {
   const clean = text.replace(/\s+/g, " ").trim();
-  const audio: Promise<ArrayBuffer | null> = clean ? fetchSpeech(clean, options) : Promise.resolve(null);
+  const audio: Promise<ArrayBuffer | null> = clean ? fetchSpeech(clean, options, treated) : Promise.resolve(null);
   let played: Promise<boolean> | null = null;
   return {
     play() {
@@ -197,12 +198,19 @@ function prepare(text: string, options: SystemVoiceOptions, treated: boolean): P
   };
 }
 
-async function fetchSpeech(text: string, options: SystemVoiceOptions): Promise<ArrayBuffer | null> {
+async function fetchSpeech(text: string, options: SystemVoiceOptions, system: boolean): Promise<ArrayBuffer | null> {
   try {
     const response = await fetch("/api/office/voice/reply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voiceId: options.voiceId ?? null, speed: options.speed ?? 0.94 }),
+      // The system speaks with its own voice (the server's system voice,
+      // Silero: exact Russian stress), never with an agent's.
+      body: JSON.stringify({
+        text,
+        voiceId: system ? null : (options.voiceId ?? null),
+        role: system ? "system" : null,
+        speed: options.speed ?? 0.94,
+      }),
     });
     if (!response.ok) return null;
     return await response.arrayBuffer();

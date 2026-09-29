@@ -2,13 +2,11 @@ import type { TranscriptEntry } from "@/features/agents/state/transcript";
 import { stripUiMetadata } from "@/lib/text/message-extract";
 import { hasCyrillic } from "@/lib/text/transliterate";
 import {
-  resolveRuCall,
   resolveRuGymCommand,
   resolveRuGymSkill,
   resolveRuInteraction,
   resolveRuQa,
   resolveRuStandup,
-  resolveRuText,
 } from "@/lib/office/deskDirectivesRu";
 
 // This module is the single natural-language entry point for office movement and room intents.
@@ -19,18 +17,6 @@ export type OfficeGithubDirective = "github" | "release";
 export type OfficeGymDirective = "gym" | "release";
 export type OfficeQaDirective = "qa_lab" | "release";
 export type OfficeStandupDirective = "standup";
-export type OfficeCallPhase = "needs_message" | "ready_to_call";
-export type OfficeTextPhase = "needs_message" | "ready_to_send";
-export type OfficeCallDirective = {
-  callee: string;
-  message: string | null;
-  phase: OfficeCallPhase;
-};
-export type OfficeTextDirective = {
-  recipient: string;
-  message: string | null;
-  phase: OfficeTextPhase;
-};
 export type OfficeIntentSnapshot = {
   normalized: string;
   desk: OfficeDeskDirective | null;
@@ -44,8 +30,6 @@ export type OfficeIntentSnapshot = {
   qa: OfficeQaDirective | null;
   art: null;
   standup: OfficeStandupDirective | null;
-  call: OfficeCallDirective | null;
-  text: OfficeTextDirective | null;
 };
 type OfficeInteractionDirective =
   | { target: "desk"; action: "hold" | "release" }
@@ -298,124 +282,6 @@ const resolveOfficeStandupDirectiveFromNormalized = (
     : null;
 };
 
-const normalizeOfficeCallCallee = (value: string): string => {
-  return value
-    .replace(/^(?:please|can you|could you|would you)\s+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-};
-
-const normalizeOfficeTextRecipient = (value: string): string => {
-  return value
-    .replace(/^(?:please|can you|could you|would you)\s+/i, "")
-    .replace(/^(?:a\s+)?(?:text|message|dm)\s+to\s+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-};
-
-const resolveOfficeCallDirectiveFromNormalized = (
-  normalized: string,
-): OfficeCallDirective | null => {
-  if (!normalized.includes("call")) return null;
-  if (
-    normalized.includes("call it a day") ||
-    normalized.includes("callback") ||
-    normalized.includes("call stack")
-  ) {
-    return null;
-  }
-  const match = normalized.match(
-    /\b(?:make|place|start)?\s*(?:a\s+)?call(?:\s+to)?\s+(.+)$/,
-  ) ?? normalized.match(/\bcall\s+(.+)$/);
-  const tail = match?.[1]?.trim() ?? "";
-  if (!tail) return null;
-
-  const separators = [
-    /\s+and\s+tell\s+(?:him|her|them)\s+/,
-    /\s+and\s+tell\s+/,
-    /\s+tell\s+(?:him|her|them)\s+/,
-    /\s+tell\s+/,
-    /\s+and\s+say\s+/,
-    /\s+say\s+/,
-  ];
-  for (const separator of separators) {
-    const parts = tail.split(separator);
-    if (parts.length < 2) continue;
-    const callee = normalizeOfficeCallCallee(parts[0] ?? "");
-    const message = parts.slice(1).join(" ").trim();
-    if (!callee || !message) continue;
-    return {
-      callee,
-      message,
-      phase: "ready_to_call",
-    };
-  }
-
-  const callee = normalizeOfficeCallCallee(tail);
-  if (!callee) return null;
-  return {
-    callee,
-    message: null,
-    phase: "needs_message",
-  };
-};
-
-const resolveOfficeTextDirectiveFromNormalized = (
-  normalized: string,
-): OfficeTextDirective | null => {
-  if (
-    !/\b(?:text|message|whatsapp|whats\s+app|slack|dm)\b/.test(normalized)
-  ) {
-    return null;
-  }
-  if (/\b(?:message\s+me|direct\s+message\s+me)\b/.test(normalized)) {
-    return null;
-  }
-
-  const directTail =
-    normalized.match(
-      /\b(?:send\s+)?(?:a\s+)?(?:text(?:\s+message)?|message|whatsapp|whats\s+app|slack(?:\s+dm)?|dm)(?:\s+to)?\s+(.+)$/,
-    )?.[1]?.trim() ??
-    "";
-  const invertedMatch = normalized.match(
-    /\bsend\s+(.+?)\s+(?:a\s+)?(?:text(?:\s+message)?|message|dm)\b(?:\s+(.+))?$/,
-  );
-  const tail = directTail || invertedMatch?.[1]?.trim() || "";
-  const trailingHint = invertedMatch?.[2]?.trim() ?? "";
-  if (!tail) return null;
-
-  const separators = [
-    /\s+that\s+/,
-    /\s+saying\s+/,
-    /\s+and\s+say\s+/,
-    /\s+say\s+/,
-    /\s+with\s+the\s+message\s+/,
-  ];
-  for (const separator of separators) {
-    const source = trailingHint
-      ? `${tail} ${trailingHint}`.trim()
-      : tail;
-    const parts = source.split(separator);
-    if (parts.length < 2) continue;
-    const recipient = normalizeOfficeTextRecipient(parts[0] ?? "");
-    const message = parts.slice(1).join(" ").trim();
-    if (!recipient || !message) continue;
-    return {
-      recipient,
-      message,
-      phase: "ready_to_send",
-    };
-  }
-
-  const recipient = normalizeOfficeTextRecipient(tail);
-  if (!recipient) return null;
-  return {
-    recipient,
-    message: null,
-    phase: "needs_message",
-  };
-};
-
 export const resolveOfficeIntentSnapshot = (
   value: string | null | undefined,
 ): OfficeIntentSnapshot => {
@@ -430,8 +296,6 @@ export const resolveOfficeIntentSnapshot = (
       qa: null,
       art: null,
       standup: null,
-      call: null,
-      text: null,
     };
   }
 
@@ -455,10 +319,6 @@ export const resolveOfficeIntentSnapshot = (
   const standupDirective =
     (ru ? resolveRuStandup(normalized) : null) ??
     resolveOfficeStandupDirectiveFromNormalized(normalized);
-  const callDirective =
-    (ru ? resolveRuCall(normalized) : null) ?? resolveOfficeCallDirectiveFromNormalized(normalized);
-  const textDirective =
-    (ru ? resolveRuText(normalized) : null) ?? resolveOfficeTextDirectiveFromNormalized(normalized);
   const gymDirective = gymManualDirective
     ? {
         directive: gymManualDirective,
@@ -489,8 +349,6 @@ export const resolveOfficeIntentSnapshot = (
     qa: qaDirective,
     art: null,
     standup: standupDirective,
-    call: callDirective,
-    text: textDirective,
   });
 };
 
@@ -523,14 +381,6 @@ export const resolveOfficeQaDirective = (
 export const resolveOfficeStandupDirective = (
   value: string | null | undefined,
 ): OfficeStandupDirective | null => resolveOfficeIntentSnapshot(value).standup;
-
-export const resolveOfficeCallDirective = (
-  value: string | null | undefined,
-): OfficeCallDirective | null => resolveOfficeIntentSnapshot(value).call;
-
-export const resolveOfficeTextDirective = (
-  value: string | null | undefined,
-): OfficeTextDirective | null => resolveOfficeIntentSnapshot(value).text;
 
 const resolveTranscriptDirective = <
   TDirective extends

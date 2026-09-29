@@ -8,13 +8,13 @@
  *
  * Conventions, so the interface reads as one voice rather than 84:
  *   • «ты» is never used; the interface addresses nobody personally.
- *   • Buttons are verbs in the infinitive: «Закрыть», «Отправить», «Позвонить».
- *   • Headings are nouns: «Настройки», «Навыки», «Звонки».
+ *   • Buttons are verbs in the infinitive: «Закрыть», «Отправить», «Сохранить».
+ *   • Headings are nouns: «Настройки», «Навыки», «Задачи».
  *   • Ellipsis is the character …, not three dots.
  *   • Quotes are «ёлочки», not "straight" ones.
  *   • Counts that vary by number use plural() rather than a fixed form.
  *   • Product and protocol names stay as they are: Office3D, OpenClaw,
- *     ElevenLabs, WhatsApp, GitHub, ClawHub, Hermes, SIP, API.
+ *     Silero, VoiceStudio, GitHub, ClawHub, Hermes, SIP, API.
  */
 
 export const ru = {
@@ -316,8 +316,6 @@ export const ru = {
   "announcement.title": "{name} объявляет",
 
   // --- API: общие ошибки -----------------------------------------------------
-  "apiCommon.bodyNotJson": "Не удалось прочитать тело запроса как JSON.",
-  "apiCommon.expectedJsonObject": "Ожидался объект JSON.",
   "apiCommon.fieldRequired": "Не заполнено обязательное поле: {field}",
   "apiCommon.invalidJsonBody": "Некорректный JSON в теле запроса.",
   "apiCommon.invalidRequestPayload": "Некорректные данные запроса.",
@@ -353,9 +351,6 @@ export const ru = {
     "Не удалось переместить рабочее пространство и состояние агента в корзину.",
   "apiGateway.trashDirRequired": "Не указан каталог корзины (trashDir).",
   "apiGateway.unsupportedSkillSource": "Неподдерживаемый источник навыка для удаления: {source}",
-
-  // --- API: сообщения --------------------------------------------------------
-  "apiMessaging.unexpected": "Непредвиденный сбой отправки.",
 
   // --- API: офис -------------------------------------------------------------
   "apiOffice.anotherOfficeUser": "другого пользователя офиса",
@@ -454,14 +449,6 @@ export const ru = {
   "apiTasks.payloadRequired": "Не переданы данные задачи.",
   "apiTasks.readFailed": "Внутренняя ошибка при чтении хранилища задач.",
   "apiTasks.writeFailed": "Внутренняя ошибка при записи в хранилище задач.",
-
-  // --- API: телефония --------------------------------------------------------
-  "apiTelephony.callEnded": "Этот звонок уже завершён.",
-  "apiTelephony.conversationIdRequired": "Не указан идентификатор разговора (conversation_id).",
-  "apiTelephony.operatorNotConfigured": "Указания оператора не настроены. Не хватает: {missing}.",
-  "apiTelephony.recordingAfterEnd":
-    "Запись доступна после завершения звонка; прослушать звонок в реальном времени нельзя.",
-  "apiTelephony.unexpected": "Непредвиденный сбой телефонии.",
 
   // --- approvals -------------------------------------------------------------
   "approvals.spokenEscalation": "Нужно ваше решение: {agent} хочет выполнить действие. {reason}",
@@ -694,7 +681,6 @@ export const ru = {
   "common.close": "Закрыть",
   "common.copied": "Скопировано",
   "common.notAvailable": "н/д",
-  "common.notConfigured": "не настроено",
   "common.refresh": "Обновить",
   "common.send": "Отправить",
   "common.settings": "Настройки",
@@ -1303,16 +1289,6 @@ export const ru = {
   "libAvatars.topTee": "Футболка",
 
   // --- Ключи и учётные данные ------------------------------------------------
-  "libCredentials.agentMessages": "Сообщения агентов.",
-  "libCredentials.elevenlabsAgentIdLabel": "ID агента ElevenLabs",
-  "libCredentials.elevenlabsAgentIdPurpose":
-    "Разговорный агент, созданный в панели ElevenLabs, который говорит в телефонных звонках. Используется вместе с ELEVENLABS_API_KEY.",
-  "libCredentials.elevenlabsApiKeyLabel": "Ключ API ElevenLabs",
-  "libCredentials.elevenlabsApiKeyPurpose": "Распознавание речи с микрофона и голоса агентов.",
-  "libCredentials.elevenlabsApiKeyRequiredFor": "Голос через ElevenLabs. Без него — свой голосовой сервер или офис без голоса.",
-  "libCredentials.elevenlabsPhoneNumberIdLabel": "ID телефонного номера ElevenLabs",
-  "libCredentials.elevenlabsPhoneNumberIdPurpose":
-    "Номер, зарегистрированный в ElevenLabs, с которого звонят агенты. Один номер обслуживает всех агентов офиса.",
   "libCredentials.gatewayTokenLabel": "Токен шлюза",
   "libCredentials.gatewayTokenPurpose": "Аутентифицирует подключение к шлюзу среды выполнения.",
   "libCredentials.gatewayTokenRequiredFor": "Шлюзы, которые требуют токен.",
@@ -1326,13 +1302,9 @@ export const ru = {
   "libCredentials.higgsfieldApiKeyLabel": "Ключ API Higgsfield",
   "libCredentials.higgsfieldApiKeyPurpose":
     "Генерация изображений, видео и аудио для навыков, использующих Higgsfield.",
-  "libCredentials.liveCallInstructions": "Отправка агенту инструкций во время звонка.",
-  "libCredentials.orgNameLabel": "Название организации",
-  "libCredentials.orgNamePurpose":
-    "Организация, от имени которой звонят агенты. Значение читается на сервере, чтобы сессия браузера не могла выбрать, кого агент представляет в реальном звонке.",
   "libCredentials.publicUrlLabel": "Публичный URL",
   "libCredentials.publicUrlPurpose":
-    "Адрес, по которому голосовой агент обращается к этому развёртыванию. Нужен только для заметок оператора во время звонка — это единственная часть телефонии, где провайдер обращается к нам, а не наоборот.",
+    "Публичный адрес офиса: сюда возвращают страницы входа MCP-серверов (OAuth) в Hermes. Пусто — адрес, на котором открыт офис.",
   "libCredentials.qwenApiKeyLabel": "Ключ API Qwen",
   "libCredentials.qwenApiKeyPurpose":
     "Доступ к моделям Qwen для навыков, которые обращаются к ним напрямую.",
@@ -1340,22 +1312,9 @@ export const ru = {
   "libCredentials.studioAccessTokenPurpose": "Закрывает доступ к приложению.",
   "libCredentials.studioAccessTokenRequiredFor":
     "Любое развёртывание не на loopback-адресе. Без него сервер отказывается открывать публичный адрес.",
-  "libCredentials.telephonyWebhookSecretLabel": "Секрет вебхука телефонии",
-  "libCredentials.telephonyWebhookSecretPurpose":
-    "Аутентифицирует обратный вызов голосового агента во время звонка, когда он запрашивает заметку оператора. Этот адрес открыт в интернет и не защищён проверкой доступа сессии, поэтому без секрета он остаётся закрытым.",
-  "libCredentials.voiceAgentCalls": "Телефонные звонки голосового агента.",
   "libCredentials.voiceApiKeyLabel": "Ключ своего голосового сервера",
   "libCredentials.voiceApiKeyPurpose": "Ключ для OpenAI-совместимого сервера распознавания и озвучки речи (например, локального whisper или Kokoro), если он требует ключ.",
   "libCredentials.voiceApiKeyRequiredFor": "Голоса через свой сервер (OFFICE3D_TTS_PROVIDER или OFFICE3D_STT_PROVIDER = openai-compatible), только если сервер проверяет ключ.",
-  "libCredentials.whatsappNumberIdLabel": "ID номера WhatsApp",
-  "libCredentials.whatsappNumberIdPurpose":
-    "Номер WhatsApp Business, зарегистрированный в ElevenLabs, с которого агенты отправляют сообщения.",
-  "libCredentials.whatsappTemplateLabel": "Шаблон WhatsApp",
-  "libCredentials.whatsappTemplateLanguageLabel": "Язык шаблона WhatsApp",
-  "libCredentials.whatsappTemplateLanguagePurpose":
-    "Код языка шаблона, например en. Должен совпадать с одобренным шаблоном.",
-  "libCredentials.whatsappTemplatePurpose":
-    "Одобренный шаблон WhatsApp, который отправляют агенты. WhatsApp не доставляет произвольный текст тому, кто недавно не писал первым, поэтому шаблон — единственный вариант, который предлагает API.",
   "libCredentials.youtubeApiKeyLabel": "Ключ YouTube Data API",
   "libCredentials.youtubeApiKeyPurpose":
     "Поиск по YouTube и получение метаданных для навыков, которые это используют.",
@@ -1453,19 +1412,6 @@ export const ru = {
 
   // --- HTTP-запросы ----------------------------------------------------------
   "libHttp.requestFailed": "Ошибка запроса: статус {status}.",
-
-  // --- Сообщения: библиотека -------------------------------------------------
-  "libMessaging.elevenLabsStatus": "ElevenLabs вернул статус {status}.",
-  "libMessaging.elevenLabsUnreachable": "Не удалось связаться с ElevenLabs: {message}",
-  "libMessaging.fieldRequired": "Не указано поле {field}.",
-  "libMessaging.fieldTooLong":
-    "Поле {field} слишком длинное: символов — {length}, допустимо не больше {limit}.",
-  "libMessaging.invalidPhone":
-    "Поле {field} должно содержать номер телефона в международном формате, например +14155550100; получено «{value}».",
-  "libMessaging.messageNotFound": "Сообщение с id «{id}» не найдено.",
-  "libMessaging.noConversationId":
-    "ElevenLabs принял запрос, но не вернул идентификатор разговора.",
-  "libMessaging.notConfigured": "Обмен сообщениями не настроен. Не заданы: {missing}.",
 
   // --- Офис: библиотека ------------------------------------------------------
   "libOffice.checksFailing": "проверок с ошибкой: {count}",
@@ -1723,82 +1669,14 @@ export const ru = {
   "libTasks.titleRequired": "Не указано название задачи.",
   "libTasks.untitled": "Задача без названия",
 
-  // --- Телефония: библиотека -------------------------------------------------
-  "libTelephony.agentIdRequired": "Не указан идентификатор агента.",
-  "libTelephony.aiDisclosureRule":
-    "Вы — голосовой ИИ-ассистент, а не человек. Прямо скажите об этом в первой же реплике и сразу, без увёрток, подтверждайте это всякий раз, когда вас спрашивают, говорят ли с человеком, ботом, записью или ИИ. Никогда не утверждайте и не намекайте, что вы человек.",
-  "libTelephony.callNotFound": "Звонок с SID «{sid}» не найден.",
-  "libTelephony.callRefused": "ElevenLabs отклонил звонок.",
-  "libTelephony.conversationIdRequired": "Не указан идентификатор разговора.",
-  "libTelephony.elevenLabsStatus": "ElevenLabs вернул статус {status}.",
-  "libTelephony.elevenLabsUnreachable": "Не удалось связаться с ElevenLabs: {message}",
-  "libTelephony.fieldRequired": "Не указано поле {field}.",
-  "libTelephony.fieldTooLong":
-    "Поле {field} слишком длинное: символов — {length}, допустимо не больше {limit}.",
-  "libTelephony.firstMessage": "Здравствуйте, это {name}, ИИ-ассистент. Удобно сейчас говорить?",
-  "libTelephony.firstMessageWithOrg":
-    "Здравствуйте, это {name}, ИИ-ассистент, звоню от имени {organisation}. Удобно сейчас говорить?",
-  "libTelephony.invalidE164":
-    "Поле {field} должно содержать номер в формате E.164, например +14155550100; получено «{value}».",
-  "libTelephony.noConversationId":
-    "ElevenLabs не начал звонок: в ответе нет идентификатора разговора.",
-  "libTelephony.operatorCallTool": "- Перед каждой своей репликой вызывайте инструмент {toolName}.",
-  "libTelephony.operatorChannelOff":
-    "Указания оператора отключены: задайте OFFICE3D_TELEPHONY_WEBHOOK_SECRET, чтобы включить обратный вызов агента.",
-  "libTelephony.operatorFollow":
-    "- Если он вернул указание, выполните его в следующей реплике своими словами.",
-  "libTelephony.operatorIntro": "Коллега может следить за этим звонком и присылать вам заметки:",
-  "libTelephony.operatorNothing": "- Если он ничего не вернул, продолжайте как прежде.",
-  "libTelephony.operatorSilent":
-    "- Не зачитывайте вслух вызов инструмента или заметку. Если вас спросят, участвует ли в разговоре человек, честно ответьте, что да.",
-  "libTelephony.overrideHint":
-    "{message} Если дело в переопределении промпта, включите «allow overrides» для промпта и первой реплики этого агента в панели ElevenLabs.",
-  "libTelephony.promptAllowInterrupt":
-    "- Позволяйте собеседнику перебивать вас и замолкайте, когда он это делает.",
-  "libTelephony.promptGiveName":
-    "- Представьтесь в начале и одной фразой объясните, зачем звоните.",
-  "libTelephony.promptIdentity": "Вы — {name}.",
-  "libTelephony.promptIdentityWithOrg": "Вы — {name}, звоните от имени {organisation}.",
-  "libTelephony.promptNoSecrets":
-    "- Не спрашивайте пароли, номера карт и одноразовые коды. Если собеседник начинает их называть, остановите его.",
-  "libTelephony.promptOnThisCall": "В этом звонке:",
-  "libTelephony.promptOnlyKnown":
-    "- Отвечайте только на основе того, что действительно знаете. Если не знаете — так и скажите и предложите вернуться с ответом позже, а не гадайте.",
-  "libTelephony.promptOptOut":
-    "- Если собеседник просит исключить его из обзвона или больше не звонить, подтвердите это, скажите, что просьба будет зафиксирована, и вежливо завершите звонок.",
-  "libTelephony.promptRole": "Ваша роль: {role}.",
-  "libTelephony.promptSpeakNaturally":
-    "- Говорите, как человек по телефону: короткие реплики, простые слова, не зачитывайте списки.",
-  "libTelephony.recordingStatus": "вернул статус {status} для записи.",
-  "libTelephony.unauthorized": "Нет доступа.",
-  "libTelephony.voiceAgentNotConfigured": "Голосовой агент не настроен. Не заданы: {missing}.",
-  "libTelephony.webhookSecretTooShort":
-    "Длина OFFICE3D_TELEPHONY_WEBHOOK_SECRET — {length} симв.; нужно не меньше {min}.",
-
   // --- Разбор сообщений ------------------------------------------------------
   "libText.toolCall": "Вызов инструмента",
   "libText.toolResult": "Результат инструмента",
 
   // --- Маркетплейс навыков -------------------------------------------------
   "market.lead": "Найдите, установите и включите навыки шлюза в просторном окне.",
+  "market.noAgents": "Нет доступных агентов",
   "market.title": "Маркетплейс навыков",
-
-  // --- Сообщения офиса -----------------------------------------------------
-  "messaging.boothLead": "Отправьте сообщение в WhatsApp от имени агента офиса.",
-  "messaging.boothTitle": "Будка сообщений",
-  "messaging.messageLabel": "Сообщение",
-  "messaging.messagePlaceholder": "Что агент хочет сказать",
-  "messaging.notReady": "Сообщения выключены, пока развёртывание не настроено. Не хватает: ",
-  "messaging.nothingSent": "Пока ничего не отправлено.",
-  "messaging.numberLabel": "Номер WhatsApp",
-  "messaging.sending": "Отправка…",
-  "messaging.sendingAs": "Отправляет",
-  "messaging.statusFailed": "Не отправлено",
-  "messaging.statusSent": "Отправлено",
-  "messaging.templateNotice":
-    "Сообщение уходит внутри утверждённого шаблона WhatsApp, а не обычным текстом. Получатель видит шаблон, в который подставлен этот текст.",
-  "messaging.templateOf": "шаблон {name}",
-  "messaging.title": "Сообщения офиса",
 
   // --- mission ---------------------------------------------------------------
   "mission.edit": "Изменить",
@@ -1815,8 +1693,6 @@ export const ru = {
   "office.addressAllNoteMember": "(Руководитель обратился голосом ко всей команде сразу. Ответь коротко от себя; задачи раздаёт главный агент.)",
   "office.agentFallback": "Агент",
   "office.agents": "Агенты",
-  "office.askCallScript": "Звоню: {callee}. Что сказать?",
-  "office.askMessageText": "Пишу: {recipient}. Что написать?",
   "office.chat": "ЧАТ",
   "office.clear": "Очистить",
   "office.closeStudioSettings": "Закрыть настройки студии",
@@ -1877,7 +1753,6 @@ export const ru = {
   "office.noEvents": "Событий от шлюза OpenClaw ещё не было.",
   "office.noEventsMatch": "Под поиск не подходит ни одно событие OpenClaw.",
   "office.permissionsFailed": "Не удалось применить права по умолчанию.",
-  "office.phoneBoothLine": "[телефонная будка] {text}",
   "office.pttListening": "Слушаю. Отпустите Option, чтобы отправить.",
   "office.pttReady": "Голосовое сочетание готово.",
   "office.pttRequesting": "Запрашиваем доступ к микрофону.",
@@ -1902,7 +1777,6 @@ export const ru = {
   "office.searchLogs": "Поиск по логам, данным, рассуждениям и тексту пользователя.",
   "office.selectForPtt": "Выберите агента, прежде чем говорить по рации.",
   "office.selectToChat": "Выберите агента для чата.",
-  "office.smsBoothLine": "[будка сообщений] {text}",
   "office.stream": "Поток",
   "office.studioSettings": "НАСТРОЙКИ СТУДИИ",
   "office.studioSettingsLead": "Вывеска офиса, подключение, модели и ключи агентов, голосовые ответы.",
@@ -2131,12 +2005,7 @@ export const ru = {
   "opsMarket.updateFailed": "Не удалось обновить навык.",
 
   // --- Офис: операции --------------------------------------------------------
-  "opsOffice.callFeedReadFailed": "Не удалось прочитать ленту звонков",
-  "opsOffice.callPlaceFailed": "Не удалось совершить звонок",
   "opsOffice.dailyBudget": "Дневной бюджет",
-  "opsOffice.instructionSendFailed": "Не удалось отправить указание",
-  "opsOffice.messageSendFailed": "Не удалось отправить сообщение",
-  "opsOffice.messagesReadFailed": "Не удалось прочитать сообщения",
   "opsOffice.monthlyBudget": "Месячный бюджет",
   "opsOffice.perAgentSoftLimit": "Мягкий лимит на агента",
   "opsOffice.remoteGatewayPresenceLoadFailed":
@@ -2220,46 +2089,6 @@ export const ru = {
   "opsTasks.triggeredPlaybook": "Задача из запущенного сценария",
   "opsTasks.untitled": "Задача без названия",
   "opsTasks.updateFailed": "Не удалось обновить задачу в общем хранилище.",
-
-  // --- Телефон офиса -------------------------------------------------------
-  "phone.agentLabel": "Агент",
-  "phone.boothLead": "Один номер на весь офис. Выберите, кто звонит, и следите за линией.",
-  "phone.boothTitle": "Телефонная будка",
-  "phone.call": "Позвонить",
-  "phone.calleeLabel": "Собеседник",
-  "phone.callingAs": "Звонит",
-  "phone.dialing": "Набор…",
-  "phone.emptyTranscript": "Позвоните, чтобы разговор появился здесь.",
-  "phone.endedAt": ", завершён в {time}",
-  "phone.from": "с номера {number}",
-  "phone.nextTurnNotice": "Агент возьмёт её на следующем ходу, так что вслух она прозвучит не мгновенно.",
-  "phone.noAgents": "Нет доступных агентов",
-  "phone.noCalls": "Звонков пока нет.",
-  "phone.notReady": "Звонки выключены, пока развёртывание не настроено. Не хватает: ",
-  "phone.notUpdating": "Не обновляется: {reason}",
-  "phone.noteOff": "Заметки агенту выключены. Не хватает: ",
-  "phone.notePending": "Заметка уже ждёт; следующая заменит её.",
-  "phone.notePlaceholder": "Напишите агенту, что сказать дальше…",
-  "phone.noteSend": "Отправить агенту",
-  "phone.noteSending": "Отправка…",
-  "phone.nothingSaid": "На этом звонке ничего не прозвучало.",
-  "phone.numberLabel": "Номер для звонка",
-  "phone.operatorLabel": "Вы",
-  "phone.recordingHint": "Появляется, когда ElevenLabs закончит её записывать — это занимает немного времени после звонка.",
-  "phone.recordingTitle": "Запись",
-  "phone.startedAt": "начат в {time}",
-  "phone.statusBusy": "Занято",
-  "phone.statusCanceled": "Отменён",
-  "phone.statusCompleted": "Завершён",
-  "phone.statusFailed": "Не удался",
-  "phone.statusInProgress": "На линии",
-  "phone.statusNoAnswer": "Нет ответа",
-  "phone.statusProcessing": "Завершение",
-  "phone.statusQueued": "В очереди",
-  "phone.statusRinging": "Идёт вызов",
-  "phone.systemLabel": "Система",
-  "phone.title": "Телефон офиса",
-  "phone.waitingFirstWords": "Ждём первых слов…",
 
   // --- Шаблоны плейбуков ---------------------------------------------------
   "playbookTemplate.briefingDescription":
@@ -2410,13 +2239,6 @@ export const ru = {
   "remoteChat.sending": "Отправка…",
   "remoteChat.title": "Удалённый агент",
 
-  // --- Просьбы агента ------------------------------------------------------
-  "request.callVerb": "Позвонить",
-  "request.enterNumberCall": "Введите номер для набора.",
-  "request.enterNumberMessage": "Введите номер для сообщения.",
-  "request.messageVerb": "Написать",
-  "request.requested": "Просьба",
-
   // --- Настройки студии ------------------------------------------------------
   "settings.activeBackend": "Активный бэкенд: {name}",
   "settings.agentVoice": "Голос: {name}",
@@ -2485,7 +2307,7 @@ export const ru = {
   "settings.tokenSet": "Токен задан",
   "settings.unknown": "Неизвестно",
   "settings.voice": "Голос",
-  "settings.voiceLead": "Выберите голос для озвучки ответов агентов.",
+  "settings.voiceLead": "Голос AM7 для ответов; операторы и система штаба говорят своими голосами.",
   "settings.voiceListen": "Прослушать",
   "settings.voiceNotConfigured": "не настроено на сервере",
   "settings.voiceProviderLocal": "свой сервер (OpenAI-совместимый)",
@@ -2748,14 +2570,6 @@ export const ru = {
   "taskboard.updated": "Обновлена: {value}.",
   "taskboard.visibleCards": "Видимых карточек: {count}",
   "taskboard.waitingDetection": "Ждём распознавания входящих просьб.",
-
-  // --- Голоса ----------------------------------------------------------------
-  "voices.balanced": "Сбалансированный, разговорный.",
-  "voices.calm": "Спокойный и деловой.",
-  "voices.clear": "Чёткий и бодрый.",
-  "voices.deep": "Низкий и авторитетный.",
-  "voices.steady": "Ровный и уверенный.",
-  "voices.warm": "Тёплый и дружелюбный.",
 
   // --- Мастер создания агента ------------------------------------------------
   "wizard.back": "Назад",

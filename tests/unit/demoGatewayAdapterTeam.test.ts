@@ -505,9 +505,7 @@ describe("ambient task wording", () => {
         gym: intent.gym,
         qa: intent.qa,
         standup: intent.standup,
-        call: intent.call,
-        text: intent.text,
-      }).toEqual({ task, desk: null, github: null, gym: null, qa: null, standup: null, call: null, text: null });
+      }).toEqual({ task, desk: null, github: null, gym: null, qa: null, standup: null });
       // "heartbeat" and "cron" switch the office's latest-update panel.
       expect(task).not.toMatch(/heartbeat|cron/i);
     }

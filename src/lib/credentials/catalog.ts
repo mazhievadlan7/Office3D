@@ -68,15 +68,6 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     docsUrl: null,
   },
   {
-    id: "elevenlabs-api-key",
-    label: t("libCredentials.elevenlabsApiKeyLabel"),
-    envVar: "ELEVENLABS_API_KEY",
-    consumedBy: "office3d",
-    purpose: t("libCredentials.elevenlabsApiKeyPurpose"),
-    requiredFor: t("libCredentials.elevenlabsApiKeyRequiredFor"),
-    docsUrl: "https://elevenlabs.io/docs",
-  },
-  {
     id: "voice-api-key",
     label: t("libCredentials.voiceApiKeyLabel"),
     envVar: "OFFICE3D_VOICE_API_KEY",
@@ -96,81 +87,13 @@ export const CREDENTIAL_CATALOG: CredentialDefinition[] = [
     docsUrl: "https://docs.github.com/en/rest",
   },
   {
-    id: "elevenlabs-agent-id",
-    label: t("libCredentials.elevenlabsAgentIdLabel"),
-    envVar: "ELEVENLABS_AGENT_ID",
-    consumedBy: "office3d",
-    purpose:
-      t("libCredentials.elevenlabsAgentIdPurpose"),
-    requiredFor: t("libCredentials.voiceAgentCalls"),
-    docsUrl: "https://elevenlabs.io/docs/eleven-agents",
-  },
-  {
-    id: "elevenlabs-phone-number-id",
-    label: t("libCredentials.elevenlabsPhoneNumberIdLabel"),
-    envVar: "ELEVENLABS_PHONE_NUMBER_ID",
-    consumedBy: "office3d",
-    purpose:
-      t("libCredentials.elevenlabsPhoneNumberIdPurpose"),
-    requiredFor: t("libCredentials.voiceAgentCalls"),
-    docsUrl: "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking",
-  },
-  {
-    id: "office3d-org-name",
-    label: t("libCredentials.orgNameLabel"),
-    envVar: "OFFICE3D_ORG_NAME",
-    consumedBy: "office3d",
-    purpose:
-      t("libCredentials.orgNamePurpose"),
-    requiredFor: null,
-    docsUrl: null,
-  },
-  {
-    id: "telephony-webhook-secret",
-    label: t("libCredentials.telephonyWebhookSecretLabel"),
-    envVar: "OFFICE3D_TELEPHONY_WEBHOOK_SECRET",
-    consumedBy: "office3d",
-    purpose:
-      t("libCredentials.telephonyWebhookSecretPurpose"),
-    requiredFor: t("libCredentials.liveCallInstructions"),
-    docsUrl: null,
-  },
-  {
     id: "office3d-public-url",
     label: t("libCredentials.publicUrlLabel"),
     envVar: "OFFICE3D_PUBLIC_URL",
     consumedBy: "office3d",
     purpose:
       t("libCredentials.publicUrlPurpose"),
-    requiredFor: t("libCredentials.liveCallInstructions"),
-    docsUrl: null,
-  },
-  {
-    id: "elevenlabs-whatsapp-phone-number-id",
-    label: t("libCredentials.whatsappNumberIdLabel"),
-    envVar: "ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID",
-    consumedBy: "office3d",
-    purpose: t("libCredentials.whatsappNumberIdPurpose"),
-    requiredFor: t("libCredentials.agentMessages"),
-    docsUrl: null,
-  },
-  {
-    id: "elevenlabs-whatsapp-template",
-    label: t("libCredentials.whatsappTemplateLabel"),
-    envVar: "ELEVENLABS_WHATSAPP_TEMPLATE",
-    consumedBy: "office3d",
-    purpose:
-      t("libCredentials.whatsappTemplatePurpose"),
-    requiredFor: t("libCredentials.agentMessages"),
-    docsUrl: null,
-  },
-  {
-    id: "elevenlabs-whatsapp-template-language",
-    label: t("libCredentials.whatsappTemplateLanguageLabel"),
-    envVar: "ELEVENLABS_WHATSAPP_TEMPLATE_LANGUAGE",
-    consumedBy: "office3d",
-    purpose: t("libCredentials.whatsappTemplateLanguagePurpose"),
-    requiredFor: t("libCredentials.agentMessages"),
+    requiredFor: null,
     docsUrl: null,
   },
   // Below: keys a skill or agent may use. Office3D never calls these APIs
