@@ -27,6 +27,7 @@ import { ensureGatewayReloadModeHotForLocalStudio } from "@/lib/gateway/gatewayR
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import { GatewayResponseError } from "@/lib/gateway/errors";
 import { matchesPhrase, t } from "@/lib/i18n";
+import { ReconnectScheduler, classifyGatewayFailure } from "@/lib/gateway/reconnectPolicy";
 
 const gatewayDebugEnabled = process.env.NODE_ENV !== "production";
 
@@ -622,6 +623,13 @@ export type GatewayConnectionState = {
   adapterProfiles: Partial<Record<StudioGatewayAdapterType, { url: string; token: string }>>;
   localGatewayDefaults: StudioGatewaySettings | null;
   error: string | null;
+  /** The connection dropped and the office is retrying on its own. */
+  reconnecting: boolean;
+  /**
+   * A retry failed for a reason retrying cannot fix (wrong token, refused
+   * pairing, missing address): the loop stopped and the person must act.
+   */
+  reconnectBlocked: boolean;
   connectPromptReady: boolean;
   shouldPromptForConnect: boolean;
   connect: () => Promise<void>;
@@ -644,75 +652,6 @@ type StudioSettingsCoordinatorLike = {
   flushPending: () => Promise<void>;
 };
 
-const isAuthError = (errorMessage: string | null): boolean => {
-  if (!errorMessage) return false;
-  const lower = errorMessage.toLowerCase();
-  return (
-    lower.includes("auth") ||
-    lower.includes("unauthorized") ||
-    lower.includes("forbidden") ||
-    lower.includes("invalid token") ||
-    lower.includes("token required") ||
-    (lower.includes("token") && lower.includes("not configured")) ||
-    lower.includes("gateway_token_missing")
-  );
-};
-
-const MAX_AUTO_RETRY_ATTEMPTS = 20;
-const INITIAL_RETRY_DELAY_MS = 2_000;
-const MAX_RETRY_DELAY_MS = 30_000;
-
-const NON_RETRYABLE_CONNECT_ERROR_CODES = new Set([
-  "studio.gateway_url_missing",
-  "studio.gateway_token_missing",
-  "studio.gateway_url_invalid",
-  "studio.settings_load_failed",
-  "studio.upstream_error",
-  "studio.upstream_timeout",
-  "studio.upstream_rejected",
-]);
-
-const isNonRetryableConnectErrorCode = (code: string | null): boolean => {
-  const normalized = code?.trim().toLowerCase() ?? "";
-  if (!normalized) return false;
-  return NON_RETRYABLE_CONNECT_ERROR_CODES.has(normalized);
-};
-
-/** WebSocket close code 1008 = policy violation (rate limit). */
-const WS_CLOSE_POLICY_VIOLATION = 1008;
-const RATE_LIMIT_RETRY_DELAY_MS = 15_000;
-
-export const resolveGatewayAutoRetryDelayMs = (params: {
-  status: GatewayStatus;
-  didAutoConnect: boolean;
-  hasConnectedOnce: boolean;
-  wasManualDisconnect: boolean;
-  gatewayUrl: string;
-  errorMessage: string | null;
-  connectErrorCode: string | null;
-  lastDisconnectCode: number | null;
-  attempt: number;
-}): number | null => {
-  if (params.status !== "disconnected") return null;
-  if (!params.didAutoConnect) return null;
-  if (!params.hasConnectedOnce) return null;
-  if (params.wasManualDisconnect) return null;
-  if (!params.gatewayUrl.trim()) return null;
-  if (params.attempt >= MAX_AUTO_RETRY_ATTEMPTS) return null;
-  if (isNonRetryableConnectErrorCode(params.connectErrorCode)) return null;
-  if (params.connectErrorCode === null && isAuthError(params.errorMessage)) return null;
-
-  const baseDelay =
-    params.lastDisconnectCode === WS_CLOSE_POLICY_VIOLATION
-      ? Math.max(INITIAL_RETRY_DELAY_MS, RATE_LIMIT_RETRY_DELAY_MS)
-      : INITIAL_RETRY_DELAY_MS;
-
-  return Math.min(
-    baseDelay * Math.pow(1.5, params.attempt),
-    MAX_RETRY_DELAY_MS
-  );
-};
-
 export const useGatewayConnection = (
   settingsCoordinator: StudioSettingsCoordinatorLike
 ): GatewayConnectionState => {
@@ -726,8 +665,22 @@ export const useGatewayConnection = (
     profiles?: Partial<Record<StudioGatewayAdapterType, { url: string; token: string }>>;
     hasLastKnownGood: boolean;
   } | null>(null);
-  const retryAttemptRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Retries after a lost connection, forever while the page is open, with
+  // backoff and jitter (reconnectPolicy.ts).
+  const runReconnectRef = useRef<() => void>(() => {});
+  const [reconnectScheduler] = useState(
+    () =>
+      new ReconnectScheduler({
+        run: () => runReconnectRef.current(),
+        onScheduled: ({ attempt, delayMs }) =>
+          gatewayDebugLog("reconnect-scheduled", { attempt, delayMs }),
+      })
+  );
+  const connectInFlightRef = useRef(false);
+  const previousStatusRef = useRef<GatewayStatus>("disconnected");
+  const selectedAdapterTypeRef = useRef<StudioGatewayAdapterType>("openclaw");
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectBlocked, setReconnectBlocked] = useState(false);
   const autoConnectTimerRef = useRef<number | null>(null);
   const wasManualDisconnectRef = useRef(false);
 
@@ -745,7 +698,8 @@ export const useGatewayConnection = (
   );
   const [status, setStatus] = useState<GatewayStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
-  const [connectErrorCode, setConnectErrorCode] = useState<string | null>(null);
+  // The code of the last failed connect; kept for debugging in React devtools.
+  const [, setConnectErrorCode] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [hasLastKnownGoodState, setHasLastKnownGoodState] = useState(false);
   const lastScheduledGatewaySnapshotRef = useRef<string | null>(null);
@@ -866,9 +820,37 @@ export const useGatewayConnection = (
   }, [settingsCoordinator]);
 
   useEffect(() => {
+    selectedAdapterTypeRef.current = selectedAdapterType;
+  }, [selectedAdapterType]);
+
+  // Retrying makes sense only for the backends the office manages itself, and
+  // only once there is a known-good target: a connection that worked, or the
+  // saved one the office connected to on its own.
+  const canAutoReconnect = useCallback(
+    () =>
+      isAutoManagedAdapter(selectedAdapterTypeRef.current) &&
+      !wasManualDisconnectRef.current &&
+      (hasConnectedOnceRef.current || didAutoConnect.current),
+    []
+  );
+
+  useEffect(() => {
     return client.onStatus((nextStatus) => {
       gatewayDebugLog("status", { nextStatus });
+      const previousStatus = previousStatusRef.current;
+      previousStatusRef.current = nextStatus;
       setStatus(nextStatus);
+      // A live connection dropped (the gateway stopped, the proxy closed us,
+      // the heartbeat found the socket dead): start the retry loop.
+      if (
+        previousStatus === "connected" &&
+        nextStatus === "disconnected" &&
+        !wasManualDisconnectRef.current &&
+        canAutoReconnect()
+      ) {
+        setReconnecting(true);
+        reconnectScheduler.schedule(client.lastDisconnectCode);
+      }
       if (nextStatus !== "connecting") {
         setError(null);
         if (nextStatus === "connected") {
@@ -878,7 +860,7 @@ export const useGatewayConnection = (
         }
       }
     });
-  }, [client]);
+  }, [canAutoReconnect, client, reconnectScheduler]);
 
   useEffect(() => {
     return () => {
@@ -886,32 +868,38 @@ export const useGatewayConnection = (
         clearTimeout(autoConnectTimerRef.current);
         autoConnectTimerRef.current = null;
       }
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
+      reconnectScheduler.cancel();
       client.disconnect();
     };
-  }, [client]);
+  }, [client, reconnectScheduler]);
 
-  const connect = useCallback(async () => {
+  // "user": the connect button or the first automatic connect.
+  // "auto": one retry of the reconnect loop.
+  const runConnect = useCallback(async (mode: "user" | "auto") => {
     if (autoConnectTimerRef.current) {
       clearTimeout(autoConnectTimerRef.current);
       autoConnectTimerRef.current = null;
     }
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
+    if (mode === "auto") {
+      reconnectScheduler.cancel();
+      // An attempt is already on its way; it reschedules if it fails.
+      if (connectInFlightRef.current) return;
+    } else {
+      reconnectScheduler.reset();
+      setReconnecting(false);
+      // A retry keeps the reason on screen until it succeeds, so the connect
+      // form does not blink with every attempt.
+      setError(null);
+      setConnectErrorCode(null);
+      wasManualDisconnectRef.current = false;
     }
+    setReconnectBlocked(false);
     gatewayDebugLog("connect:start", {
+      mode,
       selectedAdapterType,
       gatewayUrl,
       hasToken: Boolean(token),
     });
-    setError(null);
-    setConnectErrorCode(null);
-    retryAttemptRef.current = 0;
-    wasManualDisconnectRef.current = false;
     if (
       selectedAdapterType === "custom" ||
       selectedAdapterType === "local" ||
@@ -940,12 +928,16 @@ export const useGatewayConnection = (
       }
       return;
     }
+    connectInFlightRef.current = true;
     try {
       await settingsCoordinator.flushPending();
-      const maxAttempts = resolveInitialGatewayConnectAttemptCount(
-        selectedAdapterType,
-        hasConnectedOnceRef.current
-      );
+      const maxAttempts =
+        mode === "auto"
+          ? 1
+          : resolveInitialGatewayConnectAttemptCount(
+              selectedAdapterType,
+              hasConnectedOnceRef.current
+            );
       let lastError: unknown = null;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         try {
@@ -1002,20 +994,78 @@ export const useGatewayConnection = (
           },
         },
       }, 0);
+      // Connected. The backoff step itself is forgotten only once the
+      // connection has held for a while (see below), so a gateway that
+      // accepts and drops at once is not hammered.
+      reconnectScheduler.cancel();
+      setReconnecting(false);
       gatewayDebugLog("connect:success", {
+        mode,
         selectedAdapterType,
         detectedAdapterType: nextDetectedAdapterType,
       });
     } catch (err) {
-      setConnectErrorCode(err instanceof GatewayResponseError ? err.code : null);
+      const code = err instanceof GatewayResponseError ? err.code : null;
+      const message = err instanceof Error ? err.message : String(err);
+      const kind = classifyGatewayFailure({ code, message });
+      gatewayDebugLog("connect:failed", { mode, selectedAdapterType, code, kind, message });
+      if (kind === "transient" && canAutoReconnect()) {
+        // The gateway is down or restarting: keep trying. While the office is
+        // on screen the HUD says «Переподключение…»; before it ever connected
+        // the connect form shows the reason meanwhile.
+        if (!hasConnectedOnceRef.current) {
+          setConnectErrorCode(code);
+          setError(formatGatewayError(err));
+        }
+        setReconnecting(true);
+        reconnectScheduler.schedule(client.lastDisconnectCode);
+        return;
+      }
+      // A wrong token, a refused pairing, a missing address: retrying cannot
+      // help, so stop and show it.
+      reconnectScheduler.reset();
+      setReconnecting(false);
+      setReconnectBlocked(hasConnectedOnceRef.current);
+      setConnectErrorCode(code);
       setError(formatGatewayError(err));
-      gatewayDebugLog("connect:failed", {
-        selectedAdapterType,
-        code: err instanceof GatewayResponseError ? err.code : null,
-        message: err instanceof Error ? err.message : String(err),
-      });
+    } finally {
+      connectInFlightRef.current = false;
     }
-  }, [client, gatewayUrl, selectedAdapterType, settingsCoordinator, token]);
+  }, [
+    canAutoReconnect,
+    client,
+    gatewayUrl,
+    reconnectScheduler,
+    selectedAdapterType,
+    settingsCoordinator,
+    token,
+  ]);
+
+  const connect = useCallback(() => runConnect("user"), [runConnect]);
+
+  useEffect(() => {
+    runReconnectRef.current = () => {
+      void runConnect("auto");
+    };
+  }, [runConnect]);
+
+  // The network came back, or the tab is visible again: retry now rather than
+  // waiting out the backoff.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const retryNow = () => {
+      if (reconnectScheduler.kick()) gatewayDebugLog("reconnect-now");
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") retryNow();
+    };
+    window.addEventListener("online", retryNow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("online", retryNow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [reconnectScheduler]);
 
   useEffect(() => {
     if (didAutoConnect.current) return;
@@ -1042,53 +1092,6 @@ export const useGatewayConnection = (
     };
   }, [connect, gatewayUrl, hasLastKnownGoodState, selectedAdapterType, settingsLoaded]);
 
-  // Auto-retry on disconnect (gateway busy, network blip, etc.)
-  useEffect(() => {
-    const attempt = retryAttemptRef.current;
-    const delay = resolveGatewayAutoRetryDelayMs({
-      status,
-      didAutoConnect: didAutoConnect.current,
-      hasConnectedOnce: hasConnectedOnceRef.current,
-      wasManualDisconnect: wasManualDisconnectRef.current,
-      gatewayUrl,
-      errorMessage: error,
-      connectErrorCode,
-      lastDisconnectCode: client.lastDisconnectCode,
-      attempt,
-    });
-    if (!isAutoManagedAdapter(selectedAdapterType)) return;
-    if (delay === null) return;
-    gatewayDebugLog("auto-retry-scheduled", {
-      selectedAdapterType,
-      attempt: attempt + 1,
-      delay,
-      gatewayUrl,
-      status,
-    });
-    retryTimerRef.current = setTimeout(() => {
-      // Call connect first (it synchronously resets retryAttemptRef to 0),
-      // then override with the correct attempt count so the next auto-retry
-      // uses proper exponential backoff.
-      void connect();
-      retryAttemptRef.current = attempt + 1;
-      gatewayDebugLog("auto-retry-fire", {
-        selectedAdapterType,
-        attempt: retryAttemptRef.current,
-      });
-    }, delay);
-
-    return () => {
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-    // client.lastDisconnectCode is a plain field the client sets as a socket
-    // closes, not React state; it is read here when the status change that
-    // follows the close re-runs this effect, and listing it would not add a run.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connect, connectErrorCode, error, gatewayUrl, selectedAdapterType, status]);
-
   // Reset retry count after the connection has been stable for a minimum
   // duration.  If the upstream drops the connection quickly (e.g. within a
   // few seconds), keeping the current attempt count lets exponential backoff
@@ -1097,11 +1100,11 @@ export const useGatewayConnection = (
     if (status === "connected") {
       hasConnectedOnceRef.current = true;
       const stableTimer = setTimeout(() => {
-        retryAttemptRef.current = 0;
+        reconnectScheduler.reset();
       }, 10_000);
       return () => clearTimeout(stableTimer);
     }
-  }, [status]);
+  }, [reconnectScheduler, status]);
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -1204,6 +1207,9 @@ export const useGatewayConnection = (
     setError(null);
     setConnectErrorCode(null);
     wasManualDisconnectRef.current = true;
+    reconnectScheduler.reset();
+    setReconnecting(false);
+    setReconnectBlocked(false);
     setDetectedAdapterType(null);
     // Always close an active WebSocket connection regardless of selectedAdapterType.
     // selectedAdapterType may already reflect the *target* adapter when this runs
@@ -1224,7 +1230,7 @@ export const useGatewayConnection = (
     }
     client.disconnect();
     clearGatewayBrowserSessionStorage();
-  }, [client, selectedAdapterType, status]);
+  }, [client, reconnectScheduler, selectedAdapterType, status]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -1257,6 +1263,8 @@ export const useGatewayConnection = (
     adapterProfiles,
     localGatewayDefaults,
     error,
+    reconnecting: reconnecting && status !== "connected",
+    reconnectBlocked: reconnectBlocked && status !== "connected",
     connectPromptReady,
     shouldPromptForConnect,
     connect,

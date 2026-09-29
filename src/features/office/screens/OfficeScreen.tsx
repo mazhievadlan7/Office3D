@@ -783,6 +783,8 @@ export function OfficeScreen({
     activeAdapterType,
     localGatewayDefaults,
     error: gatewayError,
+    reconnecting: gatewayReconnecting,
+    reconnectBlocked: gatewayReconnectBlocked,
     connect,
     disconnect,
     useLocalGatewayDefaults,
@@ -838,6 +840,10 @@ export function OfficeScreen({
   // before the gateway connects): it counts as loaded for the offline office,
   // but the real team must still be fetched the moment the gateway connects.
   const rosterIsPlaceholderRef = useRef(false);
+  // Set when a live connection drops: whatever happened while the gateway was
+  // away (agents hired or removed, runs finished) is fetched again in full
+  // once it is back, instead of trusting the roster from before.
+  const resyncAfterReconnectRef = useRef(false);
   const connectionEpochRef = useRef(0);
   const lastLoadAgentsStartedAtRef = useRef(0);
   const lastGatewayActivityAtRef = useRef(0);
@@ -1829,6 +1835,14 @@ export function OfficeScreen({
 
   useEffect(() => {
     if (status !== "connected") return;
+    if (resyncAfterReconnectRef.current) {
+      // Back after a drop: reload the roster, sessions and runs. hydrateAgents
+      // replaces the roster, so nothing is duplicated and the placeholder goes.
+      resyncAfterReconnectRef.current = false;
+      void loadAgents({ forceSettings: true, silent: agentsLoaded });
+      void taskBoardRefreshRef.current();
+      return;
+    }
     // Loaded already, unless all we have is the offline demo seed.
     if (agentsLoaded && !rosterIsPlaceholderRef.current) return;
     void loadAgents({ forceSettings: true });
@@ -1848,6 +1862,7 @@ export function OfficeScreen({
 
   useEffect(() => {
     if (status === "disconnected") {
+      if (stateRef.current.agents.length > 0) resyncAfterReconnectRef.current = true;
       connectionEpochRef.current += 1;
       setCreateAgentWizardOpen(false);
       setCreateAgentBusy(false);
@@ -1963,7 +1978,21 @@ export function OfficeScreen({
       );
       for (const event of batch) handleEvent(event);
     };
+    // Hermes: the adapter lives in the office's own server, so the socket stays
+    // up while Hermes itself restarts. The health monitor reports it back
+    // ("system.health" ok again); resync then, as after a reconnect.
+    let hermesHealthy: boolean | null = null;
     const unsubscribeEvent = client.onEvent((event) => {
+      if (event.event === "system.health" && event.payload && typeof event.payload === "object") {
+        const ok = (event.payload as { ok?: unknown }).ok;
+        if (typeof ok === "boolean") {
+          if (ok && hermesHealthy === false) {
+            void loadAgents({ forceSettings: true, silent: true });
+            void taskBoardRefreshRef.current();
+          }
+          hermesHealthy = ok;
+        }
+      }
       lastGatewayActivityAtRef.current = Date.now();
       pendingEvents.push(event);
       if (flushTimer === null) flushTimer = window.setTimeout(flushEvents, EVENT_FLUSH_MS);
@@ -3416,8 +3445,10 @@ export function OfficeScreen({
   const showGatewayConnectOverlay =
     connectPromptReady &&
     status === "disconnected" &&
-    !agentsLoaded &&
-    (shouldPromptForConnect || showDelayedGatewayConnectOverlay);
+    // A retry hit a wrong token or a refused pairing: the office stops
+    // retrying and asks, even with the team already on screen.
+    (gatewayReconnectBlocked ||
+      (!agentsLoaded && (shouldPromptForConnect || showDelayedGatewayConnectOverlay)));
 
   const runningCount = state.agents.filter(
     (agent) => agent.status === "running",
@@ -3482,7 +3513,11 @@ export function OfficeScreen({
           namespace={activeFloor.id}
           selectedAgentId={selectedChatAgentId ?? state.selectedAgentId ?? null}
           onAgentSelect={handleOpenAgentChat}
-          runtimeStatus={{ adapter: activeAdapterType, status }}
+          runtimeStatus={{
+            adapter: activeAdapterType,
+            status: gatewayReconnecting ? "reconnecting" : gatewayReconnectBlocked ? "blocked" : status,
+            detail: status === "connected" ? null : gatewayError,
+          }}
           settingsOpen={settingsOpen}
           onOpenSettings={() => setSettingsOpen((open) => !open)}
           onOpenCombat={() => setCombatOpen(true)}

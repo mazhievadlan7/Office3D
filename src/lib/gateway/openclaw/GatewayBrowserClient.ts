@@ -402,6 +402,15 @@ export type GatewayBrowserClientOptions = {
 };
 
 const CONNECT_FAILED_CLOSE_CODE = 4008;
+// The same-origin proxy (server/gateway-proxy.js) sends this event every
+// 20 s. It is consumed here, never passed on. Once one has arrived, a socket
+// that stays silent for HEARTBEAT_TIMEOUT_MS is taken for half-open (the
+// server or the network went away without a close) and dropped, so the
+// office's reconnect loop takes over instead of waiting on a dead socket.
+export const STUDIO_HEARTBEAT_EVENT = "studio.heartbeat";
+export const HEARTBEAT_TIMEOUT_MS = 45_000;
+const HEARTBEAT_CHECK_MS = 5_000;
+export const HEARTBEAT_TIMEOUT_CLOSE_CODE = 4000;
 // Outgoing request budget; kept below the proxy's limit in server/gateway-proxy.js.
 const SEND_RATE = 200;
 const SEND_BURST = 400;
@@ -431,6 +440,9 @@ export class GatewayBrowserClient {
   private connectSent = false;
   private connectTimer: number | null = null;
   private backoffMs = 800;
+  private lastFrameAt = 0;
+  private heartbeatArmed = false;
+  private heartbeatTimer: number | null = null;
 
   constructor(private opts: GatewayBrowserClientOptions) {}
 
@@ -448,6 +460,7 @@ export class GatewayBrowserClient {
 
   stop() {
     this.closed = true;
+    this.stopHeartbeatWatch();
     gatewayBrowserDebugLog("stop");
     this.ws?.close();
     this.ws = null;
@@ -461,23 +474,63 @@ export class GatewayBrowserClient {
   private connect() {
     if (this.closed) return;
     gatewayBrowserDebugLog("connect:open-socket", { url: this.opts.url });
-    this.ws = new WebSocket(this.opts.url);
-    this.ws.onopen = () => {
+    const ws = new WebSocket(this.opts.url);
+    this.ws = ws;
+    ws.onopen = () => {
       gatewayBrowserDebugLog("socket:open");
+      this.startHeartbeatWatch();
       this.queueConnect();
     };
-    this.ws.onmessage = (ev) => this.handleMessage(String(ev.data ?? ""));
-    this.ws.onclose = (ev) => {
-      const reason = String(ev.reason ?? "");
-      gatewayBrowserDebugLog("socket:close", { code: ev.code, reason });
-      this.ws = null;
-      this.flushPending(new Error(`gateway closed (${ev.code}): ${reason}`));
-      this.opts.onClose?.({ code: ev.code, reason });
-      this.scheduleReconnect();
+    ws.onmessage = (ev) => this.handleMessage(String(ev.data ?? ""));
+    ws.onclose = (ev) => {
+      if (this.ws !== ws) return;
+      this.handleSocketClosed(ev.code, String(ev.reason ?? ""));
     };
-    this.ws.onerror = () => {
+    ws.onerror = () => {
       gatewayBrowserDebugLog("socket:error");
     };
+  }
+
+  private handleSocketClosed(code: number, reason: string) {
+    gatewayBrowserDebugLog("socket:close", { code, reason });
+    this.stopHeartbeatWatch();
+    this.ws = null;
+    this.flushPending(new Error(`gateway closed (${code}): ${reason}`));
+    this.opts.onClose?.({ code, reason });
+    this.scheduleReconnect();
+  }
+
+  private startHeartbeatWatch() {
+    this.stopHeartbeatWatch();
+    this.lastFrameAt = Date.now();
+    this.heartbeatArmed = false;
+    this.heartbeatTimer = window.setInterval(() => this.checkHeartbeat(), HEARTBEAT_CHECK_MS);
+  }
+
+  private stopHeartbeatWatch() {
+    if (this.heartbeatTimer !== null) {
+      window.clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    this.heartbeatArmed = false;
+  }
+
+  /** Drops a socket that has gone silent; see STUDIO_HEARTBEAT_EVENT. */
+  checkHeartbeat(now = Date.now()) {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !this.heartbeatArmed) return;
+    if (now - this.lastFrameAt <= HEARTBEAT_TIMEOUT_MS) return;
+    gatewayBrowserDebugLog("heartbeat:timeout", { silentMs: now - this.lastFrameAt });
+    // A half-open socket may never finish the closing handshake, so it is
+    // detached and reported closed right away rather than awaited.
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onclose = null;
+    ws.onerror = null;
+    try {
+      ws.close(HEARTBEAT_TIMEOUT_CLOSE_CODE, "heartbeat timeout");
+    } catch {}
+    this.handleSocketClosed(HEARTBEAT_TIMEOUT_CLOSE_CODE, "heartbeat timeout");
   }
 
   private scheduleReconnect() {
@@ -635,6 +688,7 @@ export class GatewayBrowserClient {
   }
 
   private handleMessage(raw: string) {
+    this.lastFrameAt = Date.now();
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -645,6 +699,10 @@ export class GatewayBrowserClient {
     const frame = parsed as { type?: unknown };
     if (frame.type === "event") {
       const evt = parsed as GatewayEventFrame;
+      if (evt.event === STUDIO_HEARTBEAT_EVENT) {
+        this.heartbeatArmed = true;
+        return;
+      }
       if (evt.event === "connect.challenge") {
         gatewayBrowserDebugLog("connect-challenge");
         const payload = evt.payload as { nonce?: unknown } | undefined;

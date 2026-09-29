@@ -42,6 +42,8 @@ const GATEWAY_STATUSES: Record<string, () => string> = {
   connected: () => t("settings.gatewayStatusConnected"),
   connecting: () => t("settings.gatewayStatusConnecting"),
   disconnected: () => t("settings.gatewayStatusDisconnected"),
+  reconnecting: () => t("settings.gatewayStatusReconnecting"),
+  blocked: () => t("settings.gatewayStatusBlocked"),
 };
 
 export const gatewayStatusLabel = (status: string): string =>

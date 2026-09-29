@@ -105,7 +105,9 @@ describe("GatewayBrowserClient", () => {
     }
 
     ws.onopen?.();
-    vi.runAllTimers();
+    // The connect frame waits 75 ms for a challenge; the heartbeat watch is an
+    // interval, so the clock is advanced rather than run dry.
+    vi.advanceTimersByTime(100);
 
     const connectFrame = JSON.parse(MockWebSocket.sent[0] ?? "{}");
     const connectId = String(connectFrame.id ?? "");
@@ -132,5 +134,38 @@ describe("GatewayBrowserClient", () => {
     expect(lastClose?.reason.startsWith("connect failed: INVALID_REQUEST")).toBe(true);
     expect(new TextEncoder().encode(lastClose?.reason ?? "").byteLength).toBeLessThanOrEqual(123);
     warnSpy.mockRestore();
+  });
+
+  it("consumes studio.heartbeat events without passing them on", () => {
+    const onEvent = vi.fn();
+    const client = new GatewayBrowserClient({ url: "ws://example.com", onEvent });
+    client.start();
+    const ws = MockWebSocket.instances[0]!;
+    ws.onopen?.();
+    ws.onmessage?.({ data: JSON.stringify({ type: "event", event: "studio.heartbeat", payload: { ts: 1 } }) } as MessageEvent);
+    ws.onmessage?.({ data: JSON.stringify({ type: "event", event: "presence", seq: 1 }) } as MessageEvent);
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent.mock.calls[0]?.[0]?.event).toBe("presence");
+    client.stop();
+  });
+
+  it("drops a socket that stays silent after heartbeats started, and reports it closed", () => {
+    const onClose = vi.fn();
+    const client = new GatewayBrowserClient({ url: "ws://example.com", onClose });
+    client.start();
+    const ws = MockWebSocket.instances[0]!;
+    ws.onopen?.();
+    // No heartbeat seen yet: silence alone is not taken for a dead socket.
+    vi.advanceTimersByTime(60_000);
+    expect(onClose).not.toHaveBeenCalled();
+
+    ws.onmessage?.({ data: JSON.stringify({ type: "event", event: "studio.heartbeat" }) } as MessageEvent);
+    vi.advanceTimersByTime(40_000);
+    expect(onClose).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10_000);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith({ code: 4000, reason: "heartbeat timeout" });
+    expect(MockWebSocket.closes.at(-1)).toEqual({ code: 4000, reason: "heartbeat timeout" });
+    client.stop();
   });
 });

@@ -95,7 +95,10 @@ export function HqCreatorOnline() {
 /** Which backend the office talks to and whether it is connected. */
 export type HqRuntimeStatus = {
   adapter: string;
+  /** "connected" | "connecting" | "disconnected", or "reconnecting" / "blocked" (see useGatewayConnection). */
   status: string;
+  /** Why the connection is down, for the chip's tooltip. */
+  detail?: string | null;
 };
 
 /**
@@ -114,7 +117,12 @@ export function HqSettingsControls({
 }) {
   if (!runtime && !onOpenSettings) return null;
   const runtimeTitle = runtime
-    ? t("office.runtimeTitle", { adapter: adapterLabel(runtime.adapter), status: gatewayStatusLabel(runtime.status) })
+    ? [
+        t("office.runtimeTitle", { adapter: adapterLabel(runtime.adapter), status: gatewayStatusLabel(runtime.status) }),
+        runtime.detail ?? "",
+      ]
+        .filter(Boolean)
+        .join("\n")
     : "";
   return (
     <>
@@ -132,7 +140,7 @@ export function HqSettingsControls({
             className={`h-1.5 w-1.5 rounded-full ${
               runtime.status === "connected"
                 ? "bg-red-400 shadow-[0_0_8px_rgba(255,42,42,0.8)]"
-                : runtime.status === "connecting"
+                : runtime.status === "connecting" || runtime.status === "reconnecting"
                   ? "animate-pulse bg-red-300/70"
                   : "bg-white/25"
             }`}

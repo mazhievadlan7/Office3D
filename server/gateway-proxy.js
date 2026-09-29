@@ -3,6 +3,16 @@ const { WebSocket, WebSocketServer } = require("ws");
 
 const DEFAULT_UPSTREAM_HANDSHAKE_TIMEOUT_MS = 10_000;
 
+// Liveness, both ways. Every interval the proxy
+//  - sends the browser a "studio.heartbeat" event, so the browser client can
+//    tell a silent socket from a dead one (GatewayBrowserClient drops the
+//    socket after 45 s without any frame and reconnects);
+//  - pings the browser and the upstream at the WebSocket level; a side that
+//    has not answered the previous ping is terminated. A dead upstream then
+//    closes the browser with 1012, and the office reconnects by itself.
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 20_000;
+const STUDIO_HEARTBEAT_EVENT = "studio.heartbeat";
+
 /** Maximum frame payload size (256 KB). */
 const MAX_FRAME_SIZE = 256 * 1024;
 
@@ -194,6 +204,7 @@ function createGatewayProxy(options) {
     log = () => {},
     logError = (msg, err) => console.error(msg, err),
     upstreamHandshakeTimeoutMs = DEFAULT_UPSTREAM_HANDSHAKE_TIMEOUT_MS,
+    heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS,
   } = options || {};
 
   const { verifyClient } = options || {};
@@ -219,11 +230,18 @@ function createGatewayProxy(options) {
     let closed = false;
     const frameRateLimiter = createFrameRateLimiter();
     let upstreamHandshakeTimeoutId = null;
+    let browserAlive = true;
+    let upstreamAlive = true;
+    let heartbeatTimer = null;
 
     const closeBoth = (code, reason) => {
       if (closed) return;
       closed = true;
       frameRateLimiter.destroy();
+      if (heartbeatTimer !== null) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
       if (upstreamHandshakeTimeoutId !== null) {
         clearTimeout(upstreamHandshakeTimeoutId);
         upstreamHandshakeTimeoutId = null;
@@ -391,6 +409,10 @@ function createGatewayProxy(options) {
         failSetup(timeoutError);
       }, upstreamHandshakeTimeoutMs);
 
+      upstreamWs.on("pong", () => {
+        upstreamAlive = true;
+      });
+
       upstreamWs.on("open", () => {
         if (upstreamHandshakeTimeoutId !== null) {
           clearTimeout(upstreamHandshakeTimeoutId);
@@ -482,6 +504,45 @@ function createGatewayProxy(options) {
 
       log("proxy connected");
     };
+
+    browserWs.on("pong", () => {
+      browserAlive = true;
+    });
+
+    const heartbeat = () => {
+      if (closed) return;
+      if (!browserAlive) {
+        log("[gateway-proxy] browser missed a heartbeat; dropping the connection");
+        try {
+          browserWs.terminate();
+        } catch {}
+        closeBoth(1001, "browser heartbeat timeout");
+        return;
+      }
+      if (upstreamReady && upstreamWs?.readyState === WebSocket.OPEN) {
+        if (!upstreamAlive) {
+          log("[gateway-proxy] upstream missed a heartbeat; dropping the connection");
+          try {
+            upstreamWs.terminate();
+          } catch {}
+          closeBoth(1012, "upstream heartbeat timeout");
+          return;
+        }
+        upstreamAlive = false;
+        try {
+          upstreamWs.ping();
+        } catch {}
+      }
+      browserAlive = false;
+      try {
+        browserWs.ping();
+      } catch {}
+      sendToBrowser({ type: "event", event: STUDIO_HEARTBEAT_EVENT, payload: { ts: Date.now() } });
+    };
+    if (heartbeatIntervalMs > 0) {
+      heartbeatTimer = setInterval(heartbeat, heartbeatIntervalMs);
+      heartbeatTimer.unref?.();
+    }
 
     void startUpstream();
 
