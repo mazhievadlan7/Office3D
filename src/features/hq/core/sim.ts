@@ -656,6 +656,15 @@ export class HqSimulation {
   /** When the lead reached the podium: the rhythm of talking and presenting starts there. */
   private podiumSince = 0;
   private briefingSpeaking = true;
+  /**
+   * The creator has just signed in: until creatorAckUntil the lead turns to
+   * the viewer (creatorX/Y/Z, the camera) — standing he faces it, seated he
+   * takes his hands off the keys and looks up at it.
+   */
+  private creatorAckUntil = 0;
+  private creatorX = 0;
+  private creatorY = 0;
+  private creatorZ = 0;
   private leadAgent: Agent | null = null;
   /** The podium: the stage walkway's point on the rows' axis, facing the rows. */
   private readonly podiumNode: number;
@@ -1123,6 +1132,34 @@ export class HqSimulation {
   /** Whether the lead is speaking (Talk) or listening (Idle) at the podium. */
   setBriefingSpeaking(speaking: boolean): void {
     this.briefingSpeaking = speaking;
+  }
+
+  /**
+   * The creator has signed in: for `seconds` the lead acknowledges them,
+   * turned to the viewer (setCreatorPoint): standing he turns to face it and
+   * stands still (Idle, so no chatter murmur over the spoken greeting); in his
+   * chair he stops typing and looks up at it. A briefing, the podium and the
+   * archive cart keep priority; nothing else changes.
+   */
+  acknowledgeCreator(seconds: number): void {
+    this.creatorAckUntil = this.time + Math.max(0, seconds);
+  }
+
+  /** Where the viewer is (the camera), for acknowledgeCreator; may be updated every frame. */
+  setCreatorPoint(x: number, y: number, z: number): void {
+    this.creatorX = x;
+    this.creatorY = y;
+    this.creatorZ = z;
+  }
+
+  /** Whether the lead is acknowledging the creator right now. */
+  get creatorAck(): boolean {
+    return this.time < this.creatorAckUntil;
+  }
+
+  /** The lead acknowledging the creator, outside a briefing. */
+  private acknowledging(a: Agent): boolean {
+    return a.lead && !this.briefingActive && this.time < this.creatorAckUntil;
   }
 
   /**
@@ -2433,6 +2470,8 @@ export class HqSimulation {
    */
   private seatedClip(a: Agent): number {
     if (a.place !== D_SEAT) return HqClip.SitIdle;
+    // Hands off the keys while looking up at the creator.
+    if (this.acknowledging(a)) return HqClip.SitIdle;
     if (a.status === WORKING) return HqClip.SitType;
     return a.act === ACT_TYPE ? HqClip.SitType : HqClip.SitIdle;
   }
@@ -2823,6 +2862,13 @@ export class HqSimulation {
       want = Math.atan2(tx - a.x, tz - a.z);
       clip = HqClip.Idle;
     }
+    if (this.acknowledging(a) && a.place !== D_PODIUM) {
+      // Turned to the creator, standing still to attention. Not Talk: that
+      // would bring the crowd's murmur and chatter captions over the HQ's
+      // spoken greeting.
+      want = Math.atan2(this.creatorX - a.x, this.creatorZ - a.z);
+      clip = HqClip.Idle;
+    }
     a.facing = turnToward(a.facing, want, STAND_TURN_RATE * dt);
     if (a.clip !== clip) this.setLoop(a, clip);
   }
@@ -2836,6 +2882,14 @@ export class HqSimulation {
   private desiredLook(a: Agent): void {
     // At the cart: stepCart has set the look.
     if (a.mode === M_PUSH) return;
+    if (this.acknowledging(a) && a.place !== D_PODIUM && (a.mode === M_SEATED || a.mode === M_STAND)) {
+      // Looking up at the creator (the viewer's camera).
+      a.wantX = this.creatorX;
+      a.wantY = this.creatorY;
+      a.wantZ = this.creatorZ;
+      a.wantW = 1;
+      return;
+    }
     switch (a.mode) {
       case M_SEATED:
       case M_SIT:

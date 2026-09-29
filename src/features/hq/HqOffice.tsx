@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, type GLProps } from "@react-three/fiber";
+import { Canvas, useFrame, type GLProps } from "@react-three/fiber";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PCFShadowMap, WebGLRenderer } from "three";
 
@@ -34,6 +34,7 @@ import type { HqCameraApi, HqCameraMode } from "./render/scene/HqCameraRig";
 import type { HqOperationSnapshot } from "./render/screens/screenPaint";
 import type { HqHoverSink } from "./render/scene/HqPicking";
 import { HqScene } from "./render/scene/HqScene";
+import { HQ_INTRO_SECONDS } from "./render/scene/cameraIntro";
 import { HQ_CAMERA, type HqCameraPreset } from "./render/scene/cameraMath";
 import type { HqQuality } from "./render/scene/quality";
 
@@ -88,6 +89,14 @@ export type HqOfficeProps = {
    * between two polls.
    */
   onArchiveEvent?: (event: HqMaintenanceLogEvent) => void;
+  /** The owner is signed in: «СОЗДАТЕЛЬ В СЕТИ» in the HUD. */
+  creatorOnline?: boolean;
+  /**
+   * The owner has just signed in (the greeting is on): AM7 acknowledges them
+   * once — turned to the camera through the opening fly-through and a little
+   * after, standing he speaks, in his chair he looks up from the keys.
+   */
+  creatorEntered?: boolean;
 };
 
 /** A briefing the screen started (a voice command to the whole team). */
@@ -108,6 +117,18 @@ const BRIEFING_MAX_SECONDS = 240;
 const BRIEFING_POLL_MS = 250;
 /** Archive events kept between two polls; the oldest go first past this. */
 const ARCHIVE_EVENT_QUEUE_MAX = 16;
+/** How long AM7 keeps acknowledging the creator after the fly-through (seconds). */
+const CREATOR_ACK_TAIL_SECONDS = 6;
+
+/** While AM7 acknowledges the creator, he looks at the camera wherever it flies. */
+function HqCreatorWatch({ simRef }: { simRef: { current: HqSimulation | null } }) {
+  useFrame(({ camera }) => {
+    const sim = simRef.current;
+    if (!sim || !sim.creatorAck) return;
+    sim.setCreatorPoint(camera.position.x, camera.position.y, camera.position.z);
+  });
+  return null;
+}
 
 
 // What the sim sees of an agent; anything else changing is not its business.
@@ -193,6 +214,8 @@ export function HqOffice({
   onToggleWall,
   onLeadAtTribune,
   onArchiveEvent,
+  creatorOnline = false,
+  creatorEntered = false,
 }: HqOfficeProps) {
   const capacity: HqCapacity = HQ_DEFAULT_CAPACITY;
   // Always the highest quality: full detail, shadows and effects, rendered at
@@ -458,6 +481,17 @@ export function HqOffice({
     simRef.current?.setBriefingSpeaking(briefingSpeaking || !briefing?.reply);
   }, [briefingSpeaking, briefing?.reply]);
 
+  // The creator's sign-in: AM7 turns to the camera once, for the fly-through
+  // and a few seconds after (HqCreatorWatch keeps his eyes on the camera).
+  const creatorAckedRef = useRef(false);
+  useEffect(() => {
+    if (!creatorEntered || creatorAckedRef.current) return;
+    const sim = simRef.current;
+    if (!sim) return;
+    creatorAckedRef.current = true;
+    sim.acknowledgeCreator(HQ_INTRO_SECONDS + CREATOR_ACK_TAIL_SECONDS);
+  }, [creatorEntered, layout, namespace]);
+
   // Following the selected agent keeps following when the selection changes.
   useEffect(() => {
     if (cameraModeRef.current === "follow" && selectedAgentId) {
@@ -570,6 +604,7 @@ export function HqOffice({
             archiveBytes={archiveBytes}
           />
           <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={subtitleSinkRef} />
+          <HqCreatorWatch simRef={simRef} />
         </Canvas>
         <div
           aria-hidden={introPlaying}
@@ -592,6 +627,7 @@ export function HqOffice({
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}
+          creatorOnline={creatorOnline}
         />
         </div>
       </HqCanvasBoundary>

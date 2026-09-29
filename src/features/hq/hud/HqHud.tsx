@@ -72,6 +72,26 @@ function BarButton({
 
 const Divider = () => <div className="mx-1 hidden h-6 w-px bg-white/10 sm:block" />;
 
+/** «СОЗДАТЕЛЬ В СЕТИ»: a small lit tag under the counters while the owner is signed in. */
+export function HqCreatorOnline() {
+  return (
+    <div
+      role="status"
+      title={t("hqScene.creatorOnlineTitle")}
+      aria-label={t("hqScene.creatorOnlineTitle")}
+      className={`flex items-center gap-2 px-2.5 py-1 ${HQ_HUD_GLASS}`}
+    >
+      <span aria-hidden="true" className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60 motion-reduce:hidden" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(255,42,42,0.8)]" />
+      </span>
+      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-white">
+        {t("hqScene.creatorOnline")}
+      </span>
+    </div>
+  );
+}
+
 /** Which backend the office talks to and whether it is connected. */
 export type HqRuntimeStatus = {
   adapter: string;
@@ -151,8 +171,11 @@ export function HqHud({
   runtime,
   settingsOpen,
   onOpenSettings,
+  creatorOnline = false,
 }: {
   counts: HqHudCounts;
+  /** The owner is signed in: «СОЗДАТЕЛЬ В СЕТИ» under the counters. */
+  creatorOnline?: boolean;
   /** Whether there is an operation («ХОД ЗАДАЧИ») for the wall to show; the switch is disabled without one. */
   wallAvailable?: boolean;
   /** The wall switch: true while the wall shows the operation, false for the usual panels. */
@@ -196,6 +219,7 @@ export function HqHud({
           <Counter label={t("hqScene.countError")} value={counts.error} />
           <Counter label={t("hqScene.countFree")} value={counts.free} />
         </div>
+        {creatorOnline ? <HqCreatorOnline /> : null}
       </div>
 
       {/* Centred under the counters from lg up; the padding keeps it clear of

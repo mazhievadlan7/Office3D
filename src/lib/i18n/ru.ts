@@ -1149,6 +1149,8 @@ export const ru = {
   "hqScene.wallToOperation": "Показать на стене ход задачи",
   "hqScene.wallToPanels": "Вернуть на стену обычные панели",
   "hqScene.webglFailed": "Не удалось запустить трёхмерный штаб на этом устройстве.",
+  "hqScene.creatorOnline": "Создатель в сети",
+  "hqScene.creatorOnlineTitle": "Создатель штаба вошёл в систему — AM7 и вся команда на связи",
 
   // --- Личность агента -------------------------------------------------------
   "identity.emoji": "Эмодзи",

@@ -5,7 +5,8 @@ const next = require("next");
 const { loadEnvConfig } = require("@next/env");
 
 const { createAccessGate } = require("./access-gate");
-const { createRequestGuard, createTrustedProxies } = require("./request-guard");
+const { allowHttpOrigin, createRequestGuard, createTrustedProxies } = require("./request-guard");
+const { createSecurityLog, createSecuritySummaryEndpoint } = require("./security-log");
 const { createGatewayProxy } = require("./gateway-proxy");
 const { assertPublicHostAllowed, isOptionalListenFailure, resolveHosts } = require("./network-policy");
 const { startHermesRuntime } = require("./hermes");
@@ -97,17 +98,38 @@ async function main() {
     hosts: String(process.env.TRUSTED_PROXY_HOSTS ?? "").split(","),
     log: (message) => console.warn(message),
   });
+  // Unauthorized sign-in attempts and blocked requests, counted for the
+  // owner's greeting (server/security-log.js): counts only, no addresses.
+  const securityLog = createSecurityLog({
+    file: path.join(resolveStateDir(process.env), "office3d", "security.json"),
+    log: (message) => console.warn(message),
+  });
   const accessGate = createAccessGate({
     token: process.env.STUDIO_ACCESS_TOKEN,
     login: process.env.STUDIO_LOGIN,
     ownerName: process.env.STUDIO_OWNER_NAME,
     isTrustedProxy: trustedProxies.isTrusted,
+    securityLog,
+  });
+  const securitySummary = createSecuritySummaryEndpoint({
+    securityLog,
+    gateEnabled: accessGate.enabled,
+    allowOrigin: allowHttpOrigin,
   });
   const requestGuard = createRequestGuard({
     allowedOrigins: String(process.env.OFFICE3D_ALLOWED_ORIGINS ?? "").split(","),
   });
   /** False when the request must not be served at all (see request-guard.js). */
   const addressedCorrectly = (req) => accessGate.enabled || requestGuard.addressedToLoopback(req);
+  /**
+   * Whether a WebSocket upgrade passes the request guard (address and
+   * Origin); a refusal is a blocked request for the security log.
+   */
+  const upgradeGuarded = (req) => {
+    if (addressedCorrectly(req) && requestGuard.allowWebSocketOrigin(req)) return true;
+    securityLog.recordBlocked();
+    return false;
+  };
 
   // With HERMES_API_URL set, the Hermes backend is served by the adapter in
   // this process; the URL saved for Hermes in the office settings is then not
@@ -143,8 +165,7 @@ async function main() {
       if (resolvePathname(req.url) !== "/api/gateway/ws") return false;
       return true;
     },
-    verifyClient: (info) =>
-      addressedCorrectly(info.req) && requestGuard.allowWebSocketOrigin(info.req) && accessGate.allowUpgrade(info.req),
+    verifyClient: (info) => upgradeGuarded(info.req) && accessGate.allowUpgrade(info.req),
   });
 
   await app.prepare();
@@ -163,7 +184,7 @@ async function main() {
       return;
     }
     // Next's own sockets (hot reload in development) need the same access.
-    if (!addressedCorrectly(req) || !requestGuard.allowWebSocketOrigin(req) || !accessGate.allowUpgrade(req)) {
+    if (!upgradeGuarded(req) || !accessGate.allowUpgrade(req)) {
       socket.destroy();
       return;
     }
@@ -171,6 +192,7 @@ async function main() {
   };
 
   const misdirected = (res) => {
+    securityLog.recordBlocked();
     res.statusCode = 421;
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("Без STUDIO_ACCESS_TOKEN офис отвечает только по адресам localhost / 127.0.0.1.");
@@ -183,6 +205,7 @@ async function main() {
       ? https.createServer(httpsCert, (req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (securitySummary.handleHttp(req, res)) return;
           if (maintenance.handleHttp(req, res)) return;
           if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
@@ -190,6 +213,7 @@ async function main() {
       : http.createServer((req, res) => {
           if (!addressedCorrectly(req)) return misdirected(res);
           if (accessGate.handleHttp(req, res)) return;
+          if (securitySummary.handleHttp(req, res)) return;
           if (maintenance.handleHttp(req, res)) return;
           if (hermes?.handleHttp(req, res)) return;
           handle(req, res);
@@ -210,7 +234,10 @@ async function main() {
 
   for (const server of servers) {
     attachUpgradeHandlers(server);
-    server.on("close", () => maintenance.stop());
+    server.on("close", () => {
+      maintenance.stop();
+      securityLog.close();
+    });
   }
 
   const listenOnHost = (server, host) =>

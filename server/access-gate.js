@@ -12,6 +12,13 @@ const crypto = require("node:crypto");
 //
 // Wrong tokens and forged sessions are counted per client address; after
 // ten in a minute that address is refused for the rest of the minute.
+//
+// With a securityLog (server/security-log.js), unauthorized sign-in attempts
+// (a wrong login or password, a wrong token in a cookie) and lockouts are
+// counted for the owner's greeting, and each owner sign-in is recorded.
+// Only counts: no address or name reaches the log. A forged or stale session
+// cookie is not counted as an attempt (changing the token makes every old
+// session look forged), but a lockout it leads to is.
 
 const SESSION_COOKIE = "studio_session";
 const SESSION_DAYS = 30;
@@ -254,11 +261,23 @@ function createAccessGate(options) {
   const now = typeof options?.now === "function" ? options.now : () => Date.now();
   const isTrustedProxy = typeof options?.isTrustedProxy === "function" ? options.isTrustedProxy : null;
   const clientIp = (req) => resolveClientIp(req, isTrustedProxy);
+  const securityLog = options?.securityLog ?? null;
 
   const enabled = Boolean(token);
   const rateLimiter = createRateLimiter(10, 60_000);
   // Sessions are signed with a key only this token yields.
   const sessionKey = crypto.createHmac("sha256", token || "unset").update("office3d:session:v1").digest();
+
+  /**
+   * A failed check from this address: counted for the rate limit, and for the
+   * security log when it is an attempt; a lockout it causes is logged too.
+   */
+  const recordFailure = (ip, { attempt }) => {
+    const wasLimited = rateLimiter.isLimited(ip);
+    rateLimiter.recordFailure(ip);
+    if (attempt) securityLog?.recordFailedAttempt();
+    if (!wasLimited && rateLimiter.isLimited(ip)) securityLog?.recordBlocked();
+  };
 
   const sign = (payload) => crypto.createHmac("sha256", sessionKey).update(payload).digest("base64url");
 
@@ -306,7 +325,7 @@ function createAccessGate(options) {
     if (rateLimiter.isLimited(ip)) return { authorized: false, limited: true };
     // A wrong token or a forged session is an attempt; no credentials, or a
     // sign-in that simply ran out, is not.
-    if (legacy || state === "invalid") rateLimiter.recordFailure(ip);
+    if (legacy || state === "invalid") recordFailure(ip, { attempt: Boolean(legacy) });
     return { authorized: false, limited: rateLimiter.isLimited(ip) };
   };
 
@@ -360,6 +379,8 @@ function createAccessGate(options) {
     }
     const next = safeNext(form.get("next"));
     if (rateLimiter.isLimited(ip)) {
+      // Still an attempt, refused before the password was even checked.
+      securityLog?.recordFailedAttempt();
       sendLogin(res, 429, { next, error: TOO_MANY });
       return;
     }
@@ -368,13 +389,14 @@ function createAccessGate(options) {
     const loginOk = login ? safeCompare(String(form.get("login") ?? "").trim().toLowerCase(), login.toLowerCase()) : true;
     const tokenOk = safeCompare(String(form.get("token") ?? "").trim(), token);
     if (!loginOk || !tokenOk) {
-      rateLimiter.recordFailure(ip);
+      recordFailure(ip, { attempt: true });
       const limited = rateLimiter.isLimited(ip);
       const wrong = login ? "Неверный логин или пароль." : "Неверный токен доступа.";
       sendLogin(res, limited ? 429 : 401, { next, error: limited ? TOO_MANY : wrong });
       return;
     }
     rateLimiter.reset(ip);
+    securityLog?.recordLogin();
     redirect(res, next, [sessionCookie(req, issueSession(), SESSION_DAYS * 86_400), greetCookie(req)]);
   };
 

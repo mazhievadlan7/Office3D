@@ -1,10 +1,25 @@
 /**
  * What the HQ's autonomous system says when the operator signs in: a
- * greeting by name, today's full date and the time, the unread messages, how
- * the operations stand and the platform's security. It is the platform
- * speaking, not an agent. Pure, so the wording is testable; the screen shows
- * it and speaks it in the system voice (lib/voice/systemVoice.ts).
+ * greeting by name, today's full date and the time, the unread messages, the
+ * task board, how the operations stand and the attacks on the platform since
+ * the previous sign-in. It is the platform speaking, not an agent. Pure, so
+ * the wording is testable; the screen speaks it in the system voice
+ * (lib/voice/systemVoice.ts), with no captions.
  */
+
+/** The task board in three numbers (see taskBoardSummary). */
+export type HqGreetingTasks = {
+  /** Not started, waiting for review or blocked. */
+  open: number;
+  inProgress: number;
+  done: number;
+};
+
+/** Attacks on the platform since the owner's previous sign-in (GET /api/security/summary). */
+export type HqGreetingSecurity = {
+  failedAttempts: number;
+  blocked: number;
+};
 
 export type HqGreetingInput = {
   /** Who signed in (STUDIO_OWNER_NAME / STUDIO_LOGIN); empty for no name. */
@@ -19,7 +34,37 @@ export type HqGreetingInput = {
   errors: number;
   /** The backend connection is up. */
   connected: boolean;
+  /** The task board; null or absent when it has not loaded. */
+  tasks?: HqGreetingTasks | null;
+  /** The server's security counts; null or absent when they could not be read. */
+  security?: HqGreetingSecurity | null;
 };
+
+/** The board's live (not archived) cards, counted for the greeting. */
+export function taskBoardSummary(cards: ReadonlyArray<{ status: string; isArchived?: boolean }>): HqGreetingTasks {
+  const tasks: HqGreetingTasks = { open: 0, inProgress: 0, done: 0 };
+  for (const card of cards) {
+    if (card.isArchived) continue;
+    if (card.status === "in_progress") tasks.inProgress += 1;
+    else if (card.status === "done") tasks.done += 1;
+    else tasks.open += 1;
+  }
+  return tasks;
+}
+
+/** One line on the task board: open, in progress and done. */
+export function tasksLine(tasks: HqGreetingTasks): string {
+  if (tasks.open + tasks.inProgress + tasks.done === 0) return "Задач на доске нет.";
+  return `Задачи: открыто ${tasks.open}, в работе ${tasks.inProgress}, выполнено ${tasks.done}.`;
+}
+
+/** One line on the attacks since the previous sign-in. */
+export function securityLine(security: HqGreetingSecurity): string {
+  const attempts = Math.max(0, Math.floor(security.failedAttempts));
+  const blocked = Math.max(0, Math.floor(security.blocked));
+  if (attempts === 0 && blocked === 0) return "Попыток несанкционированного доступа не зафиксировано.";
+  return `С момента прошлого входа: ${attempts} ${plural(attempts, "попытка", "попытки", "попыток")} несанкционированного доступа, ${blocked} заблокировано.`;
+}
 
 const CITY: Record<string, string> = {
   "Europe/Moscow": "по Москве",
@@ -61,14 +106,16 @@ export function hqGreetingOpening(input: HqGreetingOpeningInput): string[] {
   const name = input.name.trim();
   return [
     "Система штаба на связи. Доступ подтверждён.",
-    name ? `Добро пожаловать, ${name}.` : "Добро пожаловать в штаб.",
+    name ? `Добро пожаловать в штаб, ${name}.` : "Добро пожаловать в штаб.",
     `Сегодня ${spokenDate(input.now, input.timeZone)}. Время — ${time} ${where}.`,
   ];
 }
 
 /**
  * The status report that follows once the whole team has loaded: unread
- * news, how the operations stand and the platform's security.
+ * news, the task board, how the operations stand and the platform's security
+ * — a lost connection or agents in trouble first, then the attacks since the
+ * previous sign-in.
  */
 export function hqGreetingStatus(input: HqGreetingInput): string[] {
   const lines = [
@@ -76,6 +123,7 @@ export function hqGreetingStatus(input: HqGreetingInput): string[] {
       ? `Непрочитанных: ${input.unread} — ${plural(input.unread, "агент ждёт", "агента ждут", "агентов ждут")} вашего ответа.`
       : "Непрочитанных сообщений нет.",
   ];
+  if (input.tasks) lines.push(tasksLine(input.tasks));
   const total = input.working + input.idle + input.errors;
   if (total === 0) {
     lines.push("Операции: команда ещё не на месте.");
@@ -90,9 +138,10 @@ export function hqGreetingStatus(input: HqGreetingInput): string[] {
     lines.push(
       `Безопасность платформы: доступ защищён, но ${input.errors} ${plural(input.errors, "агент требует", "агента требуют", "агентов требуют")} внимания.`,
     );
-  } else {
+  } else if (!input.security) {
     lines.push("Безопасность платформы: доступ защищён, сеанс подтверждён, отклонений нет.");
   }
+  if (input.security) lines.push(securityLine(input.security));
   return lines;
 }
 

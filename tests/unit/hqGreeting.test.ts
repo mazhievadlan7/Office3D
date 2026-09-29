@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { hqGreetingLines, hqGreetingOpening, hqGreetingStatus, plural, spokenDate } from "@/lib/office/greeting";
+import {
+  hqGreetingLines,
+  hqGreetingOpening,
+  hqGreetingStatus,
+  plural,
+  securityLine,
+  spokenDate,
+  taskBoardSummary,
+} from "@/lib/office/greeting";
 
 const base = {
   name: "Командир",
@@ -17,7 +25,7 @@ describe("hqGreetingLines", () => {
     const lines = hqGreetingLines({ ...base, unread: 3 });
     expect(lines).toEqual([
       "Система штаба на связи. Доступ подтверждён.",
-      "Добро пожаловать, Командир.",
+      "Добро пожаловать в штаб, Командир.",
       "Сегодня понедельник, 28 сентября 2026 года. Время — 14:05 по Москве.",
       "Непрочитанных: 3 — агента ждут вашего ответа.",
       "Операции: в работе 120, в ожидании 178.",
@@ -50,6 +58,46 @@ describe("hqGreetingLines", () => {
   });
 });
 
+describe("the task board and the attacks", () => {
+  it("says how the task board stands: open, in progress, done", () => {
+    const lines = hqGreetingLines({ ...base, tasks: { open: 4, inProgress: 2, done: 11 } });
+    expect(lines[4]).toBe("Задачи: открыто 4, в работе 2, выполнено 11.");
+    expect(lines[5]).toBe("Операции: в работе 120, в ожидании 178.");
+    expect(hqGreetingStatus({ ...base, tasks: { open: 0, inProgress: 0, done: 0 } })[1]).toBe("Задач на доске нет.");
+  });
+
+  it("counts the board's live cards, blocked and in review as open", () => {
+    expect(
+      taskBoardSummary([
+        { status: "todo" },
+        { status: "blocked" },
+        { status: "review" },
+        { status: "in_progress" },
+        { status: "done" },
+        { status: "done" },
+        { status: "done", isArchived: true },
+      ]),
+    ).toEqual({ open: 3, inProgress: 1, done: 2 });
+  });
+
+  it("reports the attacks since the previous sign-in instead of a generic all-clear", () => {
+    const status = hqGreetingStatus({ ...base, security: { failedAttempts: 3, blocked: 1 } });
+    expect(status.at(-1)).toBe("С момента прошлого входа: 3 попытки несанкционированного доступа, 1 заблокировано.");
+    expect(status.join(" ")).not.toContain("отклонений нет");
+    expect(hqGreetingStatus({ ...base, security: { failedAttempts: 0, blocked: 0 } }).at(-1)).toBe(
+      "Попыток несанкционированного доступа не зафиксировано.",
+    );
+    expect(securityLine({ failedAttempts: 1, blocked: 0 })).toContain("1 попытка несанкционированного");
+    expect(securityLine({ failedAttempts: 25, blocked: 5 })).toContain("25 попыток несанкционированного доступа, 5 заблокировано.");
+  });
+
+  it("still names a lost connection or agents in trouble before the attacks", () => {
+    const status = hqGreetingStatus({ ...base, connected: false, security: { failedAttempts: 0, blocked: 0 } });
+    expect(status.at(-2)).toContain("нет связи");
+    expect(status.at(-1)).toBe("Попыток несанкционированного доступа не зафиксировано.");
+  });
+});
+
 describe("plural", () => {
   it("picks the Russian form", () => {
     expect([1, 2, 5, 11, 21, 22, 25, 112].map((n) => plural(n, "a", "b", "c"))).toEqual(["a", "b", "c", "c", "a", "b", "c", "c"]);
@@ -60,7 +108,7 @@ describe("the greeting in two parts", () => {
   it("opens with the welcome, the date and the time, needing no team data", () => {
     expect(hqGreetingOpening({ name: "Командир", now: base.now, timeZone: base.timeZone })).toEqual([
       "Система штаба на связи. Доступ подтверждён.",
-      "Добро пожаловать, Командир.",
+      "Добро пожаловать в штаб, Командир.",
       "Сегодня понедельник, 28 сентября 2026 года. Время — 14:05 по Москве.",
     ]);
   });

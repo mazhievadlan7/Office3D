@@ -186,12 +186,15 @@ import { t } from "@/lib/i18n";
 import { messageRoleLabel } from "@/lib/i18n/labels";
 import type { HqBriefing } from "@/features/hq/HqOffice";
 import { hqTimeZone } from "@/features/hq/core/hqTime";
-import { hqGreetingOpening, hqGreetingStatus } from "@/lib/office/greeting";
+import { hqGreetingOpening, hqGreetingStatus, taskBoardSummary } from "@/lib/office/greeting";
+import { fetchSecuritySummary, type SecuritySummary } from "@/lib/office/securitySummary";
 import { hqSoundOn } from "@/features/hq/core/soundPreference";
 import { prepareSystemSpeech, speakAgent, speakSystem, type PreparedSpeech } from "@/lib/voice/systemVoice";
 
 /** Without an opening fly-through, the greeting starts this long after the page (ms). */
 const GREET_WITHOUT_INTRO_MS = 30_000;
+/** How often the page re-reads whether the creator is signed in (ms). */
+const CREATOR_PRESENCE_POLL_MS = 60_000;
 
 // The 3D HQ is client-only: three.js and its loaders never run on the server.
 const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mod.HqOffice), {
@@ -2684,12 +2687,15 @@ export function OfficeScreen({
   // After a sign-in the server leaves a short-lived hq_greet cookie (the name
   // to greet, server/access-gate.js): once the team has loaded, the HQ system
   // (not an agent) greets the operator by name, out loud only — the date and
-  // time, unread news, operations and security. The cookie is cleared at once.
+  // time, unread news, tasks, operations and attacks. The cookie is cleared at once.
   const greetNameRef = useRef<string | null>(null);
+  // A fresh sign-in (the cookie was there): AM7 acknowledges the creator in the HQ.
+  const freshSignInRef = useRef(false);
   useEffect(() => {
     const match = /(?:^|;\s*)hq_greet=([^;]*)/.exec(document.cookie);
     if (!match) return;
     document.cookie = "hq_greet=; Max-Age=0; Path=/; SameSite=Lax";
+    freshSignInRef.current = true;
     let name = "";
     try {
       name = decodeURIComponent(match[1]);
@@ -2697,6 +2703,34 @@ export function OfficeScreen({
       name = "";
     }
     greetNameRef.current = name === "-" ? "" : name;
+  }, []);
+
+  // The creator's presence and the platform's security (GET
+  // /api/security/summary, behind the access gate): read now and every
+  // minute. A summary means the owner is signed in — «СОЗДАТЕЛЬ В СЕТИ» in
+  // the HUD — and its counts go into the greeting. Nothing is sent to the
+  // agents: telling them through the gateway would start paid runs.
+  const securitySummaryRef = useRef<SecuritySummary | null>(null);
+  const [creatorPresence, setCreatorPresence] = useState({ online: false, entered: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    const read = () => {
+      void fetchSecuritySummary(controller.signal).then((summary) => {
+        if (controller.signal.aborted) return;
+        securitySummaryRef.current = summary;
+        const online = summary !== null;
+        const entered = online && freshSignInRef.current;
+        setCreatorPresence((current) =>
+          current.online === online && current.entered === entered ? current : { online, entered },
+        );
+      });
+    };
+    read();
+    const timer = window.setInterval(read, CREATOR_PRESENCE_POLL_MS);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
   }, []);
 
   // Hold Alt to talk to the main agent; Alt+Shift to address the whole team,
@@ -3060,10 +3094,15 @@ export function OfficeScreen({
   );
   // The greeting is composed a moment after the team has loaded, so the
   // statuses it reports have arrived (the same ones the HQ's counters show).
-  const greetAgentsRef = useRef({ hq: hqAgents, all: state.agents });
+  const greetAgentsRef = useRef({ hq: hqAgents, all: state.agents, tasks: taskBoard.state.cards, tasksLoading: taskBoard.loading });
   useEffect(() => {
-    greetAgentsRef.current = { hq: hqAgents, all: state.agents };
-  }, [hqAgents, state.agents]);
+    greetAgentsRef.current = {
+      hq: hqAgents,
+      all: state.agents,
+      tasks: taskBoard.state.cards,
+      tasksLoading: taskBoard.loading,
+    };
+  }, [hqAgents, state.agents, taskBoard.state.cards, taskBoard.loading]);
   // The system speaks in the office's own voice (not AM7's), treated to sound synthetic.
   const greetVoiceRef = useRef<string | null>(voiceRepliesPreference.voiceId ?? null);
   useEffect(() => {
@@ -3114,7 +3153,8 @@ export function OfficeScreen({
     if (!rosterFromGateway || status !== "connected") return;
     greetStatusSpokenRef.current = true;
     greetNameRef.current = null;
-    const { hq, all } = greetAgentsRef.current;
+    const { hq, all, tasks, tasksLoading } = greetAgentsRef.current;
+    const security = securitySummaryRef.current;
     let working = 0;
     let errors = 0;
     for (const agent of hq) {
@@ -3130,6 +3170,8 @@ export function OfficeScreen({
       idle: hq.length - working - errors,
       errors,
       connected: true,
+      tasks: tasksLoading ? null : taskBoardSummary(tasks),
+      security: security ? { failedAttempts: security.failedAttempts, blocked: security.blocked } : null,
     });
     void speakSystem(lines.join(" "), { voiceId: greetVoiceUsedRef.current });
   }, [greetOpeningDone, rosterFromGateway, status]);
@@ -3453,6 +3495,8 @@ export function OfficeScreen({
           onToggleWall={toggleHqWall}
           onLeadAtTribune={handleLeadAtTribune}
           onArchiveEvent={handleHqArchiveEvent}
+          creatorOnline={creatorPresence.online}
+          creatorEntered={creatorPresence.entered}
         />
         {jukeboxOpen ? (
           soundclawReady ? (
