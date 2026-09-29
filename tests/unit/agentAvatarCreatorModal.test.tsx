@@ -14,6 +14,7 @@ describe("AgentAvatarCreatorModal", () => {
 
   it("saves the edited avatar profile", async () => {
     const initialProfile = createDefaultAgentAvatarProfile("seed-a");
+    const nextAccent = initialProfile.accent === "crimson" ? "red" : "crimson";
     const onSave = vi.fn(async () => {});
 
     render(
@@ -27,17 +28,12 @@ describe("AgentAvatarCreatorModal", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Backpack" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save avatar" }));
+    fireEvent.click(screen.getByRole("button", { name: nextAccent === "red" ? "Красный" : "Багровый" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить аватар" }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        seed: "seed-a",
-        accessories: expect.objectContaining({
-          backpack: !initialProfile.accessories.backpack,
-        }),
-      })
+      expect.objectContaining({ seed: "seed-a", accent: nextAccent })
     );
   });
 });

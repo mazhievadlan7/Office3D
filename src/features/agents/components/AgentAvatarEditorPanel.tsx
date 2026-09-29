@@ -1,16 +1,14 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import { RefreshCcw, Shuffle } from "lucide-react";
+import { RefreshCcw } from "lucide-react";
 import {
-  AGENT_AVATAR_CLOTHING_COLOR_OPTIONS,
-  AGENT_AVATAR_HAIR_COLOR_OPTIONS,
-  AGENT_AVATAR_HAIR_STYLE_OPTIONS,
-  AGENT_AVATAR_HAT_STYLE_OPTIONS,
-  AGENT_AVATAR_SKIN_TONE_OPTIONS,
+  AGENT_BADGE_ACCENTS,
   type AgentAvatarProfile,
+  type AgentBadgeAccent,
   createDefaultAgentAvatarProfile,
 } from "@/lib/avatars/profile";
+import { AGENT_BADGE_ACCENT_COLORS, callsignInitials } from "@/lib/avatars/badge";
 import { AgentAvatar } from "@/features/agents/components/AgentAvatar";
 import { AgentAvatarPreview3D } from "@/features/agents/components/AgentAvatarPreview3D";
 import { PREVIEW_CLIPS, type PreviewClip } from "@/features/agents/components/avatarPreview/previewRig";
@@ -24,20 +22,15 @@ import {
   HQ_FORM_SECTION,
   HQ_FORM_SECTION_TITLE,
 } from "@/features/agents/components/hqFormStyles";
-import { randomUUID } from "@/lib/uuid";
 import { t, type TranslationKey } from "@/lib/i18n";
 
 /**
- * The avatar tab: the agent as the HQ draws it, and its chat icon.
+ * The avatar tab: the agent as the HQ draws it, and its chat badge.
  *
- * The HQ gives every agent the same character (see AgentAvatarPreview3D), so
- * the 3D preview does not change with the profile. What the profile still
- * drives is the portrait in the chat and the agent lists
- * (lib/avatars/profilePortrait.ts): skin tone, hair, top colour, hat,
- * glasses and headset. Those stay editable, next to a live portrait. The
- * controls that only shaped the old block figure — top style, bottom style
- * and colour, shoe colour, backpack — are not shown; their values stay in
- * the saved profile untouched.
+ * The HQ gives every agent the same android (see AgentAvatarPreview3D), and
+ * the chat badge is a render of that same android (lib/avatars/badge.ts). The
+ * one thing left to choose per agent is the badge ring's accent, from the HQ
+ * palette; the callsign mark on the badge follows the agent's name.
  */
 
 export type AgentAvatarEditorPanelProps = {
@@ -61,6 +54,13 @@ const CLIP_LABELS: Record<PreviewClip, TranslationKey> = {
   Idle: "avatar.clipIdle",
   Talk: "avatar.clipTalk",
   Walk: "avatar.clipWalk",
+};
+
+const ACCENT_LABELS: Record<AgentBadgeAccent, TranslationKey> = {
+  red: "avatar.accentRed",
+  crimson: "avatar.accentCrimson",
+  amber: "avatar.accentAmber",
+  graphite: "avatar.accentGraphite",
 };
 
 const swatchClassName = (selected: boolean) =>
@@ -107,6 +107,7 @@ export const AgentAvatarEditorPanel = forwardRef<
   const [saving, setSaving] = useState(false);
   // Preview only: which HQ clip the stage plays. Not part of the profile.
   const [clip, setClip] = useState<PreviewClip>("Idle");
+  const initials = callsignInitials(agentName);
 
   useEffect(() => {
     setDraft(resolvedInitialProfile);
@@ -210,196 +211,46 @@ export const AgentAvatarEditorPanel = forwardRef<
 
         <section className={`${HQ_FORM_SECTION} mt-4`}>
           <div className="flex flex-wrap items-start gap-4">
-            <div className="shrink-0 rounded-full ring-1 ring-red-500/40 ring-offset-2 ring-offset-[#0b0707]">
-              <AgentAvatar seed={draft.seed} name={agentName} avatarProfile={draft} size={64} />
-            </div>
+            <AgentAvatar seed={draft.seed} name={agentName} avatarProfile={draft} size={64} />
             <div className="min-w-0 flex-1">
               <h3 className={HQ_FORM_SECTION_TITLE}>{t("avatar.chatIcon")}</h3>
               <p className={`mt-1 ${HQ_FORM_LEAD}`}>{t("avatar.chatIconLead")}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={HQ_FORM_BUTTON_SECONDARY}
-                  onClick={() => setDraft(createDefaultAgentAvatarProfile(agentId))}
-                  disabled={saving}
-                >
-                  <RefreshCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("avatar.reset")}
-                </button>
-                <button
-                  type="button"
-                  className={HQ_FORM_BUTTON_SECONDARY}
-                  onClick={() => setDraft(createDefaultAgentAvatarProfile(randomUUID()))}
-                  disabled={saving}
-                >
-                  <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("avatar.randomize")}
-                </button>
-              </div>
+              {initials ? (
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">
+                  {t("avatar.callsignMark", { initials })}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          <div className="mt-5 grid gap-5 border-t border-red-900/30 pt-5 xl:grid-cols-2">
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.skinTone")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {AGENT_AVATAR_SKIN_TONE_OPTIONS.map((option) => {
-                  const selected = draft.body.skinTone === option.color;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-label={option.label}
-                      aria-pressed={selected}
-                      className={swatchClassName(selected)}
-                      style={{ backgroundColor: option.color }}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          body: { ...current.body, skinTone: option.color },
-                        }))
-                      }
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.hairStyle")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {AGENT_AVATAR_HAIR_STYLE_OPTIONS.map((option) => {
-                  const selected = draft.hair.style === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={selected}
-                      className={choiceClassName(selected)}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          hair: { ...current.hair, style: option.id },
-                        }))
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.hairColor")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {AGENT_AVATAR_HAIR_COLOR_OPTIONS.map((option) => {
-                  const selected = draft.hair.color === option.color;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-label={option.label}
-                      aria-pressed={selected}
-                      className={swatchClassName(selected)}
-                      style={{ backgroundColor: option.color }}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          hair: { ...current.hair, color: option.color },
-                        }))
-                      }
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.topColor")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {AGENT_AVATAR_CLOTHING_COLOR_OPTIONS.map((option) => {
-                  const selected = draft.clothing.topColor === option.color;
-                  return (
-                    <button
-                      key={`top-${option.id}`}
-                      type="button"
-                      aria-label={option.label}
-                      aria-pressed={selected}
-                      className={swatchClassName(selected)}
-                      style={{ backgroundColor: option.color }}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          clothing: { ...current.clothing, topColor: option.color },
-                        }))
-                      }
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.hat")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {AGENT_AVATAR_HAT_STYLE_OPTIONS.map((option) => {
-                  const selected = draft.accessories.hatStyle === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={selected}
-                      className={choiceClassName(selected)}
-                      onClick={() =>
-                        setDraft((current) => ({
-                          ...current,
-                          accessories: { ...current.accessories, hatStyle: option.id },
-                        }))
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="space-y-2.5">
-              <h4 className={HQ_FORM_LABEL}>{t("avatar.accessories")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  {
-                    key: "glasses" as const,
-                    label: t("avatar.glasses"),
-                    enabled: draft.accessories.glasses,
-                  },
-                  {
-                    key: "headset" as const,
-                    label: t("avatar.headset"),
-                    enabled: draft.accessories.headset,
-                  },
-                ].map((option) => (
+          <div className="mt-5 border-t border-red-900/30 pt-5">
+            <h4 className={HQ_FORM_LABEL}>{t("avatar.accent")}</h4>
+            <div className="mt-2.5 flex flex-wrap items-center gap-3">
+              {AGENT_BADGE_ACCENTS.map((accent) => {
+                const selected = draft.accent === accent;
+                return (
                   <button
-                    key={option.key}
+                    key={accent}
                     type="button"
-                    aria-pressed={option.enabled}
-                    className={choiceClassName(option.enabled)}
-                    onClick={() =>
-                      setDraft((current) => ({
-                        ...current,
-                        accessories: {
-                          ...current.accessories,
-                          [option.key]: !current.accessories[option.key],
-                        },
-                      }))
-                    }
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </section>
+                    aria-label={t(ACCENT_LABELS[accent])}
+                    title={t(ACCENT_LABELS[accent])}
+                    aria-pressed={selected}
+                    className={swatchClassName(selected)}
+                    style={{ backgroundColor: AGENT_BADGE_ACCENT_COLORS[accent] }}
+                    onClick={() => setDraft((current) => ({ ...current, accent }))}
+                  />
+                );
+              })}
+              <button
+                type="button"
+                className={HQ_FORM_BUTTON_SECONDARY}
+                onClick={() => setDraft(createDefaultAgentAvatarProfile(agentId))}
+                disabled={saving}
+              >
+                <RefreshCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                {t("avatar.reset")}
+              </button>
+            </div>
           </div>
         </section>
       </div>

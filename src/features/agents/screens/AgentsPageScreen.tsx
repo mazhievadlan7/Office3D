@@ -42,7 +42,7 @@ import {
   resolveDefaultConfigAgentId,
   slugifyAgentName,
 } from "@/lib/gateway/agentConfig";
-import { buildAvatarDataUrl } from "@/lib/avatars/multiavatar";
+import { AGENT_BADGE_IMAGE_SMALL } from "@/lib/avatars/badge";
 import { createStudioSettingsCoordinator } from "@/lib/studio/coordinator";
 import {
   type AgentAvatarProfile,
@@ -426,15 +426,8 @@ const AgentsPageScreen = () => {
       return t("agents.newAgentName");
     }
   }, [state.agents]);
-  const faviconSeed = useMemo(() => {
-    const firstAgent = agents[0];
-    const seed = firstAgent?.avatarSeed ?? firstAgent?.agentId ?? "";
-    return seed.trim() || null;
-  }, [agents]);
-  const faviconHref = useMemo(
-    () => (faviconSeed ? buildAvatarDataUrl(faviconSeed) : null),
-    [faviconSeed]
-  );
+  // With agents on the floor the tab shows the HQ android's badge.
+  const faviconHref = agents.length > 0 ? AGENT_BADGE_IMAGE_SMALL : null;
   const errorMessage = state.error ?? gatewayModelsError;
   const runningAgentCount = useMemo(
     () => agents.filter((agent) => agent.status === "running").length,
@@ -464,14 +457,14 @@ const AgentsPageScreen = () => {
       return;
     }
     if (existing) {
-      if (existing.href !== faviconHref) {
+      if (existing.getAttribute("href") !== faviconHref) {
         existing.href = faviconHref;
       }
       return;
     }
     const link = document.createElement("link");
     link.rel = "icon";
-    link.type = "image/svg+xml";
+    link.type = "image/webp";
     link.href = faviconHref;
     link.setAttribute("data-agent-favicon", "true");
     document.head.appendChild(link);

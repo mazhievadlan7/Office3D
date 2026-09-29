@@ -143,6 +143,7 @@ export const FleetSidebar = ({
                   <AgentAvatar
                     seed={avatarSeed}
                     name={agent.name}
+                    avatarProfile={agent.avatarProfile ?? null}
                     avatarUrl={agent.avatarUrl ?? null}
                     size={42}
                     isSelected={selected}

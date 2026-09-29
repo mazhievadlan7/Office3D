@@ -1666,7 +1666,7 @@ export const AgentChatPanel = ({
                 isSelected={isSelected}
               />
               <button
-                className="nodrag absolute -bottom-0.5 -right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-primary/60 bg-card text-white shadow-[0_0_10px_rgba(255,26,26,0.35)] transition-colors hover:border-primary hover:bg-primary"
+                className="nodrag absolute -right-0.5 -top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-primary/60 bg-card text-white shadow-[0_0_10px_rgba(255,26,26,0.35)] transition-colors hover:border-primary hover:bg-primary"
                 type="button"
                 aria-label={t("chat.customizeAvatar")}
                 data-testid="agent-avatar-customize"
