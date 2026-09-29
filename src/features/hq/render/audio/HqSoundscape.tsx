@@ -8,9 +8,9 @@ import type { HqSimulation } from "@/features/hq/core/sim";
 import { HQ_PLACE, type HqAgentFrame } from "@/features/hq/core/types";
 import { isSpeakingClip, isTypingClip } from "@/features/hq/render/crowd/clipTable";
 import { crewVoiceFor } from "@/lib/voice/agentVoices";
-import { isForegroundSpeechActive, onForegroundSpeech } from "@/lib/voice/speechDuck";
+import { isForegroundSpeechActive, isPublicAddressActive, onForegroundSpeech } from "@/lib/voice/speechDuck";
 import { CREW_EXCHANGES } from "./crewScript";
-import { CrewTalkPlanner, TURN_RADIUS, type TalkKind, type TalkPick } from "./crewTalk";
+import { chooseAnswerer, CrewTalkPlanner, TURN_RADIUS, type AnswerCandidate, type TalkKind, type TalkPick } from "./crewTalk";
 import { HqAudio, type HqAudioSource, type HqPhrase, type HqVoice } from "./hqAudio";
 import { LEAD_VOICE, VoiceBankClient } from "./voiceBankClient";
 
@@ -30,6 +30,10 @@ const TALKERS = HQ_SUBTITLE_SLOTS;
 const TALK_RANGE = 22;
 /** Within this many metres a speaker says real phrases; farther off, a murmur. */
 const VOICE_RANGE = 18;
+/** Lines that open an exchange (a question wants someone to answer it). */
+const ASK_LINES = new Set(CREW_EXCHANGES.map((exchange) => exchange.ask.id));
+/** A scheduled answer's talk pose is cued this long before it is heard (seconds). */
+const CUE_LEAD = 0.1;
 /** A phrase's level before distance (the bank is levelled to one loudness). */
 const PHRASE_LEVEL = 1.1;
 /** Where a seated typist's keyboard is, in the seat frame (metres). */
@@ -62,6 +66,10 @@ type Talker = {
   planned: TalkPick | null;
   /** No new phrase before this audio time. */
   restUntil: number;
+  /** Audio time the phrase playing (or scheduled) starts. */
+  startsAt: number;
+  /** A scheduled answer's start: the talk pose is cued then (sim.cueTalk); -1 when none is due. */
+  cueAt: number;
 };
 
 const _v = new Vector3();
@@ -100,6 +108,8 @@ const newTalker = (): Talker => ({
   text: "",
   planned: null,
   restUntil: 0,
+  startsAt: 0,
+  cueAt: -1,
 });
 
 /**
@@ -149,10 +159,21 @@ export function HqSoundscape({
     return () => bank.dispose();
   }, [bank]);
 
+  // Dev tools: the planner's log of scheduled phrases (timing checks).
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const w = window as unknown as { __hqCrewTalk?: CrewTalkPlanner; __hqCrewSlots?: Talker[] };
+    w.__hqCrewTalk = planner;
+    w.__hqCrewSlots = talkers.current;
+    return () => {
+      if (w.__hqCrewTalk === planner) delete w.__hqCrewTalk;
+    };
+  }, [planner]);
+
   // The crew's voices duck while «Система штаба», AM7 or a spoken reply is heard.
   useEffect(() => {
-    audio.duckVoices(isForegroundSpeechActive());
-    return onForegroundSpeech((speaking) => audio.duckVoices(speaking));
+    audio.duckVoices(isForegroundSpeechActive(), isPublicAddressActive());
+    return onForegroundSpeech((speaking, strong) => audio.duckVoices(speaking, strong));
   }, [audio]);
 
   useFrame((state) => {
@@ -249,12 +270,14 @@ export function HqSoundscape({
     }
 
     // --- Talk -------------------------------------------------------------------
-    // The nearest speakers (their clip is in a talk window) get a slot. Up close
-    // (VOICE_RANGE) a slot says the agent's real phrases from the voice bank,
-    // taking turns with whoever is within earshot; farther off, or without a
-    // bank, it murmurs. A phrase always plays to its end.
+    // The nearest speakers get a slot: anyone in a conversation the voices lead
+    // (a seated pair, a group at a spot: sim.conversing), or whose clip is in a
+    // talk window. Up close (VOICE_RANGE) a slot says the agent's real phrases
+    // from the voice bank, taking turns with whoever is within earshot, and the
+    // phrase cues the talk pose (sim.cueTalk); farther off, or without a bank,
+    // it murmurs while the clip talks. A phrase always plays to its end.
     const voices = talkers.current;
-    if (!f) return;
+    if (!f || !sim) return;
     const now = audio.now;
     for (let slot = 0; slot < voices.length; slot++) {
       const t = voices[slot];
@@ -265,16 +288,17 @@ export function HqSoundscape({
         i < 0 ||
         f.place[i] === HQ_PLACE.podium ||
         (f.x[i] - cx) ** 2 + (HEAD_Y - cy) ** 2 + (f.z[i] - cz) ** 2 > TALK_RANGE * TALK_RANGE ||
-        (!isSpeakingClip(f.clip[i], f.clipTime[i]) && !phraseOn);
+        (!phraseOn && !isSpeakingClip(f.clip[i], f.clipTime[i]) && !sim.conversing(i));
       if (gone) releaseTalker(t, audio, planner);
     }
     const { near, dist } = talkScratch.current;
     let count = 0;
     for (let i = 0; i < f.count && count < near.length; i++) {
       // AM7 briefing from the podium speaks with his real voice: no murmur, no crew lines.
-      if (!isSpeakingClip(f.clip[i], f.clipTime[i]) || f.place[i] === HQ_PLACE.podium) continue;
+      if (f.place[i] === HQ_PLACE.podium) continue;
       const d = (f.x[i] - cx) ** 2 + (HEAD_Y - cy) ** 2 + (f.z[i] - cz) ** 2;
       if (d > TALK_RANGE * TALK_RANGE) continue;
+      if (!isSpeakingClip(f.clip[i], f.clipTime[i]) && !sim.conversing(i)) continue;
       near[count] = i;
       dist[count] = d;
       count++;
@@ -294,6 +318,9 @@ export function HqSoundscape({
         if (free === null && t.id === null) free = t;
       }
       if (held) continue;
+      // All slots taken: a silent one on someone no longer among the nearest
+      // makes way (both halves of a conversation get a voice, not whoever came first).
+      if (!free) free = idleSlot(voices, near, take, f, now, audio, planner);
       if (!free) break;
       free.id = id;
       free.seed = idSeed(id);
@@ -303,6 +330,7 @@ export function HqSoundscape({
       free.restUntil = now + 0.2 + free.seed * 0.6;
       free.planned = null;
       free.text = "";
+      free.cueAt = -1;
     }
     for (let slot = 0; slot < voices.length; slot++) {
       const t = voices[slot];
@@ -316,6 +344,11 @@ export function HqSoundscape({
       const d2 = (x - cx) ** 2 + (HEAD_Y - cy) ** 2 + (z - cz) ** 2;
       const speaking = isSpeakingClip(f.clip[i], f.clipTime[i]);
       const phraseOn = t.playing !== null && now >= 0 && t.playing.endsAt > now;
+      // A scheduled answer turns to its talk pose just before it is heard.
+      if (t.cueAt >= 0 && now >= t.cueAt - CUE_LEAD) {
+        if (phraseOn && t.playing) sim.cueTalk(t.id, t.playing.endsAt - now);
+        t.cueAt = -1;
+      }
       if (live) {
         // A wider reference distance keeps voices audible across a few rows.
         t.src ??= audio.source(3, TALK_RANGE + 6, true);
@@ -324,20 +357,20 @@ export function HqSoundscape({
       const src = t.src;
       const voiceId = t.voiceId;
       if (live && src && voiceId !== null && bank.available && d2 <= VOICE_RANGE * VOICE_RANGE) {
-        if (!speakPhrases(t, src, voiceId, f.clip[i], speaking, phraseOn, x, z, now, audio, bank, planner, voices, f, idIndex)) {
+        const ctx: TalkContext = { now, cx, cy, cz, audio, bank, planner, sim, voices, f, idIndex };
+        if (!speakPhrases(t, src, voiceId, i, speaking, phraseOn, ctx)) {
           murmur(t, src, speaking, now, horizon, audio);
         }
       } else if (live && src) {
         murmur(t, src, speaking, now, horizon, audio);
         // Something to say ready by the time they are close enough to be understood.
         if (voiceId !== null && bank.available && t.planned === null) {
-          t.planned = planner.pick(t.id, talkKind(f.clip[i]), x, z, now, (line) => bank.has(voiceId, line));
-          if (t.planned) bank.prefetch(voiceId, t.planned.line.id);
+          plan(t, voiceId, talkKind(f.clip[i]), x, z, now, bank, planner, voices, f, idIndex);
         }
       }
       // Captions (off unless a sink is given): the phrase being said.
       if (!sink) continue;
-      if (!phraseOn || !t.text) {
+      if (!phraseOn || !t.text || now < t.startsAt) {
         sink.hide(slot);
         continue;
       }
@@ -383,66 +416,153 @@ function bankVoiceFor(bank: VoiceBankClient, id: string, lead: boolean): string 
   return crewVoiceFor(id, bank.crewVoiceIds, LEAD_VOICE);
 }
 
+/** What speakPhrases needs besides the talker (built only for talkers within VOICE_RANGE). */
+type TalkContext = {
+  now: number;
+  cx: number;
+  cy: number;
+  cz: number;
+  audio: HqAudio;
+  bank: VoiceBankClient;
+  planner: CrewTalkPlanner;
+  sim: HqSimulation;
+  voices: Talker[];
+  f: HqAgentFrame;
+  idIndex: IdIndex;
+};
+
 /**
- * Up close: the agent's real phrases. A new one starts only inside the clip's
- * talk window, after the agent's rest, and when nobody within earshot is
- * talking; a question just asked nearby is answered first. A phrase that is
- * not decoded yet is fetched now and said at the next chance. False when the
- * voice has nothing to say yet (a bank still rendering): the caller murmurs.
+ * Up close: the agent's real phrases. A new one starts when the agent is in
+ * a conversation (or its clip in a talk window), after the agent's rest, and
+ * when nobody within earshot is talking (plus the planner's gap); a question
+ * just asked nearby is answered first. The phrase leads the pose: the sim
+ * turns the speaker to talk and the others to listen for its length. A
+ * question's answer is scheduled at once on the audio clock, from whoever
+ * next to the asker has it decoded. False when the voice has nothing to say
+ * yet (a bank still rendering): the caller murmurs.
  */
 function speakPhrases(
   t: Talker,
   src: HqAudioSource,
   voiceId: string,
-  clip: number,
+  i: number,
   speaking: boolean,
   phraseOn: boolean,
-  x: number,
-  z: number,
-  now: number,
-  audio: HqAudio,
-  bank: VoiceBankClient,
-  planner: CrewTalkPlanner,
-  voices: Talker[],
-  f: HqAgentFrame,
-  idIndex: IdIndex,
+  ctx: TalkContext,
 ): boolean {
+  const { now, audio, bank, planner, sim, voices, f, idIndex } = ctx;
   const id = t.id;
   if (id === null) return true;
-  const kind = talkKind(clip);
-  const has = (line: string) => bank.has(voiceId, line);
-  if (t.planned === null) {
-    t.planned = planner.pick(id, kind, x, z, now, has);
-    if (t.planned) bank.prefetch(voiceId, t.planned.line.id);
-  }
+  const x = f.x[i];
+  const z = f.z[i];
+  const kind = talkKind(f.clip[i]);
+  if (t.planned === null) plan(t, voiceId, kind, x, z, now, bank, planner, voices, f, idIndex);
   if (t.planned === null && !phraseOn) return false;
   if (t.voice) {
     t.voice.stop(now);
     t.voice = null;
   }
-  if (phraseOn || !speaking || now < t.restUntil || planner.waitFor(id, x, z, now) > 0) return true;
+  if (phraseOn || now < t.restUntil || planner.waitFor(id, x, z, now) > 0) return true;
+  const conversing = sim.conversing(i);
+  if (!speaking && !conversing) return true;
   // A question asked nearby is answered before anything planned.
   if (planner.openQuestion(id, x, z, now) >= 0 && t.planned?.role !== "answer") {
-    t.planned = planner.pick(id, kind, x, z, now, has);
-    if (t.planned) bank.prefetch(voiceId, t.planned.line.id);
+    plan(t, voiceId, kind, x, z, now, bank, planner, voices, f, idIndex);
   }
   const pick = t.planned;
   if (!pick) return true;
   const buffer = bank.ready(voiceId, pick.line.id);
   if (!buffer) {
-    t.restUntil = now + 0.15;
+    t.restUntil = now + 0.1;
     return true;
   }
   const start = now + 0.04;
+  // The pose follows the voice; outside a conversation only a talk window may speak.
+  if (!sim.cueTalk(id, start + buffer.duration - now) && !speaking) return true;
   t.playing = audio.phrase(src.panner, buffer, start, PHRASE_LEVEL);
   if (!t.playing) return true;
-  planner.spoke(id, pick, x, z, start, t.playing.endsAt);
+  const gap = planner.spoke(id, pick, x, z, start, t.playing.endsAt);
   t.text = pick.line.text;
-  t.restUntil = t.playing.endsAt + (kind === "group" ? 0.4 : 0.9) + Math.random() * 1.6;
+  t.startsAt = start;
+  t.cueAt = -1;
+  // The speaker keeps the same breath as everyone near (one gap, not two);
+  // after a question, until its answer has had its chance.
+  t.restUntil = t.playing.endsAt + (pick.role === "ask" ? planner.exchangeGap() : gap);
   t.planned = null;
-  // Whoever is next to the asker gets the answer ready in their own voice.
-  if (pick.role === "ask") prefetchAnswer(voices, t, pick.exchange, x, z, f, idIndex, bank);
+  if (pick.role === "ask") scheduleAnswer(t, pick.exchange, x, z, t.playing.endsAt, ctx);
   return true;
+}
+
+/** Picks what the talker says next and starts decoding it; for a question, its answer next to them too. */
+function plan(
+  t: Talker,
+  voiceId: string,
+  kind: TalkKind,
+  x: number,
+  z: number,
+  now: number,
+  bank: VoiceBankClient,
+  planner: CrewTalkPlanner,
+  voices: Talker[],
+  f: HqAgentFrame,
+  idIndex: IdIndex,
+): void {
+  if (t.id === null) return;
+  // A question only with someone to answer it: another voice within earshot.
+  let listener = false;
+  for (const o of voices) {
+    if (o === t || o.id === null) continue;
+    const i = indexOfId(idIndex, f.ids, o.id);
+    if (i >= 0 && (f.x[i] - x) ** 2 + (f.z[i] - z) ** 2 <= TURN_RADIUS * TURN_RADIUS) listener = true;
+  }
+  t.planned = planner.pick(t.id, kind, x, z, now, (line) => bank.has(voiceId, line) && (listener || !ASK_LINES.has(line)));
+  if (!t.planned) return;
+  bank.prefetch(voiceId, t.planned.line.id);
+  // Whoever is next to the asker gets the answer ready in their own voice before it is asked.
+  if (t.planned.role === "ask") prefetchAnswer(voices, t, t.planned.exchange, x, z, f, idIndex, bank);
+}
+
+/**
+ * A question has just been scheduled to end at `askEnd`: the talker next to
+ * the asker who has the answer decoded says it right after, ANSWER_GAP on
+ * the audio clock (their talk pose is cued when it starts). When nobody has
+ * it ready, the answer comes through speakPhrases as soon as it is.
+ */
+function scheduleAnswer(asker: Talker, exchange: number, x: number, z: number, askEnd: number, ctx: TalkContext): void {
+  const { now, cx, cy, cz, audio, bank, planner, sim, voices, f, idIndex } = ctx;
+  const answer = CREW_EXCHANGES[exchange]?.answer;
+  if (!answer) return;
+  const candidates: AnswerCandidate[] = [];
+  const slots: Talker[] = [];
+  for (const t of voices) {
+    if (t === asker || t.id === null || t.voiceId === null || !t.src) continue;
+    const i = indexOfId(idIndex, f.ids, t.id);
+    if (i < 0 || (f.x[i] - cx) ** 2 + (HEAD_Y - cy) ** 2 + (f.z[i] - cz) ** 2 > VOICE_RANGE * VOICE_RANGE) continue;
+    if (!sim.conversing(i) && !isSpeakingClip(f.clip[i], f.clipTime[i])) continue;
+    candidates.push({
+      x: f.x[i],
+      z: f.z[i],
+      busyUntil: t.playing && t.playing.endsAt > now ? t.playing.endsAt : 0,
+      ready: bank.ready(t.voiceId, answer.id) !== null,
+    });
+    slots.push(t);
+  }
+  const k = chooseAnswerer(candidates, x, z, askEnd);
+  if (k < 0) return;
+  const t = slots[k];
+  const buffer = t.voiceId !== null ? bank.ready(t.voiceId, answer.id) : null;
+  if (!buffer || !t.src || t.id === null) return;
+  const start = askEnd + planner.answerGap();
+  t.voice?.stop(now);
+  t.voice = null;
+  t.playing = audio.phrase(t.src.panner, buffer, start, PHRASE_LEVEL);
+  if (!t.playing) return;
+  const gap = planner.spoke(t.id, { line: answer, exchange, role: "answer" }, candidates[k].x, candidates[k].z, start, t.playing.endsAt);
+  t.text = answer.text;
+  t.startsAt = start;
+  t.cueAt = start;
+  t.restUntil = t.playing.endsAt + gap;
+  t.planned = null;
 }
 
 /** Farther off, or without a bank: the synthesised murmur while the clip talks. */
@@ -470,6 +590,27 @@ function murmur(t: Talker, src: HqAudioSource, speaking: boolean, now: number, h
   }
 }
 
+/** A slot saying nothing (no phrase playing or scheduled) on someone not among the `take` nearest, freed; or null. */
+function idleSlot(
+  voices: Talker[],
+  near: Int32Array,
+  take: number,
+  f: HqAgentFrame,
+  now: number,
+  audio: HqAudio,
+  planner: CrewTalkPlanner,
+): Talker | null {
+  for (const t of voices) {
+    if (t.id === null || (t.playing && t.playing.endsAt > now)) continue;
+    let among = false;
+    for (let k = 0; k < take && !among; k++) among = f.ids[near[k]] === t.id;
+    if (among) continue;
+    releaseTalker(t, audio, planner);
+    return t;
+  }
+  return null;
+}
+
 /** Frees a talker slot: its phrase fades out, its murmur stops. */
 function releaseTalker(t: Talker, audio: HqAudio, planner: CrewTalkPlanner): void {
   const now = audio.now >= 0 ? audio.now : 0;
@@ -482,10 +623,11 @@ function releaseTalker(t: Talker, audio: HqAudio, planner: CrewTalkPlanner): voi
   t.playing = null;
   t.planned = null;
   t.text = "";
+  t.cueAt = -1;
   t.id = null;
 }
 
-/** After a question: the talkers next to the asker fetch its answer in their own voice. */
+/** Before a question: the talkers next to the asker fetch its answer in their own voice. */
 function prefetchAnswer(
   voices: Talker[],
   asker: Talker,

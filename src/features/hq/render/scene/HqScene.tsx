@@ -4,7 +4,7 @@ import { useFrame, useThree, type RootState } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { MeshStandardMaterial, PlaneGeometry } from "three";
 
-import { briefingScreens } from "../../core/briefing";
+import { briefingCues, briefingWall, type HqBriefingHold } from "../../core/briefingScript";
 import { HQ_THEME } from "../../core/config";
 import type { HqSimulation } from "../../core/sim";
 import type { HqAgentInput, HqLayout } from "../../core/types";
@@ -134,8 +134,12 @@ export type HqSceneProps = {
   onIntroChange?: (playing: boolean) => void;
   onSelect: (agentId: string) => void;
   onFocus: (agentId: string) => void;
-  /** A briefing in progress (the task and AM7's answer so far): shown on the video wall. */
-  briefing?: { task: string; reply: string } | null;
+  /**
+   * A briefing in progress, shown on the video wall: the task, AM7's answer
+   * so far, the sentence of it being heard (`cue`, -1: none) and, while the
+   * floor gathers, the hold.
+   */
+  briefing?: { task: string; reply: string; cue?: number; hold?: HqBriefingHold | null } | null;
   /**
    * The «ХОД ЗАДАЧИ» tracker for the video wall after a briefing, or null; a
    * briefing keeps priority. A ref read every frame, not a prop: a new
@@ -187,11 +191,16 @@ export const HqScene = memo(function HqScene({
   const gate = useMemo(() => new HqPrewarmGate(), []);
   // The briefing on the video wall: the task on the west wing, AM7's plan on
   // the east wing, the goal across the top of the map.
+  // The wall follows the sentence being heard: the step lit, its title large,
+  // its keyword on the banner (core/briefingScript.ts).
   const briefingTask = briefing?.task ?? null;
   const briefingReply = briefing?.reply ?? "";
+  const briefingCue = briefing?.cue ?? -1;
+  const briefingHold = briefing?.hold ?? null;
+  const cues = useMemo(() => briefingCues(briefingReply), [briefingReply]);
   useEffect(() => {
-    screens.setBriefing(briefingTask === null ? null : briefingScreens(briefingTask, briefingReply));
-  }, [screens, briefingTask, briefingReply]);
+    screens.setBriefing(briefingTask === null ? null : briefingWall(briefingTask, briefingReply, briefingCue, briefingHold, cues));
+  }, [screens, briefingTask, briefingReply, briefingCue, briefingHold, cues]);
   return (
     <>
       <HqShaderPrewarm gate={gate} />

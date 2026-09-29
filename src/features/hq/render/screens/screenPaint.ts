@@ -1,3 +1,4 @@
+import type { HqBriefingFocus, HqBriefingHold } from "@/features/hq/core/briefingScript";
 import {
   CALLSIGNS,
   CHAT_LINES,
@@ -67,8 +68,19 @@ export type HqScreenFeed = {
   operation: HqScreenOperation | null;
 };
 
-/** What a briefing puts on the video wall: the task, the goal and the plan, as given. */
-export type HqBriefingText = { task: string; goal: string; plan: string };
+/**
+ * What a briefing puts on the video wall: the task, the goal and the plan, as
+ * given; the focus of the sentence AM7 is saying (the step lit on the plan,
+ * large on the task screen, its keyword on the banner) and, until the floor
+ * has gathered, the hold («ОЖИДАНИЕ КОМАНДЫ…»). See core/briefingScript.ts.
+ */
+export type HqBriefingText = {
+  task: string;
+  goal: string;
+  plan: string;
+  focus?: HqBriefingFocus | null;
+  hold?: HqBriefingHold | null;
+};
 
 /** A briefing as the screens paint it; `id` grows whenever its text changes. */
 export type HqScreenBriefing = HqBriefingText & { id: number };

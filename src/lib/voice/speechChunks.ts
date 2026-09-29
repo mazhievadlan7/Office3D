@@ -81,3 +81,35 @@ export function splitSpeech(text: string, options: SpeechChunkOptions = {}): str
   }
   return pieces;
 }
+
+/**
+ * `text` one sentence a piece (whitespace normalised), for speech that
+ * follows along sentence by sentence (AM7's briefing): a sentence longer than
+ * `max` characters is cut at a comma or a dash, and a fragment shorter than
+ * `minSentence` (a lone «Так.») rides along with the next sentence.
+ */
+export function splitSentences(text: string, options: { max?: number; minSentence?: number } = {}): string[] {
+  const max = options.max ?? 200;
+  const minSentence = options.minSentence ?? 12;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const out: string[] = [];
+  let carry = "";
+  for (const raw of clean.split(SENTENCE_END)) {
+    for (const piece of cutLong(raw.trim(), max)) {
+      if (!piece) continue;
+      const joined = carry ? `${carry} ${piece}` : piece;
+      if (joined.length < minSentence) {
+        carry = joined;
+        continue;
+      }
+      out.push(joined);
+      carry = "";
+    }
+  }
+  if (carry) {
+    if (out.length) out[out.length - 1] = `${out[out.length - 1]} ${carry}`;
+    else out.push(carry);
+  }
+  return out;
+}

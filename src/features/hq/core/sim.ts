@@ -167,6 +167,14 @@ const CLIP_LOCO = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].speed > 0);
 /** Held loop inside intro/hold/outro clips (seconds), -1 when the clip has none. */
 const CLIP_HOLD0 = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].hold?.[0] ?? -1);
 const CLIP_HOLD1 = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].hold?.[1] ?? -1);
+/** End of a clip's talk window (seconds; a seated pair talks before it, listens after), -1 without one. */
+const CLIP_TALK1 = HQ_CLIPS.map((name) => HQ_CLIP_INFO[name].talkWindow?.[1] ?? -1);
+/** Crossfade when a crew voice moves a seated pair's clip to its talk or listen half (seconds). */
+const TALK_PHASE_BLEND = 0.35;
+/** A seated pair lasts at least this long past a cued phrase (seconds): nobody turns away mid-sentence. */
+const TALK_PAIR_TAIL = 1.5;
+/** After a cued phrase at a spot, the group waits this long for the next voice before picking its own speaker. */
+const TALK_SPOT_HOLD = 3;
 /**
  * Released inside a held loop with more than this left of it (seconds), the
  * clip crossfades to the loop's end instead of playing the rest: a guest
@@ -244,6 +252,21 @@ const TRIBUNE_LEAVE_DISTANCE = 1.6;
 const BRIEFING_END_GRACE = 45;
 /** Default briefing length when the host gives none (seconds). */
 const BRIEFING_DEFAULT = 120;
+/**
+ * The lead does not begin until the floor has gathered (everyone with a desk
+ * standing at it), but waits no longer than this from the call (seconds) once
+ * he is behind the tribune: someone stuck on the way never holds the room.
+ */
+const HALL_READY_CAP = 45;
+/** Past this (seconds from the call) the hall counts as ready even if the lead never got there. */
+const HALL_READY_HARD_CAP = 60;
+/** Between two host-asked presentations of the wall he faces the rows at least this long (seconds). */
+const POINT_GAP = 1;
+/** A presentation asked for while he is still presenting is kept this long (seconds). */
+const POINT_KEEP = 3;
+/** While waiting at the microphone he looks over the hall: a slow sweep this wide (rad) and fast (rad/s). */
+const WAIT_LOOK_SWEEP = 0.45;
+const WAIT_LOOK_RATE = 0.28;
 
 const SPOT_KINDS: HqSocialSpotKind[] = ["coffee", "map", "lounge", "meeting", "server"];
 const K_COFFEE = 0;
@@ -446,6 +469,12 @@ class Agent {
   /** Talking with a seated neighbour (both in ACT_TURN_*), and whether this one listens first. */
   pair: Agent | null = null;
   pairSecond = false;
+  /**
+   * Crew voices drive the talk poses (cueTalk): until `talkUntil` a seated
+   * pair's clip stays in its talk half, until `listenUntil` in its listen half.
+   */
+  talkUntil = 0;
+  listenUntil = 0;
   lastStretch = -Infinity;
   /** The first beat after a mission is a breath out (a stretch or a lean back). */
   exhale = false;
@@ -504,6 +533,30 @@ function wrapClip(clip: number, t: number): number {
     return t;
   }
   return t < 0 ? 0 : t > dur ? dur : t;
+}
+
+/**
+ * Moves a seated pair's clip, looping inside its hold, into its talk half
+ * (`talk`) or its listen half, crossfading from where it was; a clip still in
+ * its intro enters the hold in that half. No-op when it is already there, or
+ * for a clip without a talk window.
+ */
+function talkPhase(a: Agent, talk: boolean): void {
+  const c = a.clip;
+  const h0 = CLIP_HOLD0[c];
+  const mid = CLIP_TALK1[c];
+  if (h0 < 0 || mid < 0 || !a.holdOn || a.clipRate <= 0) return;
+  if (a.clipTime < h0) {
+    a.holdShift = talk ? 0 : mid - h0;
+    return;
+  }
+  if (talk ? a.clipTime < mid : a.clipTime >= mid) return;
+  a.prevClip = c;
+  a.prevTime = a.clipTime;
+  a.prevRate = a.clipRate;
+  a.clipTime = talk ? h0 : mid;
+  a.blend = 0;
+  a.blendDur = TALK_PHASE_BLEND;
 }
 
 /** Places at an agent's own desk: the chair, beside it (error), standing at it (briefing). */
@@ -645,6 +698,8 @@ export class HqSimulation {
   /** One speaker at a time per spot: who has the word, until when (or the pause before the next turn), who had it last. */
   private readonly spotSpeaker: Array<Agent | null>;
   private readonly spotTurnUntil: Float64Array;
+  /** Until when a spot's turns follow the crew voices (cueTalk) instead of its own speaker picks. */
+  private readonly spotCueUntil: Float64Array;
   private readonly spotLast: Array<Agent | null>;
 
   // Over-the-shoulder visits: desk rows and near desks, guests per desk, who sits where.
@@ -709,6 +764,23 @@ export class HqSimulation {
   /** When the lead reached the podium: the rhythm of talking and presenting starts there. */
   private podiumSince = 0;
   private briefingSpeaking = true;
+  /** When the briefing was called (for the hall's waiting caps). */
+  private briefingSince = 0;
+  /** The floor has gathered (or the cap passed): the lead may begin. Latched for the briefing. */
+  private hallReady = false;
+  private hallReadySince = 0;
+  /** Of those who should stand at their desks, how many do. */
+  private hallGathered = 0;
+  private hallExpected = 0;
+  /**
+   * The host shows the wall on cue (pointAtWall) instead of the fixed rhythm:
+   * the Present clip plays from presentSince to presentUntil; a request that
+   * came during one (pointWantedAt) plays after it.
+   */
+  private pointOnCue = false;
+  private presentSince = -Infinity;
+  private presentUntil = -Infinity;
+  private pointWantedAt = -Infinity;
   /**
    * The creator has just signed in: until creatorAckUntil the lead turns to
    * the viewer (creatorX/Y/Z, the camera) — standing he faces it, seated he
@@ -944,6 +1016,7 @@ export class HqSimulation {
     this.spotSpeaker = new Array<Agent | null>(spots.length).fill(null);
     this.spotLast = new Array<Agent | null>(spots.length).fill(null);
     this.spotTurnUntil = new Float64Array(spots.length);
+    this.spotCueUntil = new Float64Array(spots.length);
 
     this.nb = buildDeskNeighbourhood(desks, layout.arena);
     {
@@ -1035,6 +1108,53 @@ export class HqSimulation {
     return agent ? agent.index : -1;
   }
 
+  /**
+   * Whether the agent at frame index `i` is in a conversation the crew's
+   * voices can lead (cueTalk): a seated pair turned to each other, or a group
+   * standing at a spot. Not during a briefing.
+   */
+  conversing(i: number): boolean {
+    const a = this.agents[i];
+    if (!a || !a.alive || this.briefingActive) return false;
+    if (a.pair) return (a.clip === HqClip.SitTurnL || a.clip === HqClip.SitTurnR) && this.pairValid(a);
+    return a.place === D_SPOT && a.mode === M_STAND && !this.acknowledging(a) && this.partnerOf(a) !== null;
+  }
+
+  /**
+   * The crew's voices lead the talk poses (render/audio/HqSoundscape.tsx):
+   * `id` says a phrase from now for `seconds`. In a seated pair the speaker's
+   * clip moves to (and stays in) its talk half while the neighbour's stays in
+   * its listen half, and the pair lasts at least as long; in a group at a spot
+   * the speaker gets the word (Talk) and the others listen, and the group waits
+   * for the next cue before picking a speaker of its own. False when the agent
+   * is in no such conversation (conversing).
+   */
+  cueTalk(id: string, seconds: number): boolean {
+    const a = this.byId.get(id);
+    if (!a || seconds <= 0 || !this.conversing(a.index)) return false;
+    const until = this.time + seconds;
+    const b = a.pair;
+    if (b) {
+      a.talkUntil = until;
+      a.listenUntil = 0;
+      b.listenUntil = until;
+      b.talkUntil = 0;
+      const end = until + TALK_PAIR_TAIL;
+      if (a.actUntil < end) a.actUntil = end;
+      if (b.actUntil < end) b.actUntil = end;
+      talkPhase(a, true);
+      talkPhase(b, false);
+      return true;
+    }
+    const spot = a.placeSpot;
+    const held = this.spotSpeaker[spot];
+    if (held && held !== a) this.spotLast[spot] = held;
+    this.spotSpeaker[spot] = a;
+    this.spotTurnUntil[spot] = until;
+    this.spotCueUntil[spot] = until + TALK_SPOT_HOLD;
+    return true;
+  }
+
   getAssignments(): Record<string, number> {
     return Object.fromEntries(this.assignments);
   }
@@ -1051,6 +1171,15 @@ export class HqSimulation {
     if (!this.briefingActive) {
       this.briefingActive = true;
       this.briefingSpeaking = true;
+      this.briefingSince = this.time;
+      this.hallReady = false;
+      this.hallReadySince = 0;
+      this.hallGathered = 0;
+      this.hallExpected = 0;
+      this.pointOnCue = false;
+      this.presentSince = -Infinity;
+      this.presentUntil = -Infinity;
+      this.pointWantedAt = -Infinity;
       for (const a of this.agents) {
         if (a.lead || a.seat >= 0) {
           this.releaseSpot(a);
@@ -1208,6 +1337,63 @@ export class HqSimulation {
   }
 
   /**
+   * The lead turns to the video wall and shows it with an open hand (Present),
+   * as the sentence he is saying is about it. From the first call on, the
+   * wall is shown only on these cues (no fixed rhythm) for this briefing. A
+   * call while he is already presenting plays once that one is over.
+   * showWallOnCue() switches this briefing to cues before the first one (a
+   * host that speaks for him), so he never presents on the fixed rhythm.
+   */
+  showWallOnCue(): void {
+    if (this.briefingActive) this.pointOnCue = true;
+  }
+
+  pointAtWall(): void {
+    if (!this.briefingActive) return;
+    this.pointOnCue = true;
+    this.pointWantedAt = this.time;
+    this.startCuedPresent();
+  }
+
+  private startCuedPresent(): void {
+    const now = this.time;
+    if (!this.hallReady || now < this.presentUntil + POINT_GAP) return;
+    if (this.pointWantedAt <= this.presentSince || now - this.pointWantedAt > POINT_KEEP) return;
+    const lead = this.leadAgent;
+    if (!lead || lead.place !== D_PODIUM || lead.mode !== M_STAND) return;
+    this.presentSince = now;
+    this.presentUntil = now + PRESENT_DURATION;
+  }
+
+  /**
+   * Counts who stands at their desk for the briefing and latches hallReady:
+   * everyone expected there (with a desk, not in error, not first clearing
+   * the archive cart out of the way) stands at it and the lead is behind the
+   * tribune; or HALL_READY_CAP has passed with the lead there; or
+   * HALL_READY_HARD_CAP in any case.
+   */
+  private updateHall(): void {
+    let expected = 0;
+    let gathered = 0;
+    for (const a of this.agents) {
+      if (a.lead || a.seat < 0 || a.status === ERROR) continue;
+      if (this.intentKind(a) !== D_BRIEF) continue;
+      expected++;
+      if (a.place === D_BRIEF && a.mode === M_STAND) gathered++;
+    }
+    this.hallExpected = expected;
+    this.hallGathered = gathered;
+    if (this.hallReady) return;
+    const lead = this.leadAgent;
+    const leadIn = !lead || (lead.place === D_PODIUM && lead.mode === M_STAND);
+    const waited = this.time - this.briefingSince;
+    if ((leadIn && (gathered >= expected || waited >= HALL_READY_CAP)) || waited >= HALL_READY_HARD_CAP) {
+      this.hallReady = true;
+      this.hallReadySince = this.time;
+    }
+  }
+
+  /**
    * The creator has signed in: for `seconds` the lead acknowledges them,
    * turned to the viewer (setCreatorPoint): standing he turns to face it and
    * stands still (Idle, so no chatter murmur over the spoken greeting); in his
@@ -1245,12 +1431,21 @@ export class HqSimulation {
     return Boolean(lead && Math.hypot(lead.x - this.podiumX, lead.z - this.podiumZ) < TRIBUNE_LEAVE_DISTANCE);
   }
 
-  /** The briefing's state: running, and whether the lead has reached the podium. */
-  get briefing(): { active: boolean; leadAtPodium: boolean } {
+  /**
+   * The briefing's state: running; whether the lead has reached the podium;
+   * whether the hall is ready for him to begin (everyone with a desk standing
+   * at it, or the waiting cap passed: see updateHall); and how many of those
+   * expected at their desks stand there.
+   */
+  get briefing(): { active: boolean; leadAtPodium: boolean; hallReady: boolean; gathered: number; expected: number } {
     const lead = this.leadAgent;
+    const active = this.briefingActive;
     return {
-      active: this.briefingActive,
-      leadAtPodium: Boolean(this.briefingActive && lead && lead.place === D_PODIUM && lead.mode === M_STAND),
+      active,
+      leadAtPodium: Boolean(active && lead && lead.place === D_PODIUM && lead.mode === M_STAND),
+      hallReady: active && this.hallReady,
+      gathered: active ? this.hallGathered : 0,
+      expected: active ? this.hallExpected : 0,
     };
   }
 
@@ -1479,6 +1674,10 @@ export class HqSimulation {
     if (this.missionActive && this.time >= this.missionUntil) this.endMission();
     if (this.briefingActive && this.time >= this.briefingUntil) this.finishBriefing();
     else if (this.briefingEndRequested && (this.leadHasBriefed() || this.time >= this.briefingEndBy)) this.finishBriefing();
+    if (this.briefingActive) {
+      this.updateHall();
+      if (this.pointOnCue) this.startCuedPresent();
+    }
     this.stepArchive(step);
     let routes = ROUTES_PER_UPDATE;
     const agents = this.agents;
@@ -2171,6 +2370,8 @@ export class HqSimulation {
     this.setAct(x, this.baseAct(x, duty));
     x.actUntil = 0;
     x.pairSecond = false;
+    x.talkUntil = 0;
+    x.listenUntil = 0;
     const next = this.time + beatPause(duty, x.fidget, x.beat, x.status === WORKING);
     if (x.nextBeat < next) x.nextBeat = next;
   }
@@ -2480,9 +2681,15 @@ export class HqSimulation {
     }
   }
 
-  /** At the podium: true while the lead plays Present (after each PODIUM_TALK of addressing the rows). */
+  /**
+   * At the podium: true while the lead plays Present: on the host's cues
+   * (pointAtWall), else after each PODIUM_TALK of addressing the rows. Never
+   * before the hall is ready: until then he waits at the microphone.
+   */
   private podiumPresenting(): boolean {
-    const t = this.time - this.podiumSince;
+    if (this.briefingActive && !this.hallReady) return false;
+    if (this.pointOnCue) return this.time >= this.presentSince && this.time < this.presentUntil;
+    const t = this.time - Math.max(this.podiumSince, this.hallReadySince);
     return t - Math.floor(t / PODIUM_CYCLE) * PODIUM_CYCLE >= PODIUM_TALK;
   }
 
@@ -2521,7 +2728,8 @@ export class HqSimulation {
       this.spotLast[spot] = s;
       this.spotSpeaker[spot] = null;
       s = null;
-      this.spotTurnUntil[spot] = now + by.beat.range(SPOT_GAP_MIN, SPOT_GAP_MAX);
+      // While the crew's voices lead the talk here, the next speaker is theirs to cue.
+      this.spotTurnUntil[spot] = Math.max(now + by.beat.range(SPOT_GAP_MIN, SPOT_GAP_MAX), this.spotCueUntil[spot]);
     }
     if (!s && now >= this.spotTurnUntil[spot]) {
       s = this.pickSpeaker(spot, by);
@@ -2773,6 +2981,9 @@ export class HqSimulation {
         }
         const h1 = CLIP_HOLD1[a.clip];
         if (a.clipTime >= h1) a.clipTime = h0 + ((a.clipTime - h0) % (h1 - h0));
+        // A crew voice holds a seated pair in its talk or listen half (cueTalk).
+        if (a.talkUntil > this.time) talkPhase(a, true);
+        else if (a.listenUntil > this.time) talkPhase(a, false);
       }
     }
     a.clipTime = wrapClip(a.clip, a.clipTime);
@@ -2812,6 +3023,11 @@ export class HqSimulation {
       default:
         return HqClip.SitIdle;
     }
+  }
+
+  /** The lead addresses the floor: the hall is ready and he is speaking (the host says so). */
+  private leadTalking(): boolean {
+    return this.briefingSpeaking && (!this.briefingActive || this.hallReady);
   }
 
   /** A standing listener's clip (a briefing, a spot's speaker): StandListen or Idle, per agent. */
@@ -3147,7 +3363,7 @@ export class HqSimulation {
         a.place = D_PODIUM;
         a.placeSeat = -1;
         this.podiumSince = this.time;
-        this.setLoop(a, this.briefingSpeaking ? HqClip.Talk : HqClip.Idle);
+        this.setLoop(a, this.leadTalking() ? HqClip.Talk : HqClip.Idle);
         return;
       case D_CART:
         if (a === this.arcAgent && this.arcPhase === ARC_FETCH) {
@@ -3198,7 +3414,7 @@ export class HqSimulation {
         clip = HqClip.Present;
       } else {
         want = this.podiumFacing;
-        if (this.briefingSpeaking) clip = HqClip.Talk;
+        if (this.leadTalking()) clip = HqClip.Talk;
       }
     }
     if (this.briefingActive && (a.place === D_BRIEF || a.place === D_SPOT) && a !== this.leadAgent) {
@@ -3287,9 +3503,11 @@ export class HqSimulation {
     if (a.place === D_PODIUM) {
       // Addressing the rows: over the front rows' heads. While presenting the
       // clip turns the head far past what look-at allows, so it leads alone.
-      a.wantX = a.x + Math.sin(this.podiumFacing) * 8;
+      // Waiting for the floor to gather, he looks slowly over the hall.
+      const sweep = this.briefingActive && !this.hallReady ? WAIT_LOOK_SWEEP * Math.sin(this.time * WAIT_LOOK_RATE) : 0;
+      a.wantX = a.x + Math.sin(this.podiumFacing + sweep) * 8;
       a.wantY = HEAD_STANDING;
-      a.wantZ = a.z + Math.cos(this.podiumFacing) * 8;
+      a.wantZ = a.z + Math.cos(this.podiumFacing + sweep) * 8;
       a.wantW = this.podiumPresenting() ? 0 : 0.6;
       return;
     }

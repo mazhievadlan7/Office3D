@@ -20,6 +20,12 @@ const LOOKAHEAD = 0.12;
 const MASTER = 0.55;
 /** The crew's voices while foreground speech (the system, AM7) is heard. */
 const DUCKED = 0.16;
+/**
+ * While AM7 speaks over the public address at a briefing the hall falls
+ * quiet: the crew's voices almost out, everything else (keyboards) well down.
+ */
+const PA_DUCKED_VOICES = 0.03;
+const PA_DUCKED_HALL = 0.3;
 
 /**
  * A source is re-placed only once it has moved this far (squared metres,
@@ -48,7 +54,10 @@ export class HqAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private voices: GainNode | null = null;
+  /** Everything the HQ makes, between the master and the limiter: ducks under the public address. */
+  private hall: GainNode | null = null;
   private ducked = false;
+  private duckedStrong = false;
   private noise: AudioBuffer | null = null;
   private enabled = true;
   private disposed = false;
@@ -91,24 +100,39 @@ export class HqAudio {
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = -12;
       limiter.ratio.value = 6;
-      master.connect(limiter);
+      const hall = ctx.createGain();
+      hall.gain.value = this.duckedStrong ? PA_DUCKED_HALL : 1;
+      master.connect(hall);
+      hall.connect(limiter);
       limiter.connect(ctx.destination);
       const voices = ctx.createGain();
-      voices.gain.value = this.ducked ? DUCKED : 1;
+      voices.gain.value = this.voiceLevel();
       voices.connect(master);
       this.ctx = ctx;
       this.master = master;
+      this.hall = hall;
       this.voices = voices;
       this.noise = whiteNoise(ctx, 1.5);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
-  /** Lowers the crew's voices (not the keyboards) while foreground speech plays. */
-  duckVoices(on: boolean): void {
+  private voiceLevel(): number {
+    return this.duckedStrong ? PA_DUCKED_VOICES : this.ducked ? DUCKED : 1;
+  }
+
+  /**
+   * Lowers the crew's voices while foreground speech plays; `strong` (AM7 on
+   * the public address) takes them almost out and the rest of the hall down too.
+   */
+  duckVoices(on: boolean, strong = false): void {
     this.ducked = on;
+    this.duckedStrong = on && strong;
     const ctx = this.ctx;
-    if (ctx && this.voices) this.voices.gain.setTargetAtTime(on ? DUCKED : 1, ctx.currentTime, on ? 0.08 : 0.4);
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (this.voices) this.voices.gain.setTargetAtTime(this.voiceLevel(), t, on ? 0.08 : 0.4);
+    if (this.hall) this.hall.gain.setTargetAtTime(this.duckedStrong ? PA_DUCKED_HALL : 1, t, this.duckedStrong ? 0.12 : 0.6);
   }
 
   setEnabled(enabled: boolean): void {
@@ -366,6 +390,7 @@ export class HqAudio {
     this.ctx = null;
     this.master = null;
     this.voices = null;
+    this.hall = null;
     this.noise = null;
   }
 }

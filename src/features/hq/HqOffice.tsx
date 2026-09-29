@@ -13,6 +13,7 @@ import {
   HQ_THEME,
   type HqCapacity,
 } from "./core/config";
+import { briefingCues, type HqBriefingHold } from "./core/briefingScript";
 import { generateHqLayout } from "./core/layout";
 import { MISSION_MAX_DEFAULT } from "./core/beats";
 import { HqSimulation } from "./core/sim";
@@ -77,10 +78,11 @@ export type HqOfficeProps = {
   /** Flips the wall between the operation and the panels; the switch is hidden without it. */
   onToggleWall?: () => void;
   /**
-   * AM7 has reached his spot behind the tribune for this briefing (once per
-   * briefing): the screen starts his answer out loud from there.
+   * The floor has gathered for this briefing (once per briefing): AM7 stands
+   * behind the tribune and everyone with a desk stands at it (or the sim's
+   * waiting cap has passed). The screen starts his answer out loud from then.
    */
-  onLeadAtTribune?: (briefingId: string) => void;
+  onHallReady?: (briefingId: string) => void;
   /**
    * The archive cart and the server's upkeep, for the console: the cart's own
    * events (taken, paused, handover, …), a run with nothing to take out
@@ -109,7 +111,16 @@ export type HqBriefing = {
   reply: string;
   /** True while AM7's answer is being spoken. */
   speaking: boolean;
+  /**
+   * The sentence of AM7's answer being heard now (core/briefingScript.ts
+   * briefingCues), -1 before he begins and between none. The wall follows it,
+   * and he shows the wall on the sentences that are about it.
+   */
+  cue: number;
 };
+
+/** What the scene puts on the video wall for a briefing. */
+type HqBriefingScene = { task: string; reply: string; cue: number; hold: HqBriefingHold | null };
 
 /** Longest a briefing holds the floor if the screen never ends it. */
 const BRIEFING_MAX_SECONDS = 240;
@@ -212,7 +223,7 @@ export function HqOffice({
   wallAvailable = false,
   wallShowsOperation = true,
   onToggleWall,
-  onLeadAtTribune,
+  onHallReady,
   onArchiveEvent,
   creatorOnline = false,
   creatorEntered = false,
@@ -306,10 +317,10 @@ export function HqOffice({
       delete w.__hqArchiveRun;
     };
   }, []);
-  const onLeadAtTribuneRef = useRef(onLeadAtTribune);
+  const onHallReadyRef = useRef(onHallReady);
   useEffect(() => {
-    onLeadAtTribuneRef.current = onLeadAtTribune;
-  }, [onLeadAtTribune]);
+    onHallReadyRef.current = onHallReady;
+  }, [onHallReady]);
 
   useEffect(() => {
     callbacksRef.current.onAgentSelect = onAgentSelect;
@@ -413,6 +424,7 @@ export function HqOffice({
   // task and the camera the view until then, and only then back to the floor.
   const briefingId = briefing?.id ?? null;
   const briefingIdRef = useRef<string | null>(null);
+  const beganRef = useRef<string | null>(null);
   useEffect(() => {
     briefingIdRef.current = briefingId;
     const sim = simRef.current;
@@ -421,6 +433,8 @@ export function HqOffice({
     const camera = cameraApiRef;
     const mode = cameraModeRef;
     sim.startBriefing(BRIEFING_MAX_SECONDS);
+    // The screen speaks for AM7 and shows the wall on his sentences' cues.
+    sim.showWallOnCue();
     if (mode.current !== "follow") camera.current?.goTo("briefing");
     return () => sim.endBriefing();
   }, [briefingId, layout, namespace]);
@@ -440,20 +454,28 @@ export function HqOffice({
   useEffect(() => {
     operationRef.current = operation;
   }, [operation]);
-  // What the video wall shows: a stable object while the texts stay the same,
-  // so the memoised scene does not re-render when only `speaking` flips.
+  // The floor gathering for the briefing (from the sim's poll): the wall
+  // shows «ОЖИДАНИЕ КОМАНДЫ…» and how many stand at their places until ready.
+  const [hallHold, setHallHold] = useState<HqBriefingHold | null>(null);
+  // What the video wall shows: a stable object while the texts, the sentence
+  // being heard and the hold stay the same, so the memoised scene does not
+  // re-render when only `speaking` flips.
   const briefingTask = briefing?.task ?? null;
   const briefingReply = briefing?.reply ?? "";
+  const briefingCue = briefing?.cue ?? -1;
   const liveBriefingScene = useMemo(
-    () => (briefingTask === null ? null : { task: briefingTask, reply: briefingReply }),
-    [briefingTask, briefingReply],
+    () =>
+      briefingTask === null
+        ? null
+        : { task: briefingTask, reply: briefingReply, cue: briefingCue, hold: hallHold },
+    [briefingTask, briefingReply, briefingCue, hallHold],
   );
   const lastSceneRef = useRef(liveBriefingScene);
   useEffect(() => {
     if (liveBriefingScene) lastSceneRef.current = liveBriefingScene;
   }, [liveBriefingScene]);
   // The last briefing's wall while the sim winds it down; null otherwise.
-  const [heldScene, setHeldScene] = useState<{ task: string; reply: string } | null>(null);
+  const [heldScene, setHeldScene] = useState<HqBriefingScene | null>(null);
   useEffect(() => {
     let wasActive = false;
     let reported: string | null = null;
@@ -467,14 +489,25 @@ export function HqOffice({
       }
       const sim = simRef.current;
       if (!sim) return;
-      const { active, leadAtPodium } = sim.briefing;
+      const { active, hallReady, gathered, expected } = sim.briefing;
       const id = briefingIdRef.current;
-      if (active && leadAtPodium && id && reported !== id) {
+      if (active && hallReady && id && reported !== id) {
         reported = id;
-        onLeadAtTribuneRef.current?.(id);
+        onHallReadyRef.current?.(id);
       }
-      const held = active && !id ? lastSceneRef.current : null;
-      setHeldScene((current) => (current === held ? current : held));
+      // Until AM7 begins the wall says what he is waiting for: the floor to
+      // gather, then (briefly) his speech to be ready.
+      const waiting = active && id !== null && (!hallReady || beganRef.current !== id);
+      setHallHold((current) => {
+        if (!waiting) return current === null ? current : null;
+        if (current && current.gathered === gathered && current.expected === expected) return current;
+        return { gathered, expected };
+      });
+      const lastScene = lastSceneRef.current;
+      const held = active && !id && lastScene ? { ...lastScene, cue: -1, hold: null } : null;
+      setHeldScene((current) =>
+        current === held || (current && held && current.task === held.task && current.reply === held.reply) ? current : held,
+      );
       if (wasActive && !active && cameraModeRef.current === "briefing") cameraApiRef.current?.goTo("overview");
       wasActive = active;
     }, BRIEFING_POLL_MS);
@@ -483,9 +516,22 @@ export function HqOffice({
   const briefingScene = liveBriefingScene ?? heldScene;
   const briefingSpeaking = Boolean(briefing?.speaking);
   useEffect(() => {
-    // Until an answer is being spoken, AM7 addresses the floor anyway (Talk).
-    simRef.current?.setBriefingSpeaking(briefingSpeaking || !briefing?.reply);
-  }, [briefingSpeaking, briefing?.reply]);
+    // The briefing AM7 has begun speaking at (the wall's hold is over for it).
+    if (briefingSpeaking && briefingId) beganRef.current = briefingId;
+  }, [briefingSpeaking, briefingId]);
+  useEffect(() => {
+    // AM7 talks (Talk) only while his answer is heard; waiting for the floor,
+    // or for the answer, he stands at the microphone. Declared after the
+    // briefing's start, so a new briefing's own default is overridden.
+    simRef.current?.setBriefingSpeaking(briefingSpeaking);
+  }, [briefingSpeaking, briefingId]);
+  // He turns to the wall and shows it on the sentences that are about it,
+  // when that sentence starts playing.
+  const briefingCueList = useMemo(() => briefingCues(briefingReply), [briefingReply]);
+  useEffect(() => {
+    if (!briefingId || briefingCue < 0) return;
+    if (briefingCueList[briefingCue]?.point) simRef.current?.pointAtWall();
+  }, [briefingId, briefingCue, briefingCueList]);
 
   // The creator's sign-in: AM7 turns to the camera once, for the fly-through
   // and a few seconds after (HqCreatorWatch keeps his eyes on the camera).

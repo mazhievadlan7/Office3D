@@ -1,3 +1,4 @@
+import type { HqBriefingFocus, HqBriefingHold } from "@/features/hq/core/briefingScript";
 import { briefingText, planSteps, type PlanSteps } from "@/features/hq/core/operation";
 import { plural, type PluralForms } from "@/lib/i18n/plural";
 import { liveBug } from "./screenBroadcast";
@@ -35,8 +36,32 @@ export function nextBriefing(current: HqScreenBriefing | null, input: HqBriefing
   const task = briefingText(input.task ?? "");
   const goal = briefingText(input.goal ?? "").replace(/\n/g, " ");
   const plan = briefingText(input.plan ?? "");
-  if (current && current.task === task && current.goal === goal && current.plan === plan) return current;
-  return { id, task, goal, plan };
+  const focus = input.focus ?? null;
+  const hold = input.hold ?? null;
+  if (
+    current &&
+    current.task === task &&
+    current.goal === goal &&
+    current.plan === plan &&
+    sameFocus(current.focus ?? null, focus) &&
+    sameHold(current.hold ?? null, hold)
+  ) {
+    return current;
+  }
+  const next: HqScreenBriefing = { id, task, goal, plan };
+  if (focus) next.focus = { ...focus };
+  if (hold) next.hold = { ...hold };
+  return next;
+}
+
+function sameFocus(a: HqBriefingFocus | null, b: HqBriefingFocus | null): boolean {
+  if (!a || !b) return a === b;
+  return a.section === b.section && a.step === b.step && a.steps === b.steps && a.label === b.label && a.title === b.title;
+}
+
+function sameHold(a: HqBriefingHold | null, b: HqBriefingHold | null): boolean {
+  if (!a || !b) return a === b;
+  return a.gathered === b.gathered && a.expected === b.expected;
 }
 
 /** How many characters from the start of `text` fit in `width` (at least one). */
@@ -255,12 +280,55 @@ export const TASK_FIT: FitOptions = { max: 78, min: 30, leading: 1.18 };
 export function paintBriefingTask(p: Painter, t: number, briefing: HqScreenBriefing): void {
   backdrop(p, 300, 0, 900);
   const tagW = sectionTag(p, 40, 26, "ЗАДАЧА", "left");
-  label(p, "для всего штаба · бриф AM7", 40 + tagW + 24, 66, TV.white45, 15);
+  const focus = briefing.focus;
+  const onStep = focus && focus.section === "step" && focus.step >= 0 && focus.title;
+  if (onStep && briefing.task) {
+    // AM7 is on a step: the task shrinks into the header, the step fills the card.
+    p.setFont(28, 500, DISPLAY);
+    p.text(fit(p.ctx, briefing.task, p.w - 80 - tagW - 60), 40 + tagW + 24, 72, TV.white65);
+  } else {
+    label(p, "для всего штаба · бриф AM7", 40 + tagW + 24, 66, TV.white45, 15);
+  }
   headerRule(p, false);
   const box = bodyCard(p);
-  if (!briefing.task) drawWaiting(p, t, box, "Задача формулируется");
+  if (onStep) paintStepFocus(p, t, focus, box);
+  else if (!briefing.task) drawWaiting(p, t, box, "Задача формулируется");
   else drawParagraph(p, fitText(p, "task", [briefing.task], box.w, box.w, box.h, TASK_FIT), box, TASK_FIT.leading, TV.white);
   vignette(p, 0.2);
+}
+
+/** A slow 0..1 breath (0.6 Hz), in eighths so the gradient cache stays small. */
+function breath(t: number): number {
+  return Math.round((0.5 + 0.5 * Math.sin(t * Math.PI * 1.2)) * 8) / 8;
+}
+
+const FOCUS_FIT: FitOptions = { max: 96, min: 40, leading: 1.1 };
+
+/**
+ * The step AM7 is talking about, on the task screen: its number huge in red
+ * (a slow glow while he speaks), «ШАГ N ИЗ M» over its title, as large as it fits.
+ */
+function paintStepFocus(p: Painter, t: number, focus: HqBriefingFocus, box: { x: number; y: number; w: number; h: number }): void {
+  const c = p.ctx;
+  const number = String(focus.step + 1).padStart(2, "0");
+  const numSize = Math.min(box.h * 0.82, 300);
+  p.setFont(numSize, 700, DISPLAY);
+  const numW = c.measureText(number).width;
+  const glow = breath(t);
+  const cy = box.y + box.h / 2;
+  c.fillStyle = radial(c, box.x + numW / 2, cy, 0, numW, [
+    [0, `rgba(255, 30, 30, ${(0.16 + 0.14 * glow).toFixed(3)})`],
+    [1, "rgba(0, 0, 0, 0)"],
+  ]);
+  c.fillRect(box.x - 40, box.y, numW + 80, box.h);
+  c.fillStyle = linear(c, 0, cy - numSize * 0.4, 0, cy + numSize * 0.4, RED_GRADIENT);
+  c.fillText(number, box.x, cy + numSize * 0.36);
+  const x = box.x + numW + 48;
+  const w = box.x + box.w - x;
+  const caption = focus.steps > 0 ? `шаг ${focus.step + 1} из ${focus.steps}` : `шаг ${focus.step + 1}`;
+  label(p, caption, x, box.y + 44, TV.redSoft, 22);
+  const textBox = { x, y: box.y + 64, w, h: box.h - 64 };
+  drawParagraph(p, fitText(p, "focus", [focus.title], textBox.w, textBox.w, textBox.h, FOCUS_FIT), textBox, FOCUS_FIT.leading, TV.white);
 }
 
 const PLAN_FIT: FitOptions = { max: 64, min: 24, leading: 1.16, gap: 0.5 };
@@ -290,13 +358,18 @@ export function paintBriefingPlan(p: Painter, t: number, briefing: HqScreenBrief
   } else if (!list) {
     drawParagraph(p, fitText(p, "plan", [briefing.plan], box.w, box.w, box.h, TASK_FIT), box, TASK_FIT.leading, TV.white);
   } else {
-    drawSteps(p, list.steps, box);
+    const focus = briefing.focus;
+    drawSteps(p, t, list.steps, box, focus && focus.section === "step" ? focus.step : -1);
   }
   vignette(p, 0.2);
 }
 
-/** Numbered steps in one column, or two when there are more than four, all at one size. */
-function drawSteps(p: Painter, steps: readonly string[], box: { x: number; y: number; w: number; h: number }): void {
+/**
+ * Numbered steps in one column, or two when there are more than four, all at
+ * one size. The step AM7 is talking about (`focus`, -1: none) is lit: a red
+ * band behind it that breathes, its badge glowing; the others dim.
+ */
+function drawSteps(p: Painter, t: number, steps: readonly string[], box: { x: number; y: number; w: number; h: number }, focus: number): void {
   const c = p.ctx;
   const columns = steps.length > 4 ? 2 : 1;
   const colW = (box.w - COLUMN_GAP * (columns - 1)) / columns;
@@ -316,11 +389,30 @@ function drawSteps(p: Painter, steps: readonly string[], box: { x: number; y: nu
     for (const lines of column.blocks) {
       const badge = column.size * BADGE;
       const by = top + (pitch - badge) / 2;
+      const lit = focus === number - 1;
+      const dim = focus >= 0 && !lit;
+      if (lit) {
+        // A band behind the step, breathing slowly, and a glow round its badge.
+        const k = breath(t);
+        const bandH = lines.length * pitch + column.size * 0.3;
+        c.fillStyle = `rgba(227, 20, 28, ${(0.14 + 0.12 * k).toFixed(3)})`;
+        fillRound(c, x - column.size * 0.3, top - column.size * 0.15, colW + column.size * 0.6, bandH, 10, c.fillStyle);
+        c.fillStyle = `rgba(255, 60, 52, ${(0.55 + 0.35 * k).toFixed(3)})`;
+        c.fillRect(x - column.size * 0.3, top - column.size * 0.15, 5, bandH);
+        c.fillStyle = radial(c, x + badge / 2, by + badge / 2, 0, badge * 1.4, [
+          [0, `rgba(255, 40, 40, ${(0.35 + 0.25 * k).toFixed(3)})`],
+          [1, "rgba(0, 0, 0, 0)"],
+        ]);
+        c.fillRect(x - badge, by - badge, badge * 3, badge * 3);
+      }
+      c.globalAlpha = dim ? 0.45 : 1;
       fillRound(c, x, by, badge, badge, badge * 0.18, linear(c, 0, by, 0, by + badge, RED_GRADIENT));
       p.setFont(column.size * 0.74, 700, DISPLAY);
       p.text(String(number), x + badge / 2, by + badge * 0.76, TV.white, "center");
+      c.globalAlpha = 1;
       p.setFont(column.size, BODY_WEIGHT, DISPLAY);
-      lines.forEach((line, i) => p.text(line, x + column.size * (BADGE + BADGE_GAP), baseline(top, column.size, PLAN_FIT.leading, i), TV.white));
+      const color = dim ? TV.white45 : TV.white;
+      lines.forEach((line, i) => p.text(line, x + column.size * (BADGE + BADGE_GAP), baseline(top, column.size, PLAN_FIT.leading, i), color));
       top += lines.length * pitch + (PLAN_FIT.gap ?? 0) * column.size;
       number++;
     }
@@ -353,14 +445,29 @@ export function paintBriefingBanner(p: Painter, t: number, briefing: HqScreenBri
   const tagRight = liveBug(p, 28, (h - 26 * scale) / 2, t, "БРИФИНГ · AM7", scale);
   c.fillStyle = TV.white25;
   c.fillRect(tagRight + 28, 20, 2, h - 40);
+  const hold = briefing.hold;
+  if (hold) {
+    // The floor is still gathering: AM7 waits at the microphone.
+    p.setFont(42, 700, DISPLAY);
+    const dots = ".".repeat(1 + (Math.floor(t * 2) % 3));
+    spaced(p, `ОЖИДАНИЕ КОМАНДЫ${dots}`, tagRight + 58, h / 2 + 15, TV.white80, 4);
+    if (hold.expected > 0) {
+      p.setFont(40, BODY_WEIGHT, DISPLAY);
+      p.text(`на местах ${hold.gathered} / ${hold.expected}`, w - 36, h / 2 + 14, TV.white65, "right");
+    }
+    return;
+  }
+  const focus = briefing.focus;
+  const title = focus?.title || briefing.goal;
+  const tag = focus?.title ? focus.label : "ЦЕЛЬ";
   p.setFont(42, 700, DISPLAY);
-  const goalLabelW = spaced(p, "ЦЕЛЬ", tagRight + 58, h / 2 + 15, TV.redHot, 4);
+  const goalLabelW = spaced(p, tag, tagRight + 58, h / 2 + 15, TV.redHot, 4);
   const x = tagRight + 58 + goalLabelW + 28;
   const box = { x, y: 8, w: w - x - 36, h: h - 16 };
-  if (!briefing.goal) {
+  if (!title) {
     p.setFont(40, BODY_WEIGHT, DISPLAY);
     p.text(`уточняется${".".repeat(1 + (Math.floor(t * 2) % 3))}`, x, h / 2 + 14, TV.white45);
     return;
   }
-  drawParagraph(p, fitText(p, "goal", [briefing.goal], box.w, box.w, box.h, GOAL_FIT), box, GOAL_FIT.leading, TV.white);
+  drawParagraph(p, fitText(p, "goal", [title], box.w, box.w, box.h, GOAL_FIT), box, GOAL_FIT.leading, TV.white);
 }

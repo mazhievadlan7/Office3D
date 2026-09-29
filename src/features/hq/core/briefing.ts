@@ -43,9 +43,26 @@ function firstSentence(text: string): [string, string] {
   return [text.trim(), ""];
 }
 
-export function briefingScreens(task: string, reply: string): HqBriefingScreens {
+/**
+ * AM7's answer in its parts, whole (not cut for the screens): what he says
+ * before the goal (`lead`, empty when that text is taken as the goal), the
+ * goal and the plan. The same reading as briefingScreens, which cuts them.
+ */
+export type HqBriefingParts = {
+  lead: string;
+  goal: string;
+  /** Said between the goal and the plan (the rest of a lead-in whose first sentence became the goal). */
+  between: string;
+  plan: string;
+  /** He named the goal («Цель: …»); false when it is only his first sentence. */
+  goalNamed: boolean;
+};
+
+export function briefingParts(reply: string): HqBriefingParts {
   const body = tidy(reply);
+  let lead = "";
   let goal = "";
+  let between = "";
   let plan = "";
   const goalAt = body.search(GOAL_RE);
   const planAt = body.search(PLAN_RE);
@@ -60,12 +77,26 @@ export function briefingScreens(task: string, reply: string): HqBriefingScreens 
       const end = goalAt > planAt ? goalAt : body.length;
       plan = body.slice(start, end).trim();
     }
-    if (!goal && plan) [goal] = firstSentence(body.slice(0, Math.max(0, planAt)).trim() || plan);
+    const first = Math.min(...[goalAt, planAt].filter((at) => at >= 0));
+    lead = body.slice(0, first).trim();
+    if (!goal && plan) {
+      // No goal named: the first sentence said before the plan (else the plan's) is it.
+      if (lead) {
+        [goal, between] = firstSentence(lead);
+        lead = "";
+      }
+      else [goal] = firstSentence(plan);
+    }
   } else if (body) {
     [goal, plan] = firstSentence(body);
   }
   // Numbered steps on their own lines: "1) a, 2) b" -> "1) a\n2) b".
   plan = plan.replace(/\s+(?=\d+[.)]\s)/g, "\n");
+  return { lead, goal, between, plan, goalNamed: goalAt >= 0 };
+}
+
+export function briefingScreens(task: string, reply: string): HqBriefingScreens {
+  const { goal, plan } = briefingParts(reply);
   return {
     task: cut(tidy(task), BRIEFING_LIMITS.task),
     goal: cut(goal.replace(/\s+/g, " "), BRIEFING_LIMITS.goal),

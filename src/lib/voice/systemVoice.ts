@@ -32,6 +32,38 @@ export type SystemVoiceOptions = {
 
 let context: AudioContext | null = null;
 
+/** The one audio context the foreground voices (the system, AM7's briefing) play through. */
+export function speechAudioContext(): AudioContext | null {
+  return audioContext();
+}
+
+/**
+ * Makes the first click or key press anywhere on the page start the speech
+ * audio context, so a voice that comes later (AM7 at a briefing) plays at
+ * once instead of waiting for another gesture. Idempotent; returns a cleanup.
+ */
+export function primeSpeechAudio(): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onGesture = () => {
+    const ctx = audioContext();
+    if (!ctx) return;
+    if (ctx.state === "running") {
+      stop();
+      return;
+    }
+    void ctx.resume().then(() => {
+      if (ctx.state === "running") stop();
+    });
+  };
+  const stop = () => {
+    window.removeEventListener("pointerdown", onGesture, true);
+    window.removeEventListener("keydown", onGesture, true);
+  };
+  window.addEventListener("pointerdown", onGesture, true);
+  window.addEventListener("keydown", onGesture, true);
+  return stop;
+}
+
 function audioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (context) return context;
@@ -42,7 +74,7 @@ function audioContext(): AudioContext | null {
 }
 
 /** Resolves once the context runs (at once, or at the next gesture); false if it never does. */
-function whenRunning(ctx: AudioContext, timeoutMs: number): Promise<boolean> {
+export function whenRunning(ctx: AudioContext, timeoutMs: number): Promise<boolean> {
   if (ctx.state === "running") return Promise.resolve(true);
   return new Promise((resolve) => {
     let done = false;

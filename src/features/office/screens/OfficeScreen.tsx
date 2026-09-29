@@ -189,7 +189,9 @@ import { hqTimeZone } from "@/features/hq/core/hqTime";
 import { hqGreetingOpening, hqGreetingStatus, taskBoardSummary } from "@/lib/office/greeting";
 import { fetchSecuritySummary, type SecuritySummary } from "@/lib/office/securitySummary";
 import { hqSoundOn } from "@/features/hq/core/soundPreference";
-import { prepareSystemSpeech, speakAgent, speakSystem, type PreparedSpeech } from "@/lib/voice/systemVoice";
+import { prepareSystemSpeech, primeSpeechAudio, speakSystem, type PreparedSpeech } from "@/lib/voice/systemVoice";
+import { briefingAddressDebug, prepareBriefingAddress, type PreparedBriefingAddress } from "@/lib/voice/briefingAddress";
+import { briefingCues } from "@/features/hq/core/briefingScript";
 
 /** Without an opening fly-through, the greeting starts this long after the page (ms). */
 const GREET_WITHOUT_INTRO_MS = 30_000;
@@ -1044,7 +1046,6 @@ export function OfficeScreen({
     enqueue: enqueueVoiceReply,
     preview: previewVoiceReply,
     stop: stopVoiceReplyPlayback,
-    playing: voiceReplyPlaying,
   } = useVoiceReplyPlayback({
     enabled: voiceRepliesEnabled,
     provider: voiceRepliesPreference.provider,
@@ -2596,19 +2597,34 @@ export function OfficeScreen({
 
   // A voice command to the whole team becomes a briefing in the HQ: the
   // tribune rises, AM7 walks to it, everyone stands at their desk (running
-  // back to it if away), AM7's answer goes up on the wall and is spoken once
-  // he stands behind the tribune. It ends a few seconds after it was heard.
+  // back to it if away), AM7's answer goes up on the wall. He begins only once
+  // the floor has gathered (the sim's hallReady, with a cap), then says it
+  // over the hall's public address sentence by sentence, the wall following
+  // each sentence as it plays. It ends a few seconds after it was heard.
   const [hqBriefing, setHqBriefing] = useState<HqBriefing | null>(null);
   const hqBriefingRef = useRef<HqBriefing | null>(null);
-  const briefingSpokeRef = useRef(false);
-  // The briefing AM7 has reached the tribune for (the HQ reports it once).
-  const [hqArrivedId, setHqArrivedId] = useState<string | null>(null);
-  const hqArrivedRef = useRef<string | null>(null);
-  // AM7's answer, waiting for him to reach the tribune before it is spoken.
-  const pendingBriefingSpeechRef = useRef<{ id: string; text: string } | null>(null);
+  // The briefing whose floor has gathered (the HQ reports it once).
+  const [hqReadyId, setHqReadyId] = useState<string | null>(null);
+  const hqReadyRef = useRef<string | null>(null);
+  // His answer on the PA: which briefing; rendered as soon as it is known
+  // ("ready", while the floor gathers), then said ("playing") and over ("done").
+  const briefingSpeechRef = useRef<{
+    id: string;
+    state: "ready" | "playing" | "done";
+    speech: PreparedBriefingAddress;
+  } | null>(null);
   useEffect(() => {
     hqBriefingRef.current = hqBriefing;
   }, [hqBriefing]);
+  // The first click or key press unlocks the speech audio, so AM7 is heard
+  // the moment he begins (without it the speech waits for the next gesture).
+  useEffect(() => primeSpeechAudio(), []);
+  useEffect(
+    () => () => {
+      briefingSpeechRef.current?.speech.stop();
+    },
+    [],
+  );
   // The operation the briefing opened, for the «ХОД ЗАДАЧИ» wall: its id, the
   // task and AM7's first answer. It outlives the briefing (the wall tracks the
   // work after the floor has sat down) and is replaced by the next one.
@@ -2625,13 +2641,18 @@ export function OfficeScreen({
   const [hqMission, setHqMission] = useState<HqMissionTrack | null>(null);
   // The HUD's wall switch: the operation tracker ("auto") or the usual panels.
   const [hqWallMode, setHqWallMode] = useState<"auto" | "panels">("auto");
-  const startHqBriefing = useCallback((task: string): string => {
-    briefingSpokeRef.current = false;
-    pendingBriefingSpeechRef.current = null;
+  /**
+   * Starts a briefing in the HQ. A rehearsal (development only) is the HQ's
+   * side alone: no operation on the wall and no mission after it.
+   */
+  const startHqBriefing = useCallback((task: string, options: { rehearsal?: boolean } = {}): string => {
+    briefingSpeechRef.current?.speech.stop();
+    briefingSpeechRef.current = null;
     const startedAt = Date.now();
-    const next: HqBriefing = { id: `briefing-${startedAt.toString(36)}`, task, reply: "", speaking: false };
+    const next: HqBriefing = { id: `briefing-${startedAt.toString(36)}`, task, reply: "", speaking: false, cue: -1 };
     hqBriefingRef.current = next;
     setHqBriefing(next);
+    if (options.rehearsal) return next.id;
     setHqOperationSource({ id: next.id, task, reply: "", at: startedAt });
     setHqMission({ id: next.id, startedAt, addressed: null, sentAt: null });
     // A new operation always shows on the wall, whatever the last one was set to.
@@ -2639,37 +2660,22 @@ export function OfficeScreen({
     return next.id;
   }, []);
   useEffect(() => {
-    // AM7's answer is spoken while the voice plays and the answer has arrived.
-    setHqBriefing((current) => {
-      if (!current) return current;
-      const speaking = voiceReplyPlaying && Boolean(current.reply);
-      if (speaking) briefingSpokeRef.current = true;
-      return current.speaking === speaking ? current : { ...current, speaking };
-    });
-  }, [voiceReplyPlaying]);
-  useEffect(() => {
-    if (!hqBriefing || hqBriefing.speaking) return;
-    const voiced = voiceRepliesLoaded && voiceRepliesEnabled;
-    const reply = hqBriefing.reply;
-    // No answer yet: wait for it (two minutes at most). AM7 not behind the
-    // tribune yet: wait for him (the answer is spoken from there). Then:
-    // voiced, a few seconds after it was heard (or if its voice never starts);
-    // unvoiced, reading time.
-    const delay = !reply
-      ? 120_000
-      : hqArrivedId !== hqBriefing.id
-        ? 90_000
-        : briefingSpokeRef.current
-        ? 5_000
-        : voiced
-          ? 25_000
-          : Math.min(60_000, Math.max(10_000, reply.length * 70));
+    if (!hqBriefing) return;
     const id = hqBriefing.id;
+    const speech = briefingSpeechRef.current?.id === id ? briefingSpeechRef.current : null;
+    // While AM7 speaks (or his speech waits to be rendered, or for the audio
+    // to unlock) the briefing holds; it ends when he is done.
+    if (speech?.state === "playing") return;
+    const reply = hqBriefing.reply;
+    // No answer yet: wait for it (two minutes at most). The floor not
+    // gathered yet: wait for it (the sim caps that wait itself). Heard: a few
+    // seconds after.
+    const delay = !reply ? 120_000 : hqReadyId !== id ? 90_000 : speech?.state === "done" ? 5_000 : 25_000;
     const timer = window.setTimeout(() => {
       setHqBriefing((current) => (current && current.id === id ? null : current));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [hqBriefing, hqArrivedId, voiceRepliesEnabled, voiceRepliesLoaded]);
+  }, [hqBriefing, hqReadyId]);
 
   // The team a command to everyone is sent to (the local agents, AM7 included).
   const hqTeamAgents = useMemo(
@@ -2811,31 +2817,60 @@ export function OfficeScreen({
     },
   });
 
-  /** Speaks AM7's briefing answer: in the office's reply voice, else (HQ sound on) straight out. */
-  const speakBriefingReply = useCallback(
+  /**
+   * AM7's briefing answer on the hall's PA (lib/voice/briefingAddress): its
+   * sentences start rendering in his voice as soon as the answer is known,
+   * while the floor is still gathering, so he can say them back to back.
+   * Heard when the office's voice replies or the HQ's sound are on; otherwise
+   * the wall still walks the sentences at reading pace, in silence.
+   */
+  const prepareBriefingSpeech = useCallback(
     (id: string, text: string) => {
-      if (voiceRepliesLoaded && voiceRepliesEnabled) {
-        enqueueVoiceReply({ text, provider: voiceRepliesPreference.provider, voiceId: voiceForAgent(MAIN_AGENT_ID) });
-        return;
-      }
-      // AM7 answers the floor out loud even with the office's voice replies
-      // off, as long as the HQ's sound is on.
-      if (!hqSoundOn()) return;
-      const mark = (speaking: boolean) =>
-        setHqBriefing((current) => (current && current.id === id ? { ...current, speaking } : current));
-      mark(true);
-      void speakAgent(text, { voiceId: voiceForAgent(MAIN_AGENT_ID), speed: voiceRepliesPreference.speed }).then(
-        (spoken) => {
-          if (spoken) briefingSpokeRef.current = true;
-          mark(false);
+      const cues = briefingCues(text);
+      if (cues.length === 0) return;
+      briefingSpeechRef.current?.speech.stop();
+      const speech = prepareBriefingAddress(
+        cues.map((cue) => cue.speech),
+        {
+          voiceId: voiceForAgent(MAIN_AGENT_ID),
+          speed: voiceRepliesPreference.speed,
+          audible: (voiceRepliesLoaded && voiceRepliesEnabled) || hqSoundOn(),
+          // Nobody unlocks the audio for three minutes: the briefing goes on without it.
+          gestureTimeoutMs: 180_000,
         },
       );
+      briefingSpeechRef.current = { id, state: "ready", speech };
     },
-    [enqueueVoiceReply, voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference],
+    [voiceForAgent, voiceRepliesEnabled, voiceRepliesLoaded, voiceRepliesPreference.speed],
   );
   /**
-   * AM7's first answer at a briefing: up on the wall at once, spoken once he
-   * stands behind the tribune. False when there is no briefing waiting for one.
+   * AM7 begins (the floor has gathered): each sentence moves the wall (and his
+   * gesture to it) as it starts playing; the briefing ends a little after the last.
+   */
+  const startBriefingSpeech = useCallback(
+    (id: string) => {
+      const entry = briefingSpeechRef.current;
+      if (!entry || entry.id !== id || entry.state !== "ready") return;
+      const setFor = (patch: (current: HqBriefing) => HqBriefing) =>
+        setHqBriefing((current) => (current && current.id === id ? patch(current) : current));
+      // The PA takes the floor: a chat reply still being read out stops.
+      stopVoiceReplyPlayback();
+      entry.state = "playing";
+      const address = entry.speech.play({
+        onCueStart: (index) =>
+          setFor((current) => (current.cue === index && current.speaking ? current : { ...current, cue: index, speaking: true })),
+      });
+      void address.done.then(() => {
+        entry.state = "done";
+        setFor((current) => ({ ...current, speaking: false, cue: -1 }));
+      });
+    },
+    [stopVoiceReplyPlayback],
+  );
+  /**
+   * AM7's first answer at a briefing: up on the wall and rendering at once,
+   * spoken once the floor has gathered. False when there is no briefing
+   * waiting for one.
    */
   const takeBriefingReply = useCallback(
     (text: string): boolean => {
@@ -2847,23 +2882,19 @@ export function OfficeScreen({
       setHqOperationSource((current) =>
         current && current.id === id && !current.reply ? { ...current, reply: text } : current,
       );
-      if (hqArrivedRef.current === id) speakBriefingReply(id, text);
-      else pendingBriefingSpeechRef.current = { id, text };
+      prepareBriefingSpeech(id, text);
+      if (hqReadyRef.current === id) startBriefingSpeech(id);
       return true;
     },
-    [speakBriefingReply],
+    [prepareBriefingSpeech, startBriefingSpeech],
   );
-  const handleLeadAtTribune = useCallback(
+  const handleHallReady = useCallback(
     (id: string) => {
-      hqArrivedRef.current = id;
-      setHqArrivedId(id);
-      const pending = pendingBriefingSpeechRef.current;
-      if (pending && pending.id === id) {
-        pendingBriefingSpeechRef.current = null;
-        speakBriefingReply(id, pending.text);
-      }
+      hqReadyRef.current = id;
+      setHqReadyId(id);
+      startBriefingSpeech(id);
     },
-    [speakBriefingReply],
+    [startBriefingSpeech],
   );
   // The archive cart and the maintenance service, as console lines: who took
   // the cart out and what it freed, a run with nothing to take out, and the dev
@@ -2885,13 +2916,31 @@ export function OfficeScreen({
     // Development aid: start a briefing without a microphone, e.g.
     // window.__hqBriefing("Проверить периметр", "Цель: … План: …").
     if (process.env.NODE_ENV === "production") return;
-    const w = window as unknown as { __hqBriefing?: (task: string, reply?: string) => void };
+    const w = window as unknown as {
+      __hqBriefing?: (task: string, reply?: string) => void;
+      __hqBriefingRehearsal?: (task: string, reply: string) => string;
+      __hqBriefingAddress?: typeof briefingAddressDebug;
+    };
     w.__hqBriefing = (task: string, reply?: string) => {
       startHqBriefing(task);
       if (reply) takeBriefingReply(reply);
     };
+    // A full briefing in the HQ alone, sent to nobody: the floor gathers,
+    // AM7 waits for it, says `reply` over the PA in his voice (the local
+    // speech gateway), the wall follows him, and it ends. No message goes to
+    // any agent or through the gateway; no operation or mission is opened.
+    //   __hqBriefingRehearsal("Проверить периметр", "Цель: … План: 1) … 2) …")
+    //   __hqBriefingAddress()   // the audio context, the PA chain, the cue events
+    w.__hqBriefingRehearsal = (task: string, reply: string) => {
+      const id = startHqBriefing(task, { rehearsal: true });
+      takeBriefingReply(reply);
+      return id;
+    };
+    w.__hqBriefingAddress = briefingAddressDebug;
     return () => {
       delete w.__hqBriefing;
+      delete w.__hqBriefingRehearsal;
+      delete w.__hqBriefingAddress;
     };
   }, [startHqBriefing, takeBriefingReply]);
 
@@ -3528,7 +3577,7 @@ export function OfficeScreen({
           wallAvailable={hqOperation !== null}
           wallShowsOperation={hqWallMode === "auto"}
           onToggleWall={toggleHqWall}
-          onLeadAtTribune={handleLeadAtTribune}
+          onHallReady={handleHallReady}
           onArchiveEvent={handleHqArchiveEvent}
           creatorOnline={creatorPresence.online}
           creatorEntered={creatorPresence.entered}

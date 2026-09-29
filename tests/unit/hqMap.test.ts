@@ -618,7 +618,7 @@ class FakeContext {
   textAlign: CanvasTextAlign = "left";
   textBaseline = "alphabetic";
   letterSpacing = "0px";
-  readonly texts: Array<{ text: string; left: number; right: number; y: number; size: number }> = [];
+  readonly texts: Array<{ text: string; left: number; right: number; y: number; size: number; color: unknown; alpha: number }> = [];
   constructor(readonly canvas: { width: number; height: number }) {}
   private size(): number {
     return Number(/(\d+(?:\.\d+)?)px/.exec(this.font)?.[1] ?? 10);
@@ -629,7 +629,7 @@ class FakeContext {
   fillText(text: string, x: number, y: number): void {
     const width = this.measureText(text).width;
     const left = this.textAlign === "right" ? x - width : this.textAlign === "center" ? x - width / 2 : x;
-    this.texts.push({ text, left, right: left + width, y, size: this.size() });
+    this.texts.push({ text, left, right: left + width, y, size: this.size(), color: this.fillStyle, alpha: this.globalAlpha });
   }
   getImageData(_x: number, _y: number, w: number, h: number): { data: Uint8ClampedArray } {
     return { data: new Uint8ClampedArray(w * h * 4) };
@@ -765,6 +765,44 @@ describe("the video wall's briefing: pictures", () => {
     const lefts = new Set(wide.texts.filter((t) => t.text.startsWith("Шаг")).map((t) => Math.round(t.left)));
     expect(lefts.size).toBe(2);
     inside(wide, MAP_W, MAP_H);
+  });
+
+  it("follows AM7's sentence: the step lit on the plan, large on the task screen, on the banner", () => {
+    const focus = { section: "step" as const, step: 1, steps: 4, label: "ШАГ 2 / 4", title: "Сканирование открытых портов" };
+    const lit = { ...BRIEFING, focus };
+    const plan = paintInto(MAP_W, MAP_H, (p) => paintBriefingPlan(p, 1, lit));
+    const color = (text: string) => plan.texts.find((t) => t.text.startsWith(text))?.color;
+    expect(color("Сканирование открытых портов")).toBe("#ffffff");
+    for (const other of ["Разведка поддоменов", "Сверка найденного", "Отчёт AM7"]) expect(color(other)).not.toBe("#ffffff");
+    inside(plan, MAP_W, MAP_H);
+    // Nothing lit: every step in full white.
+    const plain = paintInto(MAP_W, MAP_H, (p) => paintBriefingPlan(p, 1, BRIEFING));
+    expect(plain.texts.filter((t) => /^(Разведка|Сканирование|Сверка|Отчёт)/.test(t.text)).every((t) => t.color === "#ffffff")).toBe(true);
+    // The task screen: the step's number huge, its title large, the task in the header.
+    const task = paintInto(MAP_W, MAP_H, (p) => paintBriefingTask(p, 1, lit));
+    const texts = task.texts.map((t) => t.text);
+    expect(texts).toContain("02");
+    expect(texts).toContain("ШАГ 2 ИЗ 4");
+    expect(texts.join(" ")).toContain("Сканирование открытых портов");
+    const number = task.texts.find((t) => t.text === "02")!;
+    expect(number.size).toBeGreaterThanOrEqual(200);
+    inside(task, MAP_W, MAP_H);
+    // The banner: the step's label and title instead of the goal.
+    const banner = paintInto(BANNER_W, BANNER_H, (p) => paintBriefingBanner(p, 1, lit));
+    const bannerText = banner.texts.map((t) => t.text).join(" ");
+    expect(bannerText).toContain("ШАГ 2 / 4");
+    expect(bannerText).toContain("Сканирование открытых портов");
+    expect(bannerText).not.toContain("ЦЕЛЬ");
+    inside(banner, BANNER_W, BANNER_H);
+  });
+
+  it("says on the banner that AM7 is waiting for the floor, and how many stand at their places", () => {
+    const banner = paintInto(BANNER_W, BANNER_H, (p) => paintBriefingBanner(p, 1, { ...BRIEFING, hold: { gathered: 37, expected: 52 } }));
+    const texts = banner.texts.map((t) => t.text).join(" ");
+    expect(texts).toContain("ОЖИДАНИЕ КОМАНДЫ");
+    expect(texts).toContain("на местах 37 / 52");
+    expect(texts).not.toContain("ЦЕЛЬ");
+    inside(banner, BANNER_W, BANNER_H);
   });
 
   it("paints the goal on the banner with the live tag, and waits politely for missing parts", () => {

@@ -7,8 +7,9 @@ import { CREW_ACKS, CREW_EXCHANGES, CREW_SOLOS, type CrewLine } from "./crewScri
  * around); this decides the words, as a conversation:
  *
  * - one voice at a time within earshot of each other (TURN_RADIUS): whoever
- *   is due waits until the neighbour's phrase has ended;
- * - a question gets its answer from someone next to the asker, right after it;
+ *   is due waits until the neighbour's phrase has ended, and a beat more;
+ * - a question gets its answer from someone next to the asker, right after it
+ *   (ANSWER_GAP); the next exchange follows a breath later (EXCHANGE_GAP);
  * - otherwise a new question, a remark, or (for a glance over a shoulder, or
  *   after someone else spoke) a short acknowledgement;
  * - lines heard recently are not picked again soon.
@@ -35,21 +36,42 @@ type Said = {
   exchange: number;
   role: TalkPick["role"];
   answered: boolean;
+  /** Silence after this phrase before the next voice nearby (seconds). */
+  gap: number;
 };
 
 /** Metres within which people hear each other (and take turns). */
 export const TURN_RADIUS = 3.6;
-/** Silence between two voices of one conversation (seconds). */
-const TURN_GAP = 0.3;
+/** Silence between a question and its answer (seconds): a natural reply comes a quarter to half a second on. */
+export const ANSWER_GAP_MIN = 0.25;
+export const ANSWER_GAP_MAX = 0.6;
+/** Silence before the next exchange, a remark or an acknowledgement (seconds). */
+export const EXCHANGE_GAP_MIN = 0.8;
+export const EXCHANGE_GAP_MAX = 2;
 /** How long after a question its answer may still come (seconds). */
 const ANSWER_WITHIN = 5;
 /** Lines not picked again for this many picks. */
 const RECENT = 40;
 const HISTORY = 24;
 
+/** One scheduled phrase, kept for measuring the conversation's rhythm (dev tools). */
+export type TalkLogEntry = {
+  speaker: string;
+  role: TalkPick["role"];
+  exchange: number;
+  x: number;
+  z: number;
+  start: number;
+  end: number;
+};
+
+const LOG = 400;
+
 export class CrewTalkPlanner {
   private readonly said: Said[] = [];
   private readonly recent: string[] = [];
+  /** The last LOG phrases scheduled (oldest first), for timing checks. */
+  readonly log: TalkLogEntry[] = [];
 
   constructor(private readonly random: () => number = Math.random) {}
 
@@ -60,11 +82,21 @@ export class CrewTalkPlanner {
   waitFor(speaker: string, x: number, z: number, now: number): number {
     let wait = 0;
     for (const s of this.said) {
-      if (s.speaker === speaker || s.end + TURN_GAP <= now) continue;
+      if (s.speaker === speaker || s.end + s.gap <= now) continue;
       if ((s.x - x) ** 2 + (s.z - z) ** 2 > TURN_RADIUS * TURN_RADIUS) continue;
-      wait = Math.max(wait, s.end + TURN_GAP - now);
+      wait = Math.max(wait, s.end + s.gap - now);
     }
     return wait;
+  }
+
+  /** How long after a question its answer starts (seconds, ANSWER_GAP_MIN..MAX). */
+  answerGap(): number {
+    return ANSWER_GAP_MIN + this.random() * (ANSWER_GAP_MAX - ANSWER_GAP_MIN);
+  }
+
+  /** How long a speaker rests after a phrase before their next one (seconds, EXCHANGE_GAP_MIN..MAX). */
+  exchangeGap(): number {
+    return EXCHANGE_GAP_MIN + this.random() * (EXCHANGE_GAP_MAX - EXCHANGE_GAP_MIN);
   }
 
   /** A question nearby, just asked by someone else and not answered yet, or null. */
@@ -130,19 +162,75 @@ export class CrewTalkPlanner {
     return { line: pool[Math.floor(this.random() * pool.length)], exchange: -1, role };
   }
 
-  /** Records that `speaker` says `pick` from `start` to `end` (audio seconds). */
-  spoke(speaker: string, pick: TalkPick, x: number, z: number, start: number, end: number): void {
+  /**
+   * Records that `speaker` says `pick` from `start` to `end` (audio seconds).
+   * Returns the silence kept after it before the next voice nearby.
+   */
+  spoke(speaker: string, pick: TalkPick, x: number, z: number, start: number, end: number): number {
     if (pick.role === "answer") {
       for (const s of this.said) if (s.role === "ask" && s.exchange === pick.exchange) s.answered = true;
     }
-    this.said.push({ speaker, x, z, start, end, exchange: pick.exchange, role: pick.role, answered: false });
+    // After a question only its answer may come (as soon as ANSWER_GAP_MIN);
+    // after anything else the conversation takes a breath.
+    const gap = pick.role === "ask" ? ANSWER_GAP_MIN : this.exchangeGap();
+    this.said.push({ speaker, x, z, start, end, exchange: pick.exchange, role: pick.role, answered: false, gap });
     if (this.said.length > HISTORY) this.said.shift();
     this.recent.push(pick.line.id);
     if (this.recent.length > RECENT) this.recent.shift();
+    this.log.push({ speaker, role: pick.role, exchange: pick.exchange, x, z, start, end });
+    if (this.log.length > LOG) this.log.shift();
+    return gap;
   }
 
-  /** Cuts `speaker`'s current phrase short at `time` (they walked off, or out of earshot). */
+  /**
+   * Cuts `speaker`'s current phrase short at `time` (they walked off, or out
+   * of earshot); a phrase scheduled to start later is dropped, and a dropped
+   * answer leaves its question open again.
+   */
   stopped(speaker: string, time: number): void {
-    for (const s of this.said) if (s.speaker === speaker && s.end > time) s.end = time;
+    for (let k = this.said.length - 1; k >= 0; k--) {
+      const s = this.said[k];
+      if (s.speaker !== speaker || s.end <= time) continue;
+      if (s.start < time) {
+        s.end = time;
+        continue;
+      }
+      this.said.splice(k, 1);
+      if (s.role === "answer") {
+        for (const q of this.said) if (q.role === "ask" && q.exchange === s.exchange) q.answered = false;
+      }
+      const l = this.log.findIndex((e) => e.speaker === speaker && e.start === s.start);
+      if (l >= 0) this.log.splice(l, 1);
+    }
   }
+}
+
+/** Someone who could answer a question (render/audio/HqSoundscape.tsx scheduleAnswer). */
+export type AnswerCandidate = {
+  x: number;
+  z: number;
+  /** Audio time their phrase playing or scheduled ends (0: none). */
+  busyUntil: number;
+  /** Whether the answer is decoded in their voice. */
+  ready: boolean;
+};
+
+/**
+ * Who answers a question asked at (x, z) that ends at `askEnd`: the nearest
+ * candidate within TURN_RADIUS who is free by then and has the answer
+ * decoded; -1 when there is none.
+ */
+export function chooseAnswerer(candidates: readonly AnswerCandidate[], x: number, z: number, askEnd: number): number {
+  let best = -1;
+  let bestD = TURN_RADIUS * TURN_RADIUS;
+  for (let k = 0; k < candidates.length; k++) {
+    const c = candidates[k];
+    if (!c.ready || c.busyUntil > askEnd) continue;
+    const d = (c.x - x) ** 2 + (c.z - z) ** 2;
+    if (d <= bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  return best;
 }
