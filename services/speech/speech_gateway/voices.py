@@ -22,23 +22,32 @@ from .fx import is_fx_preset
 
 ENGINES = ("silero", "voicestudio")
 VOICE_ID_RE = re.compile(r"^(silero|voicestudio):([A-Za-z0-9_.-]{1,80})$")
-#: Silero v5 Russian speakers (the `silero_model`, v5_5_ru by default).
-SILERO_SPEAKERS = ("aidar", "baya", "kseniya", "xenia", "eugene")
-#: Russian speakers of Silero's CIS model (v5_cis_base, MIT): more distinct
+#: Silero v5 Russian speakers the office offers (the `silero_model`, v5_5_ru
+#: by default). The office speaks with male voices only.
+SILERO_SPEAKERS = ("aidar", "eugene")
+#: Male Russian speakers of Silero's CIS model (v5_cis_base, MIT): more distinct
 #: voices for the crew's fallbacks. Loaded only once one of them speaks.
 SILERO_CIS_SPEAKERS = (
     "ru_alexandr", "ru_bogdan", "ru_dmitriy", "ru_eduard", "ru_gamat", "ru_igor", "ru_marat", "ru_roman",
     "ru_safarhuja", "ru_sibday",
+)
+ALL_SILERO_SPEAKERS = SILERO_SPEAKERS + SILERO_CIS_SPEAKERS
+#: Female speakers the office no longer offers: saved settings naming them
+#: are spoken by this male voice instead of failing.
+RETIRED_SILERO_SPEAKERS = (
+    "baya", "kseniya", "xenia",
     "ru_aigul", "ru_albina", "ru_alfia", "ru_alfia2", "ru_ekaterina", "ru_karina", "ru_kejilgan", "ru_kermen",
     "ru_miyau", "ru_nurgul", "ru_oksana", "ru_onaoy", "ru_ramilia", "ru_saida", "ru_vika", "ru_zara",
     "ru_zhadyra", "ru_zhazira", "ru_zinaida",
 )
-ALL_SILERO_SPEAKERS = SILERO_SPEAKERS + SILERO_CIS_SPEAKERS
+RETIRED_SILERO_REPLACEMENT = "silero:aidar"
+#: The retired female crew voices, each to a fixed male crew voice.
+RETIRED_VOICESTUDIO_VOICES = {
+    "voicestudio:crew-f1": "voicestudio:crew-m1",
+    "voicestudio:crew-f2": "voicestudio:crew-m2",
+}
 SILERO_LABELS = {
     "aidar": "Айдар",
-    "baya": "Бая",
-    "kseniya": "Ксения",
-    "xenia": "Ксения (светлый)",
     "eugene": "Евгений",
 }
 #: OpenAI voice names mean "the default voice" here.
@@ -50,6 +59,16 @@ _REFERENCE_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}\.(flac|wav)$")
 
 class UnknownVoice(ValueError):
     pass
+
+
+def replacement_for_retired(voice_id: str) -> str | None:
+    """The male voice that speaks for a retired (female) voice id, else None."""
+    if voice_id in RETIRED_VOICESTUDIO_VOICES:
+        return RETIRED_VOICESTUDIO_VOICES[voice_id]
+    engine, _, name = voice_id.partition(":")
+    if engine == "silero" and name in RETIRED_SILERO_SPEAKERS:
+        return RETIRED_SILERO_REPLACEMENT
+    return None
 
 
 def is_cis_speaker(speaker: str) -> bool:
@@ -78,7 +97,7 @@ class Voice:
     #: Post-processing preset (fx.FX_PRESETS): none, humanoid, humanoid-light.
     fx: str = "none"
     reference: Reference | None = None
-    #: "male" / "female": lines written for the crew take the speaker's grammatical gender.
+    #: "male" (the office speaks with male voices only).
     gender: str | None = None
 
     def public(self) -> dict[str, Any]:
@@ -149,6 +168,15 @@ class VoiceCatalog:
             value = self.default_voice
         if value in self._presets:
             return self._presets[value]
+        replacement = replacement_for_retired(value)
+        if replacement is not None:
+            # A retired female voice (an old saved setting): its male stand-in,
+            # or the default when the stand-in is not in this catalogue.
+            if replacement in self._presets:
+                return self._presets[replacement]
+            if replacement.startswith("silero:"):
+                return _silero_voice(replacement.split(":", 1)[1])
+            return self.resolve(self.default_voice)
         match = VOICE_ID_RE.match(value)
         if not match:
             raise UnknownVoice(f"Unknown voice '{value}'. Use <engine>:<name>, engines: {', '.join(ENGINES)}.")
@@ -195,8 +223,8 @@ def parse_preset(raw: dict[str, Any]) -> Voice:
             raise ValueError(f"voices.json: {voice_id}: a reference needs a file (name.flac or .wav) and its text")
         reference = Reference(file=file, text=text)
     gender = raw.get("gender")
-    if gender not in (None, "male", "female"):
-        raise ValueError(f"voices.json: {voice_id}: gender must be male or female")
+    if gender not in (None, "male"):
+        raise ValueError(f"voices.json: {voice_id}: the office offers male voices only (gender must be male)")
     return Voice(
         id=voice_id,
         engine=engine,

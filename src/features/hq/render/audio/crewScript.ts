@@ -7,37 +7,26 @@
  * Every line is pre-rendered for every crew voice (and AM7's) by
  * `npm run voice:bank` (scripts/voice-bank.mjs, through the local speech
  * gateway) and played back by the soundscape when an agent near the camera
- * is in a talk window. Female voices say `female` where Russian grammar
- * needs it (нашла, проверила). Ids are stable: changing a text re-renders
- * only that line.
+ * is in a talk window. Every voice is male, so the lines are written in the
+ * masculine form. Ids are stable: changing a text re-renders only that line.
  *
  * Plain erasable TypeScript without imports: the bank script loads this
  * file directly with Node.
  */
 
-export type CrewLine = {
-  id: string;
-  text: string;
-  /** The same line in the feminine form, when it differs. */
-  female?: string;
-};
+export type CrewLine = { id: string; text: string };
 
 /** A question and its answer: seated neighbours and standing groups take turns. */
 export type CrewExchange = { id: string; ask: CrewLine; answer: CrewLine };
 
-const x = (n: number, ask: string, answer: string, answerFemale?: string, askFemale?: string): CrewExchange => {
+const x = (n: number, ask: string, answer: string): CrewExchange => {
   const id = `x${String(n).padStart(2, "0")}`;
-  return {
-    id,
-    ask: { id: `${id}a`, text: ask, ...(askFemale ? { female: askFemale } : {}) },
-    answer: { id: `${id}b`, text: answer, ...(answerFemale ? { female: answerFemale } : {}) },
-  };
+  return { id, ask: { id: `${id}a`, text: ask }, answer: { id: `${id}b`, text: answer } };
 };
 
-const line = (prefix: string, n: number, text: string, female?: string): CrewLine => ({
+const line = (prefix: string, n: number, text: string): CrewLine => ({
   id: `${prefix}${String(n).padStart(2, "0")}`,
   text,
-  ...(female ? { female } : {}),
 });
 
 export const CREW_EXCHANGES: readonly CrewExchange[] = [
@@ -65,7 +54,7 @@ export const CREW_EXCHANGES: readonly CrewExchange[] = [
   x(22, "Сколько хостов в скоупе?", "Сорок два. Всё внутри учебного сегмента."),
   x(23, "Детект сработал?", "Сработал. Синие молодцы, увидели за минуту."),
   x(24, "Когда сдаём финальный отчёт?", "В пятницу. Черновик завтра утром."),
-  x(25, "Где свежая сводка по находкам?", "На дашборде, я только что обновил.", "На дашборде, я только что обновила."),
+  x(25, "Где свежая сводка по находкам?", "На дашборде, я только что обновил."),
   x(26, "Бэкап стенда сделан?", "Да, перед каждым заходом, как положено."),
   x(27, "Кто разбирает веб-часть?", "Я беру. Сетевую берёте вы вдвоём."),
   x(28, "Проблема воспроизводится?", "Стабильно, три раза из трёх."),
@@ -79,18 +68,18 @@ export const CREW_EXCHANGES: readonly CrewExchange[] = [
   x(36, "Учения на полигоне в силе?", "В силе. Сценарий новый, красные против синих."),
   x(37, "Таймлайн по операции согласовали?", "Да, три этапа, по два дня."),
   x(38, "Что говорит мониторинг?", "Тихо. Отклонений нет."),
-  x(39, "Пароли в отчёт не попали?", "Нет, всё замаскировано, проверил дважды.", "Нет, всё замаскировано, проверила дважды."),
+  x(39, "Пароли в отчёт не попали?", "Нет, всё замаскировано, проверил дважды."),
   x(40, "Рекомендации написаны?", "Да, по каждой находке, с приоритетами."),
   x(41, "Где стенд для ретеста?", "Во второй лабе, образ уже поднят."),
   x(42, "Тикет эскалировали?", "Да, заказчик в курсе, ответ до вечера."),
   x(43, "Лаба с доменом готова?", "Готова. Можно тренироваться хоть сейчас."),
-  x(44, "Что по средним находкам?", "Сгруппировал по сервисам, так читать проще.", "Сгруппировала по сервисам, так читать проще."),
+  x(44, "Что по средним находкам?", "Сгруппировал по сервисам, так читать проще."),
   x(45, "Интервью с администраторами заказчика когда?", "Завтра в одиннадцать, по видеосвязи."),
   x(46, "Ночной скан прошёл без сбоев?", "Без сбоев. Нагрузку держали в пределах."),
   x(47, "Акт о тестировании подписали?", "Подписали. Проект закрыт."),
   x(48, "Кто следующий на разборе?", "Моя очередь. Пять минут, и начинаю."),
   x(49, "Инструменты согласовали с заказчиком?", "Да, список утверждён, всё в документе."),
-  x(50, "Шума в логах много?", "Много. Фильтры поправил, стало лучше.", "Много. Фильтры поправила, стало лучше."),
+  x(50, "Шума в логах много?", "Много. Фильтры поправил, стало лучше."),
   x(51, "Покажешь цепочку на разборе?", "Покажу. Со схемой и таймингами."),
   x(52, "Как там синие?", "Держатся. Второй сценарий почти закрыли."),
   x(53, "Мы укладываемся в сроки?", "С запасом. Если без сюрпризов."),
@@ -130,9 +119,9 @@ export const CREW_SOLOS: readonly CrewLine[] = [
   line("s", 24, "Нужен второй взгляд на эту находку."),
   line("s", 25, "Сводка на дашборде обновлена."),
   line("s", 26, "Тикет заведён, приоритет высокий."),
-  line("s", 27, "Черновик отчёта отправил на вычитку.", "Черновик отчёта отправила на вычитку."),
-  line("s", 28, "Проверил конфигурацию, есть что поправить.", "Проверила конфигурацию, есть что поправить."),
-  line("s", 29, "Закончил с сетевой частью.", "Закончила с сетевой частью."),
+  line("s", 27, "Черновик отчёта отправил на вычитку."),
+  line("s", 28, "Проверил конфигурацию, есть что поправить."),
+  line("s", 29, "Закончил с сетевой частью."),
   line("s", 30, "Всё по регламенту, без самодеятельности."),
   line("s", 31, "Кофе, потом ретест."),
   line("s", 32, "Синие сегодня в форме."),
@@ -148,12 +137,12 @@ export const CREW_SOLOS: readonly CrewLine[] = [
 
 /** One or two words: a listener's reply, a glance over a shoulder. */
 export const CREW_ACKS: readonly CrewLine[] = [
-  line("k", 1, "Принял.", "Приняла."),
-  line("k", 2, "Понял.", "Поняла."),
+  line("k", 1, "Принял."),
+  line("k", 2, "Понял."),
   line("k", 3, "Да, вижу."),
-  line("k", 4, "Согласен.", "Согласна."),
+  line("k", 4, "Согласен."),
   line("k", 5, "Секунду."),
-  line("k", 6, "Отметил.", "Отметила."),
+  line("k", 6, "Отметил."),
   line("k", 7, "Делаю."),
   line("k", 8, "Хорошо."),
   line("k", 9, "Есть."),
@@ -163,7 +152,7 @@ export const CREW_ACKS: readonly CrewLine[] = [
   line("k", 13, "Принято, в работе."),
   line("k", 14, "Логично."),
   line("k", 15, "Давай."),
-  line("k", 16, "Ага, записал.", "Ага, записала."),
+  line("k", 16, "Ага, записал."),
   line("k", 17, "Уже смотрю."),
   line("k", 18, "Точно."),
   line("k", 19, "Без проблем."),
@@ -181,9 +170,4 @@ export function allCrewLines(): CrewLine[] {
   for (const exchange of CREW_EXCHANGES) out.push(exchange.ask, exchange.answer);
   out.push(...CREW_SOLOS, ...CREW_ACKS);
   return out;
-}
-
-/** The text a voice of `gender` says for `line`. */
-export function crewLineText(line: CrewLine, gender: "male" | "female" | null | undefined): string {
-  return gender === "female" && line.female ? line.female : line.text;
 }

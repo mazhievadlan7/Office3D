@@ -12,7 +12,6 @@ export type VoiceBankLine = { file: string; duration: number };
 
 export type VoiceBankVoice = {
   label: string;
-  gender: "male" | "female" | null;
   /** Crew line id to its file. */
   lines: Record<string, VoiceBankLine>;
 };
@@ -38,7 +37,7 @@ export function parseVoiceBankManifest(body: unknown): VoiceBankManifest | null 
   const voices: Record<string, VoiceBankVoice> = {};
   for (const [id, value] of Object.entries(raw.voices as Record<string, unknown>)) {
     if (!VOICE_ID_RE.test(id) || !value || typeof value !== "object") continue;
-    const entry = value as { label?: unknown; gender?: unknown; lines?: unknown };
+    const entry = value as { label?: unknown; lines?: unknown };
     const lines: Record<string, VoiceBankLine> = {};
     if (entry.lines && typeof entry.lines === "object") {
       for (const [lineId, item] of Object.entries(entry.lines as Record<string, unknown>)) {
@@ -51,7 +50,6 @@ export function parseVoiceBankManifest(body: unknown): VoiceBankManifest | null 
     if (Object.keys(lines).length === 0) continue;
     voices[id] = {
       label: typeof entry.label === "string" ? entry.label.slice(0, 80) : id,
-      gender: entry.gender === "female" ? "female" : entry.gender === "male" ? "male" : null,
       lines,
     };
   }

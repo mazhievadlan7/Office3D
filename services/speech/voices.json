@@ -5,7 +5,9 @@
       "id": "silero:system",
       "label": "Система штаба (Silero Евгений)",
       "role": "system",
-      "params": { "speaker": "eugene" },
+      "params": {
+        "speaker": "eugene"
+      },
       "fx": "humanoid",
       "gender": "male"
     },
@@ -142,44 +144,6 @@
       "fx": "humanoid-light",
       "gender": "male",
       "fallback": "silero:ru_eduard"
-    },
-    {
-      "id": "voicestudio:crew-f1",
-      "label": "Техлид — точная, собранная (Ж)",
-      "role": "crew",
-      "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A precise, confident adult female tech lead, cool and composed, medium-low pitch, crisp diction, speaking Russian.",
-        "seed": 7
-      },
-      "reference": {
-        "file": "techlead.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
-      },
-      "fx": "humanoid-light",
-      "gender": "female",
-      "fallback": "silero:baya"
-    },
-    {
-      "id": "voicestudio:crew-f2",
-      "label": "Разведка — спокойная, негромкая (Ж)",
-      "role": "crew",
-      "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A calm, soft-spoken adult female reconnaissance specialist, focused and quiet, medium pitch, speaking Russian.",
-        "seed": 7
-      },
-      "reference": {
-        "file": "recon.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
-      },
-      "fx": "humanoid-light",
-      "gender": "female",
-      "fallback": "silero:kseniya"
     }
   ]
 }

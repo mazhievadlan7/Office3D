@@ -103,7 +103,10 @@ def test_voices_lists_both_engines_and_roles(settings):
     assert ids["voicestudio:am7"]["role"] == "lead" and ids["voicestudio:am7"]["fx"] == "humanoid"
     assert ids["voicestudio:am7"]["fallback"] == "silero:ru_safarhuja"
     assert ids["silero:ru_safarhuja"]["engine"] == "silero"
-    assert {"silero:baya", "silero:kseniya", "silero:xenia", "silero:eugene"} <= set(ids)
+    assert {"silero:aidar", "silero:eugene"} <= set(ids)
+    # Male voices only.
+    assert not {"silero:baya", "silero:kseniya", "silero:xenia", "voicestudio:crew-f1", "voicestudio:crew-f2"} & set(ids)
+    assert all(voice.get("gender", "male") == "male" for voice in body["data"])
     assert sum(1 for v in body["data"] if v["role"] == "crew") >= 2
     # Nothing engine-internal (seeds, prompts) leaks into the list.
     assert "params" not in ids["voicestudio:am7"]
@@ -113,11 +116,11 @@ def test_silero_voice_is_served_locally(settings):
     silero = FakeSilero()
     vs = FakeVoiceStudio()
     client = make_client(settings, silero, vs)
-    response = client.post("/v1/audio/speech", json={"voice": "silero:baya", "input": "Привет,   штаб!", "response_format": "wav"})
+    response = client.post("/v1/audio/speech", json={"voice": "silero:eugene", "input": "Привет,   штаб!", "response_format": "wav"})
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/wav"
     assert response.headers["x-speech-engine"] == "silero"
-    assert silero.calls == [("Привет, штаб!", "baya", 1.0)]
+    assert silero.calls == [("Привет, штаб!", "eugene", 1.0)]
     assert not any(r.url.path == "/v1/audio/speech" for r in vs.requests)
     data, rate = sf.read(io.BytesIO(response.content))
     assert rate == 48_000 and len(data) > 0
@@ -195,11 +198,34 @@ def test_after_a_failure_fallback_voices_skip_voicestudio_for_a_while(settings):
     client.post("/v1/audio/speech", json={"voice": "voicestudio:am7", "input": "Раз"})
     tried = len([r for r in vs.requests if r.url.path == "/v1/audio/speech"])
     vs.down = False
-    response = client.post("/v1/audio/speech", json={"voice": "voicestudio:crew-f1", "input": "Два"})
-    assert response.headers["x-speech-fallback"] == "silero:baya"
+    response = client.post("/v1/audio/speech", json={"voice": "voicestudio:crew-m1", "input": "Два"})
+    assert response.headers["x-speech-fallback"] == "silero:ru_alexandr"
     assert len([r for r in vs.requests if r.url.path == "/v1/audio/speech"]) == tried
     # A voice without a fallback still tries VoiceStudio.
     assert client.post("/v1/audio/speech", json={"voice": "voicestudio:x", "input": "Три"}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "legacy, speaker",
+    [("silero:baya", "aidar"), ("silero:kseniya", "aidar"), ("silero:xenia", "aidar"), ("silero:ru_zinaida", "aidar")],
+)
+def test_retired_female_silero_voices_speak_with_a_male_voice(settings, legacy, speaker):
+    silero = FakeSilero()
+    client = make_client(settings, silero, cache=False)
+    response = client.post("/v1/audio/speech", json={"voice": legacy, "input": "Старая настройка", "response_format": "wav"})
+    assert response.status_code == 200
+    assert silero.calls[-1][1] == speaker
+
+
+def test_retired_female_crew_voices_map_to_fixed_male_crew_voices():
+    catalog = VoiceCatalog.load(SERVICE_DIR / "voices.json", "silero:aidar", "voxcpm2")
+    assert catalog.resolve("voicestudio:crew-f1").id == "voicestudio:crew-m1"
+    assert catalog.resolve("voicestudio:crew-f2").id == "voicestudio:crew-m2"
+    assert catalog.resolve("silero:baya").id == "silero:aidar"
+    assert all(voice.params.get("speaker") not in {"baya", "kseniya", "xenia"} for voice in catalog.list())
+    # Without the crew presets, a retired crew voice is the default voice.
+    bare = VoiceCatalog([], "silero:eugene", "voxcpm2")
+    assert bare.resolve("voicestudio:crew-f1").id == "silero:eugene"
 
 
 def test_voicestudio_down_without_fallback_is_503(settings):
@@ -248,7 +274,7 @@ def test_engine_failure_is_a_503_without_details(settings):
 def test_speech_is_cached_by_request(settings):
     silero = FakeSilero()
     client = make_client(settings, silero)
-    payload = {"voice": "silero:xenia", "input": "Кэш", "response_format": "opus"}
+    payload = {"voice": "silero:eugene", "input": "Кэш", "response_format": "opus"}
     first = client.post("/v1/audio/speech", json=payload)
     second = client.post("/v1/audio/speech", json=payload)
     assert first.headers["x-speech-cache"] == "miss" and second.headers["x-speech-cache"] == "hit"
@@ -472,7 +498,7 @@ def test_shipped_voices_file_parses():
     assert len(fallbacks) == len(set(fallbacks))
     assert catalog.resolve("silero:system").params["speaker"] not in {f.split(":")[1] for f in fallbacks}
     crew = [v for v in catalog.list() if v.role == "crew"]
-    assert len(crew) >= 8 and {v.gender for v in crew} == {"male", "female"}
+    assert len(crew) >= 6 and {v.gender for v in crew} == {"male"}
 
 
 def _ref_store(tmp_path: Path) -> ReferenceStore:

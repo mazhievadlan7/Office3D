@@ -9,7 +9,7 @@ import { HQ_PLACE, type HqAgentFrame } from "@/features/hq/core/types";
 import { isSpeakingClip, isTypingClip } from "@/features/hq/render/crowd/clipTable";
 import { crewVoiceFor } from "@/lib/voice/agentVoices";
 import { isForegroundSpeechActive, onForegroundSpeech } from "@/lib/voice/speechDuck";
-import { CREW_EXCHANGES, crewLineText } from "./crewScript";
+import { CREW_EXCHANGES } from "./crewScript";
 import { CrewTalkPlanner, TURN_RADIUS, type TalkKind, type TalkPick } from "./crewTalk";
 import { HqAudio, type HqAudioSource, type HqPhrase, type HqVoice } from "./hqAudio";
 import { LEAD_VOICE, VoiceBankClient } from "./voiceBankClient";
@@ -54,9 +54,8 @@ type Talker = {
   nextAt: number;
   phrase: number;
   seed: number;
-  /** The agent's voice in the bank, and its grammatical gender. */
+  /** The agent's voice in the bank. */
   voiceId: string | null;
-  gender: "male" | "female" | null;
   /** The phrase playing, what it says (for captions), and what comes next. */
   playing: HqPhrase | null;
   text: string;
@@ -97,7 +96,6 @@ const newTalker = (): Talker => ({
   phrase: 0,
   seed: 0,
   voiceId: null,
-  gender: null,
   playing: null,
   text: "",
   planned: null,
@@ -302,7 +300,6 @@ export function HqSoundscape({
       free.phrase = 0;
       free.nextAt = now + free.seed * 0.4;
       free.voiceId = bankVoiceFor(bank, id, f.lead[i] === 1);
-      free.gender = free.voiceId ? (bank.voice(free.voiceId)?.gender ?? null) : null;
       free.restUntil = now + 0.2 + free.seed * 0.6;
       free.planned = null;
       free.text = "";
@@ -440,7 +437,7 @@ function speakPhrases(
   t.playing = audio.phrase(src.panner, buffer, start, PHRASE_LEVEL);
   if (!t.playing) return true;
   planner.spoke(id, pick, x, z, start, t.playing.endsAt);
-  t.text = crewLineText(pick.line, t.gender);
+  t.text = pick.line.text;
   t.restUntil = t.playing.endsAt + (kind === "group" ? 0.4 : 0.9) + Math.random() * 1.6;
   t.planned = null;
   // Whoever is next to the asker gets the answer ready in their own voice.

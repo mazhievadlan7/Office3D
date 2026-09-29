@@ -24,7 +24,7 @@ import {
 } from "@/features/office/tasks/types";
 import { t } from "@/lib/i18n";
 import { capAutomaticTaskCards } from "@/lib/tasks/taskBoardCap";
-import { isSpeechVoiceId } from "@/lib/voice/voiceCatalog";
+import { currentSpeechVoiceId, isSpeechVoiceId } from "@/lib/voice/voiceCatalog";
 
 export type StudioGatewaySettings = {
   url: string;
@@ -1098,11 +1098,12 @@ const MAX_AGENT_VOICES = 500;
 /**
  * A voice as the speech gateway names it (`silero:…`, `voicestudio:…`). Ids
  * saved for a retired provider are dropped, so the agent gets a voice picked
- * for it again instead of a voice nobody can speak.
+ * for it again instead of a voice nobody can speak; a retired female voice
+ * becomes its male stand-in (the office speaks with male voices only).
  */
 const normalizeSpeechVoiceId = (value: unknown, fallback: string | null): string | null => {
-  if (value === undefined) return isSpeechVoiceId(fallback) ? fallback.trim() : null;
-  return isSpeechVoiceId(value) ? value.trim() : null;
+  if (value === undefined) return isSpeechVoiceId(fallback) ? currentSpeechVoiceId(fallback) : null;
+  return isSpeechVoiceId(value) ? currentSpeechVoiceId(value) : null;
 };
 
 const normalizeAgentVoices = (value: unknown, fallback: Record<string, string>): Record<string, string> => {
@@ -1111,7 +1112,7 @@ const normalizeAgentVoices = (value: unknown, fallback: Record<string, string>):
   for (const [agentId, voiceId] of Object.entries(source).slice(0, MAX_AGENT_VOICES)) {
     const id = agentId.trim();
     if (!id || !isSpeechVoiceId(voiceId)) continue;
-    voices[id] = voiceId.trim();
+    voices[id] = currentSpeechVoiceId(voiceId);
   }
   return voices;
 };

@@ -7,7 +7,10 @@
 // operator voices) picked by a stable hash of their id — so the same agent
 // always sounds the same — skipping the main agent's voice while there are
 // others to choose from, so a meeting does not sound like one person talking
-// to themselves. The HQ system's voice is never handed to an agent.
+// to themselves. The HQ system's voice is never handed to an agent. A retired
+// female voice (an old setting) resolves to its male stand-in.
+
+import { currentSpeechVoiceId } from "./voiceCatalog";
 
 export type VoiceOption = { id: string; label: string; role?: string };
 
@@ -45,9 +48,10 @@ export const resolveAgentVoice = (params: {
 }): string | null => {
   const { agentId, mainAgentId, officeVoiceId, agentVoices, setup } = params;
   const chosen = agentVoices[agentId];
-  if (chosen) return chosen;
-  const mainVoice =
+  if (chosen) return currentSpeechVoiceId(chosen);
+  const main =
     agentVoices[mainAgentId] ?? officeVoiceId ?? setup?.tts.leadVoiceId ?? setup?.tts.defaultVoiceId ?? null;
+  const mainVoice = main ? currentSpeechVoiceId(main) : null;
   if (agentId === mainAgentId) return mainVoice;
   const crew = setup?.tts.crewVoiceIds ?? [];
   const systemVoice = setup?.tts.systemVoiceId ?? null;

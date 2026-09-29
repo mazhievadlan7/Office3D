@@ -74,12 +74,12 @@ describe("voice providers", () => {
 
   it("speaks_with_a_gateway_voice", async () => {
     const calls = stubFetch(mp3());
-    const response = await ttsProvider({}).synthesize({ text: "Брифинг", voiceId: "voicestudio:crew-f1", speed: 3 });
+    const response = await ttsProvider({}).synthesize({ text: "Брифинг", voiceId: "voicestudio:crew-m2", speed: 3 });
     expect(response.ok).toBe(true);
     expect(calls[0].url).toBe("http://127.0.0.1:8765/v1/audio/speech");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       input: "Брифинг",
-      voice: "voicestudio:crew-f1",
+      voice: "voicestudio:crew-m2",
       response_format: "mp3",
       speed: 1.2,
     });
@@ -174,7 +174,9 @@ describe("voice providers", () => {
           { id: "silero:system", label: "Система", role: "system", engine: "silero" },
           { id: "voicestudio:am7", label: "AM7", role: "lead", engine: "voicestudio", fallback: "silero:eugene" },
           { id: "voicestudio:crew-m1", label: "М1", role: "crew", engine: "voicestudio" },
-          { id: "voicestudio:crew-f1", label: "Ж1", role: "crew", engine: "voicestudio" },
+          { id: "voicestudio:crew-m2", label: "М2", role: "crew", engine: "voicestudio" },
+          // An older gateway may still list a retired female voice: not offered.
+          { id: "voicestudio:crew-f1", label: "Ж1", role: "crew", engine: "voicestudio", gender: "female" },
           { id: "not a voice", label: "x" },
         ],
       }),
@@ -187,13 +189,13 @@ describe("voice providers", () => {
       defaultVoiceId: "voicestudio:am7",
       systemVoiceId: "silero:system",
       leadVoiceId: "voicestudio:am7",
-      crewVoiceIds: ["voicestudio:crew-m1", "voicestudio:crew-f1"],
+      crewVoiceIds: ["voicestudio:crew-m1", "voicestudio:crew-m2"],
     });
     expect(setup.tts.options.map((option) => option.id)).toEqual([
       "silero:system",
       "voicestudio:am7",
       "voicestudio:crew-m1",
-      "voicestudio:crew-f1",
+      "voicestudio:crew-m2",
     ]);
     expect(setup.stt).toEqual({ provider: "local-speech", ready: true });
     expect(JSON.stringify(setup)).not.toContain("vs-secret");

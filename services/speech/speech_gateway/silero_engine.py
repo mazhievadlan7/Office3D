@@ -6,8 +6,8 @@ then reads the marks as written, with its own accenting switched off, so the
 stress we computed is the stress you hear. Long text is spoken sentence by
 sentence (Silero has a per-call length limit) and joined with short pauses.
 
-Two model files: the main Russian model (v5_5_ru: aidar, eugene, baya, …) and
-the CIS model (v5_cis_base, MIT: ru_roman, ru_safarhuja, …), which gives the
+Two model files: the main Russian model (v5_5_ru: aidar, eugene) and
+the CIS model (v5_cis_base, MIT: its male speakers, ru_roman, ru_safarhuja, …), which gives the
 crew's fallback voices distinct timbres. The CIS model loads the first time
 one of its speakers talks.
 """

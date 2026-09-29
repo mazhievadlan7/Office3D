@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CREW_ACKS, CREW_EXCHANGES, CREW_SOLOS, allCrewLines, crewLineText } from "@/features/hq/render/audio/crewScript";
+import { CREW_ACKS, CREW_EXCHANGES, CREW_SOLOS, allCrewLines } from "@/features/hq/render/audio/crewScript";
 import { CrewTalkPlanner } from "@/features/hq/render/audio/crewTalk";
 import { crewVoiceFor, resolveAgentVoice } from "@/lib/voice/agentVoices";
 import { beginForegroundSpeech, isForegroundSpeechActive, onForegroundSpeech } from "@/lib/voice/speechDuck";
@@ -21,11 +21,9 @@ describe("crew script", () => {
     expect(CREW_SOLOS.length + CREW_ACKS.length).toBeGreaterThan(40);
   });
 
-  it("speaks_in_the_voice's_grammatical_gender", () => {
-    const ack = CREW_ACKS.find((line) => line.text === "Принял.")!;
-    expect(crewLineText(ack, "female")).toBe("Приняла.");
-    expect(crewLineText(ack, "male")).toBe("Принял.");
-    expect(crewLineText(CREW_EXCHANGES[0].ask, "female")).toBe(CREW_EXCHANGES[0].ask.text);
+  it("is_written_for_male_voices_only", () => {
+    expect(CREW_ACKS.some((line) => line.text === "Принял.")).toBe(true);
+    expect(allCrewLines().every((line) => Object.keys(line).sort().join() === "id,text")).toBe(true);
   });
 });
 
@@ -43,7 +41,6 @@ describe("voice bank format", () => {
       voices: {
         "voicestudio:crew-m1": {
           label: "М1",
-          gender: "male",
           lines: { x01a: { file: "crew-m1.x01a.b7aaa86c9328.mp3", duration: 1.5 }, bad: { file: "../x.mp3" } },
         },
         "evil voice": { lines: { x01a: { file: "crew-m1.x01a.b7aaa86c9328.mp3" } } },
@@ -90,7 +87,8 @@ describe("crew talk planner", () => {
 describe("casting", () => {
   it("gives_each_agent_one_crew_voice_consistently_with_chat_replies", () => {
     const crew = BUILTIN_SPEECH_VOICES.filter((voice) => voice.role === "crew").map((voice) => voice.id);
-    expect(crew).toHaveLength(8);
+    expect(crew).toHaveLength(6);
+    expect(BUILTIN_SPEECH_VOICES.filter((voice) => voice.role === "crew").every((voice) => voice.gender === "male")).toBe(true);
     const setup = {
       tts: {
         provider: "local-speech",
@@ -110,7 +108,7 @@ describe("casting", () => {
       expect(voice).toBe(resolveAgentVoice({ agentId: id, mainAgentId: "main", officeVoiceId: null, agentVoices: {}, setup }));
       used.add(voice!);
     }
-    expect(used.size).toBe(8);
+    expect(used.size).toBe(6);
     const fallbacks = BUILTIN_SPEECH_VOICES.flatMap((voice) => (voice.fallback ? [voice.fallback] : []));
     expect(new Set(fallbacks).size).toBe(fallbacks.length);
   });

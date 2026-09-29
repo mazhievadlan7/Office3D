@@ -16,6 +16,9 @@
 // --allow-fallback), so a later run with VoiceStudio up fills them in.
 //
 //   node scripts/voice-bank.mjs [--voices=crew-m1,am7] [--limit=N] [--allow-fallback] [--no-prune] [--check]
+//
+// Pruning (on unless --no-prune): voices voices.json no longer offers leave the
+// manifest, and files no manifest entry names are deleted after the run.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
@@ -85,7 +88,7 @@ const mp3Duration = (data) => {
 };
 const readOr = (file, fallback = "") => (existsSync(file) ? readFileSync(file) : fallback);
 
-const { allCrewLines, crewLineText } = await import(
+const { allCrewLines } = await import(
   pathToFileURL(path.join(repoRoot, "src", "features", "hq", "render", "audio", "crewScript.ts")).href
 );
 
@@ -179,6 +182,18 @@ if (flag("check")) {
 }
 
 mkdirSync(bankDir, { recursive: true });
+
+// Voices voices.json no longer offers (retired presets) leave the manifest;
+// their files are pruned at the end with the other outdated ones.
+if (!flag("no-prune")) {
+  const offered = new Set(presets.filter((p) => p.role === "crew" || p.role === "lead").map((p) => p.id));
+  const retired = Object.keys(manifest.voices).filter((id) => !offered.has(id));
+  for (const id of retired) delete manifest.voices[id];
+  if (retired.length) {
+    saveManifest();
+    console.log(`[voice-bank] dropped retired voices: ${retired.join(", ")}`);
+  }
+}
 const logPath = path.join(bankDir, "render-log.jsonl");
 
 const health = await fetch(`${gateway}/health`, { signal: AbortSignal.timeout(5000) })
@@ -197,13 +212,13 @@ if (!health.engines?.voicestudio?.reachable && !flag("allow-fallback")) {
 const jobs = [];
 for (const line of lines) {
   for (const preset of voices) {
-    const text = crewLineText(line, preset.gender ?? null);
+    const text = line.text;
     const hash = lineHash(preset, text);
     const file = `${slug(preset)}.${line.id}.${hash}.mp3`;
     if (!FILE_RE.test(file)) throw new Error(`bad bank file name ${file}`);
-    const entry = (manifest.voices[preset.id] ??= { label: preset.label, gender: preset.gender ?? null, lines: {} });
+    const entry = (manifest.voices[preset.id] ??= { label: preset.label, lines: {} });
     entry.label = preset.label;
-    entry.gender = preset.gender ?? null;
+    delete entry.gender;
     const known = entry.lines[line.id];
     if (known && known.file === file && existsSync(path.join(bankDir, file))) continue;
     jobs.push({ preset, line, text, file });
