@@ -1,7 +1,10 @@
 """Setup and check helpers, used by scripts/speech-setup.* and by hand.
 
     python -m speech_gateway.tools prefetch
-        Download Silero and the stress model now (instead of at first speech).
+        Download Silero, the stress model and the speech-recognition model
+        (GigaAM v3 + Silero VAD) now, instead of at first use.
+    python -m speech_gateway.tools prefetch-stt
+        Only the speech-recognition model.
     python -m speech_gateway.tools voicestudio-install voxcpm2 [--url URL]
         Ask a running VoiceStudio (on loopback) to install one of its engines
         into its own sidecar venv, and wait until it is done.
@@ -20,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -32,6 +36,30 @@ def _json(method: str, url: str, body: dict | None = None, timeout: float = 30.0
     request = urllib.request.Request(url, data=data, method=method, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - local URLs
         return json.loads(response.read().decode() or "{}")
+
+
+def prefetch_stt() -> int:
+    """Download GigaAM and Silero VAD and run them once."""
+    from .config import Settings
+    from .stt_engine import GigaAMEngine
+
+    settings = Settings.from_env()
+    if settings.stt_engine != "gigaam":
+        print(f"Speech recognition: SPEECH_STT_ENGINE={settings.stt_engine}, nothing to download.")
+        return 0
+    settings.use_hf_home()
+    engine = GigaAMEngine(
+        model=settings.stt_model,
+        quantization=settings.stt_quantization,
+        threads=settings.stt_threads,
+        vad=settings.stt_vad,
+        model_dir=settings.stt_model_dir,
+    )
+    started = time.perf_counter()
+    engine.load()
+    print(f"GigaAM {engine.describe()['model']} ready on cpu in {time.perf_counter() - started:.1f}s "
+          f"({settings.stt_model_dir or 'HF_HOME=' + os.environ.get('HF_HOME', '')})")
+    return 0
 
 
 def prefetch() -> int:
@@ -51,7 +79,7 @@ def prefetch() -> int:
     engine.load()
     print(f"Silero {settings.silero_model} ready on {engine.device} in {time.perf_counter() - started:.1f}s "
           f"({engine.model_path})")
-    return 0
+    return prefetch_stt()
 
 
 def voicestudio_install(engine: str, url: str, timeout_s: float) -> int:
@@ -176,14 +204,18 @@ def smoke(url: str, out: Path, wav: Path | None) -> int:
         ).encode() + sample.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
         request = urllib.request.Request(f"{base}/v1/audio/transcriptions", data=payload, method="POST",
                                          headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-        started = time.perf_counter()
-        try:
-            with urllib.request.urlopen(request, timeout=900) as response:  # noqa: S310
-                result = json.loads(response.read().decode())
-            print(f"transcription ({sample.name}): {time.perf_counter() - started:.2f} s -> {result.get('text')!r}")
-        except urllib.error.HTTPError as exc:
-            print(f"transcription: HTTP {exc.code} {exc.read()[:300]!r}")
-            ok = False
+        for attempt in ("first", "again"):
+            started = time.perf_counter()
+            try:
+                with urllib.request.urlopen(request, timeout=900) as response:  # noqa: S310
+                    result = json.loads(response.read().decode())
+                    engine = response.headers.get("x-speech-stt-engine", "?")
+                print(f"transcription ({sample.name}, {attempt}): {time.perf_counter() - started:.2f} s "
+                      f"engine={engine} -> {result.get('text')!r}")
+            except urllib.error.HTTPError as exc:
+                print(f"transcription: HTTP {exc.code} {exc.read()[:300]!r}")
+                ok = False
+                break
     return 0 if ok else 1
 
 
@@ -196,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m speech_gateway.tools")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("prefetch")
+    sub.add_parser("prefetch-stt")
     install = sub.add_parser("voicestudio-install")
     install.add_argument("engine")
     install.add_argument("--url", default="http://127.0.0.1:3900")
@@ -215,6 +248,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "prefetch":
         return prefetch()
+    if args.command == "prefetch-stt":
+        return prefetch_stt()
     if args.command == "voicestudio-install":
         return voicestudio_install(args.engine, args.url, args.timeout)
     if args.command == "voicestudio-warm":

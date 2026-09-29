@@ -4,10 +4,11 @@
 
 .DESCRIPTION
   - the speech gateway (services/speech): a Python venv with Silero TTS v5 and
-    silero-stress, plus their model weights;
+    silero-stress, and speech recognition (GigaAM v3 + Silero VAD through
+    onnx-asr, on the CPU), plus their model weights;
   - VoiceStudio's backend (headless, no desktop app): cloned, its own venv
     via uv, the VoxCPM2 engine in VoiceStudio's sidecar venv, and the
-    Whisper weights for speech recognition.
+    Whisper weights (only the fallback recogniser now; -SkipAsr leaves them out).
 
   Everything lands in -SpeechHome (default %LOCALAPPDATA%\office3d-speech, or
   OFFICE3D_SPEECH_HOME). Nothing is written into the repository. Run it again
@@ -90,8 +91,10 @@ if (-not (Test-Path $GatewayPython)) {
 Step "Installing the gateway's packages"
 Invoke-Checked $uv @("pip", "install", "--python", $GatewayPython, "-r", (Join-Path $ServiceDir "requirements-$Torch.txt"))
 
-Step "Downloading Silero and the stress model"
+Step "Downloading Silero, the stress model and GigaAM v3 (speech recognition, ~0.9 GB)"
 $env:OFFICE3D_SPEECH_HOME = $SpeechHome
+# The same place `npm run speech` gives the gateway.
+$env:HF_HOME = Join-Path $SpeechHome "hf"
 Push-Location $ServiceDir
 try { Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "prefetch") } finally { Pop-Location }
 
@@ -151,7 +154,7 @@ try {
       Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "voicestudio-warm", "voxcpm2")
     }
     if (-not $SkipAsr) {
-      Step "Downloading the speech-recognition model $AsrModel"
+      Step "Downloading VoiceStudio's fallback speech-recognition model $AsrModel"
       Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "voicestudio-model", $AsrModel)
     }
   } finally { Pop-Location }

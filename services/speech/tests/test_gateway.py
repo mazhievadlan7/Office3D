@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -18,7 +19,7 @@ from speech_gateway.config import SERVICE_DIR, Settings, is_loopback
 from speech_gateway.voices import VoiceCatalog
 from speech_gateway.voicestudio import VoiceStudioClient
 
-from conftest import FakeSilero
+from conftest import FakeSilero, FakeStt
 
 
 def wav_bytes(seconds: float = 0.2, rate: int = 24_000) -> bytes:
@@ -59,13 +60,16 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(home=tmp_path, warmup=False, max_input_chars=200, max_upload_mb=1)
 
 
-def make_client(settings: Settings, silero=None, vs: FakeVoiceStudio | None = None, cache: bool = True) -> TestClient:
+def make_client(
+    settings: Settings, silero=None, vs: FakeVoiceStudio | None = None, cache: bool = True, stt=None
+) -> TestClient:
     vs = vs or FakeVoiceStudio()
     app = create_app(
         settings,
         silero=silero or FakeSilero(),
         voicestudio=vs.client(),
         cache=SpeechCache(settings.cache_dir, 10 * 1024 * 1024, enabled=cache),
+        stt=stt or FakeStt(),
         warmup=False,
     )
     return TestClient(app)
@@ -238,20 +242,107 @@ def test_formats(settings, fmt, media):
         assert abs(len(response.content) - 4800) <= 4
 
 
-def test_transcription_is_forwarded_with_language_default(settings):
+def test_transcription_is_local_and_never_touches_voicestudio(settings):
     vs = FakeVoiceStudio()
-    client = make_client(settings, vs=vs)
+    stt = FakeStt()
+    client = make_client(settings, vs=vs, stt=stt)
+    for _ in range(3):
+        response = client.post(
+            "/v1/audio/transcriptions",
+            files={"file": ("voice-note.webm", b"\x1a\x45\xdf\xa3fake", "audio/webm")},
+            data={"model": "whisper-1", "language": "ru"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"text": "Покажи статус операции."}
+        assert response.headers["x-speech-stt-engine"] == "gigaam"
+    assert len(stt.calls) == 3 and stt.calls[0].startswith(b"\x1a\x45\xdf\xa3")
+    assert not any(r.url.path == "/v1/audio/transcriptions" for r in vs.requests)
+
+
+@pytest.mark.parametrize(
+    "fmt, check",
+    [
+        ("text", lambda r: r.text == "Покажи статус операции."),
+        ("verbose_json", lambda r: r.json()["segments"][0]["start"] == 0.4 and r.json()["duration"] == 3.2),
+        ("srt", lambda r: r.text.startswith("1\n00:00:00,400 --> 00:00:02,900\nПокажи")),
+        ("vtt", lambda r: r.text.startswith("WEBVTT\n\n00:00:00.400 --> 00:00:02.900\n")),
+    ],
+)
+def test_local_transcription_formats(settings, fmt, check):
+    response = make_client(settings).post(
+        "/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")}, data={"response_format": fmt}
+    )
+    assert response.status_code == 200 and check(response)
+
+
+def test_transcription_is_forwarded_when_voicestudio_is_asked_for(settings):
+    vs = FakeVoiceStudio()
+    stt = FakeStt()
+    client = make_client(settings, vs=vs, stt=stt)
     response = client.post(
         "/v1/audio/transcriptions",
         files={"file": ("note.webm", b"\x1a\x45\xdf\xa3fake", "audio/webm")},
-        data={"model": "whisper-1"},
+        data={"model": "voicestudio"},
     )
     assert response.status_code == 200
     assert response.json() == {"text": "привет штаб"}
+    assert response.headers["x-speech-stt-engine"] == "voicestudio"
+    assert stt.calls == []
     forwarded = [r for r in vs.requests if r.url.path == "/v1/audio/transcriptions"][0]
     body = forwarded.content.decode("latin-1")
     assert 'name="language"' in body and "ru" in body
     assert 'filename="note.webm"' in body
+    assert "whisper-1" in body and "voicestudio" not in body
+
+
+def test_other_languages_go_to_voicestudio(settings):
+    vs = FakeVoiceStudio()
+    stt = FakeStt()
+    response = make_client(settings, vs=vs, stt=stt).post(
+        "/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")}, data={"language": "en"}
+    )
+    assert response.headers["x-speech-stt-engine"] == "voicestudio" and stt.calls == []
+
+
+def test_voicestudio_engine_setting_forwards_everything(tmp_path):
+    vs = FakeVoiceStudio()
+    app = create_app(Settings(home=tmp_path, warmup=False, stt_engine="voicestudio"), silero=FakeSilero(),
+                     voicestudio=vs.client(), warmup=False)
+    response = TestClient(app).post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    assert response.json() == {"text": "привет штаб"}
+    assert TestClient(app).get("/health").json()["engines"]["stt"]["engine"] == "voicestudio"
+
+
+def test_local_failure_falls_back_to_voicestudio(settings):
+    vs = FakeVoiceStudio()
+    client = make_client(settings, vs=vs, stt=FakeStt(fail=RuntimeError("onnxruntime missing")))
+    response = client.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    assert response.status_code == 200 and response.headers["x-speech-stt-engine"] == "voicestudio"
+
+
+def test_while_gigaam_first_loads_voicestudio_answers(settings):
+    stt = FakeStt()
+    stt.ready, stt.loading = False, True
+    response = make_client(settings, stt=stt).post(
+        "/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")}
+    )
+    assert response.headers["x-speech-stt-engine"] == "voicestudio" and stt.calls == []
+
+
+def test_local_failure_without_fallback_is_503(tmp_path):
+    settings = Settings(home=tmp_path, warmup=False, stt_fallback=False)
+    client = make_client(settings, stt=FakeStt(fail=RuntimeError("boom")))
+    response = client.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    assert response.status_code == 503 and "boom" not in response.text
+
+
+def test_undecodable_upload_without_fallback_is_400(tmp_path):
+    from speech_gateway.audio import UndecodableAudio
+
+    settings = Settings(home=tmp_path, warmup=False, stt_fallback=False)
+    client = make_client(settings, stt=FakeStt(fail=UndecodableAudio("could not decode the audio")))
+    response = client.post("/v1/audio/transcriptions", files={"file": ("a.bin", b"junk", "application/octet-stream")})
+    assert response.status_code == 400 and response.json()["error"]["param"] == "file"
 
 
 def test_transcription_validation(settings):
@@ -269,7 +360,13 @@ def test_transcription_validation(settings):
 
 def test_transcription_when_voicestudio_is_down(settings):
     client = make_client(settings, vs=FakeVoiceStudio(down=True))
-    response = client.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    # Local recognition does not need VoiceStudio at all …
+    local = client.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    assert local.status_code == 200
+    # … but asking for VoiceStudio's Whisper then fails plainly.
+    response = client.post(
+        "/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")}, data={"model": "voicestudio"}
+    )
     assert response.status_code == 503
     assert response.json()["error"]["message"] == "VoiceStudio is not reachable."
 
@@ -279,6 +376,38 @@ def test_health_reports_engines(settings):
     assert body["status"] == "ok"
     assert body["engines"]["silero"]["ready"] is True
     assert body["engines"]["voicestudio"]["reachable"] is False
+    assert body["engines"]["stt"]["engine"] == "gigaam" and body["engines"]["stt"]["fallback"] == "voicestudio"
+
+
+def test_startup_warms_every_engine_once(tmp_path):
+    vs = FakeVoiceStudio()
+    silero, stt = FakeSilero(), FakeStt()
+    settings = Settings(home=tmp_path, warmup=True, voicestudio_warmup=True)
+    app = create_app(settings, silero=silero, voicestudio=vs.client(), stt=stt, cache=SpeechCache(tmp_path, 0, False))
+    with TestClient(app) as client:
+        for _ in range(100):
+            warm = client.get("/health").json()["engines"]["voicestudio"]["warmup"]
+            if warm["state"] == "ready":
+                break
+            time.sleep(0.02)
+        assert warm["state"] == "ready" and warm["voice"] == "voicestudio:am7"
+        client.post("/v1/audio/transcriptions", files={"file": ("a.wav", wav_bytes(), "audio/wav")})
+    assert stt.loads == 1
+    sent = [json.loads(r.content) for r in vs.requests if r.url.path == "/v1/audio/speech"]
+    assert len(sent) == 1 and sent[0]["model"] == "voxcpm2" and sent[0]["seed"] == 7
+
+
+def test_startup_warmup_waits_for_voicestudio_then_gives_up(tmp_path):
+    vs = FakeVoiceStudio(down=True)
+    settings = Settings(home=tmp_path, warmup=True, voicestudio_warmup=True, voicestudio_warmup_timeout_s=0.0)
+    app = create_app(settings, silero=FakeSilero(), voicestudio=vs.client(), stt=FakeStt(), cache=SpeechCache(tmp_path, 0, False))
+    with TestClient(app) as client:
+        for _ in range(100):
+            warm = client.get("/health").json()["engines"]["voicestudio"]["warmup"]
+            if warm["state"] == "skipped":
+                break
+            time.sleep(0.02)
+        assert warm["state"] == "skipped"
 
 
 def test_api_key_goes_only_to_voicestudio(settings):

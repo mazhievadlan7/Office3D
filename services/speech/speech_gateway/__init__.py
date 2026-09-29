@@ -9,11 +9,13 @@ One small, OpenAI-compatible speech surface for the Office3D server:
 
 Voices are named ``<engine>:<name>``. ``silero:<speaker>`` is served here, by
 Silero TTS v5 with silero-stress placing Russian word stress; everything named
-``voicestudio:<voice>`` and every transcription is forwarded to a VoiceStudio
-backend. Both engines are open source and run locally; no paid API is used.
+``voicestudio:<voice>`` is forwarded to a VoiceStudio backend. Speech is
+recognised here too, by GigaAM v3 (onnx-asr, CPU) with Silero VAD; VoiceStudio's
+Whisper is the fallback. All engines are open source and run locally; no paid
+API is used.
 
 MIT licensed (part of Office3D). VoiceStudio (AGPL-3.0) runs as a separate
 process and is only spoken to over HTTP.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"

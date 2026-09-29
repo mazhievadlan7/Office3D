@@ -74,7 +74,9 @@ class VoiceStudioClient:
             self.reachable = False
             return {"reachable": False, "url": self.base_url, "error": type(exc).__name__}
 
-    async def synthesize(self, text: str, params: dict[str, Any], speed: float = 1.0) -> Audio:
+    async def synthesize(
+        self, text: str, params: dict[str, Any], speed: float = 1.0, *, timeout_s: float | None = None
+    ) -> Audio:
         body: dict[str, Any] = {
             "model": params.get("model") or "voxcpm2",
             "input": text,
@@ -86,7 +88,7 @@ class VoiceStudioClient:
             if params.get(key) is not None:
                 body[key] = params[key]
         try:
-            async with self._client(self.timeout_s) as client:
+            async with self._client(timeout_s or self.timeout_s) as client:
                 response = await client.post("/v1/audio/speech", json=body)
         except httpx.TimeoutException as exc:
             raise VoiceStudioError(504, "VoiceStudio did not answer in time.", unreachable=True) from exc

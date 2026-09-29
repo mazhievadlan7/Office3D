@@ -2,10 +2,11 @@
 # Installs Office3D's speech engines outside the repository (Linux, macOS).
 #
 #   - the speech gateway (services/speech): a Python venv with Silero TTS v5
-#     and silero-stress, plus their model weights;
+#     and silero-stress, and speech recognition (GigaAM v3 + Silero VAD through
+#     onnx-asr, on the CPU), plus their model weights;
 #   - VoiceStudio's backend (headless, no desktop app): cloned, its own venv
 #     via uv, the VoxCPM2 engine in VoiceStudio's sidecar venv, and the
-#     Whisper weights for speech recognition.
+#     Whisper weights (only the fallback recogniser now; SKIP_ASR=1 leaves them out).
 #
 # Everything lands in $OFFICE3D_SPEECH_HOME (default
 # ${XDG_DATA_HOME:-~/.local/share}/office3d-speech). Nothing is written into the
@@ -22,9 +23,9 @@
 #   VOICESTUDIO_REF        git tag/branch            (default v0.5.6)
 #   SKIP_VOICESTUDIO=1     gateway + Silero only (CPU-only servers can start here)
 #   SKIP_VOXCPM2=1         VoiceStudio without the VoxCPM2 engine (CPU-only servers)
-#   ASR_MODEL              Whisper weights (default Systran/faster-whisper-large-v3;
-#                          Systran/faster-whisper-medium or -small are lighter on a CPU)
-#   SKIP_ASR=1             no speech-recognition model
+#   ASR_MODEL              VoiceStudio's fallback Whisper weights (default
+#                          Systran/faster-whisper-large-v3; -medium or -small are lighter)
+#   SKIP_ASR=1             no Whisper weights (the gateway's GigaAM still recognises speech)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -61,8 +62,9 @@ GATEWAY_PYTHON="$GATEWAY_VENV/bin/python"
 [ -x "$GATEWAY_PYTHON" ] || { step "Creating the gateway venv"; uv venv "$GATEWAY_VENV" --python "$PYTHON"; }
 step "Installing the gateway's packages"
 uv pip install --python "$GATEWAY_PYTHON" -r "$SERVICE_DIR/requirements-$TORCH.txt"
-step "Downloading Silero and the stress model"
-(cd "$SERVICE_DIR" && OFFICE3D_SPEECH_HOME="$SPEECH_HOME" "$GATEWAY_PYTHON" -m speech_gateway.tools prefetch)
+step "Downloading Silero, the stress model and GigaAM v3 (speech recognition, ~0.9 GB)"
+(cd "$SERVICE_DIR" && OFFICE3D_SPEECH_HOME="$SPEECH_HOME" HF_HOME="$SPEECH_HOME/hf" \
+  "$GATEWAY_PYTHON" -m speech_gateway.tools prefetch)
 
 # --- VoiceStudio ----------------------------------------------------------------
 if [ "${SKIP_VOICESTUDIO:-}" = "1" ]; then step "Skipping VoiceStudio"; exit 0; fi
@@ -105,7 +107,7 @@ if [ "${SKIP_VOXCPM2:-}" != "1" ]; then
   (cd "$SERVICE_DIR" && "$GATEWAY_PYTHON" -m speech_gateway.tools voicestudio-warm voxcpm2)
 fi
 if [ "${SKIP_ASR:-}" != "1" ]; then
-  step "Downloading the speech-recognition model ${ASR_MODEL:-Systran/faster-whisper-large-v3}"
+  step "Downloading VoiceStudio's fallback speech-recognition model ${ASR_MODEL:-Systran/faster-whisper-large-v3}"
   (cd "$SERVICE_DIR" && "$GATEWAY_PYTHON" -m speech_gateway.tools voicestudio-model "${ASR_MODEL:-Systran/faster-whisper-large-v3}")
 fi
 

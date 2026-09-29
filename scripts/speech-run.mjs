@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // `npm run speech` — starts the office's speech services for local work:
-//   VoiceStudio's backend   127.0.0.1:3900  (designed voices, recognition)
-//   the speech gateway      127.0.0.1:8765  (Silero; the one API Office3D calls)
+//   VoiceStudio's backend   127.0.0.1:3900  (designed voices; recognition fallback)
+//   the speech gateway      127.0.0.1:8765  (Silero, GigaAM recognition; the one API Office3D calls)
 // from the install scripts/speech-setup.(ps1|sh) made in OFFICE3D_SPEECH_HOME.
 // Both stop together on Ctrl+C. A VoiceStudio already answering is reused.
 //
@@ -131,7 +131,10 @@ const skipVoiceStudio = env.SPEECH_SKIP_VOICESTUDIO === "1";
 if (skipVoiceStudio) {
   console.log("[speech] VoiceStudio skipped (SPEECH_SKIP_VOICESTUDIO=1): designed voices fall back to Silero.");
 } else if (await answers(`${voiceStudioUrl.origin}/health`)) {
-  console.log(`[speech] VoiceStudio already answers at ${voiceStudioUrl.origin}; using it.`);
+  console.log(
+    `[speech] VoiceStudio already answers at ${voiceStudioUrl.origin}; using it ` +
+      "(start it with OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S=0 to keep VoxCPM2 loaded).",
+  );
 } else if (!existsSync(voiceStudioPython)) {
   console.log(`[speech] VoiceStudio is not installed in ${voiceStudioDir}: designed voices fall back to Silero, recognition is off.`);
 } else {
@@ -139,7 +142,14 @@ if (skipVoiceStudio) {
   const hf = path.join(speechHome, "hf");
   mkdirSync(data, { recursive: true });
   mkdirSync(hf, { recursive: true });
-  console.log(`[speech] starting VoiceStudio on 127.0.0.1:${voiceStudioPort}`);
+  // VoxCPM2 (AM7 and the crew) stays on the GPU: VoiceStudio would otherwise
+  // unload an engine idle for 5 minutes, and the next line would wait for a
+  // ~1.5-minute reload. The gateway speaks one phrase at start-up to load it.
+  const sidecarIdle = env.OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S?.trim() || "0";
+  console.log(
+    `[speech] starting VoiceStudio on 127.0.0.1:${voiceStudioPort}` +
+      (sidecarIdle === "0" ? " (engines stay loaded)" : ` (engines unload after ${sidecarIdle}s idle)`),
+  );
   start("voicestudio", voiceStudioPython, [path.join("backend", "main.py")], {
     cwd: voiceStudioDir,
     env: {
@@ -147,6 +157,7 @@ if (skipVoiceStudio) {
       HF_HOME: hf,
       OMNIVOICE_BIND_HOST: "127.0.0.1",
       OMNIVOICE_PORT: voiceStudioPort,
+      OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S: sidecarIdle,
     },
   });
 }
@@ -159,9 +170,13 @@ if (await answers(`${gatewayUrl.origin}/health`)) {
     cwd: serviceDir,
     env: {
       OFFICE3D_SPEECH_HOME: speechHome,
+      // GigaAM and Silero VAD download here, next to VoiceStudio's models.
+      HF_HOME: path.join(speechHome, "hf"),
       SPEECH_HOST: "127.0.0.1",
       SPEECH_PORT: gatewayPort,
       VOICESTUDIO_URL: voiceStudioUrl.origin,
+      // Nothing of VoiceStudio to warm when it is skipped.
+      ...(skipVoiceStudio ? { SPEECH_VOICESTUDIO_WARMUP: "0" } : {}),
     },
   });
 }

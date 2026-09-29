@@ -1,8 +1,10 @@
-# Tests run without torch or any model: the engines are mocked.
+# Tests run without torch, onnxruntime or any model: the engines are mocked.
 fastapi>=0.115,<1
 httpx>=0.27,<1
 python-multipart>=0.0.18
 numpy>=1.26
 soundfile>=0.12.1
 num2words>=0.5.13
+# Only for the WebM/Opus decoding test (skipped without it).
+av>=14
 pytest>=8

@@ -9,3 +9,9 @@ numpy>=1.26
 soundfile>=0.12.1
 silero-stress>=1.5
 num2words>=0.5.13
+# Speech recognition: GigaAM v3 + Silero VAD through ONNX Runtime on the CPU
+# (onnx-asr: MIT; GigaAM: MIT). The weights (~0.9 GB) download on first use
+# or with `python -m speech_gateway.tools prefetch`.
+onnx-asr[cpu,hub]>=0.12,<0.13
+# Browser recordings (WebM/Opus, MP4/AAC): PyAV with its bundled FFmpeg (BSD / LGPL).
+av>=14

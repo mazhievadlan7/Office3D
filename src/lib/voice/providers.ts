@@ -6,7 +6,8 @@
 //   - local-speech       (default) the office's own speech gateway
 //                        (services/speech, SPEECH_GATEWAY_URL): Silero TTS v5
 //                        for Russian with exact stress, VoiceStudio for the
-//                        designed voices and for speech recognition. Open
+//                        designed voices, GigaAM v3 for speech recognition
+//                        (VoiceStudio's Whisper as its fallback). Open
 //                        source, on this machine or the office's server;
 //   - openai-compatible  any other server with OpenAI's audio API —
 //                        POST {url}/audio/transcriptions and /audio/speech;

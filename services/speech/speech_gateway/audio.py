@@ -108,3 +108,48 @@ def encode(audio: Audio, fmt: str) -> bytes:
 def decode(data: bytes) -> Audio:
     samples, rate = sf.read(io.BytesIO(data), dtype="float32", always_2d=False)
     return Audio(as_mono_float32(samples), int(rate))
+
+
+class UndecodableAudio(ValueError):
+    """The upload is not audio this gateway can read."""
+
+
+def _decode_av(data: bytes, rate: int) -> np.ndarray:
+    """Any container FFmpeg reads (WebM/Opus from Chrome, MP4/AAC from Safari),
+    through PyAV's bundled FFmpeg, straight to mono float32 at `rate`."""
+    try:
+        import av  # noqa: PLC0415 - optional: only uploads libsndfile cannot read need it
+    except ImportError as exc:
+        raise UndecodableAudio("this audio container needs PyAV (pip install av)") from exc
+    parts: list[np.ndarray] = []
+    try:
+        with av.open(io.BytesIO(data), mode="r") as container:
+            if not container.streams.audio:
+                raise UndecodableAudio("the file has no audio stream")
+            stream = container.streams.audio[0]
+            resampler = av.AudioResampler(format="flt", layout="mono", rate=rate)
+            for frame in container.decode(stream):
+                for out in resampler.resample(frame):
+                    parts.append(out.to_ndarray().reshape(-1))
+            for out in resampler.resample(None):
+                parts.append(out.to_ndarray().reshape(-1))
+    except UndecodableAudio:
+        raise
+    except Exception as exc:  # av.error.* — corrupt or unsupported input
+        raise UndecodableAudio(f"could not decode the audio ({type(exc).__name__})") from exc
+    if not parts:
+        return np.zeros(0, dtype=np.float32)
+    return np.clip(np.concatenate(parts).astype(np.float32), -1.0, 1.0)
+
+
+def decode_for_recognition(data: bytes, rate: int = 16_000) -> np.ndarray:
+    """An uploaded recording as mono float32 at `rate` (16 kHz for recognition).
+
+    WAV, FLAC, Ogg/Opus and MP3 go through libsndfile; WebM, MP4 and the rest
+    through PyAV.
+    """
+    try:
+        audio = decode(data)
+    except Exception:
+        return _decode_av(data, rate)
+    return resample(audio.samples, audio.sample_rate, rate)

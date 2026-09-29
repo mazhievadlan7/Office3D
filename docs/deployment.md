@@ -138,15 +138,16 @@ Hermes сам проверяет адрес со своей стороны се�
 | --- | --- | --- |
 | Голос «Системы штаба» (приветствие) и любой текст, где важно точное ударение | [Silero TTS v5](https://github.com/snakers4/silero-models) + [silero-stress](https://github.com/snakers4/silero-stress) | MIT |
 | Голоса AM7 и операторов (синтезированные по описанию, VoxCPM2) | [VoiceStudio](https://github.com/debpalash/VoiceStudio) | AGPL-3.0 |
-| Распознавание голосовых команд (Whisper large-v3) | VoiceStudio | AGPL-3.0 |
+| Распознавание голосовых команд (GigaAM v3 `e2e_rnnt`, с пунктуацией) + Silero VAD | [GigaAM](https://github.com/salute-developers/GigaAM) через [onnx-asr](https://github.com/istupakov/onnx-asr) | MIT |
+| Запасное распознавание (Whisper large-v3) | VoiceStudio | AGPL-3.0 |
 
 Офис обращается к одному **шлюзу речи** (`services/speech`, наш код, MIT) по
 `SPEECH_GATEWAY_URL` — OpenAI-совместимый API:
 
 ```
-office3d ──► шлюз речи :8765 ──► Silero (в самом шлюзе, CPU)
+office3d ──► шлюз речи :8765 ──► Silero, GigaAM + Silero VAD (в самом шлюзе, CPU)
                   │
-                  └────────────► VoiceStudio :3900 (голоса voicestudio:*, распознавание)
+                  └────────────► VoiceStudio :3900 (голоса voicestudio:*; запасное распознавание)
 ```
 
 - `GET /v1/voices` — голоса `silero:<диктор>` и `voicestudio:<имя>` с ролями
@@ -155,13 +156,30 @@ office3d ──► шлюз речи :8765 ──► Silero (в самом шл�
 - `POST /v1/audio/speech` — речь (`mp3`, `wav`, `opus`, `flac`, `pcm`). Silero
   ставит ударения моделью silero-stress, текст режется по предложениям,
   48 кГц, одинаковые фразы берутся из кэша.
-- `POST /v1/audio/transcriptions` — распознавание, пересылается в VoiceStudio.
-- `GET /health` — готовность обоих движков.
+- `POST /v1/audio/transcriptions` — распознавание в самом шлюзе: GigaAM v3
+  (русский, с пунктуацией) на CPU. Запись любого формата браузера (WebM/Opus,
+  Ogg, MP4/AAC, WAV) декодируется через PyAV, Silero VAD отрезает тишину по
+  краям (запись без речи даёт пустой текст, а не выдуманную фразу) и режет
+  длинную речь по паузам на куски до 20 с. Модель загружается один раз при
+  старте и остаётся в памяти. Форматы ответа — `json`, `text`, `verbose_json`,
+  `srt`, `vtt`. `model=voicestudio` или язык не `ru` — запрос уходит в Whisper
+  VoiceStudio; туда же, если GigaAM не установлен или не смог загрузиться
+  (`SPEECH_STT_FALLBACK=0` это отключает). Какой движок ответил — в заголовке
+  `X-Speech-STT-Engine`.
+- `GET /health` — готовность движков (`silero`, `stt`, `voicestudio` с
+  состоянием прогрева).
+
+При старте шлюз прогревает всё: GigaAM (секунды), Silero и — одной фразой
+голосом AM7 — VoxCPM2 в VoiceStudio, чтобы первая реплика AM7 не ждала
+загрузки модели (около полутора минут). `npm run speech` запускает VoiceStudio с
+`OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S=0`: VoxCPM2 остаётся в видеопамяти, а не
+выгружается через 5 минут тишины. Браузер запрашивает речь по предложениям
+(`src/lib/voice/speechChunks.ts`): первое предложение звучит, пока рендерятся
+следующие.
 
 Если VoiceStudio недоступен или не успел ответить, у каждого голоса AM7 и
 операторов есть запасной голос Silero (`fallback` в `voices.json`) — штаб не
-замолкает. Распознаванию запасного пути нет. Системного голоса браузера или ОС
-нет и не будет.
+замолкает. Системного голоса браузера или ОС нет и не будет.
 
 Шлюз слушает только `127.0.0.1` (в контейнере — только внутреннюю сеть
 compose, порт не публикуется). VoiceStudio запускается без изменений, отдельным
@@ -183,13 +201,17 @@ powershell -ExecutionPolicy Bypass -File scripts\speech-setup.ps1
 bash scripts/speech-setup.sh
 ```
 
-Скрипт создаёт venv шлюза и скачивает Silero, клонирует VoiceStudio
+Скрипт создаёт venv шлюза и скачивает Silero и GigaAM v3 с Silero VAD (около
+0,9 ГБ, в `<OFFICE3D_SPEECH_HOME>/hf`), клонирует VoiceStudio
 (`VOICESTUDIO_REF`, по умолчанию `v0.5.6`) без настольного приложения, ставит
 его backend через `uv sync`, устанавливает движок VoxCPM2 в его собственный
-venv, скачивает веса VoxCPM2 и Whisper large-v3 (всего около 20 ГБ). Повторный запуск
-обновляет установку. Ключи `-SkipVoxcpm2`/`SKIP_VOXCPM2=1`,
-`-SkipAsr`/`SKIP_ASR=1`, `-AsrModel`/`ASR_MODEL` и
-`-SkipVoiceStudio`/`SKIP_VOICESTUDIO=1` сокращают установку.
+venv, скачивает веса VoxCPM2 и запасного Whisper large-v3 (всего около 20 ГБ).
+Повторный запуск обновляет установку. Ключи `-SkipVoxcpm2`/`SKIP_VOXCPM2=1`,
+`-SkipAsr`/`SKIP_ASR=1` (без Whisper: распознаёт GigaAM, запасного пути нет),
+`-AsrModel`/`ASR_MODEL` и `-SkipVoiceStudio`/`SKIP_VOICESTUDIO=1` сокращают
+установку. Уже установленному шлюзу модель распознавания докачивает
+`python -m speech_gateway.tools prefetch-stt` (из `services/speech`, python из
+`gateway-venv`, после `uv pip install -r requirements-<cpu|cu128>.txt`).
 
 Запуск рядом с `npm run dev` (оба сервиса останавливаются вместе по Ctrl+C):
 
@@ -197,6 +219,18 @@ venv, скачивает веса VoxCPM2 и Whisper large-v3 (всего око
 npm run speech
 npm run speech:check   # Silero, VoxCPM2 и распознавание, с временем ответа
 ```
+
+Замеры на RTX 5060 8 ГБ + Ryzen 5 5600 (6 ядер), всё прогрето:
+
+| Что | Время |
+| --- | --- |
+| Распознавание команды 3 с (GigaAM, CPU, 4 потока, через HTTP) | ≈ 0,2 с; WebM/Opus 16 кбит/с с шумом — ≈ 0,25 с |
+| Распознавание 8–11 с | ≈ 0,5–0,6 с |
+| Загрузка GigaAM | ≈ 1,6 с отдельно, ≈ 8 с при старте рядом с Silero и VoiceStudio |
+| Прежний путь: Whisper large-v3 в VoiceStudio рядом с VoxCPM2 | 6–20 с, холодный — до минуты |
+| Загрузка VoxCPM2 (теперь — при старте шлюза) | ≈ 100 с |
+| Ответ AM7 из двух предложений (70 символов) | первый звук через ≈ 4 с вместо ≈ 7 с |
+| Брифинг AM7 (126 символов) | первый звук через ≈ 9 с вместо ≈ 20 с |
 
 Если веса VoxCPM2 ещё не скачаны (установка с `-SkipVoxcpm2`, а движок
 поставлен позже), первая фраза AM7 скачивает их: пока они качаются, он говорит
@@ -212,12 +246,19 @@ npm run speech:check   # Silero, VoxCPM2 и распознавание, с вр�
 # в .env: COMPOSE_PROFILES=https,speech
 docker compose build speech
 docker compose up -d
-# один раз: движок VoxCPM2 и веса Whisper (изнутри контейнера — это loopback VoiceStudio)
+# один раз: движок VoxCPM2 (изнутри контейнера — это loopback VoiceStudio)
 docker compose exec voicestudio curl -fsS -X POST http://127.0.0.1:3900/engines/sidecar/voxcpm2/install
+# необязательно: веса запасного Whisper (распознаёт GigaAM в шлюзе, он скачается сам в том speech-data)
 docker compose exec voicestudio curl -fsS -X POST http://127.0.0.1:3900/models/install \
   -H 'Content-Type: application/json' -d '{"repo_id":"Systran/faster-whisper-large-v3","target":"local"}'
-# веса VoxCPM2 скачаются при первой фразе AM7 (до тех пор говорит запасной голос Silero)
+# веса VoxCPM2 скачаются при прогреве шлюза (до тех пор говорит запасной голос Silero)
 ```
+
+Чтобы VoxCPM2 не выгружался из видеопамяти через 5 минут тишины, добавьте
+сервису `voicestudio` переменную `OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S: "0"`
+(например, в `docker-compose.override.yml`). В контейнере шлюза GigaAM в полной
+точности занимает около 1 ГБ памяти сверх Silero; при лимите памяти в 3 ГБ и
+тесном сервере задайте `SPEECH_STT_QUANTIZATION=int8` (около 0,35 ГБ).
 
 `office3d` находит шлюз по `SPEECH_GATEWAY_URL=http://speech:8765` (значение по
 умолчанию в compose). С видеокартой NVIDIA и NVIDIA Container Toolkit добавьте
@@ -249,6 +290,8 @@ Environment=OMNIVOICE_DATA_DIR=/opt/office3d-speech/voicestudio-data
 Environment=HF_HOME=/opt/office3d-speech/hf
 Environment=OMNIVOICE_BIND_HOST=127.0.0.1
 Environment=OMNIVOICE_PORT=3900
+# VoxCPM2 остаётся в видеопамяти (иначе выгружается через 5 минут тишины)
+Environment=OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S=0
 ExecStart=/opt/office3d-speech/voicestudio/.venv/bin/python backend/main.py
 Restart=on-failure
 TimeoutStartSec=300
@@ -260,7 +303,7 @@ WantedBy=multi-user.target
 ```ini
 # /etc/systemd/system/office3d-speech.service
 [Unit]
-Description=Office3D speech gateway (Silero + VoiceStudio)
+Description=Office3D speech gateway (Silero, GigaAM + VoiceStudio)
 After=network-online.target office3d-voicestudio.service
 Wants=office3d-voicestudio.service
 
@@ -268,6 +311,7 @@ Wants=office3d-voicestudio.service
 User=office3d
 WorkingDirectory=/opt/Office3D/services/speech
 Environment=OFFICE3D_SPEECH_HOME=/opt/office3d-speech
+Environment=HF_HOME=/opt/office3d-speech/hf
 Environment=SPEECH_HOST=127.0.0.1
 Environment=SPEECH_PORT=8765
 Environment=VOICESTUDIO_URL=http://127.0.0.1:3900
@@ -295,17 +339,19 @@ Silero работает быстрее реального времени на 2�
 что голос системы и запасные голоса есть всегда. VoxCPM2 на CPU медленный: на
 таком сервере ставьте `SKIP_VOXCPM2=1` — AM7 и операторы будут говорить своими
 запасными голосами Silero, либо назначьте им голоса `silero:*` в
-`voices.json`. Для распознавания на CPU легче `ASR_MODEL=Systran/faster-whisper-medium`
-(или `-small`).
+`voices.json`. Распознавание (GigaAM) и так работает на CPU (`SPEECH_STT_THREADS`),
+видеокарта ему не нужна.
 
 ### Видеокарта на 8 ГБ
 
-VoxCPM2 держит в видеопамяти около 5 ГБ, Whisper large-v3 — около 3 ГБ. Когда
-вместе они не помещаются, VoiceStudio сам переводит распознавание на CPU (int8)
-и заново загружает модель на каждый запрос — это около 20 секунд на короткую
-команду. Быстрее — модель поменьше: `ASR_MODEL_WHISPERX=medium` (или `small`) в
-`.env` (`npm run speech` передаёт переменные VoiceStudio) и
-`-AsrModel Systran/faster-whisper-medium` при установке.
+VoxCPM2 держит в видеопамяти около 6 ГБ. Раньше распознавание шло через
+Whisper large-v3 в VoiceStudio: рядом с VoxCPM2 он не помещался, уходил на CPU
+и загружался заново на каждый запрос (около 20 с на команду), а после работы на
+GPU процесс VoiceStudio удерживал ещё ~4 ГБ видеопамяти, из-за чего VoxCPM2
+замедлялся. Теперь распознаёт GigaAM в шлюзе на CPU, видеокарта целиком
+отдана голосам. Модель Whisper поменьше (`ASR_MODEL_WHISPERX=medium` или
+`turbo`) этого не исправляет: VoiceStudio загружает её заново на каждый запрос,
+и одна загрузка large-v3 по его журналу занимает 7–8 с.
 
 ### Настройки
 
@@ -319,6 +365,11 @@ VoxCPM2 держит в видеопамяти около 5 ГБ, Whisper large-
 | `SPEECH_PORT`, `SPEECH_DEFAULT_VOICE` | шлюз | `8765`, `silero:aidar` |
 | `VOICESTUDIO_URL`, `VOICESTUDIO_MODEL`, `VOICESTUDIO_TIMEOUT_S`, `VOICESTUDIO_BACKOFF_S` | шлюз | `http://127.0.0.1:3900`, `voxcpm2`, `90`, `60` (после сбоя VoiceStudio столько секунд говорят запасные голоса) |
 | `SILERO_MODEL`, `SILERO_DEVICE`, `SILERO_THREADS` | шлюз | `v5_5_ru`, `cpu`, `4` |
+| `SPEECH_STT_ENGINE` | шлюз | `gigaam` (или `voicestudio` — всё распознаёт Whisper VoiceStudio) |
+| `SPEECH_STT_MODEL`, `SPEECH_STT_QUANTIZATION`, `SPEECH_STT_THREADS` | шлюз | `gigaam-v3-e2e-rnnt` (или `gigaam-v3-e2e-ctc`), пусто (полная точность; `int8` — в 4 раза меньше памяти), `4` |
+| `SPEECH_STT_VAD`, `SPEECH_STT_FALLBACK`, `SPEECH_STT_MODEL_DIR` | шлюз | `1`, `1` (без GigaAM — в VoiceStudio), пусто (веса из `HF_HOME`; каталог — для установки без сети) |
+| `SPEECH_WARMUP`, `SPEECH_VOICESTUDIO_WARMUP`, `SPEECH_VOICESTUDIO_WARMUP_TIMEOUT_S` | шлюз | `1`, `1`, `600` — прогрев моделей при старте |
+| `OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S` | `npm run speech` → VoiceStudio | `0` — VoxCPM2 не выгружается |
 | `SPEECH_CACHE`, `SPEECH_CACHE_MAX_MB` | шлюз | `1`, `512` |
 
 Тесты шлюза не требуют моделей:

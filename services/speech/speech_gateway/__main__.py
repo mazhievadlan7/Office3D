@@ -16,6 +16,9 @@ def main() -> None:
     # Silero's packaged code has a harmless invalid-escape warning.
     warnings.filterwarnings("ignore", category=SyntaxWarning)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # One line per request to VoiceStudio (and per health poll) is noise; the
+    # gateway logs what it spoke and recognised itself.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     import uvicorn
 
@@ -25,6 +28,7 @@ def main() -> None:
     settings = Settings.from_env()
     settings.check_bind()
     settings.home.mkdir(parents=True, exist_ok=True)
+    settings.use_hf_home()
     app = create_app(settings)
     uvicorn.run(app, host=settings.host, port=settings.port, log_level="warning", proxy_headers=False)
 

@@ -8,7 +8,17 @@
  *
  * Browsers only let a page make sound after a user gesture: when the audio
  * context starts suspended, the speech waits for the first click or key press.
+ *
+ * Speech is fetched sentence by sentence (lib/voice/speechChunks.ts): the
+ * first sentence plays as soon as it is rendered while the next ones render,
+ * which matters for AM7's designed voice (slower than real time on the GPU).
+ * One request at a time, in order; the pieces play back to back.
  */
+
+import { splitSpeech } from "@/lib/voice/speechChunks";
+
+/** The pause between two pieces, as the speech gateway puts between sentences. */
+const PIECE_GAP_S = 0.12;
 
 export type SystemVoiceOptions = {
   voiceId?: string | null;
@@ -187,12 +197,19 @@ export function prepareSystemSpeech(text: string, options: SystemVoiceOptions = 
 }
 
 function prepare(text: string, options: SystemVoiceOptions, treated: boolean): PreparedSpeech {
-  const clean = text.replace(/\s+/g, " ").trim();
-  const audio: Promise<ArrayBuffer | null> = clean ? fetchSpeech(clean, options, treated) : Promise.resolve(null);
+  // Each piece is requested once the one before it has answered: the speech
+  // service renders one line at a time anyway, and this keeps them in order.
+  const pieces: Array<Promise<ArrayBuffer | null>> = [];
+  let previous: Promise<unknown> = Promise.resolve();
+  for (const piece of splitSpeech(text)) {
+    const audio = previous.then(() => fetchSpeech(piece, options, treated));
+    pieces.push(audio);
+    previous = audio;
+  }
   let played: Promise<boolean> | null = null;
   return {
     play() {
-      if (!played) played = audio.then((data) => (data ? playSpeech(data, options, treated) : false));
+      if (!played) played = pieces.length ? playPieces(pieces, options, treated) : Promise.resolve(false);
       return played;
     },
   };
@@ -219,28 +236,51 @@ async function fetchSpeech(text: string, options: SystemVoiceOptions, system: bo
   }
 }
 
-async function playSpeech(audio: ArrayBuffer, options: SystemVoiceOptions, treated: boolean): Promise<boolean> {
+/**
+ * Plays the pieces in order as each arrives: a piece that is ready early is
+ * scheduled right after the one before it (a short sentence pause), a late one
+ * starts when it lands. Resolves true once the last piece has finished, false
+ * when nothing could be played.
+ */
+async function playPieces(
+  pieces: Array<Promise<ArrayBuffer | null>>,
+  options: SystemVoiceOptions,
+  treated: boolean,
+): Promise<boolean> {
   const ctx = audioContext();
   if (!ctx) return false;
   // Waits for the first click or key press when the browser has not allowed sound yet.
   if (!(await whenRunning(ctx, options.gestureTimeoutMs ?? 10 * 60_000))) return false;
-  let buffer: AudioBuffer;
-  try {
-    buffer = await ctx.decodeAudioData(audio);
-  } catch {
-    return false;
+  let chain: ReturnType<typeof buildChain> | null = null;
+  let nextStart = 0;
+  let lastEnded: Promise<void> | null = null;
+  for (const piece of pieces) {
+    const data = await piece;
+    if (!data) continue;
+    let buffer: AudioBuffer;
+    try {
+      buffer = await ctx.decodeAudioData(data);
+    } catch {
+      continue;
+    }
+    if (treated && !chain) chain = buildChain(ctx, ctx.destination);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(chain ? chain.input : ctx.destination);
+    const startAt = Math.max(ctx.currentTime + 0.02, nextStart);
+    nextStart = startAt + buffer.duration + PIECE_GAP_S;
+    lastEnded = new Promise((resolve) => {
+      source.onended = () => {
+        source.disconnect();
+        resolve();
+      };
+    });
+    source.start(startAt);
   }
-  const chain = treated ? buildChain(ctx, ctx.destination) : null;
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(chain ? chain.input : ctx.destination);
-  return new Promise((resolve) => {
-    source.onended = () => {
-      source.disconnect();
-      // Let the reverb ring out before tearing the chain down.
-      if (chain) window.setTimeout(() => chain.stop(), 1200);
-      resolve(true);
-    };
-    source.start();
-  });
+  if (!lastEnded) return false;
+  await lastEnded;
+  // Let the reverb ring out before tearing the chain down.
+  const used = chain;
+  if (used) window.setTimeout(() => used.stop(), 1200);
+  return true;
 }

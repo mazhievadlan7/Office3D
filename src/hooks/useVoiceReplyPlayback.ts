@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceReplyProvider } from "@/lib/voiceReply/provider";
 import { t } from "@/lib/i18n";
+import { splitSpeech } from "@/lib/voice/speechChunks";
 
 export type VoiceReplyPlaybackRequest = {
   text: string;
@@ -203,23 +204,39 @@ export const useVoiceReplyPlayback = (params: {
   const drainQueue = useCallback(async () => {
     if (processingRef.current) return;
     processingRef.current = true;
+    // One request runs ahead: while a sentence plays, the next one renders,
+    // so a long reply has no gap the length of a synthesis between sentences.
+    // Both share one controller, so stop() aborts the playing and the next.
+    let ahead: { generation: number; blob: Promise<Blob> } | null = null;
+    const start = (request: VoiceReplyPlaybackRequest) => {
+      const controller = abortRef.current ?? new AbortController();
+      abortRef.current = controller;
+      const blob = requestAudio(request, controller.signal);
+      // Handled when awaited; this only keeps an early failure from being unhandled.
+      blob.catch(() => {});
+      return { generation: generationRef.current, blob };
+    };
     try {
-      while (queueRef.current.length > 0) {
+      while (ahead || queueRef.current.length > 0) {
         if (!enabled) {
           queueRef.current = [];
           break;
         }
-        const nextRequest = queueRef.current.shift();
-        if (!nextRequest) continue;
-        const generation = generationRef.current;
-        const controller = new AbortController();
-        abortRef.current = controller;
+        let current = ahead;
+        ahead = null;
+        if (!current || current.generation !== generationRef.current) {
+          const nextRequest = queueRef.current.shift();
+          if (!nextRequest) continue;
+          current = start(nextRequest);
+        }
         try {
-          const blob = await requestAudio(nextRequest, controller.signal);
-          abortRef.current = null;
-          await playBlob(blob, generation);
+          const blob = await current.blob;
+          const following = queueRef.current.shift();
+          if (following && current.generation === generationRef.current) ahead = start(following);
+          await playBlob(blob, current.generation);
+          if (!ahead) abortRef.current = null;
         } catch (error) {
-          abortRef.current = null;
+          if (!ahead) abortRef.current = null;
           if (
             error instanceof DOMException &&
             (error.name === "AbortError" || error.name === "NotAllowedError")
@@ -239,12 +256,16 @@ export const useVoiceReplyPlayback = (params: {
     (request: VoiceReplyPlaybackRequest) => {
       const text = normalizeVoiceReplyText(request.text);
       if (!text || !enabled) return;
-      queueRef.current.push({
-        text,
-        provider: request.provider ?? provider,
-        voiceId: request.voiceId ?? voiceId,
-        speed: request.speed ?? speed,
-      });
+      // Sentence by sentence: the first sentence starts playing while the
+      // rest is still being synthesised.
+      for (const piece of splitSpeech(text)) {
+        queueRef.current.push({
+          text: piece,
+          provider: request.provider ?? provider,
+          voiceId: request.voiceId ?? voiceId,
+          speed: request.speed ?? speed,
+        });
+      }
       void drainQueue();
     },
     [drainQueue, enabled, provider, speed, voiceId]

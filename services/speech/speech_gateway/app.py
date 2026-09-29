@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import threading
 import time
@@ -16,9 +18,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
-from .audio import FORMATS, MEDIA_TYPES, Audio, concat, encode, resample
+from .audio import FORMATS, MEDIA_TYPES, Audio, UndecodableAudio, concat, encode, resample
 from .cache import SpeechCache, cache_key
 from .config import Settings
+from .stt_engine import Transcript
 from .text import chunk_text
 from .voices import UnknownVoice, Voice, VoiceCatalog
 from .voicestudio import VoiceStudioClient, VoiceStudioError
@@ -34,6 +37,62 @@ class SileroLike(Protocol):
     def load(self) -> None: ...
     def describe(self) -> dict[str, Any]: ...
     def synthesize(self, text: str, speaker: str, speed: float = 1.0) -> Audio: ...
+
+
+class SttLike(Protocol):
+    name: str
+    ready: bool
+
+    def load(self) -> None: ...
+    def describe(self) -> dict[str, Any]: ...
+    def transcribe(self, data: bytes) -> Transcript: ...
+
+
+#: Transcription `model` values that ask for VoiceStudio's Whisper explicitly.
+#: Anything else (OpenAI's "whisper-1" included) means the configured engine.
+def _wants_voicestudio(model: str | None) -> bool:
+    return (model or "").strip().lower().startswith("voicestudio")
+
+
+_RUSSIAN = {"", "ru", "rus", "russian", "ru-ru"}
+_WARMUP_PHRASE = "Связь установлена."
+
+
+def _timestamp(seconds: float, sep: str) -> str:
+    ms = int(round(seconds * 1000))
+    hours, ms = divmod(ms, 3_600_000)
+    minutes, ms = divmod(ms, 60_000)
+    secs, ms = divmod(ms, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}{sep}{ms:03d}"
+
+
+def transcript_response(transcript: Transcript, response_format: str | None, headers: dict[str, str]) -> Response:
+    """The shapes OpenAI's /audio/transcriptions answers with."""
+    fmt = response_format or "json"
+    if fmt == "text":
+        return Response(content=transcript.text, media_type="text/plain; charset=utf-8", headers=headers)
+    if fmt in ("srt", "vtt"):
+        sep = "," if fmt == "srt" else "."
+        blocks = []
+        for index, seg in enumerate(transcript.segments, start=1):
+            stamp = f"{_timestamp(seg.start, sep)} --> {_timestamp(seg.end, sep)}"
+            blocks.append(f"{index}\n{stamp}\n{seg.text}\n" if fmt == "srt" else f"{stamp}\n{seg.text}\n")
+        body = "\n".join(blocks)
+        if fmt == "vtt":
+            body = "WEBVTT\n\n" + body
+        return Response(content=body, media_type="text/plain; charset=utf-8", headers=headers)
+    payload: dict[str, Any] = {"text": transcript.text}
+    if fmt == "verbose_json":
+        payload = {
+            "task": "transcribe",
+            "language": "russian",
+            "duration": round(transcript.duration_s, 3),
+            "text": transcript.text,
+            "segments": [
+                {"id": i, "start": s.start, "end": s.end, "text": s.text} for i, s in enumerate(transcript.segments)
+            ],
+        }
+    return Response(content=json.dumps(payload, ensure_ascii=False), media_type="application/json", headers=headers)
 
 
 class SpeechRequest(BaseModel):
@@ -74,9 +133,24 @@ def create_app(
     voicestudio: VoiceStudioClient | None = None,
     catalog: VoiceCatalog | None = None,
     cache: SpeechCache | None = None,
+    stt: SttLike | None = None,
     warmup: bool | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
+    if stt is None and settings.stt_engine == "gigaam":
+        from .stt_engine import GigaAMEngine
+
+        try:
+            stt = GigaAMEngine(
+                model=settings.stt_model,
+                quantization=settings.stt_quantization,
+                threads=settings.stt_threads,
+                vad=settings.stt_vad,
+                model_dir=settings.stt_model_dir,
+            )
+        except ValueError:
+            log.exception("speech recognition: bad SPEECH_STT_MODEL; using VoiceStudio")
+            stt = None
     if silero is None:
         from .silero_engine import SileroEngine
 
@@ -95,23 +169,67 @@ def create_app(
     catalog = catalog or VoiceCatalog.load(settings.voices_file, settings.default_voice, settings.voicestudio_model)
     cache = cache or SpeechCache(settings.cache_dir, settings.cache_max_mb * 1024 * 1024, settings.cache_enabled)
     do_warmup = settings.warmup if warmup is None else warmup
+    state: dict[str, Any] = {"voicestudio_down_until": 0.0}
+    warm_state: dict[str, Any] = {"state": "off"}
+
+    async def warm_voicestudio() -> None:
+        """Loads the lead voice's engine (VoxCPM2) on the GPU once at start-up.
+
+        VoiceStudio may still be starting next to us: wait for it first. With
+        VoiceStudio's idle reaping off (OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S=0, set
+        by `npm run speech`) the model then stays loaded.
+        """
+        voice = next((v for v in catalog.list() if v.engine == "voicestudio" and v.role == "lead"), None)
+        voice = voice or next((v for v in catalog.list() if v.engine == "voicestudio"), None)
+        if voice is None:
+            return
+        params = dict(voice.params)
+        params.setdefault("model", catalog.voicestudio_model)
+        deadline = time.monotonic() + settings.voicestudio_warmup_timeout_s
+        warm_state.update(state="waiting", voice=voice.id)
+        while not (await voicestudio.health()).get("reachable"):
+            if time.monotonic() >= deadline:
+                warm_state.update(state="skipped", reason="VoiceStudio did not answer")
+                return
+            await asyncio.sleep(3.0)
+        warm_state["state"] = "loading"
+        started = time.perf_counter()
+        try:
+            await voicestudio.synthesize(
+                _WARMUP_PHRASE, params, 1.0, timeout_s=max(10.0, deadline - time.monotonic())
+            )
+        except VoiceStudioError as exc:
+            warm_state.update(state="failed", reason=exc.message)
+            log.warning("VoiceStudio warm-up failed: %s", exc.message)
+            return
+        seconds = round(time.perf_counter() - started, 1)
+        warm_state.update(state="ready", seconds=seconds)
+        state["voicestudio_down_until"] = 0.0
+        log.info("VoiceStudio %s warm (%s on the GPU) in %.1fs", voice.id, params["model"], seconds)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        task: asyncio.Task | None = None
         if do_warmup:
-            def _warm() -> None:
+            def _load(engine: Any) -> None:
                 try:
-                    silero.load()
+                    engine.load()
                 except Exception:  # reported by /health; the next request retries
                     pass
 
-            threading.Thread(target=_warm, name="silero-warmup", daemon=True).start()
+            # Recognition first: it loads in seconds, Silero's torch takes longer.
+            if stt is not None:
+                threading.Thread(target=_load, args=(stt,), name="stt-warmup", daemon=True).start()
+            threading.Thread(target=_load, args=(silero,), name="silero-warmup", daemon=True).start()
+            if settings.voicestudio_warmup:
+                task = asyncio.create_task(warm_voicestudio())
         yield
+        if task is not None and not task.done():
+            task.cancel()
 
     app = FastAPI(title="Office3D speech gateway", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.catalog = catalog
-    state = {"voicestudio_down_until": 0.0}
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -128,11 +246,14 @@ def create_app(
     @app.get("/health")
     async def health() -> dict[str, Any]:
         vs = await voicestudio.health()
+        vs["warmup"] = dict(warm_state)
         silero_state = silero.describe()
+        stt_state = stt.describe() if stt is not None else {"engine": "voicestudio", "ready": bool(vs.get("reachable"))}
+        stt_state["fallback"] = "voicestudio" if settings.stt_fallback and stt is not None else None
         return {
             "status": "ok" if silero_state.get("ready") or vs.get("reachable") else "degraded",
             "version": __version__,
-            "engines": {"silero": silero_state, "voicestudio": vs},
+            "engines": {"silero": silero_state, "voicestudio": vs, "stt": stt_state},
             "default_voice": catalog.default_voice,
         }
 
@@ -249,8 +370,35 @@ def create_app(
             return openai_error(413, f"file is larger than {settings.max_upload_mb} MB.", param="file", code="file_too_large")
         if response_format and response_format not in {"json", "text", "verbose_json", "srt", "vtt"}:
             return openai_error(400, "response_format must be json, text, verbose_json, srt or vtt.", param="response_format", code="invalid_value")
-        fields: dict[str, str] = {"model": model or "whisper-1"}
         lang = (language or settings.stt_language or "").strip()
+        started = time.perf_counter()
+        # GigaAM knows Russian only: another language goes to VoiceStudio's Whisper.
+        local = stt is not None and not _wants_voicestudio(model) and (
+            lang.lower() in _RUSSIAN or not settings.stt_fallback
+        )
+        if local and settings.stt_fallback and getattr(stt, "loading", False) and not stt.ready:
+            # First start: GigaAM is still downloading; don't hold the command.
+            log.info("recognition: GigaAM still loading; asking VoiceStudio")
+            local = False
+        if local:
+            assert stt is not None
+            try:
+                transcript = await run_in_threadpool(stt.transcribe, data)
+            except UndecodableAudio as exc:
+                if not settings.stt_fallback:
+                    return openai_error(400, f"file: {exc}", param="file", code="invalid_value")
+                log.warning("recognition: %s; asking VoiceStudio", exc)
+            except Exception:
+                log.exception("recognition failed")
+                if not settings.stt_fallback:
+                    return openai_error(503, "Speech recognition could not run right now.", code="engine_unavailable")
+                log.warning("recognition: GigaAM unavailable; asking VoiceStudio")
+            else:
+                elapsed = time.perf_counter() - started
+                log.info("transcribed %.1fs of audio (%d bytes) with %s in %.2fs", transcript.duration_s, len(data), stt.name, elapsed)
+                headers = {"X-Speech-STT-Engine": stt.name, "X-Speech-Duration": f"{transcript.duration_s:.3f}"}
+                return transcript_response(transcript, response_format, headers)
+        fields: dict[str, str] = {"model": "whisper-1" if _wants_voicestudio(model) else (model or "whisper-1")}
         if lang:
             fields["language"] = lang
         if prompt:
@@ -259,7 +407,6 @@ def create_app(
             fields["response_format"] = response_format
         if temperature is not None:
             fields["temperature"] = str(temperature)
-        started = time.perf_counter()
         try:
             upstream = await voicestudio.transcribe(
                 file=data,
@@ -269,11 +416,12 @@ def create_app(
             )
         except VoiceStudioError as exc:
             return openai_error(exc.status, exc.message, code="voicestudio_error")
-        log.info("transcribed %d bytes in %.2fs", len(data), time.perf_counter() - started)
+        log.info("transcribed %d bytes with VoiceStudio in %.2fs", len(data), time.perf_counter() - started)
         return Response(
             content=upstream.content,
             status_code=200,
             media_type=upstream.headers.get("content-type", "application/json"),
+            headers={"X-Speech-STT-Engine": "voicestudio"},
         )
 
     return app
