@@ -1,37 +1,27 @@
 <#
 .SYNOPSIS
-  Installs Office3D's speech engines outside the repository (Windows).
+  Installs Office3D's speech gateway outside the repository (Windows).
 
 .DESCRIPTION
-  - the speech gateway (services/speech): a Python venv with Silero TTS v5 and
-    silero-stress, and speech recognition (GigaAM v3 + Silero VAD through
-    onnx-asr, on the CPU), plus their model weights;
-  - VoiceStudio's backend (headless, no desktop app): cloned, its own venv
-    via uv, the VoxCPM2 engine in VoiceStudio's sidecar venv, and the
-    Whisper weights (only the fallback recogniser now; -SkipAsr leaves them out).
+  The speech gateway (services/speech): a Python venv with Silero TTS v5 and
+  silero-stress (every voice: the system, AM7, the crew) and speech
+  recognition (GigaAM v3 + Silero VAD through onnx-asr), plus their model
+  weights. Everything runs on the CPU; the GPU stays free for the HQ's 3D.
 
   Everything lands in -SpeechHome (default %LOCALAPPDATA%\office3d-speech, or
   OFFICE3D_SPEECH_HOME). Nothing is written into the repository. Run it again
-  to update; it is idempotent. Start both with `npm run speech`.
+  to update; it is idempotent. Start it with `npm run speech`.
 
-  Needs: Python 3.11+ (py launcher or python on PATH), git, and uv
-  (https://docs.astral.sh/uv/). A GPU is optional: NVIDIA → CUDA 12.8 wheels.
+  Needs: Python 3.11+ (py launcher or python on PATH) and uv
+  (https://docs.astral.sh/uv/).
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\speech-setup.ps1
-  powershell -ExecutionPolicy Bypass -File scripts\speech-setup.ps1 -SpeechHome D:\speech -Torch cpu -SkipVoxcpm2 -AsrModel Systran/faster-whisper-medium
+  powershell -ExecutionPolicy Bypass -File scripts\speech-setup.ps1 -SpeechHome D:\speech
 #>
 param(
   [string]$SpeechHome = "",
-  [ValidateSet("auto", "cpu", "cu128")]
-  [string]$Torch = "auto",
-  [string]$Python = "",
-  [string]$VoiceStudioRepo = "https://github.com/debpalash/VoiceStudio.git",
-  [string]$VoiceStudioRef = "v0.5.6",
-  [string]$AsrModel = "Systran/faster-whisper-large-v3",
-  [switch]$SkipVoiceStudio,
-  [switch]$SkipVoxcpm2,
-  [switch]$SkipAsr
+  [string]$Python = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -69,17 +59,7 @@ Step "Python $version at $Python"
 $uv = Get-Command uv -ErrorAction SilentlyContinue
 if (-not $uv) { Fail "uv not found. Install it: powershell -c `"irm https://astral.sh/uv/install.ps1 | iex`"" }
 $uv = $uv.Source
-if (-not $SkipVoiceStudio -and -not (Get-Command git -ErrorAction SilentlyContinue)) { Fail "git not found." }
 $env:UV_LINK_MODE = "copy"
-
-if ($Torch -eq "auto") {
-  $Torch = "cpu"
-  if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
-    & nvidia-smi -L *> $null
-    if ($LASTEXITCODE -eq 0) { $Torch = "cu128" }
-  }
-}
-Step "Torch build: $Torch"
 
 # --- speech gateway -------------------------------------------------------------
 $GatewayVenv = Join-Path $SpeechHome "gateway-venv"
@@ -88,8 +68,8 @@ if (-not (Test-Path $GatewayPython)) {
   Step "Creating the gateway venv"
   Invoke-Checked $uv @("venv", $GatewayVenv, "--python", $Python)
 }
-Step "Installing the gateway's packages"
-Invoke-Checked $uv @("pip", "install", "--python", $GatewayPython, "-r", (Join-Path $ServiceDir "requirements-$Torch.txt"))
+Step "Installing the gateway's packages (CPU torch)"
+Invoke-Checked $uv @("pip", "install", "--python", $GatewayPython, "-r", (Join-Path $ServiceDir "requirements-cpu.txt"))
 
 Step "Downloading Silero, the stress model and GigaAM v3 (speech recognition, ~0.9 GB)"
 $env:OFFICE3D_SPEECH_HOME = $SpeechHome
@@ -98,71 +78,7 @@ $env:HF_HOME = Join-Path $SpeechHome "hf"
 Push-Location $ServiceDir
 try { Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "prefetch") } finally { Pop-Location }
 
-# --- VoiceStudio ------------------------------------------------------------------
-if ($SkipVoiceStudio) { Step "Skipping VoiceStudio (-SkipVoiceStudio)"; exit 0 }
-
-$VsDir = Join-Path $SpeechHome "voicestudio"
-if (-not (Test-Path (Join-Path $VsDir ".git"))) {
-  Step "Cloning VoiceStudio ($VoiceStudioRef)"
-  Invoke-Checked git @("clone", "--depth", "1", "--branch", $VoiceStudioRef, $VoiceStudioRepo, $VsDir)
-} else {
-  Step "Updating VoiceStudio to $VoiceStudioRef"
-  Invoke-Checked git @("-C", $VsDir, "fetch", "--depth", "1", "origin", $VoiceStudioRef)
-  Invoke-Checked git @("-C", $VsDir, "checkout", "--detach", "FETCH_HEAD")
-}
-
-Step "Installing VoiceStudio's backend (uv sync; several GB on the first run)"
-Push-Location $VsDir
-try {
-  Invoke-Checked $uv @("sync", "--no-dev", "--python", $Python)
-  # cuDNN 8 for CTranslate2 (Whisper) on CUDA; checks the VC++ runtime.
-  $env:PYTHONIOENCODING = "utf-8"
-  Invoke-Checked (Join-Path $VsDir ".venv\Scripts\python.exe") @("scripts\setup.py")
-} finally { Pop-Location }
-
-$VsData = Join-Path $SpeechHome "voicestudio-data"
-$HfHome = Join-Path $SpeechHome "hf"
-New-Item -ItemType Directory -Force -Path $VsData, $HfHome, (Join-Path $SpeechHome "logs") | Out-Null
-
-if ($SkipVoxcpm2 -and $SkipAsr) { Step "Skipping VoxCPM2 and the Whisper weights"; exit 0 }
-
-Step "Starting VoiceStudio once to install its engine and models"
-$env:OMNIVOICE_DATA_DIR = $VsData
-$env:HF_HOME = $HfHome
-$env:OMNIVOICE_BIND_HOST = "127.0.0.1"
-$env:OMNIVOICE_PORT = "3900"
-$env:PYTHONUTF8 = "1"
-$log = Join-Path $SpeechHome "logs\voicestudio-setup.log"
-$vs = Start-Process -FilePath (Join-Path $VsDir ".venv\Scripts\python.exe") -ArgumentList "backend\main.py" `
-  -WorkingDirectory $VsDir -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru -WindowStyle Hidden
-try {
-  $ready = $false
-  for ($i = 0; $i -lt 120; $i++) {
-    Start-Sleep -Seconds 3
-    try {
-      $health = Invoke-RestMethod -Uri "http://127.0.0.1:3900/health" -TimeoutSec 5
-      if ($health.status -eq "ok") { $ready = $true; break }
-    } catch { }
-  }
-  if (-not $ready) { Fail "VoiceStudio did not start; see $log" }
-  Push-Location $ServiceDir
-  try {
-    if (-not $SkipVoxcpm2) {
-      Step "Installing VoxCPM2 (its own sidecar venv)"
-      Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "voicestudio-install", "voxcpm2")
-      Step "Downloading VoxCPM2's weights (about 5 GB)"
-      Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "voicestudio-warm", "voxcpm2")
-    }
-    if (-not $SkipAsr) {
-      Step "Downloading VoiceStudio's fallback speech-recognition model $AsrModel"
-      Invoke-Checked $GatewayPython @("-m", "speech_gateway.tools", "voicestudio-model", $AsrModel)
-    }
-  } finally { Pop-Location }
-} finally {
-  & taskkill /PID $vs.Id /T /F *> $null
-}
-
-Step "Done. Start the speech services with: npm run speech"
+Step "Done. Start the speech gateway with: npm run speech"
 if ($SpeechHome -ne (Join-Path $env:LOCALAPPDATA "office3d-speech")) {
   Write-Host "Add to .env: OFFICE3D_SPEECH_HOME=$SpeechHome"
 }

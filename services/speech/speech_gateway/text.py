@@ -298,8 +298,8 @@ class StressLexicon:
     lines: замо́к / за́мок, всё / все, мука́ / му́ка), marked by hand with `+`.
 
     Matching ignores case and ё/е. For Silero the phrase goes in with its
-    marks (the stress model keeps marks it is given); for engines that take
-    plain text (VoxCPM2) the marks are dropped and only the ё is kept.
+    marks (the stress model keeps marks it is given); `marks=False` drops the
+    marks and keeps only the ё (for an engine that takes plain text).
     """
 
     def __init__(self, phrases: Iterable[str]) -> None:

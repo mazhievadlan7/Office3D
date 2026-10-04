@@ -1,6 +1,6 @@
 /**
  * AM7's briefing over the hall's public address: his answer said sentence by
- * sentence in his own voice (voicestudio:am7 through /api/office/voice/reply,
+ * sentence in his own voice (silero:am7 through /api/office/voice/reply,
  * its humanoid treatment already applied by the speech gateway), played
  * through a PA chain so it carries across the whole hall whatever the camera
  * does: not placed in 3D, no distance falloff (the crew's talk fades out past
@@ -272,8 +272,8 @@ export function canStartAddress(lines: readonly PlannedLine[], renderMsPerChar: 
 const BUSY = new Set([429, 502, 503, 504]);
 const FETCH_ATTEMPTS = 5;
 const RETRY_MS = 1500;
-/** Before any sentence is rendered: the pace assumed (ms per character; AM7's designed voice on an 8 GB GPU). */
-const DEFAULT_RENDER_MS_PER_CHAR = 260;
+/** Before any sentence is rendered: the pace assumed (ms per character; AM7's Silero voice with its FX on the CPU renders ~20). */
+const DEFAULT_RENDER_MS_PER_CHAR = 50;
 /** Longest AM7 waits, once he may begin, for enough of his speech to be rendered (ms). */
 const START_WAIT_MAX_MS = 90_000;
 

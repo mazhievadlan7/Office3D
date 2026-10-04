@@ -85,7 +85,8 @@ function applyPose(controls: CameraControlsImpl, pose: HqCameraPose, transition:
  * along the floor, right drag orbits within the south-east quadrant, the wheel
  * dollies toward the cursor), the target clamped to the room, a cinematic
  * fly-through on first open (cameraIntro.ts; any click, wheel or key skips
- * it), fly-to presets and a follow mode that tracks one agent through the sim.
+ * it; held on its first frame while `introHold` is set — the entry screen is
+ * up), fly-to presets and a follow mode that tracks one agent through the sim.
  */
 export function HqCameraRig({
   layout,
@@ -93,6 +94,7 @@ export function HqCameraRig({
   apiRef,
   onModeChange,
   onIntroChange,
+  introHold = false,
 }: {
   layout: HqLayout;
   simRef: MutableRefObject<HqSimulation | null>;
@@ -100,6 +102,8 @@ export function HqCameraRig({
   onModeChange: (mode: HqCameraMode) => void;
   /** True while the opening fly-through plays. */
   onIntroChange?: (playing: boolean) => void;
+  /** Keeps the fly-through on its first frame (not yet reported as playing) until cleared. */
+  introHold?: boolean;
 }) {
   const controlsRef = useRef<CameraControlsImpl>(null);
   const size = useThree((state) => state.size);
@@ -116,11 +120,15 @@ export function HqCameraRig({
   // The fly-through and how far into it the camera is (seconds of frames shown).
   const introRef = useRef<{ path: HqIntroPath; elapsed: number } | null>(null);
   const onIntroChangeRef = useRef(onIntroChange);
+  const introHoldRef = useRef(introHold);
+  // Whether the fly-through has been reported as playing (it starts held).
+  const introAnnouncedRef = useRef(false);
   const gl = useThree((state) => state.gl);
 
   useEffect(() => {
     onModeChangeRef.current = onModeChange;
     onIntroChangeRef.current = onIntroChange;
+    introHoldRef.current = introHold;
     aspectRef.current = aspect;
     layoutRef.current = layout;
   });
@@ -204,17 +212,19 @@ export function HqCameraRig({
       introRef.current = { path: buildIntroPath(layout, home), elapsed: 0 };
       liftLimits(controls);
       controls.enabled = false;
-      onIntroChangeRef.current?.(true);
+      // Reported (and moving) once nothing holds it: see the frame loop.
+      introAnnouncedRef.current = false;
     } else if (!introRef.current) {
       flyTo(home, SMOOTH_PRESET);
     }
     setMode("overview");
   }, [layout]);
 
-  // Any click, wheel or key cuts the fly-through short.
+  // Any click, wheel or key cuts the fly-through short (not the one that
+  // dismisses the entry screen: it is still held then).
   useEffect(() => {
     const skip = () => {
-      if (introRef.current) finishIntroRef.current(true);
+      if (introRef.current && !introHoldRef.current) finishIntroRef.current(true);
     };
     const element = gl.domElement;
     element.addEventListener("pointerdown", skip);
@@ -320,9 +330,15 @@ export function HqCameraRig({
     if (!controls) return;
     const intro = introRef.current;
     if (intro) {
+      // Held on its first frame while the entry screen is up.
+      const held = introHoldRef.current;
+      if (!held && !introAnnouncedRef.current) {
+        introAnnouncedRef.current = true;
+        onIntroChangeRef.current?.(true);
+      }
       // Advanced by the frames actually shown, a step at most per frame: a
       // stall while the HQ loads pauses the flight instead of skipping it.
-      intro.elapsed += Math.min(Math.max(delta, 0), INTRO_MAX_STEP);
+      if (!held) intro.elapsed += Math.min(Math.max(delta, 0), INTRO_MAX_STEP);
       const playing = sampleIntro(intro.path, intro.elapsed, _introPosition, _introTarget);
       void controls.setLookAt(
         _introPosition.x,

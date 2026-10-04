@@ -132,6 +132,8 @@ export type HqSceneProps = {
   quality: HqQuality;
   onCameraModeChange: (mode: HqCameraMode) => void;
   onIntroChange?: (playing: boolean) => void;
+  /** Holds the opening fly-through on its first frame (the entry screen is up). */
+  introHold?: boolean;
   onSelect: (agentId: string) => void;
   onFocus: (agentId: string) => void;
   /**
@@ -175,6 +177,7 @@ export const HqScene = memo(function HqScene({
   quality,
   onCameraModeChange,
   onIntroChange,
+  introHold = false,
   onSelect,
   onFocus,
   briefing = null,
@@ -214,6 +217,7 @@ export const HqScene = memo(function HqScene({
         apiRef={cameraApiRef}
         onModeChange={onCameraModeChange}
         onIntroChange={onIntroChange}
+        introHold={introHold}
       />
       <HqLighting layout={layout} quality={quality} />
 

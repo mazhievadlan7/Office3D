@@ -2,6 +2,8 @@
 // which crew line in which voice. Shared by the server route that serves the
 // bank and the browser that plays it.
 
+import { currentSpeechVoiceId } from "@/lib/voice/voiceCatalog";
+
 /** `<voice>.<line>.<hash12>.mp3`: content-addressed, so a file never changes. */
 export const VOICE_BANK_FILE_RE = /^[a-z0-9-]{1,40}\.[a-z0-9]{1,12}\.[0-9a-f]{12}\.mp3$/;
 
@@ -19,7 +21,7 @@ export type VoiceBankVoice = {
 export type VoiceBankManifest = {
   version: number;
   generatedAt: string | null;
-  /** Voice id (`voicestudio:crew-m1`) to what it says. */
+  /** Voice id (`silero:crew-m1`) to what it says. */
   voices: Record<string, VoiceBankVoice>;
 };
 
@@ -28,7 +30,9 @@ const LINE_ID_RE = /^[a-z0-9]{1,12}$/;
 
 /**
  * A manifest from untrusted JSON: bad voices, lines and file names are
- * dropped (never throws). Null when nothing usable is left.
+ * dropped (never throws). Null when nothing usable is left. A bank rendered
+ * under the retired VoiceStudio ids is read under the Silero ids that
+ * replaced them (`voicestudio:crew-m1` is `silero:crew-m1`).
  */
 export function parseVoiceBankManifest(body: unknown): VoiceBankManifest | null {
   if (!body || typeof body !== "object") return null;
@@ -48,7 +52,10 @@ export function parseVoiceBankManifest(body: unknown): VoiceBankManifest | null 
       }
     }
     if (Object.keys(lines).length === 0) continue;
-    voices[id] = {
+    const current = currentSpeechVoiceId(id);
+    // A newer rendering under the current id wins over a retired one.
+    if (current !== id && voices[current]) continue;
+    voices[current] = {
       label: typeof entry.label === "string" ? entry.label.slice(0, 80) : id,
       lines,
     };

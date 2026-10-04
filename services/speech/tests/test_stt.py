@@ -189,14 +189,11 @@ def test_garbage_is_undecodable():
 
 
 def test_stt_settings_from_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("SPEECH_STT_ENGINE", "VoiceStudio")
     monkeypatch.setenv("SPEECH_STT_QUANTIZATION", "INT8")
     monkeypatch.setenv("SPEECH_STT_THREADS", "0")
     monkeypatch.setenv("SPEECH_STT_MODEL_DIR", str(tmp_path))
-    monkeypatch.setenv("SPEECH_VOICESTUDIO_WARMUP", "0")
+    monkeypatch.setenv("SPEECH_WARMUP", "0")
     settings = Settings.from_env()
-    assert settings.stt_engine == "voicestudio" and settings.stt_quantization == "int8"
+    assert settings.stt_quantization == "int8"
     assert settings.stt_threads == 1 and settings.stt_model_dir == tmp_path
-    assert settings.voicestudio_warmup is False
-    monkeypatch.setenv("SPEECH_STT_ENGINE", "nonsense")
-    assert Settings.from_env().stt_engine == "gigaam"
+    assert settings.warmup is False

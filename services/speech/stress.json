@@ -1,5 +1,5 @@
 {
-  "_comment": "Phrases in the office's own lines whose stress the engines get wrong (homographs, jargon). Written with + before the stressed vowel. Silero reads the marks; for VoxCPM2 the marks are dropped and only ё is kept. Matching ignores case and ё/е.",
+  "_comment": "Phrases in the office's own lines whose stress the engines get wrong (homographs, jargon). Written with + before the stressed vowel. Silero reads the marks. Matching ignores case and ё/е.",
   "phrases": [
     "вс+ё под контр+олем",
     "вс+ё ч+исто",

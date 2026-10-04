@@ -74,12 +74,12 @@ describe("voice providers", () => {
 
   it("speaks_with_a_gateway_voice", async () => {
     const calls = stubFetch(mp3());
-    const response = await ttsProvider({}).synthesize({ text: "Брифинг", voiceId: "voicestudio:crew-m2", speed: 3 });
+    const response = await ttsProvider({}).synthesize({ text: "Брифинг", voiceId: "silero:crew-m2", speed: 3 });
     expect(response.ok).toBe(true);
     expect(calls[0].url).toBe("http://127.0.0.1:8765/v1/audio/speech");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       input: "Брифинг",
-      voice: "voicestudio:crew-m2",
+      voice: "silero:crew-m2",
       response_format: "mp3",
       speed: 1.2,
     });
@@ -90,13 +90,13 @@ describe("voice providers", () => {
     const calls = stubFetch(mp3(), mp3());
     await ttsProvider({}).synthesize({ text: "x", voiceId: "EXAVITQu4vr4xnSDxMaL" });
     await ttsProvider({ OFFICE3D_TTS_VOICE: "silero:eugene" }).synthesize({ text: "x", voiceId: null });
-    expect(JSON.parse(String(calls[0].init.body)).voice).toBe("voicestudio:am7");
+    expect(JSON.parse(String(calls[0].init.body)).voice).toBe("silero:am7");
     expect(JSON.parse(String(calls[1].init.body)).voice).toBe("silero:eugene");
   });
 
   it("speaks_as_the_system_with_silero_whatever_voice_was_sent", async () => {
     const calls = stubFetch(mp3(), mp3());
-    await ttsProvider({}).synthesize({ text: "Доброе утро", voiceId: "voicestudio:am7", role: "system" });
+    await ttsProvider({}).synthesize({ text: "Доброе утро", voiceId: "silero:am7", role: "system" });
     await ttsProvider({ OFFICE3D_SYSTEM_VOICE: "silero:eugene" }).synthesize({ text: "Доброе утро", role: "system" });
     expect(JSON.parse(String(calls[0].init.body)).voice).toBe("silero:system");
     expect(JSON.parse(String(calls[1].init.body)).voice).toBe("silero:eugene");
@@ -172,30 +172,30 @@ describe("voice providers", () => {
         default: "silero:aidar",
         data: [
           { id: "silero:system", label: "Система", role: "system", engine: "silero" },
-          { id: "voicestudio:am7", label: "AM7", role: "lead", engine: "voicestudio", fallback: "silero:eugene" },
-          { id: "voicestudio:crew-m1", label: "М1", role: "crew", engine: "voicestudio" },
-          { id: "voicestudio:crew-m2", label: "М2", role: "crew", engine: "voicestudio" },
+          { id: "silero:am7", label: "AM7", role: "lead", engine: "silero" },
+          { id: "silero:crew-m1", label: "М1", role: "crew", engine: "silero" },
+          { id: "silero:crew-m2", label: "М2", role: "crew", engine: "silero" },
           // An older gateway may still list a retired female voice: not offered.
           { id: "voicestudio:crew-f1", label: "Ж1", role: "crew", engine: "voicestudio", gender: "female" },
           { id: "not a voice", label: "x" },
         ],
       }),
     );
-    const setup = await describeVoiceSetup({ SPEECH_GATEWAY_URL: "http://speech:8765", VOICESTUDIO_API_KEY: "vs-secret" });
+    const setup = await describeVoiceSetup({ SPEECH_GATEWAY_URL: "http://speech:8765", OFFICE3D_VOICE_API_KEY: "vs-secret" });
     expect(calls[0].url).toBe("http://speech:8765/v1/voices");
     expect(setup.tts).toMatchObject({
       provider: "local-speech",
       ready: true,
-      defaultVoiceId: "voicestudio:am7",
+      defaultVoiceId: "silero:am7",
       systemVoiceId: "silero:system",
-      leadVoiceId: "voicestudio:am7",
-      crewVoiceIds: ["voicestudio:crew-m1", "voicestudio:crew-m2"],
+      leadVoiceId: "silero:am7",
+      crewVoiceIds: ["silero:crew-m1", "silero:crew-m2"],
     });
     expect(setup.tts.options.map((option) => option.id)).toEqual([
       "silero:system",
-      "voicestudio:am7",
-      "voicestudio:crew-m1",
-      "voicestudio:crew-m2",
+      "silero:am7",
+      "silero:crew-m1",
+      "silero:crew-m2",
     ]);
     expect(setup.stt).toEqual({ provider: "local-speech", ready: true });
     expect(JSON.stringify(setup)).not.toContain("vs-secret");
@@ -207,7 +207,7 @@ describe("voice providers", () => {
     expect(setup.tts.ready).toBe(false);
     expect(setup.stt.ready).toBe(false);
     // Settings still show the real voice names.
-    expect(setup.tts.options.some((option) => option.id === "voicestudio:am7")).toBe(true);
+    expect(setup.tts.options.some((option) => option.id === "silero:am7")).toBe(true);
     expect(setup.tts.crewVoiceIds?.length).toBeGreaterThan(1);
   });
 });

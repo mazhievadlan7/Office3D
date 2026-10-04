@@ -59,6 +59,11 @@ export type HqOfficeProps = {
   /** True while the opening fly-through plays, so the screen can hide its own panels. */
   onIntroChange?: (playing: boolean) => void;
   /**
+   * Holds the opening fly-through on its first frame while the entry screen
+   * is up (the browser holds the sound back until a click; lib/office/hqEntry.ts).
+   */
+  introHold?: boolean;
+  /**
    * A briefing in progress: AM7 at the podium addressing the floor, everyone
    * standing at their desks. Null when there is none.
    */
@@ -94,7 +99,7 @@ export type HqOfficeProps = {
   /** The owner is signed in: «СОЗДАТЕЛЬ В СЕТИ» in the HUD. */
   creatorOnline?: boolean;
   /**
-   * The owner has just signed in (the greeting is on): AM7 acknowledges them
+   * The owner has just entered the HQ (the greeting is on): AM7 acknowledges them
    * once — turned to the camera through the opening fly-through and a little
    * after, standing he speaks, in his chair he looks up from the keys.
    */
@@ -217,6 +222,7 @@ export function HqOffice({
   onOpenSettings,
   onOpenCombat,
   onIntroChange,
+  introHold = false,
   briefing = null,
   mission = false,
   operation = null,
@@ -533,7 +539,7 @@ export function HqOffice({
     if (briefingCueList[briefingCue]?.point) simRef.current?.pointAtWall();
   }, [briefingId, briefingCue, briefingCueList]);
 
-  // The creator's sign-in: AM7 turns to the camera once, for the fly-through
+  // The creator enters the HQ: AM7 turns to the camera once, for the fly-through
   // and a few seconds after (HqCreatorWatch keeps his eyes on the camera).
   const creatorAckedRef = useRef(false);
   useEffect(() => {
@@ -648,6 +654,7 @@ export function HqOffice({
             quality={quality}
             onCameraModeChange={handleCameraMode}
             onIntroChange={handleIntroChange}
+            introHold={introHold}
             onSelect={handleSelect}
             onFocus={handleFocus}
             briefing={briefingScene}

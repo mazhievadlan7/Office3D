@@ -107,7 +107,6 @@ async function main() {
   const accessGate = createAccessGate({
     token: process.env.STUDIO_ACCESS_TOKEN,
     login: process.env.STUDIO_LOGIN,
-    ownerName: process.env.STUDIO_OWNER_NAME,
     isTrustedProxy: trustedProxies.isTrusted,
     securityLog,
   });
@@ -115,6 +114,8 @@ async function main() {
     securityLog,
     gateEnabled: accessGate.enabled,
     allowOrigin: allowHttpOrigin,
+    // The name the HQ greets the owner by on every opening.
+    ownerName: String(process.env.STUDIO_OWNER_NAME ?? "").trim() || String(process.env.STUDIO_LOGIN ?? "").trim(),
   });
   const requestGuard = createRequestGuard({
     allowedOrigins: String(process.env.OFFICE3D_ALLOWED_ORIGINS ?? "").split(","),

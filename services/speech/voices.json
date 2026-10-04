@@ -1,5 +1,5 @@
 {
-  "_comment": "Voices the office offers. id = <engine>:<name>. role: system (the HQ's own voice), lead (AM7), crew (operational hackers), any. VoiceStudio presets are designed voices: VoxCPM2 voice design (an English description plus a fixed seed; Russian descriptions came out female-sounding) rendered once into a short reference clip (voice-refs/<file>, synthetic, no real person) that VoiceStudio then clones for every line, so the timbre never drifts. 'fallback' is the Silero voice spoken when VoiceStudio is down (all different, so the crew stays distinguishable on a CPU-only server). 'fx' is the post-processing heard on the voice, fallback included: humanoid-heavy (AM7 and the system: -4 semitones with formants kept, 6 % slower, grit, octave sub, ring-mod and metal comb, tight room) or humanoid-hard (the crew: -3 semitones, the same character lighter); the older humanoid / humanoid-light stay available. 'gender' picks the grammatical form of the crew's lines.",
+  "_comment": "Voices the office offers, all Silero on the CPU (no GPU). id = silero:<name>; a named preset sets the Silero speaker in params. role: system (the HQ's own voice), lead (AM7), crew (operational hackers), any. 'fx' is the post-processing heard on the voice: humanoid-heavy («Система штаба»: -4 semitones with formants kept, 6 % slower, grit, octave sub, ring-mod and metal comb, tight room), humanoid-heavy-lead (AM7: the same, -6 semitones, 9 % slower, more grit; a different speaker, so he never sounds like the system) or humanoid-hard (the crew: -3 semitones, lighter). 'gender' picks the grammatical form of the crew's lines. The older ids voicestudio:am7 and voicestudio:crew-m1..m6 (saved settings, the voice bank) resolve to these presets.",
   "voices": [
     {
       "id": "silero:system",
@@ -12,144 +12,75 @@
       "gender": "male"
     },
     {
-      "id": "voicestudio:am7",
+      "id": "silero:am7",
       "label": "AM7",
       "role": "lead",
-      "description": "Главный хакер: тяжёлый, хриплый бас сурового командира, медленно и холодно",
+      "description": "Главный хакер: самый низкий бас штаба, медленно и холодно, металл андроида",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A heavy, dark bass voice of a stern military general in his fifties, rough and gravelly, speaking Russian slowly and deliberately with cold authority.",
-        "seed": 7
+        "speaker": "ru_safarhuja"
       },
-      "reference": {
-        "file": "am7.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
-      },
-      "fx": "humanoid-heavy",
-      "gender": "male",
-      "fallback": "silero:ru_safarhuja"
+      "fx": "humanoid-heavy-lead",
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m1",
+      "id": "silero:crew-m1",
       "label": "Взломщик — низкий, сухой, резкий",
       "role": "crew",
-      "description": "Жёсткий взломщик за сорок: низкий грубый голос, сухо и быстро",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A low, rough male voice of a hardened hacker in his forties, dry and sharp, speaking Russian quickly.",
-        "seed": 42
-      },
-      "reference": {
-        "file": "crew-m1.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "ru_bogdan"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:ru_bogdan"
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m2",
+      "id": "silero:crew-m2",
       "label": "Аналитик — тёмный баритон, ледяной",
       "role": "crew",
-      "description": "Тёмный баритон: спокойно, угрожающе, без эмоций",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A deep, dark male baritone, calm and menacing, precise and emotionless, speaking Russian.",
-        "seed": 7
-      },
-      "reference": {
-        "file": "crew-m2.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "ru_alexandr"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:ru_alexandr"
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m3",
+      "id": "silero:crew-m3",
       "label": "Ветеран — тяжёлый грудной бас",
       "role": "crew",
-      "description": "Крупный мужчина за пятьдесят: грудной бас, медленно и серьёзно",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A deep chesty bass voice of a big, powerful man in his fifties, slow and serious, speaking Russian.",
-        "seed": 7
-      },
-      "reference": {
-        "file": "crew-m3.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "ru_roman"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:ru_roman"
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m4",
+      "id": "silero:crew-m4",
       "label": "Инфильтратор — хриплый, угрожающий",
       "role": "crew",
-      "description": "Хриплый голос мрачного оперативника: тихо и угрожающе",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A low, raspy, hoarse male voice of a grim veteran operative, quiet and intimidating, speaking Russian.",
-        "seed": 101
-      },
-      "reference": {
-        "file": "crew-m4.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "ru_eduard"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:ru_eduard"
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m5",
+      "id": "silero:crew-m5",
       "label": "Наёмник — грубый, с хрипотцой",
       "role": "crew",
-      "description": "Жёсткий наёмник за сорок: низкий, с хрипотцой, уверенный",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A low, gravelly male voice of a tough mercenary in his forties, rough and confident, speaking Russian.",
-        "seed": 42
-      },
-      "reference": {
-        "file": "crew-m5.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "aidar"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:aidar"
+      "gender": "male"
     },
     {
-      "id": "voicestudio:crew-m6",
+      "id": "silero:crew-m6",
       "label": "Часовой — строгий бас-баритон",
       "role": "crew",
-      "description": "Зрелый бас-баритон: ровно, строго, властно",
       "params": {
-        "model": "voxcpm2",
-        "voice": "default",
-        "language": "ru",
-        "description": "A deep, resonant male bass-baritone, steady and stern, mature and authoritative, speaking Russian.",
-        "seed": 42
-      },
-      "reference": {
-        "file": "crew-m6.flac",
-        "text": "Система штаба на связи. Все каналы работают в штатном режиме, ожидаю дальнейших указаний."
+        "speaker": "ru_dmitriy"
       },
       "fx": "humanoid-hard",
-      "gender": "male",
-      "fallback": "silero:ru_dmitriy"
+      "gender": "male"
     }
   ]
 }

@@ -1,22 +1,22 @@
 // The office's voices, as the local speech gateway (services/speech) names them:
-// `<engine>:<name>`.
-//   - silero:<speaker>    Silero TTS v5 — Russian with exact word stress, fast on
-//                         a CPU. The HQ system («Система штаба») speaks with it.
-//   - voicestudio:<name>  VoiceStudio — designed voices (VoxCPM2): AM7 and the crew.
+// `silero:<name>` — Silero TTS v5 on the CPU (exact Russian stress), each voice
+// with its own "humanoid" post-processing: «Система штаба», AM7 and the crew.
 //
 // The live list comes from the gateway's GET /v1/voices; this copy of
 // services/speech/voices.json is what the office offers while the gateway is
 // not answering, so settings still show real names.
+//
+// Ids of the retired VoiceStudio engine (`voicestudio:am7`,
+// `voicestudio:crew-m1`…) are still accepted (saved settings, the voice
+// bank's manifest) and mean the Silero presets that replaced them.
 
 export type SpeechVoiceRole = "system" | "lead" | "crew" | "any";
 
 export type SpeechVoice = {
   id: string;
   label: string;
-  engine: "silero" | "voicestudio";
+  engine: "silero";
   role: SpeechVoiceRole;
-  /** The Silero voice the gateway speaks with when VoiceStudio is down. */
-  fallback?: string;
   /** The office speaks with male voices only. */
   gender?: "male";
 };
@@ -26,10 +26,18 @@ export const SPEECH_VOICE_ID_RE = /^(silero|voicestudio):[A-Za-z0-9_.-]{1,80}$/;
 export const isSpeechVoiceId = (value: unknown): value is string =>
   typeof value === "string" && SPEECH_VOICE_ID_RE.test(value.trim());
 
-/** The retired female crew voices, each to a fixed male crew voice (as the gateway maps them). */
-const RETIRED_CREW_VOICES: Record<string, string> = {
-  "voicestudio:crew-f1": "voicestudio:crew-m1",
-  "voicestudio:crew-f2": "voicestudio:crew-m2",
+/** The retired VoiceStudio voices, each to the Silero preset that speaks for it (as the gateway maps them). */
+const RETIRED_VOICESTUDIO_VOICES: Record<string, string> = {
+  "voicestudio:am7": "silero:am7",
+  "voicestudio:crew-m1": "silero:crew-m1",
+  "voicestudio:crew-m2": "silero:crew-m2",
+  "voicestudio:crew-m3": "silero:crew-m3",
+  "voicestudio:crew-m4": "silero:crew-m4",
+  "voicestudio:crew-m5": "silero:crew-m5",
+  "voicestudio:crew-m6": "silero:crew-m6",
+  // The retired female crew voices, to fixed male ones.
+  "voicestudio:crew-f1": "silero:crew-m1",
+  "voicestudio:crew-f2": "silero:crew-m2",
 };
 /** Female Silero speakers the office no longer offers; they are spoken by Aidar. */
 const RETIRED_SILERO_SPEAKERS = new Set([
@@ -41,41 +49,41 @@ const RETIRED_SILERO_SPEAKERS = new Set([
 const RETIRED_SILERO_REPLACEMENT = "silero:aidar";
 
 /**
- * The voice to use for a saved voice id: the office speaks with male voices
- * only, so a retired female voice (an old setting) becomes its male stand-in.
- * Any other id is returned trimmed, unchanged.
+ * The voice to use for a saved voice id: a retired VoiceStudio voice becomes
+ * the Silero preset of the same name, a retired female voice its male
+ * stand-in. Any other id is returned trimmed, unchanged.
  */
 export const currentSpeechVoiceId = (voiceId: string): string => {
   const id = voiceId.trim();
-  const crewReplacement = RETIRED_CREW_VOICES[id];
-  if (crewReplacement) return crewReplacement;
+  const replacement = RETIRED_VOICESTUDIO_VOICES[id];
+  if (replacement) return replacement;
   if (id.startsWith("silero:") && RETIRED_SILERO_SPEAKERS.has(id.slice("silero:".length))) return RETIRED_SILERO_REPLACEMENT;
   return id;
 };
 
 /** «Система штаба»: Silero's deepest voice (exact stress, instant on a CPU) with the gateway's humanoid-heavy FX. */
 export const DEFAULT_SYSTEM_VOICE = "silero:system";
-export const DEFAULT_LEAD_VOICE = "voicestudio:am7";
+/** AM7: another Silero speaker, taken deeper still (humanoid-heavy-lead). */
+export const DEFAULT_LEAD_VOICE = "silero:am7";
 
-const crew = (id: string, label: string, fallback: string): SpeechVoice => ({
-  id: `voicestudio:${id}`,
+const crew = (id: string, label: string): SpeechVoice => ({
+  id: `silero:${id}`,
   label,
-  engine: "voicestudio",
+  engine: "silero",
   role: "crew",
-  fallback,
   gender: "male",
 });
 
-// The casting: AM7 and six operators (male voices only), each a VoxCPM2-designed voice cloned
-// from its own reference clip, each with a different Silero fallback.
+// The casting: the system, AM7 and six operators (male voices only), each a
+// different Silero speaker.
 export const BUILTIN_SPEECH_VOICES: SpeechVoice[] = [
-  { id: "voicestudio:am7", label: "AM7", engine: "voicestudio", role: "lead", fallback: "silero:ru_safarhuja", gender: "male" },
-  crew("crew-m1", "Взломщик — низкий, сухой, резкий", "silero:ru_bogdan"),
-  crew("crew-m2", "Аналитик — тёмный баритон, ледяной", "silero:ru_alexandr"),
-  crew("crew-m3", "Ветеран — тяжёлый грудной бас", "silero:ru_roman"),
-  crew("crew-m4", "Инфильтратор — хриплый, угрожающий", "silero:ru_eduard"),
-  crew("crew-m5", "Наёмник — грубый, с хрипотцой", "silero:aidar"),
-  crew("crew-m6", "Часовой — строгий бас-баритон", "silero:ru_dmitriy"),
+  { id: "silero:am7", label: "AM7", engine: "silero", role: "lead", gender: "male" },
+  crew("crew-m1", "Взломщик — низкий, сухой, резкий"),
+  crew("crew-m2", "Аналитик — тёмный баритон, ледяной"),
+  crew("crew-m3", "Ветеран — тяжёлый грудной бас"),
+  crew("crew-m4", "Инфильтратор — хриплый, угрожающий"),
+  crew("crew-m5", "Наёмник — грубый, с хрипотцой"),
+  crew("crew-m6", "Часовой — строгий бас-баритон"),
   { id: "silero:system", label: "Система штаба (Silero Евгений)", engine: "silero", role: "system", gender: "male" },
   { id: "silero:aidar", label: "Айдар (Silero)", engine: "silero", role: "any" },
   { id: "silero:eugene", label: "Евгений (Silero)", engine: "silero", role: "any" },
@@ -92,14 +100,12 @@ export const parseGatewayVoices = (body: unknown): SpeechVoice[] => {
     const entry = raw as Record<string, unknown>;
     if (!isSpeechVoiceId(entry?.id)) continue;
     const id = String(entry.id);
-    const engine = id.startsWith("silero:") ? "silero" : "voicestudio";
     const role = ROLES.includes(entry.role as SpeechVoiceRole) ? (entry.role as SpeechVoiceRole) : "any";
     const label = typeof entry.label === "string" && entry.label.trim() ? entry.label.trim().slice(0, 80) : id;
-    const fallback = isSpeechVoiceId(entry.fallback) ? String(entry.fallback) : undefined;
-    // Male voices only: a female voice an older gateway still lists is not offered.
-    if (entry.gender === "female" || currentSpeechVoiceId(id) !== id) continue;
+    // Male voices only, and no retired voice an older gateway still lists.
+    if (!id.startsWith("silero:") || entry.gender === "female" || currentSpeechVoiceId(id) !== id) continue;
     const gender = entry.gender === "male" ? "male" : undefined;
-    voices.push({ id, label, engine, role, ...(fallback ? { fallback: currentSpeechVoiceId(fallback) } : {}), ...(gender ? { gender } : {}) });
+    voices.push({ id, label, engine: "silero", role, ...(gender ? { gender } : {}) });
   }
   return voices;
 };

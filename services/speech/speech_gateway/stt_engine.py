@@ -9,8 +9,8 @@ one pass.
 
 The model is loaded once (at start-up when warm-up is on) and stays in memory;
 a request never reloads it. It runs on the CPU on purpose: the GPU belongs to
-VoiceStudio's VoxCPM2, and GigaAM on a few CPU cores is far faster than real
-time (about 0.2 s for a 3 s command).
+the HQ's 3D in the browser, and GigaAM on a few CPU cores is far faster than
+real time (about 0.2 s for a 3 s command).
 
 Weights come from the Hugging Face hub (istupakov/gigaam-v3-onnx,
 istupakov/silero-vad-onnx) into HF_HOME, or from SPEECH_STT_MODEL_DIR.

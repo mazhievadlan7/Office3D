@@ -7,15 +7,13 @@ One small, OpenAI-compatible speech surface for the Office3D server:
 - ``POST /v1/audio/transcriptions`` speech to text (multipart);
 - ``GET  /health``                  readiness of each engine.
 
-Voices are named ``<engine>:<name>``. ``silero:<speaker>`` is served here, by
-Silero TTS v5 with silero-stress placing Russian word stress; everything named
-``voicestudio:<voice>`` is forwarded to a VoiceStudio backend. Speech is
-recognised here too, by GigaAM v3 (onnx-asr, CPU) with Silero VAD; VoiceStudio's
-Whisper is the fallback. All engines are open source and run locally; no paid
-API is used.
+Voices are named ``silero:<name>`` and spoken here by Silero TTS v5 on the
+CPU, with silero-stress placing Russian word stress and each voice's own
+post-processing (fx.py). Speech is recognised here too, by GigaAM v3
+(onnx-asr, CPU) with Silero VAD. Nothing uses the GPU: it stays free for the
+HQ's 3D. All engines are open source and run locally; no paid API is used.
 
-MIT licensed (part of Office3D). VoiceStudio (AGPL-3.0) runs as a separate
-process and is only spoken to over HTTP.
+MIT licensed (part of Office3D).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

@@ -189,11 +189,19 @@ import { hqTimeZone } from "@/features/hq/core/hqTime";
 import { hqGreetingOpening, hqGreetingStatus, taskBoardSummary } from "@/lib/office/greeting";
 import { fetchSecuritySummary, type SecuritySummary } from "@/lib/office/securitySummary";
 import { hqSoundOn } from "@/features/hq/core/soundPreference";
-import { prepareSystemSpeech, primeSpeechAudio, speakSystem, type PreparedSpeech } from "@/lib/voice/systemVoice";
+import {
+  prepareSystemSpeech,
+  primeSpeechAudio,
+  speakSystem,
+  speechAudioContext,
+  type PreparedSpeech,
+} from "@/lib/voice/systemVoice";
+import { claimHqGreeting, hqGreetingClaimed, tryStartAudio, type HqEntryState } from "@/lib/office/hqEntry";
+import { HqEntryGate } from "@/features/hq/HqEntryGate";
 import { briefingAddressDebug, prepareBriefingAddress, type PreparedBriefingAddress } from "@/lib/voice/briefingAddress";
 import { briefingCues } from "@/features/hq/core/briefingScript";
 
-/** Without an opening fly-through, the greeting starts this long after the page (ms). */
+/** Without an opening fly-through, the greeting starts this long after entering the HQ (ms). */
 const GREET_WITHOUT_INTRO_MS = 30_000;
 /** How often the page re-reads whether the creator is signed in (ms). */
 const CREATOR_PRESENCE_POLL_MS = 60_000;
@@ -2719,45 +2727,51 @@ export function OfficeScreen({
     setHqWallMode((mode) => (mode === "panels" ? "auto" : "panels"));
   }, []);
 
-  // After a sign-in the server leaves a short-lived hq_greet cookie (the name
-  // to greet, server/access-gate.js): once the team has loaded, the HQ system
-  // (not an agent) greets the operator by name, out loud only — the date and
-  // time, unread news, tasks, operations and attacks. The cookie is cleared at once.
-  const greetNameRef = useRef<string | null>(null);
-  // A fresh sign-in (the cookie was there): AM7 acknowledges the creator in the HQ.
-  const freshSignInRef = useRef(false);
+  // Entering the HQ (lib/office/hqEntry.ts): every time the page opens, the
+  // HQ system (not an agent) greets the operator out loud as the camera flies
+  // in. The page first tries to start its sound by itself; when the browser
+  // holds it back (nothing clicked yet after a reload), the entry screen asks
+  // for one click or key, which starts the fly-through and the greeting
+  // together. With the HQ's sound off, or once this page has greeted (hot
+  // reload, React's double mount), the HQ opens straight away.
+  const [hqEntry, setHqEntry] = useState<HqEntryState>("checking");
   useEffect(() => {
-    const match = /(?:^|;\s*)hq_greet=([^;]*)/.exec(document.cookie);
-    if (!match) return;
-    document.cookie = "hq_greet=; Max-Age=0; Path=/; SameSite=Lax";
-    freshSignInRef.current = true;
-    let name = "";
-    try {
-      name = decodeURIComponent(match[1]);
-    } catch {
-      name = "";
+    if (!hqSoundOn() || hqGreetingClaimed()) {
+      setHqEntry("entered");
+      return;
     }
-    greetNameRef.current = name === "-" ? "" : name;
+    let cancelled = false;
+    void tryStartAudio(speechAudioContext()).then((running) => {
+      if (!cancelled) setHqEntry((current) => (current === "checking" ? (running ? "entered" : "gate") : current));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+  // The gate's click or key press: the gesture lets the audio start.
+  const enterHq = useCallback(() => {
+    void speechAudioContext()?.resume();
+    setHqEntry("entered");
+  }, []);
+  const hqEntered = hqEntry === "entered";
 
   // The creator's presence and the platform's security (GET
   // /api/security/summary, behind the access gate): read now and every
   // minute. A summary means the owner is signed in — «СОЗДАТЕЛЬ В СЕТИ» in
-  // the HUD — and its counts go into the greeting. Nothing is sent to the
-  // agents: telling them through the gateway would start paid runs.
+  // the HUD — and its name and counts go into the greeting. Nothing is sent to
+  // the agents: telling them through the gateway would start paid runs.
   const securitySummaryRef = useRef<SecuritySummary | null>(null);
-  const [creatorPresence, setCreatorPresence] = useState({ online: false, entered: false });
+  // The first answer (or its failure) is what the greeting waits for: the name.
+  const [securitySummaryRead, setSecuritySummaryRead] = useState(false);
+  const [creatorOnline, setCreatorOnline] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     const read = () => {
       void fetchSecuritySummary(controller.signal).then((summary) => {
         if (controller.signal.aborted) return;
         securitySummaryRef.current = summary;
-        const online = summary !== null;
-        const entered = online && freshSignInRef.current;
-        setCreatorPresence((current) =>
-          current.online === online && current.entered === entered ? current : { online, entered },
-        );
+        setCreatorOnline(summary !== null);
+        setSecuritySummaryRead(true);
       });
     };
     read();
@@ -3186,33 +3200,32 @@ export function OfficeScreen({
   useEffect(() => {
     greetVoiceRef.current = voiceRepliesPreference.voiceId ?? null;
   }, [voiceRepliesPreference.voiceId]);
-  // The greeting, in step with the opening fly-through. The opening (the
-  // welcome, today's date and the time) is fetched as soon as the page knows
-  // it is a fresh sign-in and starts with the camera; the status report
-  // (unread, operations, security) follows once the opening has finished and
-  // the whole team has loaded, in the same voice. Silent while the HQ's sound
-  // is off; if the browser holds sound back, it plays at the first click.
+  // The greeting, in step with the opening fly-through, on every opening of
+  // the page. The opening (the welcome by name, today's date and the time) is
+  // fetched as soon as the name is known and starts with the camera; the status
+  // report (unread, operations, security) follows once the opening has finished
+  // and the whole team has loaded, in the same voice. Silent while the HQ's
+  // sound is off; once per page load (claimHqGreeting), so it never plays over itself.
   const greetOpeningRef = useRef<PreparedSpeech | null>(null);
   const greetVoiceUsedRef = useRef<string | null>(null);
   const greetStartedRef = useRef(false);
   const greetStatusSpokenRef = useRef(false);
   const [greetOpeningDone, setGreetOpeningDone] = useState(false);
+  const [greetPrepared, setGreetPrepared] = useState(false);
   useEffect(() => {
-    const name = greetNameRef.current;
-    if (name === null || greetOpeningRef.current) return;
-    if (!hqSoundOn()) {
-      greetNameRef.current = null;
-      return;
-    }
+    if (!securitySummaryRead || greetOpeningRef.current) return;
+    if (!hqSoundOn() || !claimHqGreeting()) return;
+    const name = securitySummaryRef.current?.ownerName ?? "";
     greetVoiceUsedRef.current = greetVoiceRef.current;
     greetOpeningRef.current = prepareSystemSpeech(
       hqGreetingOpening({ name, now: new Date(), timeZone: hqTimeZone() }).join(" "),
       { voiceId: greetVoiceUsedRef.current },
     );
-  }, []);
+    setGreetPrepared(true);
+  }, [securitySummaryRead]);
   useEffect(() => {
     const opening = greetOpeningRef.current;
-    if (!opening || greetStartedRef.current) return;
+    if (!greetPrepared || !hqEntered || !opening || greetStartedRef.current) return;
     const start = () => {
       if (greetStartedRef.current) return;
       greetStartedRef.current = true;
@@ -3225,12 +3238,11 @@ export function OfficeScreen({
     // No fly-through (another view, or it never starts): speak anyway.
     const timer = window.setTimeout(start, GREET_WITHOUT_INTRO_MS);
     return () => window.clearTimeout(timer);
-  }, [hqIntroPlaying]);
+  }, [greetPrepared, hqEntered, hqIntroPlaying]);
   useEffect(() => {
     if (!greetOpeningDone || greetStatusSpokenRef.current) return;
     if (!rosterFromGateway || status !== "connected") return;
     greetStatusSpokenRef.current = true;
-    greetNameRef.current = null;
     const { hq, all, tasks, tasksLoading } = greetAgentsRef.current;
     const security = securitySummaryRef.current;
     let working = 0;
@@ -3570,6 +3582,7 @@ export function OfficeScreen({
           onOpenSettings={() => setSettingsOpen((open) => !open)}
           onOpenCombat={() => setCombatOpen(true)}
           onIntroChange={setHqIntroPlaying}
+          introHold={!hqEntered}
           briefing={hqBriefing}
           mission={hqMission !== null}
           operation={hqWallOperation}
@@ -3578,9 +3591,10 @@ export function OfficeScreen({
           onToggleWall={toggleHqWall}
           onHallReady={handleHallReady}
           onArchiveEvent={handleHqArchiveEvent}
-          creatorOnline={creatorPresence.online}
-          creatorEntered={creatorPresence.entered}
+          creatorOnline={creatorOnline}
+          creatorEntered={creatorOnline && hqEntered}
         />
+        {hqEntry === "gate" ? <HqEntryGate onEnter={enterHq} /> : null}
         {jukeboxOpen ? (
           soundclawReady ? (
             <JukeboxPanel

@@ -1,5 +1,5 @@
 /**
- * What the HQ's autonomous system says when the operator signs in: a
+ * What the HQ's autonomous system says each time the operator opens the HQ: a
  * greeting by name, today's full date and the time, the unread messages, the
  * task board, how the operations stand and the attacks on the platform since
  * the previous sign-in. It is the platform speaking, not an agent. Pure, so

@@ -1,9 +1,8 @@
 # Office3D speech gateway — engine-agnostic dependencies (MIT, our code).
-# Install requirements-cpu.txt or requirements-cu128.txt instead: they add
-# the matching torch build and include this file.
+# Install requirements-cpu.txt instead: it adds the CPU torch build and
+# includes this file.
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
-httpx>=0.27,<1
 python-multipart>=0.0.18
 numpy>=1.26
 soundfile>=0.12.1

@@ -1,5 +1,4 @@
-"""Settings from the environment. Nothing here is secret except the optional
-VoiceStudio key, which is only ever sent to VoiceStudio and never logged."""
+"""Settings from the environment. Nothing here is secret."""
 
 from __future__ import annotations
 
@@ -25,13 +24,6 @@ def _default_home() -> Path:
 
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, "").strip() or default
-
-
-def _env_float(name: str, default: float) -> float:
-    try:
-        return float(_env(name, str(default)))
-    except ValueError:
-        return default
 
 
 def _env_int(name: str, default: int) -> int:
@@ -61,24 +53,13 @@ def is_loopback(host: str) -> bool:
 class Settings:
     host: str = "127.0.0.1"
     port: int = 8765
-    #: VoiceStudio's backend (OpenAI-compatible under /v1).
-    voicestudio_url: str = "http://127.0.0.1:3900"
-    voicestudio_api_key: str = field(default="", repr=False)
-    voicestudio_model: str = "voxcpm2"
-    #: Past this the gateway speaks the voice's Silero fallback instead (a cold
-    #: VoxCPM2 load, weights still downloading). Keep it below the office's
-    #: own 120 s limit.
-    voicestudio_timeout_s: float = 90.0
-    #: After VoiceStudio fails to answer, voices with a Silero fallback use it
-    #: straight away for this long instead of waiting for the timeout again.
-    voicestudio_backoff_s: float = 60.0
     #: The voice used for "default", an OpenAI voice name, or no voice at all.
     default_voice: str = "silero:aidar"
     silero_model: str = "v5_5_ru"
-    #: Silero's CIS model (MIT): the ru_* speakers the crew's fallbacks use.
+    #: Silero's CIS model (MIT): the ru_* speakers AM7 and the crew use.
     silero_cis_model: str = "v5_cis_base"
     silero_model_url: str = "https://models.silero.ai/models/tts/ru/{model}.pt"
-    #: cpu (default: fast enough, leaves the GPU to VoiceStudio), cuda or auto.
+    #: cpu (default: fast enough, leaves the GPU to the HQ's 3D), cuda or auto.
     silero_device: str = "cpu"
     silero_threads: int = 4
     silero_sample_rate: int = 48_000
@@ -98,9 +79,6 @@ class Settings:
     max_upload_mb: int = 25
     #: Language hint for transcriptions when the caller sends none.
     stt_language: str = "ru"
-    #: Who recognises speech: gigaam (in this process, CPU) or voicestudio
-    #: (VoiceStudio's Whisper; slow while VoxCPM2 holds the GPU).
-    stt_engine: str = "gigaam"
     stt_model: str = "gigaam-v3-e2e-rnnt"
     #: "" (full precision) or int8 (4x smaller, a little faster).
     stt_quantization: str = ""
@@ -108,16 +86,8 @@ class Settings:
     stt_vad: bool = True
     #: A local directory with the model files (offline installs); else HF_HOME.
     stt_model_dir: Path | None = None
-    #: When GigaAM cannot run (not installed, failed to load, a language other
-    #: than Russian) forward the recording to VoiceStudio instead.
-    stt_fallback: bool = True
     #: Load Silero (and GigaAM) at start-up so the first phrase is not slow.
     warmup: bool = True
-    #: At start-up, also speak one phrase through the lead voice's VoiceStudio
-    #: engine, so VoxCPM2 is on the GPU before AM7's first line.
-    voicestudio_warmup: bool = True
-    #: How long that first phrase may take (a cold VoxCPM2 load is ~1.5 min).
-    voicestudio_warmup_timeout_s: float = 600.0
 
     @property
     def lexicon_local(self) -> Path:
@@ -135,15 +105,9 @@ class Settings:
     def cache_dir(self) -> Path:
         return self.home / "cache" / "tts"
 
-    @property
-    def voice_refs_dirs(self) -> tuple[Path, ...]:
-        """Where a preset's reference clip is looked up: the speech home first
-        (a server's own takes), then the clips shipped in the repository."""
-        return (self.home / "voice-refs", SERVICE_DIR / "voice-refs")
-
     def use_hf_home(self) -> None:
         """Hugging Face downloads (GigaAM, Silero VAD) go under the speech home,
-        next to VoiceStudio's, unless HF_HOME is set already."""
+        unless HF_HOME is set already."""
         os.environ.setdefault("HF_HOME", str(self.home / "hf"))
         os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
@@ -156,15 +120,9 @@ class Settings:
         lexicon_local_file = _env("SPEECH_LEXICON_LOCAL_FILE")
         stress_local_file = _env("SPEECH_STRESS_LOCAL_FILE")
         stt_model_dir = _env("SPEECH_STT_MODEL_DIR")
-        stt_engine = _env("SPEECH_STT_ENGINE", "gigaam").lower()
         return cls(
             host=_env("SPEECH_HOST", "127.0.0.1"),
             port=_env_int("SPEECH_PORT", 8765),
-            voicestudio_url=_env("VOICESTUDIO_URL", "http://127.0.0.1:3900").rstrip("/"),
-            voicestudio_api_key=_env("VOICESTUDIO_API_KEY"),
-            voicestudio_model=_env("VOICESTUDIO_MODEL", "voxcpm2"),
-            voicestudio_timeout_s=_env_float("VOICESTUDIO_TIMEOUT_S", 90.0),
-            voicestudio_backoff_s=max(0.0, _env_float("VOICESTUDIO_BACKOFF_S", 60.0)),
             default_voice=_env("SPEECH_DEFAULT_VOICE", "silero:aidar"),
             silero_model=_env("SILERO_MODEL", "v5_5_ru"),
             silero_cis_model=_env("SILERO_CIS_MODEL", "v5_cis_base"),
@@ -182,16 +140,12 @@ class Settings:
             max_input_chars=max(1, _env_int("SPEECH_MAX_INPUT_CHARS", 5_000)),
             max_upload_mb=max(1, _env_int("SPEECH_MAX_UPLOAD_MB", 25)),
             stt_language=_env("SPEECH_STT_LANGUAGE", "ru"),
-            stt_engine=stt_engine if stt_engine in ("gigaam", "voicestudio") else "gigaam",
             stt_model=_env("SPEECH_STT_MODEL", "gigaam-v3-e2e-rnnt"),
             stt_quantization=_env("SPEECH_STT_QUANTIZATION").lower(),
             stt_threads=max(1, _env_int("SPEECH_STT_THREADS", 4)),
             stt_vad=_env_bool("SPEECH_STT_VAD", True),
             stt_model_dir=Path(stt_model_dir).expanduser() if stt_model_dir else None,
-            stt_fallback=_env_bool("SPEECH_STT_FALLBACK", True),
             warmup=_env_bool("SPEECH_WARMUP", True),
-            voicestudio_warmup=_env_bool("SPEECH_VOICESTUDIO_WARMUP", True),
-            voicestudio_warmup_timeout_s=max(10.0, _env_float("SPEECH_VOICESTUDIO_WARMUP_TIMEOUT_S", 600.0)),
         )
 
     def check_bind(self) -> None:

@@ -18,7 +18,7 @@ formants shifted, a light flanger, a short echo, a high-pass, a limiter):
 5. loudness: active speech to a fixed RMS, peaks softly limited, so every
    voice arrives at the same level.
 
-The heavy presets (`humanoid-heavy`, `humanoid-hard`) add, in this order:
+The heavy presets (`humanoid-heavy`, `humanoid-heavy-lead`, `humanoid-hard`) add, in this order:
 the pitch shift with the formants put back (and lowered a little) by a
 cepstral spectral-envelope correction, optionally a slower tempo, a soft
 saturation (grit), an octave-down sub layer mixed low, a ring-modulated copy
@@ -102,7 +102,7 @@ FX_PRESETS: dict[str, FxPreset | None] = {
         flanger_rate_hz=0.2,
         echoes=((0.019, 0.09), (0.033, 0.05)),
     ),
-    # AM7 (and «Система штаба» if chosen): a menacing android bass. Four
+    # «Система штаба»: a menacing android bass. Four
     # semitones down with the formants lowered only one (big, not muffled),
     # 6 % slower, gritty, an octave sub, a ring-mod growl and a metal comb.
     "humanoid-heavy": FxPreset(
@@ -111,6 +111,35 @@ FX_PRESETS: dict[str, FxPreset | None] = {
         stretch=1.06,
         drive=2.2,
         sub_mix=0.30,
+        sub_lowpass_hz=200.0,
+        ring_mix=0.22,
+        ring_hz=36.0,
+        comb_ms=3.1,
+        comb_feedback=0.55,
+        comb_mix=0.20,
+        crush_bits=9,
+        crush_hold=2,
+        crush_mix=0.10,
+        flanger_mix=0.22,
+        flanger_delay_ms=1.2,
+        flanger_depth_ms=0.8,
+        flanger_rate_hz=0.18,
+        echoes=((0.011, 0.16), (0.019, 0.11), (0.029, 0.07)),
+        eq=((60, -6.0), (110, 3.5), (220, 2.5), (500, -1.5), (1200, -1.0), (2800, 2.0), (4500, 1.0), (9000, -4.0)),
+        reverb_s=0.12,
+        reverb_mix=0.10,
+        highpass_hz=45.0,
+    ),
+    # AM7: «Система штаба»'s android bass taken further (another speaker, so
+    # the two never sound alike): six semitones down with the formants lowered
+    # only one, 9 % slower, a little more grit and sub. GigaAM still reads it
+    # word for word.
+    "humanoid-heavy-lead": FxPreset(
+        semitones=-6.0,
+        formant_semitones=-1.0,
+        stretch=1.09,
+        drive=2.5,
+        sub_mix=0.32,
         sub_lowpass_hz=200.0,
         ring_mix=0.22,
         ring_hz=36.0,

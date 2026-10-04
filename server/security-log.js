@@ -171,15 +171,18 @@ const SUMMARY_PATH = "/api/security/summary";
  * mark. It runs after the access gate, so with an access token only the
  * signed-in owner reaches it; without one the office answers only on
  * loopback, the owner's own machine. Same-origin pages only (allowOrigin).
- * The answer: how the person got in ("session" or "local"), the owner's
- * previous sign-in time and the counts — nothing else.
+ * The answer: how the person got in ("session" or "local"), the name the
+ * HQ greets the owner by (STUDIO_OWNER_NAME, else STUDIO_LOGIN; "" for none),
+ * the owner's previous sign-in time and the counts — nothing else.
  *
  * @param {object} options
  * @param {ReturnType<typeof createSecurityLog>} options.securityLog
  * @param {boolean} options.gateEnabled  whether an access token guards the office
  * @param {(req: import("node:http").IncomingMessage) => boolean} options.allowOrigin
+ * @param {string} [options.ownerName]  the name the greeting uses
  */
-function createSecuritySummaryEndpoint({ securityLog, gateEnabled, allowOrigin }) {
+function createSecuritySummaryEndpoint({ securityLog, gateEnabled, allowOrigin, ownerName = "" }) {
+  const greetName = String(ownerName ?? "").trim().slice(0, 80);
   const send = (res, status, body, headers = {}) => {
     res.statusCode = status;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -209,6 +212,7 @@ function createSecuritySummaryEndpoint({ securityLog, gateEnabled, allowOrigin }
     const { previousLoginAt, failedAttempts, blocked } = securityLog.summary();
     send(res, 200, {
       access: gateEnabled ? "session" : "local",
+      ownerName: greetName,
       previousLoginAt: previousLoginAt === null ? null : new Date(previousLoginAt).toISOString(),
       failedAttempts,
       blocked,

@@ -90,8 +90,13 @@ describe("security log", () => {
   });
 });
 
-const serve = async (gate: ReturnType<typeof createAccessGate>, log: SecurityLog) => {
-  const endpoint = createSecuritySummaryEndpoint({ securityLog: log, gateEnabled: gate.enabled, allowOrigin: allowHttpOrigin });
+const serve = async (gate: ReturnType<typeof createAccessGate>, log: SecurityLog, ownerName = "") => {
+  const endpoint = createSecuritySummaryEndpoint({
+    securityLog: log,
+    gateEnabled: gate.enabled,
+    allowOrigin: allowHttpOrigin,
+    ownerName,
+  });
   const server = http.createServer((req, res) => {
     if (gate.handleHttp(req, res)) return;
     if (endpoint.handleHttp(req, res)) return;
@@ -135,7 +140,7 @@ describe("the access gate and GET /api/security/summary", () => {
     let clock = Date.parse("2026-09-28T10:00:00Z");
     const log = createSecurityLog({ file: null, now: () => clock });
     const gate = createAccessGate({ token: "secret-token", securityLog: log });
-    const { request, login } = await serve(gate, log);
+    const { request, login } = await serve(gate, log, "  Командир  ");
 
     await login({ token: "secret-token" });
     clock += 60_000;
@@ -151,6 +156,7 @@ describe("the access gate and GET /api/security/summary", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({
       access: "session",
+      ownerName: "Командир",
       previousLoginAt: "2026-09-28T10:00:00.000Z",
       failedAttempts: 2,
       blocked: 0,
@@ -182,6 +188,6 @@ describe("the access gate and GET /api/security/summary", () => {
     const gate = createAccessGate({ token: "", securityLog: log });
     const { request } = await serve(gate, log);
     const response = await request("/api/security/summary", { headers: { "Sec-Fetch-Site": "same-origin" } });
-    expect(await response.json()).toEqual({ access: "local", previousLoginAt: null, failedAttempts: 0, blocked: 0 });
+    expect(await response.json()).toEqual({ access: "local", ownerName: "", previousLoginAt: null, failedAttempts: 0, blocked: 0 });
   });
 });

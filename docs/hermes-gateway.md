@@ -354,8 +354,8 @@ OpenClaw для Hermes нет.
   доску и сообщает команде объявлением или созывает совещание.
 - **Провайдеры** выбираются на сервере, для каждого направления отдельно:
   - шлюз речи офиса (`local-speech`, по умолчанию; `SPEECH_GATEWAY_URL`) —
-    Silero TTS v5 и VoiceStudio на этой машине или сервере офиса, без платных
-    API; установка и запуск — «Голос» в [`deployment.md`](deployment.md#голос);
+    Silero TTS v5 (голоса) и GigaAM (распознавание) на процессоре этой машины
+    или сервера офиса, без платных API; установка и запуск — «Голос» в [`deployment.md`](deployment.md#голос);
   - свой сервер с API OpenAI (`/audio/transcriptions` и `/audio/speech`)
     (`OFFICE3D_STT_PROVIDER`/`OFFICE3D_TTS_PROVIDER=openai-compatible`,
     `OFFICE3D_VOICE_API_URL` и остальное — в `.env.example`);

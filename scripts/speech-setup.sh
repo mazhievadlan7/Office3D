@@ -1,40 +1,27 @@
 #!/usr/bin/env bash
-# Installs Office3D's speech engines outside the repository (Linux, macOS).
+# Installs Office3D's speech gateway outside the repository (Linux, macOS).
 #
-#   - the speech gateway (services/speech): a Python venv with Silero TTS v5
-#     and silero-stress, and speech recognition (GigaAM v3 + Silero VAD through
-#     onnx-asr, on the CPU), plus their model weights;
-#   - VoiceStudio's backend (headless, no desktop app): cloned, its own venv
-#     via uv, the VoxCPM2 engine in VoiceStudio's sidecar venv, and the
-#     Whisper weights (only the fallback recogniser now; SKIP_ASR=1 leaves them out).
+#   The speech gateway (services/speech): a Python venv with Silero TTS v5 and
+#   silero-stress (every voice: the system, AM7, the crew) and speech
+#   recognition (GigaAM v3 + Silero VAD through onnx-asr), plus their model
+#   weights. Everything runs on the CPU; no GPU is needed or used.
 #
 # Everything lands in $OFFICE3D_SPEECH_HOME (default
 # ${XDG_DATA_HOME:-~/.local/share}/office3d-speech). Nothing is written into the
 # repository. Idempotent: run it again to update. Start with `npm run speech`,
-# or install the systemd units from docs/deployment.md on a server.
+# or install the systemd unit from docs/deployment.md on a server.
 #
-# Needs: python3 (3.11+), git, uv (https://docs.astral.sh/uv/). NVIDIA GPU is
-# optional (CUDA 12.8 wheels); without one everything runs on the CPU.
+# Needs: python3 (3.11+) and uv (https://docs.astral.sh/uv/).
 #
 # Options (environment):
 #   OFFICE3D_SPEECH_HOME   install location
-#   SPEECH_TORCH           auto | cpu | cu128        (default auto)
 #   SPEECH_PYTHON          python interpreter        (default python3)
-#   VOICESTUDIO_REF        git tag/branch            (default v0.5.6)
-#   SKIP_VOICESTUDIO=1     gateway + Silero only (CPU-only servers can start here)
-#   SKIP_VOXCPM2=1         VoiceStudio without the VoxCPM2 engine (CPU-only servers)
-#   ASR_MODEL              VoiceStudio's fallback Whisper weights (default
-#                          Systran/faster-whisper-large-v3; -medium or -small are lighter)
-#   SKIP_ASR=1             no Whisper weights (the gateway's GigaAM still recognises speech)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SERVICE_DIR="$REPO_ROOT/services/speech"
 SPEECH_HOME="${OFFICE3D_SPEECH_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/office3d-speech}"
-TORCH="${SPEECH_TORCH:-auto}"
 PYTHON="${SPEECH_PYTHON:-python3}"
-VOICESTUDIO_REPO="${VOICESTUDIO_REPO:-https://github.com/debpalash/VoiceStudio.git}"
-VOICESTUDIO_REF="${VOICESTUDIO_REF:-v0.5.6}"
 
 step() { printf '\033[36m==> %s\033[0m\n' "$*"; }
 fail() { printf '\033[31merror: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -50,66 +37,15 @@ PYTHON="$(command -v "$PYTHON")"
 command -v uv >/dev/null || fail "uv not found. Install it: curl -LsSf https://astral.sh/uv/install.sh | sh"
 export UV_LINK_MODE=copy
 
-if [ "$TORCH" = "auto" ]; then
-  TORCH=cpu
-  if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then TORCH=cu128; fi
-fi
-step "Torch build: $TORCH"
-
 # --- speech gateway -----------------------------------------------------------
 GATEWAY_VENV="$SPEECH_HOME/gateway-venv"
 GATEWAY_PYTHON="$GATEWAY_VENV/bin/python"
 [ -x "$GATEWAY_PYTHON" ] || { step "Creating the gateway venv"; uv venv "$GATEWAY_VENV" --python "$PYTHON"; }
-step "Installing the gateway's packages"
-uv pip install --python "$GATEWAY_PYTHON" -r "$SERVICE_DIR/requirements-$TORCH.txt"
+step "Installing the gateway's packages (CPU torch)"
+uv pip install --python "$GATEWAY_PYTHON" -r "$SERVICE_DIR/requirements-cpu.txt"
 step "Downloading Silero, the stress model and GigaAM v3 (speech recognition, ~0.9 GB)"
 (cd "$SERVICE_DIR" && OFFICE3D_SPEECH_HOME="$SPEECH_HOME" HF_HOME="$SPEECH_HOME/hf" \
   "$GATEWAY_PYTHON" -m speech_gateway.tools prefetch)
 
-# --- VoiceStudio ----------------------------------------------------------------
-if [ "${SKIP_VOICESTUDIO:-}" = "1" ]; then step "Skipping VoiceStudio"; exit 0; fi
-command -v git >/dev/null || fail "git not found."
-
-VS_DIR="$SPEECH_HOME/voicestudio"
-if [ ! -d "$VS_DIR/.git" ]; then
-  step "Cloning VoiceStudio ($VOICESTUDIO_REF)"
-  git clone --depth 1 --branch "$VOICESTUDIO_REF" "$VOICESTUDIO_REPO" "$VS_DIR"
-else
-  step "Updating VoiceStudio to $VOICESTUDIO_REF"
-  git -C "$VS_DIR" fetch --depth 1 origin "$VOICESTUDIO_REF"
-  git -C "$VS_DIR" checkout --detach FETCH_HEAD
-fi
-
-step "Installing VoiceStudio's backend (uv sync; several GB on the first run)"
-(cd "$VS_DIR" && uv sync --no-dev --python "$PYTHON" && PYTHONIOENCODING=utf-8 .venv/bin/python scripts/setup.py)
-
-VS_DATA="$SPEECH_HOME/voicestudio-data"
-HF_DIR="$SPEECH_HOME/hf"
-mkdir -p "$VS_DATA" "$HF_DIR" "$SPEECH_HOME/logs"
-
-if [ "${SKIP_VOXCPM2:-}" = "1" ] && [ "${SKIP_ASR:-}" = "1" ]; then step "Skipping VoxCPM2 and the Whisper weights"; exit 0; fi
-
-step "Starting VoiceStudio once to install its engine and models"
-LOG="$SPEECH_HOME/logs/voicestudio-setup.log"
-(cd "$VS_DIR" && OMNIVOICE_DATA_DIR="$VS_DATA" HF_HOME="$HF_DIR" OMNIVOICE_BIND_HOST=127.0.0.1 OMNIVOICE_PORT=3900 \
-  exec .venv/bin/python backend/main.py) >"$LOG" 2>&1 &
-VS_PID=$!
-trap 'kill "$VS_PID" 2>/dev/null || true' EXIT
-for _ in $(seq 1 120); do
-  sleep 3
-  if curl -fsS http://127.0.0.1:3900/health 2>/dev/null | grep -q '"status":"ok"'; then READY=1; break; fi
-done
-[ "${READY:-}" = "1" ] || fail "VoiceStudio did not start; see $LOG"
-if [ "${SKIP_VOXCPM2:-}" != "1" ]; then
-  step "Installing VoxCPM2 (its own sidecar venv)"
-  (cd "$SERVICE_DIR" && "$GATEWAY_PYTHON" -m speech_gateway.tools voicestudio-install voxcpm2)
-  step "Downloading VoxCPM2's weights (about 5 GB)"
-  (cd "$SERVICE_DIR" && "$GATEWAY_PYTHON" -m speech_gateway.tools voicestudio-warm voxcpm2)
-fi
-if [ "${SKIP_ASR:-}" != "1" ]; then
-  step "Downloading VoiceStudio's fallback speech-recognition model ${ASR_MODEL:-Systran/faster-whisper-large-v3}"
-  (cd "$SERVICE_DIR" && "$GATEWAY_PYTHON" -m speech_gateway.tools voicestudio-model "${ASR_MODEL:-Systran/faster-whisper-large-v3}")
-fi
-
-step "Done. Start the speech services with: npm run speech"
+step "Done. Start the speech gateway with: npm run speech"
 [ -z "${OFFICE3D_SPEECH_HOME:-}" ] || echo "Keep OFFICE3D_SPEECH_HOME=$SPEECH_HOME in .env"

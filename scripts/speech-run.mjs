@@ -1,17 +1,16 @@
 #!/usr/bin/env node
-// `npm run speech` — starts the office's speech services for local work:
-//   VoiceStudio's backend   127.0.0.1:3900  (designed voices; recognition fallback)
-//   the speech gateway      127.0.0.1:8765  (Silero, GigaAM recognition; the one API Office3D calls)
-// from the install scripts/speech-setup.(ps1|sh) made in OFFICE3D_SPEECH_HOME.
-// Both stop together on Ctrl+C. A VoiceStudio already answering is reused.
+// `npm run speech` — starts the office's speech gateway for local work on
+// 127.0.0.1:8765 (Silero voices and GigaAM recognition, all on the CPU: the
+// GPU stays free for the HQ's 3D), from the install scripts/speech-setup.(ps1|sh)
+// made in OFFICE3D_SPEECH_HOME. Stops on Ctrl+C.
 //
-// `npm run speech:check` — end-to-end check of a running gateway (Silero,
-// VoiceStudio and a transcription), with timings.
+// `npm run speech:check` — end-to-end check of a running gateway (the system's
+// and AM7's voices and a transcription), with timings.
 //
 // Servers use systemd or docker compose instead; see docs/deployment.md.
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -31,13 +30,9 @@ const speechHome =
 const serviceDir = path.join(repoRoot, "services", "speech");
 const venvPython = (venv) => path.join(venv, isWindows ? "Scripts\\python.exe" : "bin/python");
 const gatewayPython = venvPython(path.join(speechHome, "gateway-venv"));
-const voiceStudioDir = path.join(speechHome, "voicestudio");
-const voiceStudioPython = venvPython(path.join(voiceStudioDir, ".venv"));
 
 const gatewayUrl = new URL(env.SPEECH_GATEWAY_URL?.trim() || "http://127.0.0.1:8765");
 const gatewayPort = env.SPEECH_PORT?.trim() || gatewayUrl.port || "8765";
-const voiceStudioUrl = new URL(env.VOICESTUDIO_URL?.trim() || "http://127.0.0.1:3900");
-const voiceStudioPort = voiceStudioUrl.port || "3900";
 
 const fail = (message) => {
   console.error(`[speech] ${message}`);
@@ -117,7 +112,7 @@ const start = (name, command, args, options) => {
   prefixLines(name, child.stderr, process.stderr);
   child.on("exit", (code, signal) => {
     if (stopping) return;
-    console.error(`[${name}] stopped (${signal ?? `exit ${code}`}); stopping the speech services.`);
+    console.error(`[${name}] stopped (${signal ?? `exit ${code}`}).`);
     stopAll(code || 1);
   });
   children.push(child);
@@ -127,41 +122,6 @@ const start = (name, command, args, options) => {
 process.on("SIGINT", () => stopAll(0));
 process.on("SIGTERM", () => stopAll(0));
 
-const skipVoiceStudio = env.SPEECH_SKIP_VOICESTUDIO === "1";
-if (skipVoiceStudio) {
-  console.log("[speech] VoiceStudio skipped (SPEECH_SKIP_VOICESTUDIO=1): designed voices fall back to Silero.");
-} else if (await answers(`${voiceStudioUrl.origin}/health`)) {
-  console.log(
-    `[speech] VoiceStudio already answers at ${voiceStudioUrl.origin}; using it ` +
-      "(start it with OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S=0 to keep VoxCPM2 loaded).",
-  );
-} else if (!existsSync(voiceStudioPython)) {
-  console.log(`[speech] VoiceStudio is not installed in ${voiceStudioDir}: designed voices fall back to Silero, recognition is off.`);
-} else {
-  const data = path.join(speechHome, "voicestudio-data");
-  const hf = path.join(speechHome, "hf");
-  mkdirSync(data, { recursive: true });
-  mkdirSync(hf, { recursive: true });
-  // VoxCPM2 (AM7 and the crew) stays on the GPU: VoiceStudio would otherwise
-  // unload an engine idle for 5 minutes, and the next line would wait for a
-  // ~1.5-minute reload. The gateway speaks one phrase at start-up to load it.
-  const sidecarIdle = env.OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S?.trim() || "0";
-  console.log(
-    `[speech] starting VoiceStudio on 127.0.0.1:${voiceStudioPort}` +
-      (sidecarIdle === "0" ? " (engines stay loaded)" : ` (engines unload after ${sidecarIdle}s idle)`),
-  );
-  start("voicestudio", voiceStudioPython, [path.join("backend", "main.py")], {
-    cwd: voiceStudioDir,
-    env: {
-      OMNIVOICE_DATA_DIR: data,
-      HF_HOME: hf,
-      OMNIVOICE_BIND_HOST: "127.0.0.1",
-      OMNIVOICE_PORT: voiceStudioPort,
-      OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S: sidecarIdle,
-    },
-  });
-}
-
 if (await answers(`${gatewayUrl.origin}/health`)) {
   console.log(`[speech] a speech gateway already answers at ${gatewayUrl.origin}; not starting another.`);
 } else {
@@ -170,13 +130,10 @@ if (await answers(`${gatewayUrl.origin}/health`)) {
     cwd: serviceDir,
     env: {
       OFFICE3D_SPEECH_HOME: speechHome,
-      // GigaAM and Silero VAD download here, next to VoiceStudio's models.
+      // GigaAM and Silero VAD download here.
       HF_HOME: path.join(speechHome, "hf"),
       SPEECH_HOST: "127.0.0.1",
       SPEECH_PORT: gatewayPort,
-      VOICESTUDIO_URL: voiceStudioUrl.origin,
-      // Nothing of VoiceStudio to warm when it is skipped.
-      ...(skipVoiceStudio ? { SPEECH_VOICESTUDIO_WARMUP: "0" } : {}),
     },
   });
 }

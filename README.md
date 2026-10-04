@@ -274,7 +274,7 @@ openclaw devices approve --latest
 
 - `HOST` и `PORT` — адрес и порт, которые слушает сервер Studio.
 - `STUDIO_ACCESS_TOKEN` защищает Studio, когда она слушает публичный адрес: это пароль на странице входа.
-- `STUDIO_LOGIN` (необязательно, вместе с токеном) добавляет на страницу входа поле «Логин». `STUDIO_OWNER_NAME` — имя, по которому система штаба приветствует после входа (по умолчанию — логин). Имя живёт только в `.env` на сервере.
+- `STUDIO_LOGIN` (необязательно, вместе с токеном) добавляет на страницу входа поле «Логин». `STUDIO_OWNER_NAME` — имя, по которому система штаба приветствует при каждом открытии штаба (по умолчанию — логин). Имя живёт только в `.env` на сервере.
 - `UPSTREAM_ALLOWLIST` ограничивает, к каким хостам шлюзов Studio может проксировать соединения. Задайте её в продакшене.
 - `CUSTOM_RUNTIME_ALLOWLIST` ограничивает, к каким хостам может обращаться `/api/runtime/custom`. Если не задана, используется `UPSTREAM_ALLOWLIST`.
 - `NEXT_PUBLIC_GATEWAY_URL` задаёт адрес шлюза по умолчанию, когда настройки Studio пусты. **Внимание:** это переменная времени сборки — изменения вступают в силу только после `npm run build`.
@@ -286,7 +286,7 @@ openclaw devices approve --latest
 - Значения OpenClaw по умолчанию по-прежнему берутся из `~/.openclaw/openclaw.json`, если файл есть.
 - `OPENCLAW_STATE_DIR` и `OPENCLAW_CONFIG_PATH` переопределяют стандартные пути OpenClaw.
 - `OPENCLAW_GATEWAY_SSH_TARGET`, `OPENCLAW_GATEWAY_SSH_USER`, `OPENCLAW_GATEWAY_SSH_PORT` и `OPENCLAW_GATEWAY_SSH_STRICT_HOST_KEY_CHECKING` нужны для расширенных операций на хосте шлюза через SSH.
-- `SPEECH_GATEWAY_URL` — шлюз речи (`services/speech`, по умолчанию `http://127.0.0.1:8765`): голос системы на Silero TTS v5, голоса AM7 и операторов и распознавание команд на VoiceStudio. Всё открытое и локальное, без платных API; установка — `scripts/speech-setup.ps1` / `scripts/speech-setup.sh`, запуск — `npm run speech` (см. «Голос» в [`docs/deployment.md`](docs/deployment.md#голос)).
+- `SPEECH_GATEWAY_URL` — шлюз речи (`services/speech`, по умолчанию `http://127.0.0.1:8765`): все голоса (система штаба, AM7, операторы) на Silero TTS v5 и распознавание команд на GigaAM, всё на процессоре — видеокарта остаётся 3D-штабу. Всё открытое и локальное, без платных API; установка — `scripts/speech-setup.ps1` / `scripts/speech-setup.sh`, запуск — `npm run speech` (см. «Голос» в [`docs/deployment.md`](docs/deployment.md#голос)).
 
 Полный шаблон для локальной разработки — в [`.env.example`](.env.example).
 

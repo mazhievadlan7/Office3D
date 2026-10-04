@@ -2,9 +2,9 @@
 //
 // An agent the person gave a voice keeps it. The main agent (AM7) otherwise
 // speaks with the office's voice (the one picked in voice settings), else the
-// lead voice the speech gateway designates (voicestudio:am7), else the
-// server's default. Everyone else gets a crew voice (the gateway's designed
-// operator voices) picked by a stable hash of their id — so the same agent
+// lead voice the speech gateway designates (silero:am7), else the
+// server's default. Everyone else gets a crew voice (the gateway's operator
+// voices) picked by a stable hash of their id — so the same agent
 // always sounds the same — skipping the main agent's voice while there are
 // others to choose from, so a meeting does not sound like one person talking
 // to themselves. The HQ system's voice is never handed to an agent. A retired

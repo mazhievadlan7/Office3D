@@ -1096,10 +1096,11 @@ const normalizeVoiceRepliesProvider = (
 const MAX_AGENT_VOICES = 500;
 
 /**
- * A voice as the speech gateway names it (`silero:…`, `voicestudio:…`). Ids
- * saved for a retired provider are dropped, so the agent gets a voice picked
- * for it again instead of a voice nobody can speak; a retired female voice
- * becomes its male stand-in (the office speaks with male voices only).
+ * A voice as the speech gateway names it (`silero:…`). Ids saved for a
+ * retired provider are dropped, so the agent gets a voice picked for it again
+ * instead of a voice nobody can speak; a voice of the retired VoiceStudio
+ * engine (`voicestudio:…`) becomes the Silero preset that replaced it, a
+ * retired female voice its male stand-in.
  */
 const normalizeSpeechVoiceId = (value: unknown, fallback: string | null): string | null => {
   if (value === undefined) return isSpeechVoiceId(fallback) ? currentSpeechVoiceId(fallback) : null;

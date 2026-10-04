@@ -160,4 +160,4 @@ export class VoiceBankClient {
 }
 
 /** AM7's voice in the bank. */
-export const LEAD_VOICE = "voicestudio:am7";
+export const LEAD_VOICE = "silero:am7";

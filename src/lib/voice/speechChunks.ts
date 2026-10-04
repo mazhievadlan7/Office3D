@@ -2,10 +2,10 @@
  * Splits a line for sentence-by-sentence speech: the first piece is one short
  * sentence, so its audio is ready (and playing) while the rest still renders.
  *
- * A designed voice (VoxCPM2) renders slower than real time on an 8 GB GPU and
- * every request carries a fixed cost of a few seconds, so later pieces take
- * whole sentences up to `max` characters: fewer requests finish the line
- * sooner, while the pauses between pieces stay at sentence boundaries.
+ * Every request carries a fixed cost (synthesis start-up and the voice's
+ * post-processing), so later pieces take whole sentences up to `max`
+ * characters: fewer requests finish the line sooner, while the pauses between
+ * pieces stay at sentence boundaries.
  */
 
 export type SpeechChunkOptions = {

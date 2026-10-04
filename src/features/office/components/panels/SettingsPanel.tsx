@@ -192,7 +192,7 @@ export function SettingsPanel({
   const effectiveOfficeVoiceId = voiceRepliesVoiceId ?? voiceSetup?.tts.leadVoiceId ?? DEFAULT_LEAD_VOICE;
   const providerLabel = (id: string) =>
     id === "local-speech"
-      ? "Silero + VoiceStudio"
+      ? "Silero + GigaAM"
       : id === "openai-compatible"
         ? t("settings.voiceProviderLocal")
         : id === "openclaw"

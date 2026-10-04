@@ -254,14 +254,10 @@ services:
         max-file: "3"
 
   # Speech (optional, `speech` profile: COMPOSE_PROFILES=speech, or
-  # speech,https). Two services on their own network, neither published:
-  #   speech       the office's speech gateway (services/speech, MIT): Silero
-  #                TTS v5 for Russian with exact stress, on CPU; forwards
-  #                designed voices and recognition to VoiceStudio;
-  #   voicestudio  VoiceStudio's backend (AGPL-3.0, unmodified upstream image):
-  #                VoxCPM2 voices and Whisper recognition.
-  # CPU by default. With an NVIDIA GPU and the container toolkit, add
-  # docker-compose.speech-gpu.yml (see docs/deployment.md).
+  # speech,https): the office's speech gateway (services/speech, MIT) on its
+  # own network, not published. Silero TTS v5 speaks every voice (the system,
+  # AM7, the crew) with exact Russian stress; GigaAM recognises speech. CPU
+  # only: no GPU is needed.
   speech:
     build: ./services/speech
     image: office3d-speech:local
@@ -275,9 +271,6 @@ services:
       SPEECH_ALLOW_NON_LOOPBACK: "1"
       SPEECH_PORT: "8765"
       OFFICE3D_SPEECH_HOME: /data
-      VOICESTUDIO_URL: http://voicestudio:3900
-      VOICESTUDIO_API_KEY: ${VOICESTUDIO_API_KEY:-}
-      VOICESTUDIO_MODEL: ${VOICESTUDIO_MODEL:-voxcpm2}
       SILERO_DEVICE: cpu
       SILERO_THREADS: ${SILERO_THREADS:-4}
       # GigaAM speech recognition; int8 keeps it well inside the memory limit.
@@ -297,41 +290,6 @@ services:
       resources:
         limits:
           memory: 3g
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  voicestudio:
-    image: ghcr.io/debpalash/voicestudio:${VOICESTUDIO_IMAGE_TAG:-0.5.6}
-    container_name: office3d-voicestudio
-    restart: unless-stopped
-    profiles: ["speech"]
-    environment:
-      OMNIVOICE_BIND_HOST: 0.0.0.0
-      OMNIVOICE_DATA_DIR: /app/omnivoice_data
-      # Keep the voice model loaded: unloading after idle minutes made the
-      # next AM7 line take over a minute to load again.
-      OMNIVOICE_SIDECAR_IDLE_TIMEOUT_S: "0"
-      # Optional: when set, every non-loopback request needs it (the gateway
-      # sends it as a Bearer token). Unset, VoiceStudio is open to this
-      # private network only.
-      OMNIVOICE_API_KEY: ${VOICESTUDIO_API_KEY:-}
-    volumes:
-      - voicestudio-data:/app/omnivoice_data
-    networks:
-      - speech
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:3900/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 180s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 12g
     logging:
       driver: json-file
       options:
@@ -386,7 +344,7 @@ networks:
   #   edge:    caddy and office3d;
   #   control: office3d and the updater, which holds the Docker socket and is
   #            thus kept away from the agents' network;
-  #   speech:  office3d, the speech gateway and VoiceStudio (speech profile).
+  #   speech:  office3d and the speech gateway (speech profile).
   # A plain bridge network: Hermes needs internet access for model providers
   # and tools, so it cannot be `internal: true`. Nothing on it is published
   # except Office3D's port above.
@@ -408,6 +366,5 @@ volumes:
   # start would soon hit Let's Encrypt's rate limits.
   caddy-data:
   caddy-config:
-  # Speech models (Silero, VoiceStudio's engines and weights) and caches.
+  # Speech models (Silero, GigaAM) and the speech cache.
   speech-data:
-  voicestudio-data:

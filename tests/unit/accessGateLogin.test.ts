@@ -115,7 +115,7 @@ describe("sign-in with a login name", () => {
   });
 
   it("asks_for_login_and_password_and_greets_the_owner_once_signed_in", async () => {
-    const { server, request } = await serve(createAccessGate({ token: "secret-token", login: "Operator", ownerName: "Командир" }));
+    const { server, request } = await serve(createAccessGate({ token: "secret-token", login: "Operator" }));
     servers.push(server);
     const post = (fields: Record<string, string>) =>
       request("/login", {
@@ -141,12 +141,8 @@ describe("sign-in with a login name", () => {
     expect(ok.status).toBe(303);
     const cookies = ok.headers.get("set-cookie") ?? "";
     expect(cookies).toMatch(/studio_session=[^;]+; Path=\/; HttpOnly/);
-    // The greeting marker: readable by the page (not HttpOnly), short-lived, the name only.
-    const greet = /hq_greet=([^;]*)((?:;[^,]*)*)/.exec(cookies);
-    expect(greet).not.toBeNull();
-    expect(decodeURIComponent(greet![1])).toBe("Командир");
-    expect(greet![2]).not.toMatch(/HttpOnly/);
-    expect(greet![2]).toMatch(/Max-Age=300/);
+    // Only the session: the HQ greets on every opening, not off a sign-in marker.
+    expect(cookies).not.toContain("hq_greet");
     expect(cookies).not.toContain("secret-token");
   });
 

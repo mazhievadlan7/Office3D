@@ -1,5 +1,5 @@
-# Office3D speech gateway — CPU image (Silero runs faster than real time on a
-# few cores). VoiceStudio is a separate service; see docker-compose.yml.
+# Office3D speech gateway — CPU image: Silero (every voice) and GigaAM
+# (recognition) run faster than real time on a few cores; no GPU.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -19,7 +19,6 @@ RUN pip install -r requirements-cpu.txt
 
 COPY speech_gateway ./speech_gateway
 COPY voices.json lexicon.json stress.json ./
-COPY voice-refs ./voice-refs
 
 USER speech
 EXPOSE 8765

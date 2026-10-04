@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 // `npm run voice:bank` — pre-renders the crew's HQ talk (src/features/hq/render/
 // audio/crewScript.ts) in every crew voice and AM7's, through the local speech
-// gateway (services/speech: VoxCPM2 in VoiceStudio, the voices' FX), into a bank
+// gateway (services/speech: Silero on the CPU, the voices' FX), into a bank
 // directory outside the repository:
 //
 //   OFFICE3D_VOICE_BANK_DIR, default <speech home>/voice-bank
 //     manifest.json                      which file says which line in which voice
-//     <voice>.<line>.<hash12>.mp3        content-addressed: a new text, voice, reference
-//                                        clip or FX gives a new name (served immutable)
+//     <voice>.<line>.<hash12>.mp3        content-addressed: a new text, voice or FX
+//                                        gives a new name (served immutable)
 //
 // The office serves it at /api/office/voice/bank; without it the HQ keeps its
 // synthesised murmur. Resumable: lines already in the manifest (same hash, file
-// present) are skipped, so an interrupted run just continues. Lines the gateway
-// could only speak with a Silero fallback are not stored (unless
-// --allow-fallback), so a later run with VoiceStudio up fills them in.
+// present) are skipped, so an interrupted run just continues.
 //
-//   node scripts/voice-bank.mjs [--voices=crew-m1,am7] [--limit=N] [--allow-fallback] [--no-prune] [--check]
+//   node scripts/voice-bank.mjs [--voices=crew-m1,am7] [--limit=N] [--no-prune] [--check]
 //
 // Pruning (on unless --no-prune): voices voices.json no longer offers leave the
-// manifest, and files no manifest entry names are deleted after the run.
+// manifest, and files no manifest entry names are deleted after the run. A
+// bank rendered under the retired VoiceStudio ids (voicestudio:crew-m1 …) is
+// kept under the Silero ids that replaced them; its lines render anew.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from "node:fs";
@@ -105,15 +105,6 @@ if (voices.length === 0) {
 }
 
 // Everything that changes the sound goes into each line's hash.
-const referenceSha = (preset) => {
-  const file = preset.reference?.file;
-  if (!file) return null;
-  for (const dir of [path.join(speechHome, "voice-refs"), path.join(serviceDir, "voice-refs")]) {
-    const candidate = path.join(dir, file);
-    if (existsSync(candidate)) return sha(readFileSync(candidate));
-  }
-  return null;
-};
 const engineSha = sha(
   Buffer.concat([
     readOr(path.join(serviceDir, "speech_gateway", "fx.py")),
@@ -126,7 +117,7 @@ const lineHash = (preset, text) =>
   sha(
     JSON.stringify({
       v: BANK_VERSION,
-      voice: { id: preset.id, params: preset.params, fx: preset.fx ?? "none", ref: referenceSha(preset) },
+      voice: { id: preset.id, params: preset.params, fx: preset.fx ?? "none" },
       engine: engineSha,
       text,
       speed: SPEED,
@@ -144,6 +135,13 @@ const loadManifest = () => {
   return { version: BANK_VERSION, voices: {} };
 };
 const manifest = loadManifest();
+// The retired VoiceStudio ids, as services/speech/speech_gateway/voices.py maps them.
+for (const [id, entry] of Object.entries(manifest.voices)) {
+  const match = /^voicestudio:(am7|crew-m[1-6])$/.exec(id);
+  if (!match) continue;
+  delete manifest.voices[id];
+  manifest.voices[`silero:${match[1]}`] ??= entry;
+}
 const saveManifest = () => {
   manifest.generatedAt = new Date().toISOString();
   const tmp = `${manifestPath}.${process.pid}.tmp`;
@@ -203,10 +201,6 @@ if (!health) {
   console.error(`[voice-bank] the speech gateway does not answer at ${gateway}: start it with npm run speech`);
   process.exit(1);
 }
-if (!health.engines?.voicestudio?.reachable && !flag("allow-fallback")) {
-  console.error("[voice-bank] VoiceStudio is not reachable: the designed voices would fall back to Silero. Start it, or pass --allow-fallback.");
-  process.exit(1);
-}
 
 // Line-major: every voice gets its first lines early, so a partial bank is already usable.
 const jobs = [];
@@ -236,7 +230,6 @@ const total = Math.min(jobs.length, limit);
 console.log(`[voice-bank] ${voices.length} voices × ${lines.length} lines; ${total} to render into ${bankDir}`);
 const started = Date.now();
 let done = 0;
-let fallbacks = 0;
 let failures = 0;
 let audioSeconds = 0;
 for (const job of jobs.slice(0, total)) {
@@ -261,18 +254,8 @@ for (const job of jobs.slice(0, total)) {
     console.error(`[voice-bank] ${job.file}: HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
     continue;
   }
-  const fallback = response.headers.get("x-speech-fallback");
   const data = Buffer.from(await response.arrayBuffer());
   const duration = Number(response.headers.get("x-speech-duration")) || mp3Duration(data);
-  if (fallback && !flag("allow-fallback")) {
-    fallbacks += 1;
-    console.error(`[voice-bank] ${job.file}: spoken by the fallback ${fallback}; not stored`);
-    if (fallbacks >= 3) {
-      console.error("[voice-bank] VoiceStudio keeps failing; stopping. Run again once it answers.");
-      break;
-    }
-    continue;
-  }
   const target = path.join(bankDir, job.file);
   const tmp = `${target}.${process.pid}.tmp`;
   writeFileSync(tmp, data);
@@ -280,7 +263,6 @@ for (const job of jobs.slice(0, total)) {
   manifest.voices[job.preset.id].lines[job.line.id] = {
     file: job.file,
     duration: Math.round(duration * 1000) / 1000,
-    ...(fallback ? { engine: fallback } : {}),
   };
   done += 1;
   audioSeconds += duration;
@@ -311,6 +293,6 @@ if (!flag("no-prune") && !stopping) {
 const minutes = (Date.now() - started) / 60000;
 console.log(
   `[voice-bank] rendered ${done} lines (${(audioSeconds / 60).toFixed(1)} min of speech) in ${minutes.toFixed(1)} min;` +
-    ` ${fallbacks} fallbacks, ${failures} failures`,
+    ` ${failures} failures`,
 );
 process.exit(failures > 0 && done === 0 ? 1 : 0);

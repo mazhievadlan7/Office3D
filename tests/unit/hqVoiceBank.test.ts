@@ -47,8 +47,18 @@ describe("voice bank format", () => {
         "voicestudio:empty": { lines: {} },
       },
     });
-    expect(Object.keys(manifest!.voices)).toEqual(["voicestudio:crew-m1"]);
-    expect(manifest!.voices["voicestudio:crew-m1"].lines).toEqual({ x01a: { file: "crew-m1.x01a.b7aaa86c9328.mp3", duration: 1.5 } });
+    // A bank rendered under a retired VoiceStudio id is read under its Silero id.
+    expect(Object.keys(manifest!.voices)).toEqual(["silero:crew-m1"]);
+    expect(manifest!.voices["silero:crew-m1"].lines).toEqual({ x01a: { file: "crew-m1.x01a.b7aaa86c9328.mp3", duration: 1.5 } });
+    // A newer rendering under the current id wins over the retired one.
+    const both = parseVoiceBankManifest({
+      version: 1,
+      voices: {
+        "silero:crew-m2": { label: "new", lines: { x01a: { file: "crew-m2.x01a.aaaaaaaaaaaa.mp3" } } },
+        "voicestudio:crew-m2": { label: "old", lines: { x01a: { file: "crew-m2.x01a.bbbbbbbbbbbb.mp3" } } },
+      },
+    });
+    expect(both!.voices["silero:crew-m2"].label).toBe("new");
     expect(parseVoiceBankManifest({ version: 1, voices: {} })).toBeNull();
     expect(parseVoiceBankManifest("nope")).toBeNull();
   });
@@ -93,10 +103,10 @@ describe("casting", () => {
       tts: {
         provider: "local-speech",
         ready: true,
-        defaultVoiceId: "voicestudio:am7",
+        defaultVoiceId: "silero:am7",
         options: [],
         systemVoiceId: DEFAULT_SYSTEM_VOICE,
-        leadVoiceId: "voicestudio:am7",
+        leadVoiceId: "silero:am7",
         crewVoiceIds: crew,
       },
       stt: { provider: "local-speech", ready: true },
@@ -104,13 +114,11 @@ describe("casting", () => {
     const used = new Set<string>();
     for (let n = 0; n < 60; n++) {
       const id = `agent-${n}`;
-      const voice = crewVoiceFor(id, crew, "voicestudio:am7");
+      const voice = crewVoiceFor(id, crew, "silero:am7");
       expect(voice).toBe(resolveAgentVoice({ agentId: id, mainAgentId: "main", officeVoiceId: null, agentVoices: {}, setup }));
       used.add(voice!);
     }
     expect(used.size).toBe(6);
-    const fallbacks = BUILTIN_SPEECH_VOICES.flatMap((voice) => (voice.fallback ? [voice.fallback] : []));
-    expect(new Set(fallbacks).size).toBe(fallbacks.length);
   });
 });
 

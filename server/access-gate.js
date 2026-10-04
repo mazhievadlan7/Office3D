@@ -23,10 +23,6 @@ const crypto = require("node:crypto");
 const SESSION_COOKIE = "studio_session";
 const SESSION_DAYS = 30;
 const MAX_LOGIN_BODY = 8 * 1024;
-// Set for a few minutes after a sign-in, readable by the page: the HQ greets
-// the person (by the name in it) once and clears it. Carries no credentials.
-const GREET_COOKIE = "hq_greet";
-const GREET_SECONDS = 300;
 
 const parseCookies = (header) => {
   const raw = typeof header === "string" ? header : "";
@@ -253,10 +249,8 @@ const TOO_MANY = "Слишком много неудачных попыток в
 
 function createAccessGate(options) {
   const token = String(options?.token ?? "").trim();
-  // Optional login name asked for next to the password (STUDIO_LOGIN), and the
-  // name the HQ greets the person by (STUDIO_OWNER_NAME, else the login).
+  // Optional login name asked for next to the password (STUDIO_LOGIN).
   const login = String(options?.login ?? "").trim();
-  const ownerName = String(options?.ownerName ?? "").trim() || login;
   const cookieName = String(options?.cookieName ?? "studio_access").trim() || "studio_access";
   const now = typeof options?.now === "function" ? options.now : () => Date.now();
   const isTrustedProxy = typeof options?.isTrustedProxy === "function" ? options.isTrustedProxy : null;
@@ -349,16 +343,6 @@ function createAccessGate(options) {
     res.end(loginPage({ next, error, withLogin: Boolean(login) }));
   };
 
-  /** The one-off greeting marker (see GREET_COOKIE): the name to greet, or "-" for none. */
-  const greetCookie = (req) =>
-    [
-      `${GREET_COOKIE}=${encodeURIComponent(ownerName || "-")}`,
-      "Path=/",
-      "SameSite=Lax",
-      `Max-Age=${GREET_SECONDS}`,
-      ...(isHttps(req, isTrustedProxy) ? ["Secure"] : []),
-    ].join("; ");
-
   const redirect = (res, location, cookie) => {
     res.statusCode = 303;
     res.setHeader("Location", location);
@@ -397,7 +381,7 @@ function createAccessGate(options) {
     }
     rateLimiter.reset(ip);
     securityLog?.recordLogin();
-    redirect(res, next, [sessionCookie(req, issueSession(), SESSION_DAYS * 86_400), greetCookie(req)]);
+    redirect(res, next, sessionCookie(req, issueSession(), SESSION_DAYS * 86_400));
   };
 
   const handleHttp = (req, res) => {

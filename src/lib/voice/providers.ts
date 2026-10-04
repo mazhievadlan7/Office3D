@@ -5,9 +5,8 @@
 // environment (a speech service is infrastructure, not a browser preference):
 //   - local-speech       (default) the office's own speech gateway
 //                        (services/speech, SPEECH_GATEWAY_URL): Silero TTS v5
-//                        for Russian with exact stress, VoiceStudio for the
-//                        designed voices, GigaAM v3 for speech recognition
-//                        (VoiceStudio's Whisper as its fallback). Open
+//                        for every voice (Russian with exact stress), GigaAM
+//                        v3 for speech recognition, all on the CPU. Open
 //                        source, on this machine or the office's server;
 //   - openai-compatible  any other server with OpenAI's audio API —
 //                        POST {url}/audio/transcriptions and /audio/speech;
@@ -19,6 +18,7 @@
 
 import {
   BUILTIN_SPEECH_VOICES,
+  currentSpeechVoiceId,
   DEFAULT_LEAD_VOICE,
   DEFAULT_SYSTEM_VOICE,
   isSpeechVoiceId,
@@ -72,7 +72,7 @@ const read = (env: Env, key: string) => env[key]?.trim() || "";
 
 const STT_TIMEOUT_MS = 60_000;
 const TTS_TIMEOUT_MS = 30_000;
-/** Designed voices render on the GPU (or slowly on a CPU); the gateway falls back to Silero itself. */
+/** A long line on a busy CPU (Silero plus the voice's post-processing) still finishes well within this. */
 const GATEWAY_TTS_TIMEOUT_MS = 120_000;
 const GATEWAY_STT_TIMEOUT_MS = 120_000;
 const GATEWAY_PROBE_TIMEOUT_MS = 2_500;
@@ -113,7 +113,7 @@ const timedFetch = async (service: string, url: string, init: RequestInit, timeo
 const audioBlob = (request: TranscriptionRequest) =>
   new Blob([new Uint8Array(request.buffer)], { type: request.mimeType || "application/octet-stream" });
 
-// --- Local speech gateway (Silero + VoiceStudio) --------------------------------------
+// --- Local speech gateway (Silero + GigaAM) --------------------------------------
 
 const GATEWAY_SERVICE = "Сервер речи";
 
@@ -127,12 +127,12 @@ export const speechGatewayUrl = (env: Env) => {
 /** The HQ's own voice («Система штаба»): Silero by default, for exact Russian stress. */
 export const systemVoiceId = (env: Env) => {
   const configured = read(env, "OFFICE3D_SYSTEM_VOICE");
-  return isSpeechVoiceId(configured) ? configured : DEFAULT_SYSTEM_VOICE;
+  return isSpeechVoiceId(configured) ? currentSpeechVoiceId(configured) : DEFAULT_SYSTEM_VOICE;
 };
 
 const gatewayDefaultVoice = (env: Env) => {
   const configured = read(env, "OFFICE3D_TTS_VOICE");
-  return isSpeechVoiceId(configured) ? configured : DEFAULT_LEAD_VOICE;
+  return isSpeechVoiceId(configured) ? currentSpeechVoiceId(configured) : DEFAULT_LEAD_VOICE;
 };
 
 /** A voice id from the browser, or the default when it is not a gateway voice (e.g. an old saved id). */
@@ -355,7 +355,9 @@ export const describeVoiceSetup = async (env: Env = process.env) => {
     };
     roles = {
       systemVoiceId: systemVoiceId(env),
-      leadVoiceId: isSpeechVoiceId(lead) ? lead : (voicesWithRole(catalog, "lead")[0] ?? DEFAULT_LEAD_VOICE),
+      leadVoiceId: isSpeechVoiceId(lead)
+        ? currentSpeechVoiceId(lead)
+        : (voicesWithRole(catalog, "lead")[0] ?? DEFAULT_LEAD_VOICE),
       crewVoiceIds: voicesWithRole(catalog, "crew"),
     };
   }

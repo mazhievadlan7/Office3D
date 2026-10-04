@@ -12,7 +12,7 @@
  *
  * Speech is fetched sentence by sentence (lib/voice/speechChunks.ts): the
  * first sentence plays as soon as it is rendered while the next ones render,
- * which matters for AM7's designed voice (slower than real time on the GPU).
+ * so a long answer starts playing within a second or two.
  * One request at a time, in order; the pieces play back to back. While it
  * plays, the HQ's background crew talk ducks (lib/voice/speechDuck.ts).
  */

@@ -14,7 +14,7 @@
  *   • Quotes are «ёлочки», not "straight" ones.
  *   • Counts that vary by number use plural() rather than a fixed form.
  *   • Product and protocol names stay as they are: Office3D, OpenClaw,
- *     Silero, VoiceStudio, GitHub, ClawHub, Hermes, SIP, API.
+ *     Silero, GigaAM, GitHub, ClawHub, Hermes, SIP, API.
  */
 
 export const ru = {
@@ -1109,6 +1109,7 @@ export const ru = {
   "hqClock.cityYekaterinburg": "Екатеринбург",
   "hqClock.cityYerevan": "Ереван",
   "hqClock.label": "Местное время: {city}",
+  "hqEntry.enter": "ВОЙТИ В ШТАБ",
   "hqScene.cameraAm7": "Кабинет AM7",
   "hqScene.cameraFollow": "Следить",
   "hqScene.cameraFollowHint": "Выберите агента, чтобы следить за ним",
