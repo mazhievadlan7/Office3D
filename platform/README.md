@@ -125,9 +125,47 @@ kill-switch глобальный и по engagement; деструктив тре
 2. 26 — ССО · 25 — Внутренняя СБ · 24 — Хакинг · 23 — Кибербез/ИБ · 22 — OSINT
 3. 21 → 1 — по таблице §I.3 · 0 — The Gate.
 
-Будущие floor-piece'ы (Архив на pgvector + Neo4j, §II.3.3/§II.3.4) — в
-`docker-compose.yml` оставлены закомментированными профилями; **не** поднимать
-сейчас.
+Архив (память платформы, pgvector + Neo4j, §II.3.3/§II.3.4/§22) заложен как
+floor-piece в [`archive_ingestion/`](./archive_ingestion/) и профиль `archive`
+в `docker-compose.yml` — **выключен по умолчанию**, пока БД не провижены (см.
+ниже). Остальные этажи строятся по таблице §I.3.
+
+## Архив — память платформы (`archive_ingestion/`, §II.3.4 / §22)
+
+Каталог знаний [`archive/unified_ai_hacker_mind_v5.json`](./archive/) (655 единиц,
+28 доменов, governance RULE_0…RULE_5) загружается пайплайном
+[`archive_ingestion/`](./archive_ingestion/) в **pgvector** (семантический поиск)
+и **Neo4j** (граф `Domain → Unit → Level`). Индексируются только справочные
+**метаданные** (названия, домены, уровни, описания) — **не** содержимое книг и
+**не** код эксплойтов. Рамка — только авторизованное тестирование.
+
+**Governance — единый источник.** Правила RULE_0…RULE_5 берутся из
+[`core/governance.js`](./core/governance.js); `emit_system_prompt.py` рендерит их
+из `archive/governance.json` (генерится ядром: `npm --prefix platform run
+emit-governance-json`), а не из governance-блока каталога v5 (его формулировки
+отличаются по тексту при том же смысле — подробности в
+[`archive_ingestion/README.md`](./archive_ingestion/README.md)).
+
+**Эмбеддинги** по умолчанию локальные/суверенные (`intfloat/multilingual-e5-large`,
+1024 dim); провайдер переключается env `EMBED_PROVIDER`. Модель не скачивается
+автоматически.
+
+**БД ещё не подняты — только dry-run** (ничего не пишется, подключения к БД нет):
+
+```bash
+python platform/archive_ingestion/ingest_archive.py \
+    --json platform/archive/unified_ai_hacker_mind_v5.json --dry-run
+python platform/archive_ingestion/test_dry_run.py      # или: pytest …/test_dry_run.py
+```
+
+Dry-run валидирует все единицы и печатает план (счётчики по доменам, dim,
+«что БЫ записали» в pgvector/Neo4j). Поднимать стор-сервисы — только при
+провижене: `docker compose -f platform/docker-compose.yml --profile archive up
+pgvector neo4j`, затем применить `schema.sql` / `neo4j_schema.cypher`.
+
+**Dev LLM (Ollama).** Для будущей оркестрации предусмотрена заглушка
+`OLLAMA_BASE_URL` / `OLLAMA_MODEL` в [`.env.example`](./.env.example) — **вызовов
+пока нет**. Переменные Архива тоже описаны в `.env.example`.
 
 ## Границы (Часть IV ТЗ — обязательны для любого модуля)
 

@@ -1,0 +1,4289 @@
+{
+  "meta": {
+    "name": "Unified AI Hacker Mind",
+    "version": "5.0-AEGIS",
+    "codename": "ZERO GAP / AUTHORIZED ONLY",
+    "date": "2026-09-27",
+    "agents_target": "150 -> 300 -> 1000",
+    "principle": "Каждый агент имеет доступ ко ВСЕЙ базе. Специализации нет — есть распределение задач. Применение — строго по авторизованным целям."
+  },
+  "governance": {
+    "rule_0": "SCOPE FIRST: ни одно активное действие не выполняется против актива вне верифицированного scope (свои продукты / договор с клиентом / bug bounty scope / полигон)",
+    "rule_1": "Знать — можно всё. Применять — только по авторизованным целям.",
+    "rule_2": "Никакой автономной генерации вредоносного кода. PoC — только в лаборатории или в рамках scope, минимально необходимый для подтверждения.",
+    "rule_3": "Внешние коммуникации (письма клиентам, отчёты на платформах) отправляет только человек.",
+    "rule_4": "Каждое действие логируется в append-only аудит с привязкой к engagement и scope.",
+    "rule_5": "Darknet/underground — только пассивный threat intel и атрибуция. Никаких операций, покупок, взаимодействий."
+  },
+  "domains": [
+    "fundamentals",
+    "offensive-web",
+    "offensive-network",
+    "ad-identity",
+    "cloud-k8s",
+    "mobile",
+    "wireless-radio",
+    "reversing-malware",
+    "forensics-ir",
+    "detection-soc",
+    "osint-threatintel",
+    "social-engineering",
+    "crypto",
+    "blockchain-web3",
+    "devsecops-arch",
+    "game-security",
+    "ics-scada",
+    "telecom-5g-sdr",
+    "supply-chain",
+    "quantum-pqc",
+    "biometrics-physical",
+    "medical-security",
+    "aerospace-drone",
+    "ai-llm-security",
+    "counter-ai-defense",
+    "hardware",
+    "darknet-threatintel",
+    "cyberlaw-strategy"
+  ],
+  "units": {
+    "books": [
+      {
+        "title": "Hacking: The Art of Exploitation",
+        "author": "Jon Erickson",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Computer Systems: A Programmer's Perspective",
+        "author": "Bryant & O'Hallaron",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "The C Programming Language",
+        "author": "Kernighan & Ritchie",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Linux Basics for Hackers",
+        "author": "OccupyTheWeb",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Practical Packet Analysis",
+        "author": "Chris Sanders",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "TCP/IP Illustrated Vol.1",
+        "author": "W. Richard Stevens",
+        "domain": "fundamentals",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Operating Systems: Three Easy Pieces",
+        "author": "Arpaci-Dusseau",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Windows Internals Part 1&2",
+        "author": "Russinovich, Solomon, Ionescu",
+        "domain": "fundamentals",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Linux Command Line",
+        "author": "William Shotts",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "How Linux Works",
+        "author": "Brian Ward",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Practical Binary Analysis",
+        "author": "Dennis Andriesse",
+        "domain": "fundamentals",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Computer Networking: A Top-Down Approach",
+        "author": "Kurose & Ross",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Assembly Language Step-by-Step",
+        "author": "Jeff Duntemann",
+        "domain": "fundamentals",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Python Crash Course",
+        "author": "Eric Matthes",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Automate the Boring Stuff with Python",
+        "author": "Al Sweigart",
+        "domain": "fundamentals",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "The Web Application Hacker's Handbook",
+        "author": "Stuttard & Pinto",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Real-World Bug Hunting",
+        "author": "Peter Yaworski",
+        "domain": "offensive-web",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Bug Bounty Bootcamp",
+        "author": "Vickie Li",
+        "domain": "offensive-web",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "The Tangled Web",
+        "author": "Michal Zalewski",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Web Security for Developers",
+        "author": "Malcolm McDonald",
+        "domain": "offensive-web",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "OAuth 2 in Action",
+        "author": "Richer & Sanso",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "API Security in Action",
+        "author": "Neil Madden",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Hacking APIs",
+        "author": "Corey Ball",
+        "domain": "offensive-web",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "The Browser Hacker's Handbook",
+        "author": "Wade Alcorn et al.",
+        "domain": "offensive-web",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "JavaScript for Hackers",
+        "author": "Gareth Heyes",
+        "domain": "offensive-web",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "SQL Injection Attacks and Defense",
+        "author": "Justin Clarke-Salt",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "GraphQL Security",
+        "author": "various (OWASP community)",
+        "domain": "offensive-web",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Penetration Testing",
+        "author": "Georgia Weidman",
+        "domain": "offensive-network",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "The Hacker Playbook 3",
+        "author": "Peter Kim",
+        "domain": "offensive-network",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Metasploit: The Penetration Tester's Guide",
+        "author": "Kennedy et al.",
+        "domain": "offensive-network",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Advanced Penetration Testing",
+        "author": "Wil Allsopp",
+        "domain": "offensive-network",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Attacking Network Protocols",
+        "author": "James Forshaw",
+        "domain": "offensive-network",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Nmap Network Scanning",
+        "author": "Gordon Lyon",
+        "domain": "offensive-network",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Network Security Assessment",
+        "author": "Chris McNab",
+        "domain": "offensive-network",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Red Team Field Manual (RTFM)",
+        "author": "Ben Clark",
+        "domain": "offensive-network",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "The Practice of Network Security Monitoring",
+        "author": "Richard Bejtlich",
+        "domain": "offensive-network",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "IPv6 Security",
+        "author": "Scott Hogg",
+        "domain": "offensive-network",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "BGP Security",
+        "author": "various (IETF/RPKI literature)",
+        "domain": "offensive-network",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Active Directory Security",
+        "author": "Sean Metcalf (Trimarc)",
+        "domain": "ad-identity",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Attack and Defend Active Directory",
+        "author": "various (SpecterOps publications)",
+        "domain": "ad-identity",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Kerberos: The Definitive Guide",
+        "author": "Jason Garman",
+        "domain": "ad-identity",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Windows Security Internals",
+        "author": "James Forshaw",
+        "domain": "ad-identity",
+        "level": 5,
+        "type": "book"
+      },
+      {
+        "title": "Enterprise Security with Azure AD",
+        "author": "various",
+        "domain": "ad-identity",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Identity Attack Vectors",
+        "author": "Moreno & Sands",
+        "domain": "ad-identity",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Zero Trust Networks",
+        "author": "Gilman & Barth",
+        "domain": "ad-identity",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "BloodHound Playbooks (SpecterOps)",
+        "author": "SpecterOps team",
+        "domain": "ad-identity",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Cloud Security and DevOps",
+        "author": "various",
+        "domain": "cloud-k8s",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Hacking Kubernetes",
+        "author": "Martin & Hausenblas",
+        "domain": "cloud-k8s",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Kubernetes Security",
+        "author": "Lapaz & Aversa",
+        "domain": "cloud-k8s",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "AWS Security",
+        "author": "Dylan Shields",
+        "domain": "cloud-k8s",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Azure Security",
+        "author": "Mustafa Toroman",
+        "domain": "cloud-k8s",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "GCP Security Cookbook",
+        "author": "various",
+        "domain": "cloud-k8s",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Container Security",
+        "author": "Liz Rice",
+        "domain": "cloud-k8s",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Cloud Native Security",
+        "author": "Beller & Wuest",
+        "domain": "cloud-k8s",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Terraform: Up and Running",
+        "author": "Yevgeniy Brikman",
+        "domain": "cloud-k8s",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Serverless Security",
+        "author": "Miguel Sanz",
+        "domain": "cloud-k8s",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Android Security Internals",
+        "author": "Nikolay Elenkov",
+        "domain": "mobile",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Mobile Application Hacker's Handbook",
+        "author": "Dominic Chell et al.",
+        "domain": "mobile",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Android Hacker's Handbook",
+        "author": "Joshua Drake et al.",
+        "domain": "mobile",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "iOS Application Security",
+        "author": "David Thiel",
+        "domain": "mobile",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Mobile Security Testing Guide (OWASP MASVS)",
+        "author": "OWASP",
+        "domain": "mobile",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Frida Handbook",
+        "author": "Ole André Vadla Ravnås",
+        "domain": "mobile",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Rooting and Jailbreaking Essentials",
+        "author": "various",
+        "domain": "mobile",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Hacking Wireless Networks",
+        "author": "various",
+        "domain": "wireless-radio",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Wi-Fu: Wireless Penetration Testing",
+        "author": "vivek ramachandran",
+        "domain": "wireless-radio",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "The Radio Hacker's Handbook",
+        "author": "various",
+        "domain": "wireless-radio",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Software Defined Radio with HackRF",
+        "author": "Michael Ossmann",
+        "domain": "wireless-radio",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "GNU Radio Tutorials",
+        "author": "Marcus Müller et al.",
+        "domain": "wireless-radio",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Bluetooth Security",
+        "author": "various",
+        "domain": "wireless-radio",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "RFID Security",
+        "author": "Frank Thornton",
+        "domain": "wireless-radio",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Practical Malware Analysis",
+        "author": "Sikorski & Honig",
+        "domain": "reversing-malware",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Practical Reverse Engineering",
+        "author": "Dang et al.",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Reversing: Secrets of Reverse Engineering",
+        "author": "Eldad Eilam",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The IDA Pro Book",
+        "author": "Chris Eagle",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Ghidra Book",
+        "author": "Eagle & Nance",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Mastering Malware Analysis 2nd",
+        "author": "Kleymenov & Thabet",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Malware Analyst's Cookbook",
+        "author": "Ligh et al.",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Rootkits: Subverting the Windows Kernel",
+        "author": "Hoglund & Butler",
+        "domain": "reversing-malware",
+        "level": 5,
+        "type": "book"
+      },
+      {
+        "title": "The Rootkit Arsenal",
+        "author": "Bill Blunden",
+        "domain": "reversing-malware",
+        "level": 5,
+        "type": "book"
+      },
+      {
+        "title": "Evasive Malware",
+        "author": "Kyle Cucci",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Malware Data Science",
+        "author": "Saxe & Sanders",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Art of Computer Virus Research and Defense",
+        "author": "Peter Szor",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Fuzzing for Software Security",
+        "author": "Takanen et al.",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "A Guide to Kernel Exploitation",
+        "author": "Perla & Oldani",
+        "domain": "reversing-malware",
+        "level": 5,
+        "type": "book"
+      },
+      {
+        "title": "The Shellcoder's Handbook",
+        "author": "Chris Anley et al.",
+        "domain": "reversing-malware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Gray Hat Python",
+        "author": "Justin Seitz",
+        "domain": "reversing-malware",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Black Hat Python",
+        "author": "Justin Seitz",
+        "domain": "reversing-malware",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Serious Cryptography",
+        "author": "J.-P. Aumasson",
+        "domain": "reversing-malware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Art of Memory Forensics",
+        "author": "Ligh et al.",
+        "domain": "forensics-ir",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Incident Response & Computer Forensics",
+        "author": "Luttgens et al.",
+        "domain": "forensics-ir",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Windows Forensic Analysis",
+        "author": "Harlan Carvey",
+        "domain": "forensics-ir",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "File System Forensic Analysis",
+        "author": "Brian Carrier",
+        "domain": "forensics-ir",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Network Forensics",
+        "author": "Davidoff & Ham",
+        "domain": "forensics-ir",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Digital Forensics with Open Source Tools",
+        "author": "Altheide & Carvey",
+        "domain": "forensics-ir",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Mobile Forensics Cookbook",
+        "author": "Igor Mikhaylov",
+        "domain": "forensics-ir",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Applied Incident Response",
+        "author": "Steve Anson",
+        "domain": "forensics-ir",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Blue Team Handbook v3",
+        "author": "Don Murdoch",
+        "domain": "detection-soc",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Blue Team Field Manual",
+        "author": "White & Clark",
+        "domain": "detection-soc",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Intelligence-Driven Incident Response",
+        "author": "Roberts & Brown",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Crafting the InfoSec Playbook",
+        "author": "Bollinger et al.",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Security Operations Center (Cisco Press)",
+        "author": "Muniz et al.",
+        "domain": "detection-soc",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Intrusion Detection Honeypots",
+        "author": "Chris Sanders",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Threat Intelligence Handbook",
+        "author": "Record Future",
+        "domain": "detection-soc",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Detection Engineering with Sigma",
+        "author": "community",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "MITRE ATT&CK in Practice",
+        "author": "MITRE",
+        "domain": "detection-soc",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Deception Technology",
+        "author": "various",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Threat Hunting with Elastic Stack",
+        "author": "various",
+        "domain": "detection-soc",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "11 Strategies of a World-Class SOC",
+        "author": "Carson Zimmerman",
+        "domain": "detection-soc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "OSINT Techniques 11th ed.",
+        "author": "Michael Bazzell",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Extreme Privacy",
+        "author": "Michael Bazzell",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Hunting Cyber Criminals",
+        "author": "Vinny Troia",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Open Source Intelligence Methods and Tools",
+        "author": "Nihad Hassan",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Deep Dive: OSINT Value",
+        "author": "Rae L. Baker",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Deep Insight: AI for Intelligence Analyst",
+        "author": "Rae L. Baker",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "We Are Bellingcat",
+        "author": "Eliot Higgins",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Image & Geolocation Intelligence",
+        "author": "Algoryth Ryker",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Offensive Intelligence",
+        "author": "Philippe Dylewski",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Intelligence Bible",
+        "author": "Oliver Wright",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Critical Thinking for Strategic Intelligence",
+        "author": "Pherson & Pherson",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Psychology of Intelligence Analysis",
+        "author": "Richards Heuer",
+        "domain": "osint-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Structured Analytic Techniques",
+        "author": "Heuer & Pherson",
+        "domain": "osint-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Art of Deception",
+        "author": "Kevin Mitnick",
+        "domain": "social-engineering",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Ghost in the Wires",
+        "author": "Kevin Mitnick",
+        "domain": "social-engineering",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Social Engineering: The Art of Human Hacking",
+        "author": "Christopher Hadnagy",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Human Hacking",
+        "author": "Hadnagy & Schulman",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Phishing Dark Waters",
+        "author": "Hadnagy & Fincher",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Unmasking the Social Engineer",
+        "author": "Christopher Hadnagy",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Influence",
+        "author": "Robert Cialdini",
+        "domain": "social-engineering",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Pre-Suasion",
+        "author": "Robert Cialdini",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "What Every Body Is Saying",
+        "author": "Joe Navarro",
+        "domain": "social-engineering",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "The Like Switch",
+        "author": "Jack Schafer",
+        "domain": "social-engineering",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Social Engineering in IT Security",
+        "author": "Sharon Conheady",
+        "domain": "social-engineering",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Applied Cryptography",
+        "author": "Bruce Schneier",
+        "domain": "crypto",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Cryptography Engineering",
+        "author": "Ferguson, Schneier, Kohno",
+        "domain": "crypto",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Handbook of Applied Cryptography",
+        "author": "Menezes et al.",
+        "domain": "crypto",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Serious Cryptography",
+        "author": "J.-P. Aumasson",
+        "domain": "crypto",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Crypto 101",
+        "author": "Laurens Van Houtven",
+        "domain": "crypto",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Real-World Cryptography",
+        "author": "David Wong",
+        "domain": "crypto",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "An Introduction to Mathematical Cryptography",
+        "author": "Hoffstein et al.",
+        "domain": "crypto",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Elliptic Curves: Number Theory and Cryptography",
+        "author": "Lawrence Washington",
+        "domain": "crypto",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Mastering Bitcoin",
+        "author": "Andreas Antonopoulos",
+        "domain": "blockchain-web3",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Mastering Ethereum",
+        "author": "Antonopoulos & Wood",
+        "domain": "blockchain-web3",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Smart Contract Security Field Guide",
+        "author": "various",
+        "domain": "blockchain-web3",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "DeFi Security",
+        "author": "various (Trail of Bits/ConsenSys pubs)",
+        "domain": "blockchain-web3",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Basics of Bitcoins and Blockchains",
+        "author": "Antony Lewis",
+        "domain": "blockchain-web3",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Hands-On Smart Contract Development",
+        "author": "Solorzano et al.",
+        "domain": "blockchain-web3",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Blockchain Forensics",
+        "author": "Richard Sanders",
+        "domain": "blockchain-web3",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Cryptocurrency Investigations",
+        "author": "various",
+        "domain": "blockchain-web3",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Clean Code",
+        "author": "Robert Martin",
+        "domain": "devsecops-arch",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Clean Architecture",
+        "author": "Robert Martin",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Designing Data-Intensive Applications",
+        "author": "Martin Kleppmann",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Building Microservices",
+        "author": "Sam Newman",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Pragmatic Programmer",
+        "author": "Hunt & Thomas",
+        "domain": "devsecops-arch",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Secure by Design",
+        "author": "Johnsson et al.",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Building Secure & Reliable Systems (Google)",
+        "author": "Adkins et al.",
+        "domain": "devsecops-arch",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The DevOps Handbook",
+        "author": "Kim, Humble, Debois, Willis",
+        "domain": "devsecops-arch",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Site Reliability Engineering (Google)",
+        "author": "Beyer et al.",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "DevSecOps",
+        "author": "Glenn Wilson",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Agile Application Security",
+        "author": "Bell et al.",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Software Security: Building Security In",
+        "author": "Gary McGraw",
+        "domain": "devsecops-arch",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Threat Modeling: Designing for Security",
+        "author": "Adam Shostack",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Alice and Bob Learn AppSec",
+        "author": "Tanya Janca",
+        "domain": "devsecops-arch",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Game Engine Architecture",
+        "author": "Jason Gregory",
+        "domain": "devsecops-arch",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Web Scalability for Startup Engineers",
+        "author": "Artur Ejsmont",
+        "domain": "devsecops-arch",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Game Hacking",
+        "author": "Nick Cano",
+        "domain": "game-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Anti-Cheat Handbook",
+        "author": "various",
+        "domain": "game-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Exploiting Online Games",
+        "author": "Hoglund & McGraw",
+        "domain": "game-security",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Game Engine Black Book: Doom",
+        "author": "Fabien Sanglard",
+        "domain": "game-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Multiplayer Game Programming",
+        "author": "Glazer & Madhav",
+        "domain": "game-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Applied Cyber Security and the Smart Grid",
+        "author": "Knapp & Samani",
+        "domain": "ics-scada",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Industrial Network Security",
+        "author": "Knapp & Langill",
+        "domain": "ics-scada",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Hacking Exposed: ICS",
+        "author": "Clint Bodungen et al.",
+        "domain": "ics-scada",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Engineering-Grade OT Security",
+        "author": "Andrew Ginter",
+        "domain": "ics-scada",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Countdown to Zero Day",
+        "author": "Kim Zetter",
+        "domain": "ics-scada",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Sandworm",
+        "author": "Andy Greenberg",
+        "domain": "ics-scada",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Robust Control System Networks",
+        "author": "Ralph Langner",
+        "domain": "ics-scada",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "LTE Security",
+        "author": "Forsberg et al.",
+        "domain": "telecom-5g-sdr",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "5G System Design",
+        "author": "Leiba et al.",
+        "domain": "telecom-5g-sdr",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "SS7/SIGTRAN Security literature",
+        "author": "ETSI/3GPP pubs",
+        "domain": "telecom-5g-sdr",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Hacking VoIP",
+        "author": "Himanshu Dwivedi",
+        "domain": "telecom-5g-sdr",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Basics of Hacking and Penetration Testing VoIP",
+        "author": "various",
+        "domain": "telecom-5g-sdr",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Understanding GPS/GNSS",
+        "author": "Kaplan & Hegarty",
+        "domain": "telecom-5g-sdr",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Software Supply Chain Security",
+        "author": "various (CNCF/SLSA)",
+        "domain": "supply-chain",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Tao of Open Source Security",
+        "author": "various",
+        "domain": "supply-chain",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "SBOM and VEX in Practice",
+        "author": "NTIA/CISA pubs",
+        "domain": "supply-chain",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Worm: The First Digital World War",
+        "author": "Mark Bowden",
+        "domain": "supply-chain",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Quantum Computing for Computer Scientists",
+        "author": "Yanofsky & Mannucci",
+        "domain": "quantum-pqc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Quantum Computation and Quantum Information",
+        "author": "Nielsen & Chuang",
+        "domain": "quantum-pqc",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Post-Quantum Cryptography (NIST pubs)",
+        "author": "NIST",
+        "domain": "quantum-pqc",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Quantum Computing: An Applied Approach",
+        "author": "Jack Hidary",
+        "domain": "quantum-pqc",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Handbook of Biometrics",
+        "author": "Jain et al.",
+        "domain": "biometrics-physical",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Practical Lock Picking",
+        "author": "Deviant Ollam",
+        "domain": "biometrics-physical",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Keys to the Kingdom",
+        "author": "Deviant Ollam",
+        "domain": "biometrics-physical",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Art of Intrusion (physical chapters)",
+        "author": "Kevin Mitnick",
+        "domain": "biometrics-physical",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "RFID+ Study Guide",
+        "author": "various",
+        "domain": "biometrics-physical",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Medical Device Cybersecurity",
+        "author": "Axel Wirth et al.",
+        "domain": "medical-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "HIPAA Security Essentials",
+        "author": "various (HHS pubs)",
+        "domain": "medical-security",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Healthcare Information Security",
+        "author": "John W. McGonigle",
+        "domain": "medical-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Building a Medical Device Security Program",
+        "author": "various",
+        "domain": "medical-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Aircraft Systems Security literature",
+        "author": "RTCA DO-326A pubs",
+        "domain": "aerospace-drone",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Drone/UAV Security research",
+        "author": "various",
+        "domain": "aerospace-drone",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Maritime Cybersecurity",
+        "author": "various (IMO/IACS)",
+        "domain": "aerospace-drone",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Satellite Communications Security research",
+        "author": "various",
+        "domain": "aerospace-drone",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "GPS Spoofing & Navigation Warfare literature",
+        "author": "various",
+        "domain": "aerospace-drone",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Not with a Bug, But with a Sticker",
+        "author": "Siva Kumar & Anderson",
+        "domain": "ai-llm-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Adversarial Machine Learning",
+        "author": "Joseph et al.",
+        "domain": "ai-llm-security",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "LLM Security Handbook (OWASP pubs)",
+        "author": "OWASP",
+        "domain": "ai-llm-security",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Prompt Injection & Jailbreak research corpus",
+        "author": "various (arXiv)",
+        "domain": "ai-llm-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "AI Safety and Security",
+        "author": "Yampolskiy",
+        "domain": "ai-llm-security",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Machine Learning and Security",
+        "author": "Chio & Freeman",
+        "domain": "ai-llm-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Red Teaming LLMs (industry pubs)",
+        "author": "various",
+        "domain": "ai-llm-security",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Adversarial Robustness literature",
+        "author": "arXiv corpus",
+        "domain": "counter-ai-defense",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "ML-based EDR internals (vendor whitepapers)",
+        "author": "CrowdStrike/SentinelOne pubs",
+        "domain": "counter-ai-defense",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Testing AI Security Systems (NIST AI RMF)",
+        "author": "NIST",
+        "domain": "counter-ai-defense",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Poisoning & Backdoor Defenses literature",
+        "author": "arXiv corpus",
+        "domain": "counter-ai-defense",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Hardware Hacking Handbook",
+        "author": "van Woudenberg & O'Flynn",
+        "domain": "hardware",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "The Art of PCB Reverse Engineering",
+        "author": "Ng Keng Tiong",
+        "domain": "hardware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Practical IoT Hacking",
+        "author": "Fotios Chantzis et al.",
+        "domain": "hardware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The Car Hacker's Handbook",
+        "author": "Craig Smith",
+        "domain": "hardware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Embedded Security literature",
+        "author": "various",
+        "domain": "hardware",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Side-Channel Analysis literature",
+        "author": "Kocher et al. corpus",
+        "domain": "hardware",
+        "level": 5,
+        "type": "book"
+      },
+      {
+        "title": "Darknet Markets: Economics and Crime literature",
+        "author": "academic corpus",
+        "domain": "darknet-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Tor: anonymity internals",
+        "author": "Tor Project docs",
+        "domain": "darknet-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Cybercrime Economy research",
+        "author": "academic corpus (e.g. Thomas Holt)",
+        "domain": "darknet-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "This Is How They Tell Me the World Ends",
+        "author": "Nicole Perlroth",
+        "domain": "darknet-threatintel",
+        "level": 2,
+        "type": "book"
+      },
+      {
+        "title": "Kingpin",
+        "author": "Kevin Poulsen",
+        "domain": "darknet-threatintel",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "American Kingpin",
+        "author": "Nick Bilton",
+        "domain": "darknet-threatintel",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Spam Nation",
+        "author": "Brian Krebs",
+        "domain": "darknet-threatintel",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Future Crimes",
+        "author": "Marc Goodman",
+        "domain": "darknet-threatintel",
+        "level": 1,
+        "type": "book"
+      },
+      {
+        "title": "Ransomware economics & response literature",
+        "author": "CISA/industry corpus",
+        "domain": "darknet-threatintel",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Tallinn Manual 2.0",
+        "author": "NATO CCDCOE",
+        "domain": "cyberlaw-strategy",
+        "level": 4,
+        "type": "book"
+      },
+      {
+        "title": "Cyber Law in Russia and International Practice",
+        "author": "various",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "The CERT Guide to Insider Threats",
+        "author": "Cappelli et al.",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Security Metrics",
+        "author": "Andrew Jaquith",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "How to Measure Anything in Cybersecurity Risk",
+        "author": "Hubbard & Seiersen",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Modern Cybersecurity",
+        "author": "Mark Miller (ed.)",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "CISO Desk Reference Guide",
+        "author": "Bill Bonney et al.",
+        "domain": "cyberlaw-strategy",
+        "level": 3,
+        "type": "book"
+      },
+      {
+        "title": "Information Security Governance",
+        "author": "Whitman & Mattord",
+        "domain": "cyberlaw-strategy",
+        "level": 2,
+        "type": "book"
+      }
+    ],
+    "tools": [
+      {
+        "name": "nmap",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "masscan",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "rustscan",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "zmap",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "unicornscan",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "netcat/socat",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "wireshark",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "tcpdump",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "tshark",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "scapy",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "hping3",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "arp-scan",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "responder (lab-only)",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "netexec/crackmapexec",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "bloodhound-ce",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "ldapdomaindump",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "mitm6 (lab-only)",
+        "category": "network",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "burp suite",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "caido",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "owasp zap",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "ffuf",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "gobuster",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "feroxbuster",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "dirsearch",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "nikto",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "nuclei",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "httpx",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "subfinder",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "amass",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "assetfinder",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "dnsx",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "katana",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "waybackurls",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "sqlmap (scope-only)",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "dalfox",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "commix",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "graphql-cop",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "postman/newman",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "wappalyzer",
+        "category": "web-api",
+        "domain": "offensive-web",
+        "type": "tool"
+      },
+      {
+        "name": "metasploit (scope-only)",
+        "category": "c2-frameworks",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "cobalt strike (лицензия, red-team engagements)",
+        "category": "c2-frameworks",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "sliver (lab/engagement)",
+        "category": "c2-frameworks",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "empire (lab-only)",
+        "category": "c2-frameworks",
+        "domain": "offensive-network",
+        "type": "tool"
+      },
+      {
+        "name": "john the ripper",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "hashcat",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "hydra (scope-only)",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "medusa (scope-only)",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "mimikatz (lab/authorized AD)",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "rubeus (lab/authorized AD)",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "certipy (authorized AD)",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "impacket suite",
+        "category": "identity-creds",
+        "domain": "ad-identity",
+        "type": "tool"
+      },
+      {
+        "name": "prowler",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "scoutSuite",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "cloudsplaining",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "pacu (authorized cloud)",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "kube-hunter",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "kube-bench",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "kubeaudit",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "kubescape",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "trivy",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "grype",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "checkov",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "tfsec",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "terrascan",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "docker bench",
+        "category": "cloud-k8s",
+        "domain": "cloud-k8s",
+        "type": "tool"
+      },
+      {
+        "name": "mobsf",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "frida",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "objection",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "apktool",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "jadx",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "ghidra mobile",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "radare2",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "drozer",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "ios-webkit-debug-proxy",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "needle",
+        "category": "mobile",
+        "domain": "mobile",
+        "type": "tool"
+      },
+      {
+        "name": "aircrack-ng suite (authorized wireless)",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "kismet",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "wireshark 802.11",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "bettercap (authorized)",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "wifite (lab-only)",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "reaver (lab-only)",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "hcxdumptool",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "hackrf tools",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "gnuradio",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "gqrx",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "sdr#",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "universal radio hacker",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "flipper zero tooling (authorized)",
+        "category": "wireless-sdr",
+        "domain": "wireless-radio",
+        "type": "tool"
+      },
+      {
+        "name": "ida pro",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "ghidra",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "radare2/cutter",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "binary ninja",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "x64dbg",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "windbg",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "gdb+gef/pwndbg",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "ollydbg",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "dnspy",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "ilspy",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "angr",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "triton",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "pin",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "dynamorio",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "cuckoo sandbox (lab)",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "remnux toolkit",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "flare-vm toolkit",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "pe-sieve",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "detect-it-easy",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "yara",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "capa",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "floss",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "volatility3",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "memprocfs",
+        "category": "reversing-forensics",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "osrframework",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "maltego",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "spiderfoot",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "theharvester",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "recon-ng",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "shodan-cli",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "censys-cli",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "fofa (account)",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "intelx (account)",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "holehe",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "sherlock",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "exiftool",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "metagoofil",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "photon",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "gitleaks",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "trufflehog",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "osintgram (own accounts/lab)",
+        "category": "osint",
+        "domain": "osint-threatintel",
+        "type": "tool"
+      },
+      {
+        "name": "semgrep",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "codeql",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "sonarqube",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "bandit",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "gosec",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "brakeman",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "findsecbugs",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "spotbugs",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "eslint-security",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "snyk",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "dependabot",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "osv-scanner",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "retire.js",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "owasp dependency-check",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "syft",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "cosign",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "in-toto",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "slsa-verifier",
+        "category": "sast-sca-supplychain",
+        "domain": "supply-chain",
+        "type": "tool"
+      },
+      {
+        "name": "afl++",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "libfuzzer",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "honggfuzz",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "boofuzz",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "peach",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "jazzer",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "oss-fuzz infra",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "syzkaller (lab)",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "winafl",
+        "category": "fuzzing",
+        "domain": "reversing-malware",
+        "type": "tool"
+      },
+      {
+        "name": "set (authorized phishing sim only)",
+        "category": "se-simulation",
+        "domain": "social-engineering",
+        "type": "tool"
+      },
+      {
+        "name": "gophish (authorized sim only)",
+        "category": "se-simulation",
+        "domain": "social-engineering",
+        "type": "tool"
+      },
+      {
+        "name": "evilginx2 (authorized sim only)",
+        "category": "se-simulation",
+        "domain": "social-engineering",
+        "type": "tool"
+      },
+      {
+        "name": "king phisher (authorized sim only)",
+        "category": "se-simulation",
+        "domain": "social-engineering",
+        "type": "tool"
+      },
+      {
+        "name": "zeek",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "suricata",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "snort",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "wazuh",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "velociraptor",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "osquery",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "fleet",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "elastic stack",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "splunk",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "graylog",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "sigma-cli",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "yara-l (chronicle)",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "misp",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "opencti",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "thehive",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "cortex",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "shuffle (soar)",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "timesketch",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "hayabusa",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "chainsaw",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "kape",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "arkime",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "falco",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "sysmon-config",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "atomic red team",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "caldera",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "mitre navigator",
+        "category": "detection-soc-ir",
+        "domain": "detection-soc",
+        "type": "tool"
+      },
+      {
+        "name": "cyberchef",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "openssl",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "gnupg",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "hashid/haithi",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "rsactftool",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "sage math",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "z3 solver",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "factordb-cli",
+        "category": "crypto-ctf",
+        "domain": "crypto",
+        "type": "tool"
+      },
+      {
+        "name": "mythril",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "slither",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "echidna",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "foundry",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "hardhat",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "tenderly",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "blocksec tools",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "etherscan-cli",
+        "category": "web3-security",
+        "domain": "blockchain-web3",
+        "type": "tool"
+      },
+      {
+        "name": "proxmark3 (authorized physical)",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "chameleon ultra (authorized)",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "libnfc",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "mifare classic tools (authorized)",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "kismet (bt)",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "ubertooth one (lab)",
+        "category": "physical-rfid",
+        "domain": "biometrics-physical",
+        "type": "tool"
+      },
+      {
+        "name": "apktool (mobile)",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "frida-server",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "gdb-multiarch",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "qemu",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "unicorn engine",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "renode",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "firmadyne (lab firmware)",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "binwalk",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "firmware-mod-kit",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "flashrom",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "openocd",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "sigrok/pulseview",
+        "category": "iot-firmware-hardware",
+        "domain": "hardware",
+        "type": "tool"
+      },
+      {
+        "name": "garak",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "pyrit (ai-redteam)",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "promptfoo",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "nemo guardrails",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "rebuff",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "llm-guard",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "adversarial-robustness-toolbox (IBM ART)",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "foolbox",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "cleverhans",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "textattack",
+        "category": "ai-llm-security",
+        "domain": "ai-llm-security",
+        "type": "tool"
+      },
+      {
+        "name": "openai gym (rl research)",
+        "category": "counter-ai-testing",
+        "domain": "counter-ai-defense",
+        "type": "tool"
+      },
+      {
+        "name": "stable-baselines3",
+        "category": "counter-ai-testing",
+        "domain": "counter-ai-defense",
+        "type": "tool"
+      },
+      {
+        "name": "deepevade-eval frameworks (defensive testing)",
+        "category": "counter-ai-testing",
+        "domain": "counter-ai-defense",
+        "type": "tool"
+      },
+      {
+        "name": "federated-lab tooling",
+        "category": "counter-ai-testing",
+        "domain": "counter-ai-defense",
+        "type": "tool"
+      },
+      {
+        "name": "docker",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "podman",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "kubernetes",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "k3s/minikube",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "kind",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "helm",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "terraform",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "ansible",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "vagrant",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "proxmox",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "openvswitch",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "nftables",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "ebpf/bcc tools",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "wireguard",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "openvpn",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      },
+      {
+        "name": "tor (threat-intel read-only)",
+        "category": "infra-lab",
+        "domain": "fundamentals",
+        "type": "tool"
+      }
+    ],
+    "ctf_labs": [
+      {
+        "name": "TryHackMe",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "HackTheBox",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "HTB Academy",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "HTB Pro Labs (Dante/Offshore/Zephyr)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 4,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "PortSwigger Web Security Academy",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "PicoCTF",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "CTFtime events",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "VulnHub",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "OverTheWire",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "pwn.college",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "CryptoHack",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "HackThisSite",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Root-Me",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Hack The Box Sherlocks (DFIR)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "LetsDefend (SOC/blue)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Blue Team Labs Online",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "CyberDefenders",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "AttackDefense (Pentester Academy)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "INE/eLearnSecurity labs",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "OffSec proving grounds",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "SANS Holiday Hack",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Google CTF",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 4,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "DEF CON CTF quals",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 5,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Plaid CTF",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 4,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Real World CTF",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 4,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "XSS Game (Google)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "OWASP Juice Shop (lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "DVWA (lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "WebGoat (lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Metasploitable 2/3 (lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "VulnHub Kioptrix series",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "GOAD — Game of Active Directory (lab)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "BadBlood + DetectionLab (lab AD)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "PurpleSharp (AD attack sim, lab)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Damn Vulnerable DeFi (web3 lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Ethernaut (web3 lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Capture the Ether (web3)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Damn Vulnerable Smart Contracts",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "IoTGoat (OWASP IoT lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Firmware CTF challenges",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Grid (ICS/SCADA sim)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "ICS Village CTF",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "AWS CTF — flaws.cloud",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "Kubernetes Goat (lab)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "SadServers (Linux troubleshooting)",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 2,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "CmdChallenge",
+        "kind": "platform/lab",
+        "domain": "cross-domain",
+        "level": 1,
+        "type": "ctf_lab"
+      },
+      {
+        "name": "CTF Archives (pwn/re/crypto)",
+        "kind": "platform/lab",
+        "domain": "advanced",
+        "level": 3,
+        "type": "ctf_lab"
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "MITRE ATT&CK Enterprise",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE ATT&CK Mobile",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE ATT&CK ICS",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE D3FEND",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE ATLAS",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE CAPEC",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "MITRE CWE",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "CVE/NVD",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "CVSS v4",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP Top 10",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP ASVS",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP MASVS",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP API Top 10",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP LLM Top 10",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP WSTG",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OWASP SAMM",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "PTES",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "OSSTMM",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "NIST SP 800-115",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "NIST CSF 2.0",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "NIST RMF",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "ISO 27001/27002",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "SOC 2",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "PCI DSS v4",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "HIPAA Security Rule",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "GDPR/152-ФЗ (compliance mapping)",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "CIS Controls v8",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "CIS Benchmarks",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "STIX/TAXII",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "Sigma rules spec",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "YARA spec",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "SLSA framework",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "SCITT/SBOM (SPDX, CycloneDX)",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "Tallinn Manual 2.0 (правовая рамка)",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "PAGER DUTY IR best practices",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      },
+      {
+        "name": "FIRST.org CSIRT framework",
+        "kind": "standard/framework",
+        "domain": "cross-domain",
+        "type": "framework"
+      }
+    ],
+    "datasets": [
+      {
+        "name": "CIC-IDS2017/2018",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "UNSW-NB15",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "NSL-KDD",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "CSE-CIC-IDS2018 AWS",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "DARPA 1998/2000 IDS",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "Kyoto Honeypot",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "CTU-13 botnet",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "MalwareBazaar feeds (research only, lab)",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "VX-Underground research corpus (lab)",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "theZoo (lab research)",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "VirusTotal Intelligence (enterprise access, research)",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "Hybrid Analysis public reports",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "MalwareBazaar YARA feeds",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "EMBER PE malware ML dataset",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "SOREL-20M",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "AndroZoo (Android research)",
+        "kind": "public/research dataset",
+        "domain": "mobile",
+        "type": "dataset"
+      },
+      {
+        "name": "KDD Cup 99 (legacy)",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "ISCX VPN/nonVPN traffic",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "UCI HAR (human activity, anti-spoof research)",
+        "kind": "public/research dataset",
+        "domain": "biometrics-physical",
+        "type": "dataset"
+      },
+      {
+        "name": "NIST biometric datasets",
+        "kind": "public/research dataset",
+        "domain": "biometrics-physical",
+        "type": "dataset"
+      },
+      {
+        "name": "IoT-23",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "ToN_IoT",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "BoT-IoT",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "Edge-IIoTset",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "SWaT (water treatment ICS)",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "BATADAL (water distribution)",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "WADI (ICS)",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "Gas pipeline ICS dataset",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "CIC Modbus dataset",
+        "kind": "public/research dataset",
+        "domain": "ics-scada",
+        "type": "dataset"
+      },
+      {
+        "name": "Enron email corpus (SE/NLP research)",
+        "kind": "public/research dataset",
+        "domain": "social-engineering",
+        "type": "dataset"
+      },
+      {
+        "name": "PhishTank feeds (defensive)",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "OpenPhish feeds (defensive)",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "URLhaus (defensive)",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "Abuse.ch feeds (bazaar/feodo/sslbl)",
+        "kind": "public/research dataset",
+        "domain": "detection-soc",
+        "type": "dataset"
+      },
+      {
+        "name": "PassiveTotal/RiskIQ (commercial)",
+        "kind": "public/research dataset",
+        "domain": "osint-threatintel",
+        "type": "dataset"
+      },
+      {
+        "name": "Common Crawl (web research)",
+        "kind": "public/research dataset",
+        "domain": "osint-threatintel",
+        "type": "dataset"
+      },
+      {
+        "name": "GDELT (global events)",
+        "kind": "public/research dataset",
+        "domain": "osint-threatintel",
+        "type": "dataset"
+      },
+      {
+        "name": "HaveIBeenPwned API (own domains only)",
+        "kind": "public/research dataset",
+        "domain": "osint-threatintel",
+        "type": "dataset"
+      },
+      {
+        "name": "dehashed (legal compliance check)",
+        "kind": "public/research dataset",
+        "domain": "osint-threatintel",
+        "type": "dataset"
+      },
+      {
+        "name": "NVD JSON feeds",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "Exploit-DB (reference, lab use)",
+        "kind": "public/research dataset",
+        "domain": "reversing-malware",
+        "type": "dataset"
+      },
+      {
+        "name": "CAPEC dataset",
+        "kind": "public/research dataset",
+        "domain": "cross-domain",
+        "type": "dataset"
+      },
+      {
+        "name": "CWE dataset",
+        "kind": "public/research dataset",
+        "domain": "cross-domain",
+        "type": "dataset"
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Security+",
+        "org": "CompTIA",
+        "level": 1,
+        "type": "certification"
+      },
+      {
+        "name": "Network+",
+        "org": "CompTIA",
+        "level": 1,
+        "type": "certification"
+      },
+      {
+        "name": "CySA+",
+        "org": "CompTIA",
+        "level": 2,
+        "type": "certification"
+      },
+      {
+        "name": "PenTest+",
+        "org": "CompTIA",
+        "level": 2,
+        "type": "certification"
+      },
+      {
+        "name": "CEH",
+        "org": "EC-Council",
+        "level": 2,
+        "type": "certification"
+      },
+      {
+        "name": "eJPT",
+        "org": "INE",
+        "level": 1,
+        "type": "certification"
+      },
+      {
+        "name": "eCPPT",
+        "org": "INE",
+        "level": 2,
+        "type": "certification"
+      },
+      {
+        "name": "PNPT",
+        "org": "TCM Security",
+        "level": 2,
+        "type": "certification"
+      },
+      {
+        "name": "OSCP",
+        "org": "OffSec",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "OSWE",
+        "org": "OffSec",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "OSEP",
+        "org": "OffSec",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "OSED",
+        "org": "OffSec",
+        "level": 5,
+        "type": "certification"
+      },
+      {
+        "name": "OSMR",
+        "org": "OffSec",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "OSDA",
+        "org": "OffSec",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "GXPN",
+        "org": "GIAC",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "GREM",
+        "org": "GIAC",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "GCFA",
+        "org": "GIAC",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "GNFA",
+        "org": "GIAC",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "GPEN",
+        "org": "GIAC",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "GWAPT",
+        "org": "GIAC",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "GMOB",
+        "org": "GIAC",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CISSP",
+        "org": "ISC2",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CCSP",
+        "org": "ISC2",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CISA",
+        "org": "ISACA",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CRTO (Red Team Ops)",
+        "org": "Zero-Point Security",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CRTP (AD)",
+        "org": "Altered Security",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "CRTE (AD)",
+        "org": "Altered Security",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "CARTP (Azure AD)",
+        "org": "Altered Security",
+        "level": 4,
+        "type": "certification"
+      },
+      {
+        "name": "MRT (Mobile)",
+        "org": "eLearnSecurity",
+        "level": 3,
+        "type": "certification"
+      },
+      {
+        "name": "BTL1/BTL2 (Blue Team)",
+        "org": "Security Blue Team",
+        "level": 2,
+        "type": "certification"
+      }
+    ],
+    "evolution_loops": [
+      {
+        "id": 1,
+        "name": "Knowledge Ingestion",
+        "desc": "Непрерывное чтение CVE/NVD, security-блогов, vendor advisories, changelogs инструментов; новое попадает в Архив с разметкой по ATT&CK",
+        "freq": "24/7",
+        "boundary": "только публичные источники"
+      },
+      {
+        "id": 2,
+        "name": "Tool Creation",
+        "desc": "Генерация скриптов/утилит под задачу; обязательный прогон в песочнице полигона + code review вторым агентом до попадания в арсенал",
+        "freq": "по задаче",
+        "boundary": "только defensive/authorized testing утилиты; никакой автономной генерации вредоносного кода"
+      },
+      {
+        "id": 3,
+        "name": "Technique Synthesis",
+        "desc": "Комбинирование доменов → новые методики ТЕСТИРОВАНИЯ и ДЕТЕКТА (напр. OSINT+web = улучшенный recon-плейбук)",
+        "freq": "еженедельно",
+        "boundary": "синтез фиксируется как playbook, применяется только в scope/полигоне"
+      },
+      {
+        "id": 4,
+        "name": "Polygon Combat",
+        "desc": "AI vs AI спарринги на полигоне: атака ↔ защита; разбор каждого раунда, уроки в Книгу приёмов",
+        "freq": "в свободное от миссий время",
+        "boundary": "только изолированный полигон, без egress"
+      },
+      {
+        "id": 5,
+        "name": "Vulnerability Discovery",
+        "desc": "Fuzzing, SAST, ручной анализ СВОИХ продуктов и scope-целей; находки → PoC в лабе → отчёт",
+        "freq": "по миссиям",
+        "boundary": "scope-only; zero-day по координированному раскрытию вендору"
+      },
+      {
+        "id": 6,
+        "name": "Detection Engineering",
+        "desc": "Из каждой находки — правила Sigma/YARA, улучшение детектов; обратная связь защите",
+        "freq": "после каждой находки",
+        "boundary": "—"
+      },
+      {
+        "id": 7,
+        "name": "Defense Validation (BAS)",
+        "desc": "Прогон Atomic Red Team / Caldera против своих систем, замер time-to-detect",
+        "freq": "еженедельно",
+        "boundary": "только свои/авторизованные активы"
+      },
+      {
+        "id": 8,
+        "name": "Intelligence Harvesting",
+        "desc": "Threat intel: MISP/OpenCTI, фиды угроз, пассивный мониторинг упоминаний активов клиентов (по договору)",
+        "freq": "24/7",
+        "boundary": "пассивный сбор; darknet — только аналитика публичных исследований, никаких операций"
+      },
+      {
+        "id": 9,
+        "name": "Knowledge Distillation",
+        "desc": "Сильные агенты пишут разборы для остальных; регулярные internal writeups; обновление playbooks",
+        "freq": "еженедельно",
+        "boundary": "—"
+      },
+      {
+        "id": 10,
+        "name": "Meta-Learning / Eval",
+        "desc": "Eval-харнесс: регулярные прогоны HTB/THM бенчей, замер solve-rate, time-to-solve, false-positive rate; A/B промптов и стратегий",
+        "freq": "ежемесячно",
+        "boundary": "результаты — метрики для Production Readiness Review"
+      }
+    ]
+  }
+}

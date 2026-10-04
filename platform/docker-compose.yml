@@ -33,29 +33,43 @@ services:
     network_mode: "none"
     restart: unless-stopped
 
-  # --- Archive data stores (FUTURE — do not enable now) ----------------------
-  # Added with the Archive floor-piece (TZ §II.3.3/§II.3.4). Kept here as a
-  # profiled skeleton so the shape is on record; `--profile archive` is the gate.
+  # --- Archive data stores (Archive floor-piece, TZ §II.3.3/§II.3.4/§22) ------
+  # The platform's memory brain: pgvector (semantic search over reference
+  # METADATA) + Neo4j (Domain->Unit->Level graph). These are gated behind the
+  # "archive" COMPOSE PROFILE, so a plain `docker compose up` does NOT start
+  # them — nothing here is enabled by default. Until the DBs are provisioned the
+  # Archive is dry-run only:
   #
-  # pgvector:
-  #   image: pgvector/pgvector:pg16
-  #   profiles: ["archive"]
-  #   environment:
-  #     POSTGRES_DB: aegis_archive
-  #     POSTGRES_USER: aegis
-  #     POSTGRES_PASSWORD: "${PG_PASSWORD:?set PG_PASSWORD}"
-  #   volumes:
-  #     - pgvector_data:/var/lib/postgresql/data
+  #   python platform/archive_ingestion/ingest_archive.py \
+  #       --json platform/archive/unified_ai_hacker_mind_v5.json --dry-run
   #
-  # neo4j:
-  #   image: neo4j:5
-  #   profiles: ["archive"]
-  #   environment:
-  #     NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}"
-  #   volumes:
-  #     - neo4j_data:/data
+  # Bring the stores up only when provisioning for real:
+  #   PG_PASSWORD=... NEO4J_PASSWORD=... \
+  #     docker compose -f platform/docker-compose.yml --profile archive up pgvector neo4j
+  # Then apply schemas (schema.sql / neo4j_schema.cypher) before ingesting.
+  pgvector:
+    image: pgvector/pgvector:pg16
+    profiles: ["archive"]          # off unless `--profile archive` — not enabled by default
+    environment:
+      POSTGRES_DB: aegis_archive
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: "${PG_PASSWORD:?set PG_PASSWORD}"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    # Loopback only — do NOT publish to 0.0.0.0. Reach it from the host via the
+    # compose network or an explicit 127.0.0.1 port binding when needed.
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5
+    profiles: ["archive"]          # off unless `--profile archive` — not enabled by default
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}"
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
 
 volumes:
   platform_data:
-  # pgvector_data:
-  # neo4j_data:
+  pgvector_data:
+  neo4j_data:

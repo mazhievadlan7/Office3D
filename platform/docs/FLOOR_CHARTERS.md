@@ -148,3 +148,11 @@ Authority» — отдельными проходами позже. У кажд�
 
 - **Этаж 27, ядро безопасности (Гейт 0):** собрано, проверено, в `main`
   (`platform/` — scope + аудит + kill-switch + Gate-0 + автостоп + control-plane).
+- **Архив — память платформы (§II.3.4 / §22):** floor-piece заложен —
+  `platform/archive/unified_ai_hacker_mind_v5.json` (655 единиц, 28 доменов) +
+  пайплайн `platform/archive_ingestion/` (pgvector + Neo4j, локальные эмбеддинги,
+  governance из `core/governance.js`). Индексирует только справочные метаданные,
+  не содержимое. Пока **только dry-run** (БД не провижены; профиль `archive` в
+  `docker-compose.yml` выключен). Governance агента рендерится единым источником
+  (`core/governance.js`); формулировки governance-блока каталога v5 отличаются по
+  тексту (смысл тот же) — см. `archive_ingestion/README.md`.

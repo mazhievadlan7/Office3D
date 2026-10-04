@@ -1,0 +1,10 @@
+# AEGIS / Office3D — Archive ingestion deps
+psycopg[binary]>=3.1
+neo4j>=5.20
+numpy>=1.26
+
+# EMBED_PROVIDER=local (по умолчанию, суверенное исполнение — данные не уходят наружу)
+sentence-transformers>=3.0
+
+# EMBED_PROVIDER=openai (опционально; можно указать локальный OPENAI_BASE_URL)
+# openai>=1.40
