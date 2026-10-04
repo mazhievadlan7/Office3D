@@ -81,6 +81,266 @@
       },
       "fx": "humanoid-hard",
       "gender": "male"
+    },
+    {
+      "id": "silero:chief-26",
+      "label": "Шеф 26: Внутренняя СБ",
+      "role": "any",
+      "params": {
+        "speaker": "aidar"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-25",
+      "label": "Шеф 25: ССО",
+      "role": "any",
+      "params": {
+        "speaker": "ru_alexandr"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-24",
+      "label": "Шеф 24: Хакинг",
+      "role": "any",
+      "params": {
+        "speaker": "ru_bogdan"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-23",
+      "label": "Шеф 23: Кибербез и ИБ",
+      "role": "any",
+      "params": {
+        "speaker": "ru_dmitriy"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-22",
+      "label": "Шеф 22: OSINT и разведка",
+      "role": "any",
+      "params": {
+        "speaker": "ru_eduard"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-21",
+      "label": "Шеф 21: Контрразведка",
+      "role": "any",
+      "params": {
+        "speaker": "ru_gamat"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-20",
+      "label": "Шеф 20: Инфраструктура и OPSEC",
+      "role": "any",
+      "params": {
+        "speaker": "ru_igor"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-19",
+      "label": "Шеф 19: ИИ",
+      "role": "any",
+      "params": {
+        "speaker": "ru_marat"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-18",
+      "label": "Шеф 18: R&D",
+      "role": "any",
+      "params": {
+        "speaker": "ru_roman"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-17",
+      "label": "Шеф 17: Аналитика и прогноз",
+      "role": "any",
+      "params": {
+        "speaker": "ru_sibday"
+      },
+      "fx": "council-hard-1",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-16",
+      "label": "Шеф 16: Сценарии",
+      "role": "any",
+      "params": {
+        "speaker": "aidar"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-15",
+      "label": "Шеф 15: Геополитика",
+      "role": "any",
+      "params": {
+        "speaker": "ru_alexandr"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-14",
+      "label": "Шеф 14: Разработка и архитектура",
+      "role": "any",
+      "params": {
+        "speaker": "ru_bogdan"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-13",
+      "label": "Шеф 13: Запуск",
+      "role": "any",
+      "params": {
+        "speaker": "ru_dmitriy"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-12",
+      "label": "Шеф 12: Бизнес и стратегия",
+      "role": "any",
+      "params": {
+        "speaker": "ru_eduard"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-11",
+      "label": "Шеф 11: Инвестиции",
+      "role": "any",
+      "params": {
+        "speaker": "ru_gamat"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-10",
+      "label": "Шеф 10: Крипто и трейд",
+      "role": "any",
+      "params": {
+        "speaker": "ru_igor"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-09",
+      "label": "Шеф 9: Финансы",
+      "role": "any",
+      "params": {
+        "speaker": "ru_marat"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-08",
+      "label": "Шеф 8: Юриспруденция",
+      "role": "any",
+      "params": {
+        "speaker": "ru_roman"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-07",
+      "label": "Шеф 7: Ресурсы и логистика",
+      "role": "any",
+      "params": {
+        "speaker": "ru_sibday"
+      },
+      "fx": "council-hard-2",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-06",
+      "label": "Шеф 6: Влияние и информация",
+      "role": "any",
+      "params": {
+        "speaker": "aidar"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-05",
+      "label": "Шеф 5: Репутация",
+      "role": "any",
+      "params": {
+        "speaker": "ru_alexandr"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-04",
+      "label": "Шеф 4: Маркетинг",
+      "role": "any",
+      "params": {
+        "speaker": "ru_bogdan"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-03",
+      "label": "Шеф 3: Соцсети",
+      "role": "any",
+      "params": {
+        "speaker": "ru_dmitriy"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-02",
+      "label": "Шеф 2: Коммуникации и переговоры",
+      "role": "any",
+      "params": {
+        "speaker": "ru_eduard"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
+    },
+    {
+      "id": "silero:chief-01",
+      "label": "Шеф 1: Биомедицина",
+      "role": "any",
+      "params": {
+        "speaker": "ru_gamat"
+      },
+      "fx": "council-hard-3",
+      "gender": "male"
     }
   ]
 }

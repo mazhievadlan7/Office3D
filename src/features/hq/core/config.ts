@@ -200,10 +200,13 @@ export const HQ_CLIP_INFO: Record<HqClipName, HqClipInfo> = {
  * Bumped whenever a model under public/office-assets/models is rebuilt, so
  * browsers and proxies holding the old file fetch the new one.
  */
-const HQ_MODELS_VERSION = "2026-09-29a";
+const HQ_MODELS_VERSION = "2026-10-05a";
 export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;
+// Floor 27, AM7's council cabinet (blender/hq/council.py): the long table, the
+// council chair (instanced 26x), AM7's head chair and the screen wall.
+export const HQ_COUNCIL_URL = `/office-assets/models/hq/council.glb?v=${HQ_MODELS_VERSION}`;
 // World map. Coastlines and borders: Natural Earth 1:50m countries via the
 // world-atlas package (public domain / ISC). Imagery is optional (the map
 // falls back to a look built from the vector data): NASA Earth Observatory,

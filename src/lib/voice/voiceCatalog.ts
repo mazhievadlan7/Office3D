@@ -74,6 +74,28 @@ const crew = (id: string, label: string): SpeechVoice => ({
   gender: "male",
 });
 
+/**
+ * Floor 27 council: the 26 directorate chiefs, floor 26 down to 1. Each has its
+ * own `silero:chief-NN` preset in services/speech/voices.json — a male Silero
+ * speaker with a per-chief pitch/timbre FX (fx.py council-hard-*), so a full
+ * council of 26 reads as 26 distinct voices. This mirror keeps the offline
+ * catalogue and validation in step with voices.json.
+ */
+export const COUNCIL_CHIEF_FLOORS: readonly number[] = Array.from({ length: 26 }, (_, i) => 26 - i);
+
+/** The Silero voice id for the chief of a given tower floor (1..26). */
+export const councilChiefVoiceId = (floor: number): string => `silero:chief-${String(floor).padStart(2, "0")}`;
+
+// role "any", not "crew": these are the Floor 27 council chiefs, addressed by
+// id only — they must not join the hall's crew-voice casting pool.
+const COUNCIL_CHIEF_VOICES: SpeechVoice[] = COUNCIL_CHIEF_FLOORS.map((floor) => ({
+  id: councilChiefVoiceId(floor),
+  label: `Шеф ${floor}`,
+  engine: "silero",
+  role: "any",
+  gender: "male",
+}));
+
 // The casting: the system, AM7 and six operators (male voices only), each a
 // different Silero speaker.
 export const BUILTIN_SPEECH_VOICES: SpeechVoice[] = [
@@ -87,6 +109,7 @@ export const BUILTIN_SPEECH_VOICES: SpeechVoice[] = [
   { id: "silero:system", label: "Система штаба (Silero Евгений)", engine: "silero", role: "system", gender: "male" },
   { id: "silero:aidar", label: "Айдар (Silero)", engine: "silero", role: "any" },
   { id: "silero:eugene", label: "Евгений (Silero)", engine: "silero", role: "any" },
+  ...COUNCIL_CHIEF_VOICES,
 ];
 
 const ROLES: SpeechVoiceRole[] = ["system", "lead", "crew", "any"];

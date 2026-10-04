@@ -212,6 +212,13 @@ const HqOffice = dynamic(() => import("@/features/hq/HqOffice").then((mod) => mo
   loading: () => <div className="h-full w-full bg-black" />,
 });
 
+// Floor 27 (AM7's council cabinet) is its own client-only scene, loaded only
+// when the owner rides up to it.
+const Floor27Office = dynamic(
+  () => import("@/features/hq/render/floor27/Floor27Office").then((mod) => mod.Floor27Office),
+  { ssr: false, loading: () => <div className="h-full w-full bg-black" /> },
+);
+
 // How long gateway events are collected before the screen applies them.
 const EVENT_FLUSH_MS = 200;
 
@@ -883,6 +890,25 @@ export function OfficeScreen({
   const [deleteAgentBlock, setDeleteAgentBlock] =
     useState<OfficeDeleteMutationBlockState | null>(null);
   const [activeFloorId, setActiveFloorId] = useState<FloorId>("lobby");
+  // Tower level inside the HQ: the current hall is Floor 24 (Hacking); Floor 27
+  // is AM7's separate premium council cabinet you navigate up to. Persisted so a
+  // reload comes back to the same level; the full tower lands in a later pass.
+  const [towerLevel, setTowerLevel] = useState<24 | 27>(() => {
+    if (typeof window === "undefined") return 24;
+    try {
+      return window.localStorage.getItem("office3d.towerLevel") === "27" ? 27 : 24;
+    } catch {
+      return 24;
+    }
+  });
+  const setTowerLevelPersisted = useCallback((level: 24 | 27) => {
+    setTowerLevel(level);
+    try {
+      window.localStorage.setItem("office3d.towerLevel", String(level));
+    } catch {
+      // Private mode / blocked storage: the level just isn't remembered.
+    }
+  }, []);
   const didAutoNavigateFromLobbyRef = useRef(false);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -3568,6 +3594,12 @@ export function OfficeScreen({
         </div>
       ) : null}
       <section className="relative h-full min-h-0 min-w-0 overflow-hidden">
+        {towerLevel === 27 ? (
+          <Floor27Office
+            onLeave={() => setTowerLevelPersisted(24)}
+            audible={voiceRepliesEnabled || hqSoundOn()}
+          />
+        ) : (
         <HqOffice
           agents={hqAgents}
           namespace={activeFloor.id}
@@ -3594,7 +3626,19 @@ export function OfficeScreen({
           creatorOnline={creatorOnline}
           creatorEntered={creatorOnline && hqEntered}
         />
-        {hqEntry === "gate" ? <HqEntryGate onEnter={enterHq} /> : null}
+        )}
+        {/* Elevator up to AM7's council cabinet (Floor 27). Shown in the hall
+            once the HQ is entered; Floor 27 carries its own way back down. */}
+        {towerLevel === 24 && hqEntered && !hqIntroPlaying ? (
+          <button
+            type="button"
+            onClick={() => setTowerLevelPersisted(27)}
+            className="absolute right-4 top-20 z-20 rounded-md border border-red-500/30 bg-black/55 px-3 py-1.5 font-mono text-[12px] text-red-200/90 backdrop-blur transition-colors hover:bg-black/75"
+          >
+            ↑ Этаж 27 · Кабинет AM7
+          </button>
+        ) : null}
+        {hqEntry === "gate" && towerLevel === 24 ? <HqEntryGate onEnter={enterHq} /> : null}
         {jukeboxOpen ? (
           soundclawReady ? (
             <JukeboxPanel

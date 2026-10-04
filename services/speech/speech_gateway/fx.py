@@ -187,6 +187,47 @@ FX_PRESETS: dict[str, FxPreset | None] = {
 }
 
 
+def _council_hard(semitones: float, ring_hz: float) -> FxPreset:
+    """A humanoid-hard variant for the Floor 27 chiefs: the same android grit as
+    the crew, with a small per-chief pitch (semitones) and ring-mod (ring_hz)
+    offset so 26 heads of directorate read as 26 distinct voices over a small
+    pool of Silero speakers."""
+    return FxPreset(
+        semitones=semitones,
+        formant_semitones=-1.0,
+        drive=1.8,
+        sub_mix=0.16,
+        sub_lowpass_hz=200.0,
+        ring_mix=0.15,
+        ring_hz=ring_hz,
+        comb_ms=2.6,
+        comb_feedback=0.45,
+        comb_mix=0.14,
+        crush_bits=10,
+        crush_hold=2,
+        crush_mix=0.07,
+        flanger_mix=0.18,
+        flanger_delay_ms=1.0,
+        flanger_depth_ms=0.7,
+        flanger_rate_hz=0.22,
+        echoes=((0.009, 0.12), (0.017, 0.08), (0.026, 0.05)),
+        eq=((60, -6.0), (120, 2.5), (250, 1.5), (600, -1.5), (2800, 2.0), (4500, 1.0), (9000, -3.0)),
+        reverb_s=0.09,
+        reverb_mix=0.07,
+        highpass_hz=55.0,
+    )
+
+
+# Five pitch/timbre steps for the council chiefs (services/speech/voices.json
+# silero:chief-*): deep and senior, a touch below the floor crew, each a small
+# step apart so a whole directorate council of 26 never sounds like one person.
+FX_PRESETS["council-hard-1"] = _council_hard(-2.2, 47.0)
+FX_PRESETS["council-hard-2"] = _council_hard(-2.7, 44.0)
+FX_PRESETS["council-hard-3"] = _council_hard(-3.2, 42.0)
+FX_PRESETS["council-hard-4"] = _council_hard(-3.7, 40.0)
+FX_PRESETS["council-hard-5"] = _council_hard(-4.2, 38.0)
+
+
 def is_fx_preset(name: str | None) -> bool:
     return (name or "none") in FX_PRESETS
 
