@@ -93,3 +93,7 @@ __pycache__/
 # Per-machine pronunciation (names of real people): lexicon.local.json and
 # stress.local.json belong in the speech home, never in the repository.
 *.local.json
+
+# Platform (Floor 27 Security Core) runtime state: engagements, hash-chained
+# audit ledger, verify secret. Authorization + evidence data — never commit.
+platform/.data/

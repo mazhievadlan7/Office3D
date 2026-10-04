@@ -1,29 +1,6 @@
-// AEGIS — the authorized-testing control plane for Office3D.
-//
-// This subsystem is the "legal core" (Phase 0): the lock that must exist before
-// any agent runs. It contains NO offensive capability. It answers exactly one
-// kind of question — "is this action allowed, right now, against this target,
-// under an active authorized engagement?" — and records every answer.
-//
-// AegisError carries a stable machine code plus a human message, mirroring the
-// Hermes adapter's error shape so callers handle both the same way.
-
-/** @typedef {"INVALID_INPUT"|"NOT_FOUND"|"CONFLICT"|"FORBIDDEN"|"DENIED"|"UNAVAILABLE"} AegisCode */
-
-class AegisError extends Error {
-  /**
-   * @param {AegisCode} code
-   * @param {string} message
-   * @param {object} [detail]
-   */
-  constructor(code, message, detail = undefined) {
-    super(message);
-    this.name = "AegisError";
-    this.code = code;
-    if (detail !== undefined) this.detail = detail;
-  }
-}
-
-const invalid = (message, detail) => new AegisError("INVALID_INPUT", message, detail);
-
-module.exports = { AegisError, invalid };
+// Thin compatibility shim. The AEGIS legal core now lives in platform/core/
+// (the always-on Security Core of Floor 27). This file re-exports it unchanged
+// so the Next server (src/lib/aegis/core.ts) and the existing unit tests
+// (tests/unit/aegis*.test.ts) keep importing "server/aegis/errors.js" as before.
+// Single source of truth: ../../platform/core/errors.js — do not add logic here.
+module.exports = require("../../platform/core/errors.js");

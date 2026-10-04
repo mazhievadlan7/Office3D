@@ -1,0 +1,3 @@
+# Runtime state for the control plane: engagements, hash-chained audit ledger,
+# per-install verify secret. Never commit — it is authorization + evidence data.
+.data/

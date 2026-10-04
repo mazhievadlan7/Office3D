@@ -1,0 +1,13 @@
+{
+  "name": "@office3d/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Meta Architectural Authority — Floor 27 Security Core (Scope Enforcement + Audit + Kill-switch) and the Phase-0 control plane.",
+  "license": "MIT",
+  "scripts": {
+    "control-plane": "node control-plane/index.js",
+    "test": "node --test \"core/__tests__/**/*.test.js\"",
+    "emit-prompt": "node core/emit-system-prompt.js"
+  }
+}

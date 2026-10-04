@@ -1,0 +1,61 @@
+# Meta Architectural Authority — platform compose skeleton (Phase 0).
+#
+# Only the always-on Security Core control plane runs now. The Archive data
+# stores (pgvector + Neo4j, TZ §II.3.3/§II.3.4) are left as COMMENTED, profiled
+# placeholders — they belong to the Archive floor-piece and must NOT be brought
+# up live yet. Bring the control plane up with:
+#
+#   PLATFORM_TOKEN=... docker compose -f platform/docker-compose.yml up control-plane
+#
+# The control plane binds to loopback only; publish nothing to 0.0.0.0.
+
+services:
+  control-plane:
+    image: node:24-alpine
+    working_dir: /app
+    command: ["node", "platform/control-plane/index.js"]
+    environment:
+      # Required. Supply out-of-band (shell env / secrets manager), never commit.
+      PLATFORM_TOKEN: "${PLATFORM_TOKEN:?set PLATFORM_TOKEN}"
+      PLATFORM_HOST: "127.0.0.1"
+      PLATFORM_PORT: "8787"
+      PLATFORM_DATA_DIR: "/app/platform/.data"
+      # Gate-0 canary tripwire — off unless explicitly enabled (TZ §II.14).
+      PLATFORM_GATE0: "${PLATFORM_GATE0:-off}"
+      PLATFORM_GATE0_TARGETS: "${PLATFORM_GATE0_TARGETS:-}"
+      # Auto-stop on anomaly — off at threshold 0 (TZ §II.4.2).
+      PLATFORM_AUTOSTOP_THRESHOLD: "${PLATFORM_AUTOSTOP_THRESHOLD:-0}"
+      PLATFORM_AUTOSTOP_WINDOW_MS: "${PLATFORM_AUTOSTOP_WINDOW_MS:-60000}"
+    volumes:
+      - ../:/app:ro
+      - platform_data:/app/platform/.data
+    # Loopback only — do NOT add a public "ports:" mapping.
+    network_mode: "none"
+    restart: unless-stopped
+
+  # --- Archive data stores (FUTURE — do not enable now) ----------------------
+  # Added with the Archive floor-piece (TZ §II.3.3/§II.3.4). Kept here as a
+  # profiled skeleton so the shape is on record; `--profile archive` is the gate.
+  #
+  # pgvector:
+  #   image: pgvector/pgvector:pg16
+  #   profiles: ["archive"]
+  #   environment:
+  #     POSTGRES_DB: aegis_archive
+  #     POSTGRES_USER: aegis
+  #     POSTGRES_PASSWORD: "${PG_PASSWORD:?set PG_PASSWORD}"
+  #   volumes:
+  #     - pgvector_data:/var/lib/postgresql/data
+  #
+  # neo4j:
+  #   image: neo4j:5
+  #   profiles: ["archive"]
+  #   environment:
+  #     NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}"
+  #   volumes:
+  #     - neo4j_data:/data
+
+volumes:
+  platform_data:
+  # pgvector_data:
+  # neo4j_data:

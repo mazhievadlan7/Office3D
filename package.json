@@ -22,7 +22,9 @@
     "smoke:dev-server": "node scripts/smoke-dev-server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "platform:core-test": "node --test \"platform/core/__tests__/**/*.test.js\"",
+    "platform:control-plane": "node platform/control-plane/index.js"
   },
   "dependencies": {
     "@noble/ed25519": "^3.2.0",
