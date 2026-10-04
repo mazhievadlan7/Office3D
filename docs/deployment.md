@@ -155,7 +155,17 @@ office3d ──► шлюз речи :8765 ──► Silero, GigaAM + Silero VAD
   `services/speech/voices.json`, произношение имён — `services/speech/lexicon.json`.
 - `POST /v1/audio/speech` — речь (`mp3`, `wav`, `opus`, `flac`, `pcm`). Silero
   ставит ударения моделью silero-stress, текст режется по предложениям,
-  48 кГц, одинаковые фразы берутся из кэша.
+  48 кГц, одинаковые фразы берутся из кэша. Числа читаются по-русски:
+  `06:40` — «шесть часов сорок минут», `3 октября 2026 года` — «третье октября
+  две тысячи двадцать шестого года», счёт согласуется с существительным
+  («одна попытка», «две минуты»).
+- Ударения в именах реальных людей (имя и отчество владельца) в репозиторий
+  не попадают: они задаются на конкретной машине в
+  `<OFFICE3D_SPEECH_HOME>/stress.local.json` (`{"phrases": ["Ив+ан Петр+ович"]}`)
+  или `<OFFICE3D_SPEECH_HOME>/lexicon.local.json` (замена написания,
+  `{"Имя": "+Имя"}`). Оба файла необязательны, дополняют общие `stress.json` и
+  `lexicon.json` (локальная запись важнее) и подхватываются после перезапуска
+  шлюза; закэшированные фразы с прежним ударением не используются.
 - `POST /v1/audio/transcriptions` — распознавание в самом шлюзе: GigaAM v3
   (русский, с пунктуацией) на CPU. Запись любого формата браузера (WebM/Opus,
   Ogg, MP4/AAC, WAV) декодируется через PyAV, Silero VAD отрезает тишину по
@@ -408,6 +418,8 @@ npm run voice:bank -- --check # сколько готово
 | `VOICESTUDIO_URL`, `VOICESTUDIO_MODEL`, `VOICESTUDIO_TIMEOUT_S`, `VOICESTUDIO_BACKOFF_S` | шлюз | `http://127.0.0.1:3900`, `voxcpm2`, `90`, `60` (после сбоя VoiceStudio столько секунд говорят запасные голоса) |
 | `SILERO_MODEL`, `SILERO_CIS_MODEL`, `SILERO_DEVICE`, `SILERO_THREADS` | шлюз | `v5_5_ru`, `v5_cis_base` (голоса `ru_*` для запасных голосов команды, MIT; скачивается при первом использовании), `cpu`, `4` |
 | `SPEECH_STRESS_FILE` | шлюз | `services/speech/stress.json` — фразы с ударениями (`+`) для омографов в репликах офиса |
+| `SPEECH_LEXICON_FILE` | шлюз | `services/speech/lexicon.json` — как читать имена и латиницу |
+| `SPEECH_STRESS_LOCAL_FILE`, `SPEECH_LEXICON_LOCAL_FILE` | шлюз | `<OFFICE3D_SPEECH_HOME>/stress.local.json`, `<OFFICE3D_SPEECH_HOME>/lexicon.local.json` — ударения и написания этой машины (имя владельца), вне репозитория |
 | `SPEECH_STT_ENGINE` | шлюз | `gigaam` (или `voicestudio` — всё распознаёт Whisper VoiceStudio) |
 | `SPEECH_STT_MODEL`, `SPEECH_STT_QUANTIZATION`, `SPEECH_STT_THREADS` | шлюз | `gigaam-v3-e2e-rnnt` (или `gigaam-v3-e2e-ctc`), пусто (полная точность; `int8` — в 4 раза меньше памяти), `4` |
 | `SPEECH_STT_VAD`, `SPEECH_STT_FALLBACK`, `SPEECH_STT_MODEL_DIR` | шлюз | `1`, `1` (без GigaAM — в VoiceStudio), пусто (веса из `HF_HOME`; каталог — для установки без сети) |

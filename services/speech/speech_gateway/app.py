@@ -166,6 +166,7 @@ def create_app(
             threads=settings.silero_threads,
             sample_rate=settings.silero_sample_rate,
             lexicon_file=settings.lexicon_file,
+            lexicon_local_file=settings.lexicon_local,
             cis_model=settings.silero_cis_model,
         )
     voicestudio = voicestudio or VoiceStudioClient(
@@ -174,7 +175,7 @@ def create_app(
     catalog = catalog or VoiceCatalog.load(settings.voices_file, settings.default_voice, settings.voicestudio_model)
     cache = cache or SpeechCache(settings.cache_dir, settings.cache_max_mb * 1024 * 1024, settings.cache_enabled)
     references = references or ReferenceStore(settings.voice_refs_dirs)
-    stress = stress if stress is not None else load_stress(settings.stress_file)
+    stress = stress if stress is not None else load_stress(settings.stress_file, settings.stress_local)
     do_warmup = settings.warmup if warmup is None else warmup
     state: dict[str, Any] = {"voicestudio_down_until": 0.0}
     warm_state: dict[str, Any] = {"state": "off"}
@@ -336,6 +337,9 @@ def create_app(
                                     "format": req.response_format, "model": req.model or "", "silero": silero.model_id}
         if voice.engine == "silero":
             identity["silero"] = _silero_model(voice)
+            text_version = getattr(silero, "text_version", "")
+            if text_version:
+                identity["text"] = [text, text_version]
         if voice.fx != "none":
             identity["fx"] = [voice.fx, FX_VERSION]
         if stress.version:

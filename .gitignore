@@ -90,3 +90,6 @@ test-results
 # Speech gateway (services/speech): Python caches; its venv and models live outside the repo.
 __pycache__/
 .pytest_cache/
+# Per-machine pronunciation (names of real people): lexicon.local.json and
+# stress.local.json belong in the speech home, never in the repository.
+*.local.json

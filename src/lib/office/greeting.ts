@@ -5,7 +5,17 @@
  * the previous sign-in. It is the platform speaking, not an agent. Pure, so
  * the wording is testable; the screen speaks it in the system voice
  * (lib/voice/systemVoice.ts), with no captions.
+ *
+ * Every number is spelled out here (lib/voice/russianNumerals.ts) because it is
+ * only ever heard: the date as an ordinal («третье октября две тысячи двадцать
+ * шестого года»), the time with its units («шесть часов сорок минут») and each
+ * count agreeing with its noun («одна попытка», «две заблокированы»), whatever
+ * engine the chosen voice runs on.
  */
+
+import { cardinal, ordinal, plural, spokenClock } from "@/lib/voice/russianNumerals";
+
+export { plural };
 
 /** The task board in three numbers (see taskBoardSummary). */
 export type HqGreetingTasks = {
@@ -52,35 +62,41 @@ export function taskBoardSummary(cards: ReadonlyArray<{ status: string; isArchiv
   return tasks;
 }
 
-/** One line on the task board: open, in progress and done. */
+/** A count that cannot be negative or fractional. */
+function count(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+/**
+ * One line on the task board: open, in progress and done, each count agreeing
+ * with «задача» («открытых — одна, в работе — две»).
+ */
 export function tasksLine(tasks: HqGreetingTasks): string {
-  if (tasks.open + tasks.inProgress + tasks.done === 0) return "Задач на доске нет.";
-  return `Задачи: открыто ${tasks.open}, в работе ${tasks.inProgress}, выполнено ${tasks.done}.`;
+  const open = count(tasks.open);
+  const inProgress = count(tasks.inProgress);
+  const done = count(tasks.done);
+  if (open + inProgress + done === 0) return "Задач на доске нет.";
+  return `Задачи: открытых — ${cardinal(open, "f")}, в работе — ${cardinal(inProgress, "f")}, выполненных — ${cardinal(done, "f")}.`;
 }
 
 /** One line on the attacks since the previous sign-in. */
 export function securityLine(security: HqGreetingSecurity): string {
-  const attempts = Math.max(0, Math.floor(security.failedAttempts));
-  const blocked = Math.max(0, Math.floor(security.blocked));
+  const attempts = count(security.failedAttempts);
+  const blocked = count(security.blocked);
   if (attempts === 0 && blocked === 0) return "Попыток несанкционированного доступа не зафиксировано.";
-  return `С момента прошлого входа: ${attempts} ${plural(attempts, "попытка", "попытки", "попыток")} несанкционированного доступа, ${blocked} заблокировано.`;
+  const tried = `${cardinal(attempts, "f")} ${plural(attempts, "попытка", "попытки", "попыток")}`;
+  const stopped =
+    blocked === 0
+      ? "ни одна не заблокирована"
+      : `${cardinal(blocked, "f")} ${plural(blocked, "заблокирована", "заблокированы", "заблокировано")}`;
+  return `С момента прошлого входа: ${tried} несанкционированного доступа, ${stopped}.`;
 }
 
 const CITY: Record<string, string> = {
   "Europe/Moscow": "по Москве",
 };
 
-/** Russian plural for a count: one, few (2-4), many. */
-export function plural(count: number, one: string, few: string, many: string): string {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return many;
-  if (n1 > 1 && n1 < 5) return few;
-  if (n1 === 1) return one;
-  return many;
-}
-
-/** «понедельник, 28 сентября 2026 года» in the given zone. */
+/** «понедельник, двадцать восьмое сентября две тысячи двадцать шестого года» in the given zone. */
 export function spokenDate(now: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("ru-RU", {
     timeZone,
@@ -90,7 +106,22 @@ export function spokenDate(now: Date, timeZone: string): string {
     year: "numeric",
   }).formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${part("weekday")}, ${part("day")} ${part("month")} ${part("year")} года`;
+  const day = ordinal(Number(part("day")), "neuter");
+  const year = ordinal(Number(part("year")), "genitive");
+  // The month comes in the genitive already: «сентября».
+  return `${part("weekday")}, ${day} ${part("month")} ${year} года`;
+}
+
+/** «четырнадцать часов пять минут» in the given zone (24-hour clock). */
+export function spokenTime(now: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("ru-RU", {
+    timeZone,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return spokenClock(value("hour") % 24, value("minute"));
 }
 
 /** What the opening needs: who signed in, now, and the HQ's time zone. */
@@ -101,13 +132,12 @@ export type HqGreetingOpeningInput = Pick<HqGreetingInput, "name" | "now" | "tim
  * line, the welcome by name, today's date and the time. It needs no team data.
  */
 export function hqGreetingOpening(input: HqGreetingOpeningInput): string[] {
-  const time = new Intl.DateTimeFormat("ru-RU", { timeZone: input.timeZone, hour: "2-digit", minute: "2-digit" }).format(input.now);
   const where = CITY[input.timeZone] ?? "по времени штаба";
   const name = input.name.trim();
   return [
     "Система штаба на связи. Доступ подтверждён.",
     name ? `Добро пожаловать в штаб, ${name}.` : "Добро пожаловать в штаб.",
-    `Сегодня ${spokenDate(input.now, input.timeZone)}. Время — ${time} ${where}.`,
+    `Сегодня ${spokenDate(input.now, input.timeZone)}. Время — ${spokenTime(input.now, input.timeZone)} ${where}.`,
   ];
 }
 
@@ -118,25 +148,29 @@ export function hqGreetingOpening(input: HqGreetingOpeningInput): string[] {
  * previous sign-in.
  */
 export function hqGreetingStatus(input: HqGreetingInput): string[] {
+  const unread = count(input.unread);
+  const working = count(input.working);
+  const idle = count(input.idle);
+  const errors = count(input.errors);
   const lines = [
-    input.unread > 0
-      ? `Непрочитанных: ${input.unread} — ${plural(input.unread, "агент ждёт", "агента ждут", "агентов ждут")} вашего ответа.`
+    unread > 0
+      ? `Непрочитанные сообщения: ${cardinal(unread)} ${plural(unread, "агент ждёт", "агента ждут", "агентов ждут")} вашего ответа.`
       : "Непрочитанных сообщений нет.",
   ];
   if (input.tasks) lines.push(tasksLine(input.tasks));
-  const total = input.working + input.idle + input.errors;
-  if (total === 0) {
+  if (working + idle + errors === 0) {
     lines.push("Операции: команда ещё не на месте.");
   } else {
-    const parts = [`в работе ${input.working}`, `в ожидании ${input.idle}`];
-    if (input.errors > 0) parts.push(`с ошибками ${input.errors}`);
+    // The counts are agents: masculine («один», «два»).
+    const parts = [`в работе — ${cardinal(working)}`, `в ожидании — ${cardinal(idle)}`];
+    if (errors > 0) parts.push(`с ошибками — ${cardinal(errors)}`);
     lines.push(`Операции: ${parts.join(", ")}.`);
   }
   if (!input.connected) {
     lines.push("Безопасность платформы: нет связи со средой выполнения, проверьте подключение.");
-  } else if (input.errors > 0) {
+  } else if (errors > 0) {
     lines.push(
-      `Безопасность платформы: доступ защищён, но ${input.errors} ${plural(input.errors, "агент требует", "агента требуют", "агентов требуют")} внимания.`,
+      `Безопасность платформы: доступ защищён, но ${cardinal(errors)} ${plural(errors, "агент требует", "агента требуют", "агентов требуют")} внимания.`,
     );
   } else if (!input.security) {
     lines.push("Безопасность платформы: доступ защищён, сеанс подтверждён, отклонений нет.");

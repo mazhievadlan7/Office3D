@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 
 from .audio import Audio, concat
-from .text import chunk_text, load_lexicon, normalize_russian, ssml_rate
+from .text import TEXT_VERSION, chunk_text, lexicon_version, load_lexicon, normalize_russian, ssml_rate
 from .voices import ALL_SILERO_SPEAKERS, is_cis_speaker
 
 log = logging.getLogger("speech.silero")
@@ -44,6 +44,7 @@ class SileroEngine:
         sample_rate: int = 48_000,
         lexicon_file: Path | None = None,
         cis_model: str = "v5_cis_base",
+        lexicon_local_file: Path | None = None,
     ) -> None:
         self.model_id = model
         self.cis_model_id = cis_model
@@ -54,7 +55,10 @@ class SileroEngine:
         self.requested_device = device
         self.threads = threads
         self.sample_rate = sample_rate
-        self.lexicon = load_lexicon(lexicon_file)
+        self.lexicon = load_lexicon(lexicon_file, lexicon_local_file)
+        #: How this engine turns text into what it reads (part of the cache key):
+        #: a change to the normalisation or to a lexicon renders the line anew.
+        self.text_version = f"{TEXT_VERSION}:{lexicon_version(self.lexicon)}"
         self._lock = threading.Lock()  # the model is not re-entrant
         self._model: Any = None
         self._cis: Any = None

@@ -564,3 +564,14 @@ def test_cis_speakers_resolve_and_bad_presets_are_refused():
         parse_preset({"id": "silero:x", "params": {"speaker": "eugene"}, "fx": "robot"})
     with pytest.raises(ValueError):
         parse_preset({"id": "silero:y", "params": {"speaker": "eugene"}, "reference": {"file": "a.flac", "text": "т"}})
+
+
+def test_a_new_reading_of_the_text_is_not_served_from_the_old_cache(settings):
+    silero = FakeSilero()
+    silero.text_version = "2:aaa"
+    client = make_client(settings, silero)
+    body = {"voice": "silero:aidar", "input": "Время — 06:40.", "response_format": "wav"}
+    assert client.post("/v1/audio/speech", json=body).headers["x-speech-cache"] == "miss"
+    assert client.post("/v1/audio/speech", json=body).headers["x-speech-cache"] == "hit"
+    silero.text_version = "3:aaa"  # the normalisation or a lexicon changed
+    assert client.post("/v1/audio/speech", json=body).headers["x-speech-cache"] == "miss"

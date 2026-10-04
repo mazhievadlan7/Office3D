@@ -87,6 +87,11 @@ class Settings:
     lexicon_file: Path = SERVICE_DIR / "lexicon.json"
     #: Stress-marked phrases (homographs in the office's own lines): stress.json.
     stress_file: Path = SERVICE_DIR / "stress.json"
+    #: This machine's own additions, kept out of the repository (names of real
+    #: people: the owner's name and patronymic, stressed). Default: the speech
+    #: home's lexicon.local.json and stress.local.json; a missing file is fine.
+    lexicon_local_file: Path | None = None
+    stress_local_file: Path | None = None
     cache_enabled: bool = True
     cache_max_mb: int = 512
     max_input_chars: int = 5_000
@@ -115,6 +120,14 @@ class Settings:
     voicestudio_warmup_timeout_s: float = 600.0
 
     @property
+    def lexicon_local(self) -> Path:
+        return self.lexicon_local_file or self.home / "lexicon.local.json"
+
+    @property
+    def stress_local(self) -> Path:
+        return self.stress_local_file or self.home / "stress.local.json"
+
+    @property
     def models_dir(self) -> Path:
         return self.home / "models"
 
@@ -140,6 +153,8 @@ class Settings:
         voices_file = _env("SPEECH_VOICES_FILE")
         lexicon_file = _env("SPEECH_LEXICON_FILE")
         stress_file = _env("SPEECH_STRESS_FILE")
+        lexicon_local_file = _env("SPEECH_LEXICON_LOCAL_FILE")
+        stress_local_file = _env("SPEECH_STRESS_LOCAL_FILE")
         stt_model_dir = _env("SPEECH_STT_MODEL_DIR")
         stt_engine = _env("SPEECH_STT_ENGINE", "gigaam").lower()
         return cls(
@@ -160,6 +175,8 @@ class Settings:
             voices_file=Path(voices_file) if voices_file else SERVICE_DIR / "voices.json",
             lexicon_file=Path(lexicon_file) if lexicon_file else SERVICE_DIR / "lexicon.json",
             stress_file=Path(stress_file) if stress_file else SERVICE_DIR / "stress.json",
+            lexicon_local_file=Path(lexicon_local_file).expanduser() if lexicon_local_file else None,
+            stress_local_file=Path(stress_local_file).expanduser() if stress_local_file else None,
             cache_enabled=_env_bool("SPEECH_CACHE", True),
             cache_max_mb=max(0, _env_int("SPEECH_CACHE_MAX_MB", 512)),
             max_input_chars=max(1, _env_int("SPEECH_MAX_INPUT_CHARS", 5_000)),

@@ -75,6 +75,7 @@ def prefetch() -> int:
         device=settings.silero_device,
         threads=settings.silero_threads,
         lexicon_file=settings.lexicon_file,
+        lexicon_local_file=settings.lexicon_local,
         cis_model=settings.silero_cis_model,
     )
     started = time.perf_counter()
