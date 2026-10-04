@@ -17,7 +17,7 @@ import {
   describeMaintenanceLogEvent,
   type HqMaintenanceLogEvent,
 } from "@/features/hq/maintenance/maintenanceStatus";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import { HqAndroidLoader } from "@/features/agents/components/HqAndroidLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { HermesControlProvider, type HermesControl } from "@/features/hermes/HermesControlContext";
 import { TeamProposalsTray } from "@/features/hermes/components/TeamProposalsTray";
@@ -3522,9 +3522,8 @@ export function OfficeScreen({
         >
           <div className="overflow-hidden rounded-lg border border-border bg-card/95 shadow-[0_0_60px_rgba(0,0,0,0.85),0_0_32px_rgba(255,26,26,0.1)]">
             <div aria-hidden className="h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
-            <RunningAvatarLoader
-              size={28}
-              trackWidth={76}
+            <HqAndroidLoader
+              size={176}
               label={t("office.connectingRuntimeLong")}
               className="px-8 py-6"
               labelClassName="uppercase tracking-[0.16em] text-white/70"

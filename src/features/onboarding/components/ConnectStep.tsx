@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Wifi, WifiOff } from "lucide-react";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import { HqAndroidLoader } from "@/features/agents/components/HqAndroidLoader";
 import { t } from "@/lib/i18n";
 import {
   HQ_BUTTON_PRIMARY,
@@ -111,7 +111,7 @@ export const ConnectStep = ({
         >
           {connecting ? (
             <>
-              <RunningAvatarLoader size={16} trackWidth={32} inline />
+              <HqAndroidLoader size={16} inline />
               {t("onboarding.connecting")}
             </>
           ) : (

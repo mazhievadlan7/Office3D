@@ -235,6 +235,12 @@ export const HQ_PUSH_GRIP = { reach: 0.4, height: 0.97, halfSpan: 0.2, holdFrame
  * GRIP_CHAIR; its check() measures it). The guest faces the centre monitor.
  */
 export const HQ_SHOULDER = { x: -0.55, z: -0.42, hand: { x: -0.19, y: 1.1, z: -0.325 } } as const;
+/**
+ * HQ_SHOULDER mirrored: behind the sitter's left shoulder. A colleague who
+ * comes over to help a hacker in error stands here (talking or listening, no
+ * hand on the chair), while the hacker sits or stands at HQ_SHOULDER.
+ */
+export const HQ_SHOULDER_LEFT = { x: 0.55, z: -0.42 } as const;
 
 // Crossfade between locomotion clips (and into or out of them), seconds.
 // Other clips fade over their own HQ_CLIP_INFO[...].blend.

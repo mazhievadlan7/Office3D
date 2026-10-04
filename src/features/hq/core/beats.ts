@@ -225,6 +225,51 @@ export function peerVisitSeconds(duty: boolean, rng: HqRng): number {
   return duty ? rng.range(HELP_VISIT_MIN, HELP_VISIT_MAX) : rng.range(PEER_VISIT_MIN, PEER_VISIT_MAX);
 }
 
+// --- A hacker in error: working the problem at their own desk ---------------------------
+
+/** Faster loops while troubleshooting: typing (SitType2) and reading (SitRead), times the agent's tempo. */
+export const ERR_TYPE_TEMPO = 1.18;
+export const ERR_READ_TEMPO = 1.08;
+/** Share of errors a free colleague comes over to help with, and when (seconds after the error). */
+export const ERR_HELP_CHANCE = 0.3;
+export const ERR_HELP_MIN = 20;
+export const ERR_HELP_MAX = 60;
+/** How long the hacker keeps hoping for that help (a free neighbour, the limits) before giving up. */
+export const ERR_HELP_PATIENCE = 30;
+
+/** Beats of a hacker in error. */
+export const ERR_TYPE = 0; // SitType2, fast: trying a fix
+export const ERR_READ = 1; // SitRead: logs, a hand to the brow
+export const ERR_THINK = 2; // SitLeanBack, briefly: thinking it over
+export const ERR_STAND = 3; // up at their own shoulder place (StandLookOver), leaning over the chair at the screen
+const ERR_WEIGHTS: readonly number[] = [38, 32, 12, 18];
+
+/** The next beat of a hacker in error; ERR_STAND only when `canStand`. Allocation-free. */
+export function pickErrorBeat(canStand: boolean, rng: HqRng): number {
+  const total = ERR_WEIGHTS[0] + ERR_WEIGHTS[1] + ERR_WEIGHTS[2] + (canStand ? ERR_WEIGHTS[3] : 0);
+  let r = rng.next() * total;
+  for (let b = 0; b < ERR_WEIGHTS.length; b++) {
+    if (b === ERR_STAND && !canStand) break;
+    if (r < ERR_WEIGHTS[b]) return b;
+    r -= ERR_WEIGHTS[b];
+  }
+  return ERR_READ;
+}
+
+/** How long an error beat lasts (seconds, never under BEAT_MIN); standing includes the few steps there. */
+export function errorBeatSeconds(beat: number, rng: HqRng): number {
+  switch (beat) {
+    case ERR_TYPE:
+      return rng.range(8, 18);
+    case ERR_THINK:
+      return rng.range(BEAT_MIN, 9);
+    case ERR_STAND:
+      return rng.range(16, 30);
+    default:
+      return rng.range(8, 16);
+  }
+}
+
 // --- Departure limiter -----------------------------------------------------------------
 
 /**

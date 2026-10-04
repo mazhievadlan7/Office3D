@@ -11,7 +11,7 @@ import {
   Volume1,
   type LucideIcon,
 } from "lucide-react";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import { HqAndroidLoader } from "@/features/agents/components/HqAndroidLoader";
 import { useJukeboxStore } from "../store";
 import {
   startSpotifyAuth,
@@ -320,7 +320,7 @@ function PlayerView() {
         </div>
         {isLoadingPlayer && !track ? (
           <div className="flex items-center gap-3 text-white/45">
-            <RunningAvatarLoader size={16} trackWidth={32} inline />
+            <HqAndroidLoader size={16} inline />
             <span className="text-sm">{t("jukebox.loadingPlayer")}</span>
           </div>
         ) : track ? (
@@ -392,7 +392,7 @@ function PlayerView() {
           />
           {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <RunningAvatarLoader size={14} trackWidth={28} />
+            <HqAndroidLoader size={14} />
             </div>
           )}
         </div>

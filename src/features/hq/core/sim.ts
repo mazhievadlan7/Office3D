@@ -26,6 +26,14 @@
 // visits use the same shoulder place). Leaving one's desk goes through a
 // departure limiter, so a crowd never gets up at once.
 //
+// A hacker in error works the problem at their own desk (errorActs): mostly
+// seated — fast typing, reading the logs with a hand to the brow, leaning
+// back for a moment to think — now and then up at the desk's shoulder place,
+// leaning over their own chair at the screen. Some errors draw a free
+// colleague from nearby, who comes to the desk's left shoulder place, talks
+// it through for a while and goes back. When the status clears every clip
+// plays its outro and the hacker sits back to ordinary work.
+//
 // Mission mode («боевая задача», startMission/endMission, on for every
 // briefing): no breaks, whoever is away walks briskly back, free hackers stay
 // on duty at their desks, AM7 makes short rounds, the cyber-range is off.
@@ -50,6 +58,7 @@ import {
   HQ_LEAD_AGENT_NAME,
   HQ_PUSH_GRIP,
   HQ_SHOULDER,
+  HQ_SHOULDER_LEFT,
   HQ_WALK_SPEED,
   HqClip,
   POD,
@@ -66,8 +75,22 @@ import {
   BEAT_TYPE,
   BEAT_VISIT,
   BRISK_FACTOR,
+  ERR_HELP_CHANCE,
+  ERR_HELP_MAX,
+  ERR_HELP_MIN,
+  ERR_HELP_PATIENCE,
+  ERR_READ,
+  ERR_READ_TEMPO,
+  ERR_STAND,
+  ERR_THINK,
+  ERR_TYPE,
+  ERR_TYPE_TEMPO,
   EXHALE_SHARE,
+  GUEST_QUIET_MAX,
+  GUEST_QUIET_MIN,
   GUEST_SPACING,
+  GUEST_TALK_MAX,
+  GUEST_TALK_MIN,
   HqDepartureLimiter,
   LISTEN_IDLE,
   LISTEN_SLOW,
@@ -93,6 +116,7 @@ import {
   beatPause,
   beatSeconds,
   buildDeskNeighbourhood,
+  errorBeatSeconds,
   guestNearby,
   helpVisitLimit,
   leanLimit,
@@ -102,6 +126,7 @@ import {
   peerVisitLimit,
   peerVisitSeconds,
   pickBeat,
+  pickErrorBeat,
   reactionDelay,
   rollTraits,
   seatedNeighbours,
@@ -224,7 +249,7 @@ const M_PUSH = 5; // at the archive cart's handle: gripping, pushing or handing 
 // Where an agent is heading (dest) or standing (place).
 const D_NONE = 0;
 const D_SEAT = 1; // sit at a desk
-const D_ERROR = 2; // stand beside the desk
+const D_ERROR = 2; // in error, standing at one's own desk: at its shoulder place (the lead: beside his desk)
 const D_SPOT = 3; // a social spot slot
 const D_VISIT = 4; // a guest (the lead or a colleague) at a seated hacker's shoulder
 const D_LOUNGE = 5; // sit on a lounge seat
@@ -232,6 +257,7 @@ const D_BRIEF = 6; // stand at one's own desk and listen to the lead's briefing
 const D_PODIUM = 7; // the lead at the podium in front of the rows, briefing the floor
 const D_CART = 8; // walking to the archive cart's handle
 const D_PUSH = 9; // pushing the cart (also the briefing-time clearing push)
+const D_HELP = 10; // a colleague helping a hacker in error, at their desk's left shoulder place
 
 /**
  * A briefing's rhythm at the podium: the lead addresses the rows for a while,
@@ -491,6 +517,21 @@ class Agent {
   /** After a mission: still on duty until then. */
   relaxAt = 0;
 
+  // --- In error (errorActs), and helping someone in error ----------------------
+  /** In error: up at the desk's shoulder place (false: in the chair). */
+  errStand = false;
+  /** In error: when to look for a colleague's help (Infinity: none this time), and until when. */
+  errHelpAt = Infinity;
+  errHelpBy = 0;
+  /** In error: the colleague coming over or there to help. */
+  errHelper: Agent | null = null;
+  /** Helping: the hacker in error, and their desk. */
+  helpTarget: Agent | null = null;
+  helpSeat = -1;
+  /** Helping, without crew voices to lead: talking (true) or listening until turnUntil. */
+  turnTalk = false;
+  turnUntil = 0;
+
   constructor(id: string, seed: number) {
     this.id = id;
     const idHash = hashString(id) >>> 0;
@@ -679,7 +720,14 @@ export class HqSimulation {
   private readonly kbZ: Float32Array;
   private readonly headX: Float32Array;
   private readonly headZ: Float32Array;
+  /** Where a hacker in error stands at their desk, facing errFacing: the shoulder place (the lead: beside his desk). */
+  private readonly errX: Float32Array;
+  private readonly errZ: Float32Array;
   private readonly errFacing: Float32Array;
+  /** A helper's place at the seat's left shoulder (HQ_SHOULDER_LEFT), facing the centre monitor. */
+  private readonly hlX: Float32Array;
+  private readonly hlZ: Float32Array;
+  private readonly hlRot: Float32Array;
   private readonly seatNode: Int32Array;
 
   // Lounge seats (index k = seat - loungeBase): group, reservation, sitter.
@@ -705,6 +753,8 @@ export class HqSimulation {
   // Over-the-shoulder visits: desk rows and near desks, guests per desk, who sits where.
   private readonly nb: HqDeskNeighbourhood;
   private readonly deskGuest: Uint8Array;
+  /** Per desk: 1 while a colleague is on the way to or at its left shoulder place, helping. */
+  private readonly deskHelp: Uint8Array;
   private readonly deskAgent: Array<Agent | null>;
   /** Colleagues' visits under way (AM7's not counted). */
   private visitCount = 0;
@@ -886,7 +936,12 @@ export class HqSimulation {
     this.kbZ = new Float32Array(n);
     this.headX = new Float32Array(n);
     this.headZ = new Float32Array(n);
+    this.errX = new Float32Array(n);
+    this.errZ = new Float32Array(n);
     this.errFacing = new Float32Array(n);
+    this.hlX = new Float32Array(n);
+    this.hlZ = new Float32Array(n);
+    this.hlRot = new Float32Array(n);
     this.seatNode = new Int32Array(n);
     this.deskStatus = new Int8Array(desks.length).fill(-1);
     this.deskRole = new Uint8Array(desks.length);
@@ -964,7 +1019,22 @@ export class HqSimulation {
       local(s, 0, 0.1);
       this.headX[i] = this.tmpX;
       this.headZ[i] = this.tmpZ;
-      this.errFacing[i] = Math.atan2(this.kbX[i] - this.viaX[i], this.kbZ[i] - this.viaZ[i]);
+      // Behind the left shoulder: a colleague helping with an error.
+      local(s, HQ_SHOULDER_LEFT.x, HQ_SHOULDER_LEFT.z);
+      this.hlX[i] = this.tmpX;
+      this.hlZ[i] = this.tmpZ;
+      this.hlRot[i] = Math.atan2(this.monX[i] - this.tmpX, this.monZ[i] - this.tmpZ);
+      if (i === this.leadSeat) {
+        // AM7's arc desk wraps round his chair: in error he stands beside it, at the keyboard.
+        this.errX[i] = this.viaX[i];
+        this.errZ[i] = this.viaZ[i];
+        this.errFacing[i] = Math.atan2(this.kbX[i] - this.viaX[i], this.kbZ[i] - this.viaZ[i]);
+      } else {
+        // A hacker in error leans over their own chair from the shoulder place.
+        this.errX[i] = this.shX[i];
+        this.errZ[i] = this.shZ[i];
+        this.errFacing[i] = this.shRot[i];
+      }
     });
 
     // Lounge seats: entered straight from the aisle node in front, looking at
@@ -996,7 +1066,9 @@ export class HqSimulation {
       local(s, 0, 0.1);
       this.headX[i] = this.tmpX;
       this.headZ[i] = this.tmpZ;
-      this.errFacing[i] = s.rotY;
+      this.errX[i] = this.hlX[i] = s.approach.x;
+      this.errZ[i] = this.hlZ[i] = s.approach.z;
+      this.errFacing[i] = this.hlRot[i] = s.rotY;
     });
     // Seats are listed group by group; an empty group starts where the next does.
     for (let g = groups.length - 1; g >= 0; g--) {
@@ -1025,6 +1097,7 @@ export class HqSimulation {
       this.nbRight = side.right;
     }
     this.deskGuest = new Uint8Array(desks.length);
+    this.deskHelp = new Uint8Array(desks.length);
     this.deskAgent = new Array<Agent | null>(desks.length).fill(null);
 
     this.spawnNode = nearestNode(layout.nav, layout.spawn.x, layout.spawn.z);
@@ -1110,13 +1183,16 @@ export class HqSimulation {
 
   /**
    * Whether the agent at frame index `i` is in a conversation the crew's
-   * voices can lead (cueTalk): a seated pair turned to each other, or a group
-   * standing at a spot. Not during a briefing.
+   * voices can lead (cueTalk): a seated pair turned to each other, a group
+   * standing at a spot, or a hacker in error and the colleague who has come
+   * over to help. Not during a briefing.
    */
   conversing(i: number): boolean {
     const a = this.agents[i];
     if (!a || !a.alive || this.briefingActive) return false;
     if (a.pair) return (a.clip === HqClip.SitTurnL || a.clip === HqClip.SitTurnR) && this.pairValid(a);
+    if (a.helpTarget) return this.helperThere(a);
+    if (a.errHelper) return this.helperThere(a.errHelper);
     return a.place === D_SPOT && a.mode === M_STAND && !this.acknowledging(a) && this.partnerOf(a) !== null;
   }
 
@@ -1126,8 +1202,9 @@ export class HqSimulation {
    * clip moves to (and stays in) its talk half while the neighbour's stays in
    * its listen half, and the pair lasts at least as long; in a group at a spot
    * the speaker gets the word (Talk) and the others listen, and the group waits
-   * for the next cue before picking a speaker of its own. False when the agent
-   * is in no such conversation (conversing).
+   * for the next cue before picking a speaker of its own; a helper at the desk
+   * of a hacker in error talks (Talk) or listens (StandListen) with the voices.
+   * False when the agent is in no such conversation (conversing).
    */
   cueTalk(id: string, seconds: number): boolean {
     const a = this.byId.get(id);
@@ -1144,6 +1221,13 @@ export class HqSimulation {
       if (b.actUntil < end) b.actUntil = end;
       talkPhase(a, true);
       talkPhase(b, false);
+      return true;
+    }
+    const helper = a.helpTarget ? a : a.errHelper;
+    if (helper) {
+      // The helper's pose follows the voices; the hacker in error keeps working the problem.
+      helper.talkUntil = helper === a ? until : 0;
+      helper.listenUntil = helper === a ? 0 : until;
       return true;
     }
     const spot = a.placeSpot;
@@ -1186,6 +1270,10 @@ export class HqSimulation {
           this.releaseLounge(a);
           this.endVisit(a);
           this.endPair(a);
+          // Help with an error waits: everyone stands at their own desk now (in error too).
+          this.endHelp(a);
+          if (a.errHelper) this.endHelp(a.errHelper);
+          a.errStand = false;
           a.onRange = false;
           if (!a.lead && a !== this.arcAgent) a.holdUntil = this.time + reactionDelay(a.beat);
           // A held gesture winds down while they react, so they rise on time.
@@ -1307,7 +1395,8 @@ export class HqSimulation {
       if (a.seat < 0) continue;
       a.relaxAt = now + a.beat.range(RELAX_MIN, RELAX_MAX);
       a.nextOuting = now + a.beat.range(RELAX_OUTING_MIN, RELAX_OUTING_MAX);
-      if (a.nextBeat < a.relaxAt) a.nextBeat = a.relaxAt;
+      // (A hacker in error keeps working the problem on their own beat.)
+      if (a.nextBeat < a.relaxAt && a.status !== ERROR) a.nextBeat = a.relaxAt;
       // Some breathe out when their duty ends: a stretch or a lean back first.
       a.exhale = a.beat.chance(EXHALE_SHARE);
       // Nobody drops into the cyber-range the moment the mission is over either.
@@ -1597,9 +1686,23 @@ export class HqSimulation {
       // and its loop's tempo is looked at again (typing speeds up on a mission only when working).
       if (status !== agent.status) {
         this.endPair(agent);
-        this.setAct(agent, status === WORKING ? ACT_TYPE : ACT_IDLE);
+        // Help with an error ends with it (and a helper no longer free goes back).
+        this.endHelp(agent);
+        if (agent.errHelper) this.endHelp(agent.errHelper);
+        agent.errStand = false;
+        agent.errHelpAt = Infinity;
+        this.setAct(agent, status === WORKING ? ACT_TYPE : status === ERROR ? ACT_READ : ACT_IDLE);
         agent.actUntil = 0;
         agent.rateEpoch = 0;
+        if (status === ERROR) {
+          // Reading what went wrong first; a colleague may come over in a while.
+          const now = this.time;
+          agent.nextBeat = now + agent.beat.range(BEAT_MIN, 10);
+          if (agent.beat.chance(ERR_HELP_CHANCE)) {
+            agent.errHelpAt = now + agent.beat.range(ERR_HELP_MIN, ERR_HELP_MAX);
+            agent.errHelpBy = agent.errHelpAt + ERR_HELP_PATIENCE;
+          }
+        }
       }
       // The cyber-range only makes sense while the hacker is working.
       if (status !== WORKING) agent.onRange = false;
@@ -1627,6 +1730,8 @@ export class HqSimulation {
       this.releaseHold(agent);
       this.endVisit(agent);
       this.endPair(agent);
+      this.endHelp(agent);
+      if (agent.errHelper) this.endHelp(agent.errHelper);
       this.setAct(agent, ACT_IDLE);
       if (agent.visitor) agent.visitor = null;
     }
@@ -1803,15 +1908,15 @@ export class HqSimulation {
         a.facing = this.seatRot[s];
         a.mode = M_SEATED;
         a.place = D_SEAT;
-        this.setAct(a, a.status === WORKING ? ACT_TYPE : ACT_IDLE);
-        a.clip = a.status === WORKING ? (a.lead ? HqClip.SitType : a.typeVariant) : HqClip.SitIdle;
+        this.setAct(a, this.baseAct(a, false));
+        a.clip = this.seatedClip(a);
       } else {
-        a.bx = this.viaX[s];
-        a.bz = this.viaZ[s];
+        a.bx = this.errX[s];
+        a.bz = this.errZ[s];
         a.facing = this.errFacing[s];
         a.mode = M_STAND;
         a.place = D_ERROR;
-        a.clip = HqClip.Idle;
+        a.clip = this.errStandClip(a);
       }
       a.dest = kind;
       a.destSeat = s;
@@ -1836,6 +1941,11 @@ export class HqSimulation {
       a.clip = HqClip.Idle;
     }
     a.clipTime = a.rng.range(0, CLIP_DURATION[a.clip]);
+    if (CLIP_HOLD0[a.clip] >= 0) {
+      // Already in the held part of an intro/hold/outro clip.
+      a.clipTime = CLIP_HOLD0[a.clip] + (a.clipTime / CLIP_DURATION[a.clip]) * (CLIP_HOLD1[a.clip] - CLIP_HOLD0[a.clip]);
+      a.holdOn = true;
+    }
     a.clipRate = this.loopRate(a, a.clip);
     a.rateEpoch = this.tempoEpoch;
     a.prevClip = a.clip;
@@ -1889,6 +1999,7 @@ export class HqSimulation {
       if (a.spot >= 0) this.releaseSpot(a);
       if (a.lounge >= 0) this.releaseLounge(a);
       if (a.visitTarget) this.endVisit(a);
+      if (a.helpTarget) this.endHelp(a);
       return;
     }
     if (a === this.arcAgent && !a.lead) {
@@ -1952,7 +2063,14 @@ export class HqSimulation {
       } else if (a.onRange) {
         a.onRange = false;
       }
-      if (a.visitTarget) {
+      if (a.helpTarget) {
+        // At (or on the way to) the desk of a colleague in error, helping.
+        const done = a.place === D_HELP && a.mode === M_STAND && now >= a.leaveAt;
+        if (a.status !== IDLE || !this.helpValid(a) || done) {
+          this.endHelp(a);
+          a.nextBeat = now + a.beat.range(BEAT_MIN, 2 * BEAT_MIN);
+        }
+      } else if (a.visitTarget) {
         // At (or on the way to) a working colleague's shoulder.
         const done = a.place === D_VISIT && a.mode === M_STAND && now >= a.leaveAt;
         // A mission recalls a plain visit (its own short help stays).
@@ -1976,6 +2094,8 @@ export class HqSimulation {
           this.releaseLounge(a);
           a.nextOuting = now + a.rng.range(90, 300);
         }
+      } else if (a.status === ERROR) {
+        this.errorActs(a);
       } else if (a.mode === M_SEATED && a.place === D_SEAT && (a.status === IDLE || a.status === WORKING)) {
         this.deskActs(a, duty);
       } else if (a.pair) {
@@ -2017,7 +2137,9 @@ export class HqSimulation {
       if (a.seat >= 0) return D_BRIEF;
     }
     if (a.seat >= 0) {
-      if (a.status === ERROR) return D_ERROR;
+      // In error: at one's own desk, in the chair or up at its shoulder place (the lead stands beside his).
+      if (a.status === ERROR) return a.lead || a.errStand ? D_ERROR : D_SEAT;
+      if (a.helpTarget) return D_HELP;
       if (a.visitTarget) return D_VISIT;
       if (a.spot >= 0) return D_SPOT;
       if (a.lounge >= 0) return D_LOUNGE;
@@ -2038,6 +2160,7 @@ export class HqSimulation {
     if (kind === D_SEAT || kind === D_ERROR || kind === D_BRIEF) seat = a.seat;
     else if (kind === D_LOUNGE) seat = a.lounge;
     else if (kind === D_VISIT) seat = a.visitTarget ? a.visitTarget.seat : -1;
+    else if (kind === D_HELP) seat = a.helpSeat;
     else if (kind === D_SPOT) {
       spot = a.spot;
       slot = a.slot;
@@ -2186,11 +2309,184 @@ export class HqSimulation {
     a.helping = false;
   }
 
+  // --- In error: working the problem at one's own desk ---------------------------------
+
+  /**
+   * A hacker in error (not the lead), every frame: looks for a colleague's
+   * help when this error drew one, and on its own beat switches between
+   * typing fast, reading, leaning back to think, and standing at the desk's
+   * shoulder place. Beats change only from a settled posture (in the chair or
+   * at the shoulder place), and the posture holds while a colleague helps.
+   */
+  private errorActs(a: Agent): void {
+    if (a.lead) return;
+    const now = this.time;
+    if (a.pair) this.endPair(a);
+    if (!a.errHelper && now >= a.errHelpAt) {
+      if (now > a.errHelpBy || this.startHelp(a)) a.errHelpAt = Infinity;
+      else a.errHelpAt = now + a.beat.range(3, 8);
+    }
+    if (now < a.nextBeat) return;
+    const seated = a.mode === M_SEATED && a.place === D_SEAT && a.dest === D_SEAT;
+    const standing = a.mode === M_STAND && a.place === D_ERROR && a.dest === D_ERROR;
+    if (standing) {
+      // Back into the chair, unless a colleague is talking it through right here.
+      if (a.errHelper) {
+        a.nextBeat = now + a.beat.range(3, 6);
+        return;
+      }
+      a.errStand = false;
+      a.nextBeat = now + a.beat.range(BEAT_MIN, 10);
+      return;
+    }
+    if (!seated) return;
+    const beat = pickErrorBeat(!a.errHelper && this.errStandFree(a), a.beat);
+    a.nextBeat = now + errorBeatSeconds(beat, a.beat);
+    switch (beat) {
+      case ERR_STAND:
+        a.errStand = true;
+        this.setAct(a, ACT_READ);
+        return;
+      case ERR_THINK:
+        this.setAct(a, this.leanCount < leanLimit(this.agents.length) ? ACT_LEAN : ACT_READ);
+        return;
+      case ERR_TYPE:
+        this.setAct(a, ACT_TYPE);
+        return;
+      case ERR_READ:
+      default:
+        this.setAct(a, ACT_READ);
+    }
+  }
+
+  /**
+   * Whether a hacker in error may stand at their desk's shoulder place now:
+   * not while someone helps the neighbour on their right, whose left shoulder
+   * place is half a metre from it.
+   */
+  private errStandFree(a: Agent): boolean {
+    const s = a.seat;
+    if (s < 0 || s >= this.nbRight.length) return false;
+    const r = this.nbRight[s];
+    return r < 0 || this.deskHelp[r] === 0;
+  }
+
+  /** The clip of a hacker in error standing at their desk: leaning over their chair (the lead stands still beside his). */
+  private errStandClip(a: Agent): number {
+    return a.lead ? HqClip.Idle : HqClip.StandLookOver;
+  }
+
+  /**
+   * A free colleague nearby (the nearest first, within PEER_ROWS rows and
+   * PEER_DESKS desks) comes over to help a hacker in error, to the desk's
+   * left shoulder place: within the concurrent visit limit (a mission's help
+   * limit on duty), never next to another guest, never beside a neighbour
+   * standing at their own shoulder place, and through the departure limiter.
+   */
+  private startHelp(a: Agent): boolean {
+    const n = this.agents.length;
+    const cap = this.missionActive ? helpVisitLimit(n) : peerVisitLimit(n);
+    if (this.visitCount >= cap) return false;
+    const s = a.seat;
+    if (s < 0 || s >= this.deskGuest.length || a.errHelper) return false;
+    const nb = this.nb;
+    if (guestNearby(nb, this.deskGuest, s, GUEST_SPACING)) return false;
+    // The neighbour on the left, standing at their own shoulder place, would be half a metre from the helper.
+    const l = this.nbLeft[s];
+    const left = l >= 0 ? this.deskAgent[l] : null;
+    if (left && left.status === ERROR && (left.errStand || left.place === D_ERROR || left.dest === D_ERROR)) return false;
+    for (let k = nb.nearStart[s], end = nb.nearStart[s + 1]; k < end; k++) {
+      const desk = nb.near[k];
+      const b = this.deskAgent[desk];
+      if (!b || b === a || !this.helperFree(b, desk)) continue;
+      if (!this.departures.take()) return false;
+      b.helpTarget = a;
+      b.helpSeat = s;
+      b.talkUntil = 0;
+      b.listenUntil = 0;
+      b.turnTalk = false;
+      b.turnUntil = 0;
+      a.errHelper = b;
+      this.deskGuest[s]++;
+      this.deskHelp[s] = 1;
+      this.visitCount++;
+      return true;
+    }
+    return false;
+  }
+
+  /** Can `b` (at desk `desk`) get up to help a colleague right now? Free, in their own chair, not busy with anyone. */
+  private helperFree(b: Agent, desk: number): boolean {
+    return (
+      b.alive &&
+      !b.lead &&
+      b.seat === desk &&
+      b.status === IDLE &&
+      b.mode === M_SEATED &&
+      b.place === D_SEAT &&
+      !b.pair &&
+      !b.visitor &&
+      !b.visitTarget &&
+      !b.helpTarget &&
+      b.spot < 0 &&
+      b.lounge < 0 &&
+      b !== this.arcAgent &&
+      b.holdUntil <= this.time
+    );
+  }
+
+  /** The help still makes sense: the colleague is still in error at that desk, and no briefing. */
+  private helpValid(h: Agent): boolean {
+    const t = h.helpTarget;
+    return t !== null && t.alive && t.status === ERROR && t.seat === h.helpSeat && t.errHelper === h && !this.briefingActive;
+  }
+
+  /** The helper has arrived and stands at the desk's left shoulder place. */
+  private helperThere(h: Agent): boolean {
+    return h.place === D_HELP && h.mode === M_STAND && this.helpValid(h);
+  }
+
+  /** Ends a colleague's help (`h` is the helper; no-op when not helping): they go back to their desk. */
+  private endHelp(h: Agent): void {
+    const t = h.helpTarget;
+    if (!t) return;
+    if (t.errHelper === h) t.errHelper = null;
+    const s = h.helpSeat;
+    if (s >= 0 && s < this.deskGuest.length) {
+      if (this.deskGuest[s] > 0) this.deskGuest[s]--;
+      this.deskHelp[s] = 0;
+    }
+    if (this.visitCount > 0) this.visitCount--;
+    h.helpTarget = null;
+    h.helpSeat = -1;
+    h.talkUntil = 0;
+    h.listenUntil = 0;
+  }
+
+  /**
+   * A helper at the left shoulder place: talking (Talk) or listening
+   * (StandListen). Crew voices lead when they speak here (cueTalk), and for a
+   * moment after; otherwise the helper takes turns of GUEST_TALK / GUEST_QUIET.
+   */
+  private helperTalks(h: Agent): boolean {
+    const now = this.time;
+    if (h.talkUntil > now) return true;
+    if (h.listenUntil > now) return false;
+    const last = h.talkUntil > h.listenUntil ? h.talkUntil : h.listenUntil;
+    if (last > 0 && now < last + TALK_SPOT_HOLD) return false;
+    if (now >= h.turnUntil) {
+      h.turnTalk = !h.turnTalk;
+      h.turnUntil =
+        now + (h.turnTalk ? h.beat.range(GUEST_TALK_MIN, GUEST_TALK_MAX) : h.beat.range(GUEST_QUIET_MIN, GUEST_QUIET_MAX));
+    }
+    return h.turnTalk;
+  }
+
   // --- Acts at one's own desk (core/beats.ts) ---------------------------------------
 
   /** The plain act of a hacker at their desk: typing when working; free, sitting back (reading on duty). */
   private baseAct(a: Agent, duty: boolean): number {
-    return a.status === WORKING ? ACT_TYPE : duty ? ACT_READ : ACT_IDLE;
+    return a.status === WORKING ? ACT_TYPE : a.status === ERROR || duty ? ACT_READ : ACT_IDLE;
   }
 
   /** Changes the act, keeping the hall's concurrent counts. */
@@ -2301,6 +2597,7 @@ export class HqSimulation {
       !b.pair &&
       !b.visitor &&
       !b.visitTarget &&
+      !b.helpTarget &&
       b.spot < 0 &&
       b.lounge < 0 &&
       !b.onRange &&
@@ -2790,7 +3087,10 @@ export class HqSimulation {
         n = this.pushWp(n, this.viaX[s], this.viaZ[s], -1);
         return this.pushWp(n, this.apprX[s], this.apprZ[s], -1);
       case D_ERROR:
-        return this.pushWp(n, this.viaX[s], this.viaZ[s], -1);
+        return this.pushWp(n, this.errX[s], this.errZ[s], -1);
+      case D_HELP:
+        // From the ring node behind the chair straight to its left shoulder place.
+        return this.pushWp(n, this.hlX[s], this.hlZ[s], -1);
       case D_LOUNGE:
         // The seat's nav node is the aisle point right in front of it.
         return this.pushWp(n, this.apprX[s], this.apprZ[s], -1);
@@ -2824,7 +3124,16 @@ export class HqSimulation {
     let n = 0;
     let start = -1;
     const walking = a.mode === M_WALK && a.wpIdx < a.wpCount;
-    const sameDesk = !walking && a.placeSeat === a.destSeat && atDesk(a.place) && atDesk(a.dest) && a.place !== a.dest;
+    // The shoulder place (in error) is reached round the chair's back from the
+    // ring node behind it, like a guest's, never through the chair: only the
+    // lead's place beside his desk is a straight step.
+    const sameDesk =
+      !walking &&
+      a.placeSeat === a.destSeat &&
+      atDesk(a.place) &&
+      atDesk(a.dest) &&
+      a.place !== a.dest &&
+      (a.lead || (a.place !== D_ERROR && a.dest !== D_ERROR));
     if (sameDesk) {
       // Between the chair and the spot beside the desk: no detour via the aisle.
       n = this.pushTail(a, 0);
@@ -3008,8 +3317,9 @@ export class HqSimulation {
     if (this.hosting(a)) return HqClip.SitShowScreen;
     switch (a.act) {
       case ACT_TYPE:
-        // Free but on duty: the second variant (reading and clicking through).
-        return a.status !== WORKING && this.onDuty(a) ? HqClip.SitType2 : a.typeVariant;
+        // Free but on duty: the second variant (reading and clicking through);
+        // in error, the second variant too, faster (loopRate): trying fix after fix.
+        return a.status === ERROR || (a.status !== WORKING && this.onDuty(a)) ? HqClip.SitType2 : a.typeVariant;
       case ACT_READ:
         return HqClip.SitRead;
       case ACT_LEAN:
@@ -3043,6 +3353,11 @@ export class HqSimulation {
       return a.missionRate;
     }
     if (clip === HqClip.StandListen && a.listenStyle === LISTEN_SLOW) return a.tempo * LISTEN_SLOW_TEMPO;
+    if (a.status === ERROR && a.place === D_SEAT) {
+      // Working an error: typing and reading at a sharper pace.
+      if (clip === HqClip.SitType2) return a.tempo * ERR_TYPE_TEMPO;
+      if (clip === HqClip.SitRead) return a.tempo * ERR_READ_TEMPO;
+    }
     return a.tempo;
   }
 
@@ -3128,6 +3443,7 @@ export class HqSimulation {
       if (a.dest === D_SEAT || a.dest === D_BRIEF) want = this.seatRot[a.destSeat];
       else if (a.dest === D_ERROR) want = this.errFacing[a.destSeat];
       else if (a.dest === D_VISIT) want = this.shRot[a.destSeat];
+      else if (a.dest === D_HELP) want = this.hlRot[a.destSeat];
       else if (a.dest === D_PODIUM) want = this.podiumFacing;
       else if (a.dest === D_CART) want = this.arcGrabRot;
     }
@@ -3310,7 +3626,17 @@ export class HqSimulation {
         a.mode = M_STAND;
         a.place = D_ERROR;
         a.placeSeat = s;
-        this.setLoop(a, HqClip.Idle);
+        this.setLoop(a, this.errStandClip(a));
+        return;
+      case D_HELP:
+        a.mode = M_STAND;
+        a.place = D_HELP;
+        a.placeSeat = s;
+        // A mission's help is short, like its over-the-shoulder help.
+        a.leaveAt = this.time + peerVisitSeconds(this.missionActive, a.beat);
+        a.turnTalk = false;
+        a.turnUntil = this.time + a.beat.range(0.6, 1.8);
+        this.setLoop(a, HqClip.StandListen);
         return;
       case D_LOUNGE: {
         a.bx = this.seatX[s];
@@ -3385,7 +3711,22 @@ export class HqSimulation {
     let want = a.facing;
     let clip: number = HqClip.Idle;
     if (a.place === D_ERROR) {
+      // Leaning over one's own chair at the screen (the lead: standing still beside his desk).
       want = this.errFacing[a.placeSeat];
+      clip = this.errStandClip(a);
+    } else if (a.place === D_HELP) {
+      // Behind the left shoulder: turned half to the screen, half to the hacker
+      // in error (in the chair or at the other shoulder place).
+      const s = a.placeSeat;
+      const t = a.helpTarget;
+      want = this.hlRot[s];
+      if (t && t.placeSeat === s) {
+        const sitting = t.mode === M_SEATED || t.mode === M_SIT || t.mode === M_RISE;
+        const tx = 0.5 * (this.monX[s] + (sitting ? this.headX[s] : t.x));
+        const tz = 0.5 * (this.monZ[s] + (sitting ? this.headZ[s] : t.z));
+        want = Math.atan2(tx - a.x, tz - a.z);
+      }
+      clip = a.helpTarget && this.helperTalks(a) ? HqClip.Talk : HqClip.StandListen;
     } else if (a.place === D_SPOT) {
       const partner = this.partnerOf(a);
       if (partner) {
@@ -3480,11 +3821,18 @@ export class HqSimulation {
           a.wantY = HEAD_SEATED;
           a.wantZ = this.headZ[p.placeSeat];
           a.wantW = 0.7;
+        } else if (a.mode === M_SEATED && a.errHelper && a.errHelper.clip === HqClip.Talk && this.helperThere(a.errHelper)) {
+          // In error, a colleague behind the left shoulder talking it through: a glance up at them.
+          a.wantX = a.errHelper.x;
+          a.wantY = HEAD_STANDING;
+          a.wantZ = a.errHelper.z;
+          a.wantW = 0.45;
         } else {
           a.wantX = this.monX[s];
           a.wantY = WORKSTATION.monitors[1].y;
           a.wantZ = this.monZ[s];
-          a.wantW = a.mode === M_SEATED ? (a.status === WORKING ? 0.5 : 0.35) : 0.15;
+          // Working, or in error (the eyes fixed on the screen): a firmer look.
+          a.wantW = a.mode === M_SEATED ? (a.status === WORKING ? 0.5 : a.status === ERROR ? 0.55 : 0.35) : 0.15;
         }
         return;
       }
@@ -3521,10 +3869,45 @@ export class HqSimulation {
     }
     if (a.place === D_ERROR) {
       const s = a.placeSeat;
-      a.wantX = this.kbX[s];
-      a.wantY = WORKSTATION.keyboard.y;
-      a.wantZ = this.kbZ[s];
-      a.wantW = 0.8;
+      if (a.lead) {
+        a.wantX = this.kbX[s];
+        a.wantY = WORKSTATION.keyboard.y;
+        a.wantZ = this.kbZ[s];
+        a.wantW = 0.8;
+        return;
+      }
+      // Over one's own chair: the clip reads the screen; while a colleague
+      // talks it through, the eyes go to them.
+      const h = a.errHelper;
+      if (h && h.clip === HqClip.Talk && this.helperThere(h)) {
+        a.wantX = h.x;
+        a.wantY = HEAD_STANDING;
+        a.wantZ = h.z;
+        a.wantW = 0.6;
+        return;
+      }
+      a.wantX = this.monX[s];
+      a.wantY = WORKSTATION.monitors[1].y;
+      a.wantZ = this.monZ[s];
+      a.wantW = 0.35;
+      return;
+    }
+    if (a.place === D_HELP) {
+      // Talking: to the hacker in error; listening: at the screen.
+      const s = a.placeSeat;
+      const t = a.helpTarget;
+      if (t && a.clip === HqClip.Talk && t.placeSeat === s) {
+        const sitting = t.mode === M_SEATED || t.mode === M_SIT || t.mode === M_RISE;
+        a.wantX = sitting ? this.headX[s] : t.x;
+        a.wantY = sitting ? HEAD_SEATED : HEAD_STANDING;
+        a.wantZ = sitting ? this.headZ[s] : t.z;
+        a.wantW = 0.75;
+        return;
+      }
+      a.wantX = this.monX[s];
+      a.wantY = WORKSTATION.monitors[1].y;
+      a.wantZ = this.monZ[s];
+      a.wantW = 0.5;
       return;
     }
     if (a.place === D_VISIT && a.visitTarget) {
@@ -3651,7 +4034,7 @@ export class HqSimulation {
   private haulerEligible(a: Agent, relaxed: boolean): boolean {
     if (!a.alive || a.lead || a.seat < 0) return false;
     if (relaxed ? a.status === ERROR : a.status !== IDLE || a.onRange) return false;
-    if (a.visitor || a.visitTarget || a === this.arcAgent) return false;
+    if (a.visitor || a.visitTarget || a.helpTarget || a.errHelper || a === this.arcAgent) return false;
     return (a.place === D_SEAT && a.mode === M_SEATED) || (a.place === D_SPOT && a.mode === M_STAND);
   }
 

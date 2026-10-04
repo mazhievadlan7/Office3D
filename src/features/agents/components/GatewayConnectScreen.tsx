@@ -5,7 +5,7 @@ import { t } from "@/lib/i18n";
 import { adapterLabel } from "@/lib/i18n/labels";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
 import type { StudioGatewayAdapterType, StudioGatewaySettings } from "@/lib/studio/settings";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import { HqAndroidLoader } from "@/features/agents/components/HqAndroidLoader";
 import {
   HQ_BUTTON_PRIMARY,
   HQ_BUTTON_SECONDARY,
@@ -224,7 +224,7 @@ export const GatewayConnectScreen = ({
 
       {status === "connecting" ? (
         <div className="inline-flex items-center gap-1.5 text-xs text-white/65">
-          <RunningAvatarLoader size={16} trackWidth={32} inline />
+          <HqAndroidLoader size={16} inline />
           {t("gateway.connecting")}
         </div>
       ) : null}
@@ -254,7 +254,7 @@ export const GatewayConnectScreen = ({
     <div className="mx-auto flex min-h-0 w-full max-w-[820px] flex-1 flex-col gap-3">
       <div className={`${HQ_CARD} flex items-center gap-2.5 px-4 py-2.5`}>
         {status === "connecting" ? (
-          <RunningAvatarLoader size={18} trackWidth={36} inline />
+          <HqAndroidLoader size={18} inline />
         ) : (
           <span className={`h-2 w-2 shrink-0 rounded-full ${statusDotClass}`} />
         )}

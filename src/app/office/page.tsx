@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
+import { HqAndroidLoader } from "@/features/agents/components/HqAndroidLoader";
 import { AgentStoreProvider } from "@/features/agents/state/store";
 import { OfficeScreen } from "@/features/office/screens/OfficeScreen";
 import { t } from "@/lib/i18n";
@@ -20,9 +20,8 @@ function OfficeLoadingFallback() {
       role="status"
     >
       <div className="flex flex-col items-center gap-3">
-        <RunningAvatarLoader
-          size={28}
-          trackWidth={76}
+        <HqAndroidLoader
+          size={168}
           label={t("office.loadingShort")}
           labelClassName="text-muted-foreground"
         />
