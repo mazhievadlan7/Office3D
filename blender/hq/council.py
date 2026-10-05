@@ -46,6 +46,8 @@ sys.dont_write_bytecode = True  # keep blender/hq free of __pycache__
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 import props_exec as ex  # noqa: E402
+import props_furniture as furn  # noqa: E402
+import props_tech as tech  # noqa: E402
 from props_exec import (  # noqa: E402
     flat_ring,
     rbox_bm,
@@ -53,7 +55,6 @@ from props_exec import (  # noqa: E402
     rrect2d,
     sweep_closed,
     to_xz,
-    uv_sphere,
 )
 from props_lib import Prop, make_materials  # noqa: E402
 
@@ -191,14 +192,82 @@ def council_chair(p):
 
 
 def council_head_chair(p):
-    """AM7's taller throne at the head of the table: higher back, headrest,
-    a wider star base and a stronger red light signature."""
-    _star_base(p, reach=0.34)
+    """AM7's throne at the head of the table — unmistakably grander than the 26
+    council chairs: a high winged back with a crowned crest, a headrest, a
+    heavier five-star base, a low lit dais round its foot and a strong red light
+    signature. The seat pan stays at 0.47 so the seated AM7 still sits true; the
+    presence is all in the back, the crest, the wings and the dais."""
+    H = 1.34
+    _throne_dais(p)
+    _star_base(p, reach=0.42)
     _seat_pan(p)
-    _back(p, height=1.02, channels=7, headrest=True)
-    _arms(p, z_top=0.62)
+    _back(p, height=H, channels=9, headrest=True)
+    _throne_crest(p, H)
+    _arms(p, z_top=0.66)
     # a thin red halo on the floor behind the throne
-    p.merge("emissive_red_soft", ribbon_closed(ex.circle2d(0.42, 48, 0, 0.1), 0.006, 0.012, out=0.0008))
+    p.merge("emissive_red_soft", ribbon_closed(ex.circle2d(0.46, 48, 0, 0.1), 0.006, 0.012, out=0.0008))
+
+
+def _throne_dais(p):
+    """A low circular dais the throne stands on: flush enough that AM7's feet
+    rest on it, a black plinth with a red light ring round its edge."""
+    r = 0.92
+    p.lathe("black_satin", [(0.0, 0.0), (r - 0.04, 0.0), (r, 0.03), (r, 0.075),
+                            (r - 0.05, 0.08), (0.0, 0.08)], segs=56, true_poles=True)
+    p.merge("emissive_red_soft", ribbon_closed(ex.circle2d(r - 0.018, 56, 0, 0.0), 0.079, 0.082, out=0.001))
+    p.merge("emissive_red_soft", flat_ring(ex.circle2d(r + 0.005, 56, 0, 0.0), 0.003, 0.0))
+
+
+def _throne_crest(p, H):
+    """Winged upper back and a crowned crest above the headrest, in the back's
+    reclined frame (matching _back): two tapered gloss wings and a capping bar
+    with a red light edge, so the head of the table reads as a throne."""
+    with p.frame((0, 0.225, 0.43), (-0.16, 0, 0)):
+        # wings: tapered gloss panels flaring out either side of the upper back
+        for sx in (-1, 1):
+            p.box("black_gloss", (0.12, 0.055, 0.5), (sx * 0.34, 0.03, H * 0.66),
+                  rot=(0, sx * 0.12, sx * 0.14), bevel=0.012)
+            p.box("emissive_red", (0.006, 0.004, 0.42), (sx * 0.40, 0.055, H * 0.66),
+                  rot=(0, sx * 0.12, sx * 0.14), bevel=0.0)
+        # crowned crest: a wide capping bar above the headrest with a red seam
+        p.box("black_gloss", (0.68, 0.085, 0.07), (0, 0.03, H + 0.03), bevel=0.016)
+        p.box("metal_brushed", (0.6, 0.055, 0.02), (0, 0.07, H + 0.03), bevel=0.004)
+        p.box("emissive_red", (0.5, 0.004, 0.004), (0, 0.082, H + 0.03), bevel=0.0)
+        # a short red spine rising into the crest from the headrest
+        p.box("emissive_red", (0.006, 0.004, 0.12), (0, 0.06, H - 0.04), bevel=0.0)
+
+
+# The back-wall art — the герб (emblem), MECHTATEL's portrait and the motto —
+# is NOT modelled here: the app mounts the reference artwork as high-res textures
+# on framed, beveled, emissive wall panels (src/features/hq/render/floor27/
+# councilWallArt.ts), which is точь-в-точь to the owner's reference images.
+
+
+# --- lounge (reuses the shared HQ furniture, in the council's materials) --------------------
+def council_sofa(p):
+    """A three-seat club sofa for AM7's lounge (shared HQ upholstery)."""
+    furn.sofa(p)
+
+
+def council_lounge_chair(p):
+    """A single club chair for the lounge (shared HQ upholstery)."""
+    furn.lounge_chair(p)
+
+
+def council_lounge_table(p):
+    """Smoked-glass coffee table for the lounge."""
+    furn.coffee_table(p)
+
+
+def council_plant(p):
+    """AM7's near-black strap-leaf plant, for lounge and corner decor."""
+    furn.dark_plant(p)
+
+
+def council_tv(p):
+    """A wall-mounted flagship display for the lounge. Its surface is the
+    "screen" material, so the app's live council feed mirrors onto it."""
+    tech.wall_screen(p)
 
 
 # --- screen wall ---------------------------------------------------------------------------
@@ -234,9 +303,18 @@ KINDS = [
     ("council_chair", council_chair),
     ("council_head_chair", council_head_chair),
     ("council_screen", council_screen),
+    # Premium interior: the lounge and corner decor. (The back-wall герб, portrait
+    # and motto are textured wall panels built in the app, not meshes here.)
+    ("council_sofa", council_sofa),
+    ("council_lounge_chair", council_lounge_chair),
+    ("council_lounge_table", council_lounge_table),
+    ("council_tv", council_tv),
+    ("council_plant", council_plant),
 ]
-BUDGET = {"council_table": 20000, "council_chair": 16000, "council_head_chair": 20000,
-          "council_screen": 4000}
+BUDGET = {"council_table": 20000, "council_chair": 16000, "council_head_chair": 28000,
+          "council_screen": 4000, "council_sofa": 9000,
+          "council_lounge_chair": 6000, "council_lounge_table": 6000, "council_tv": 4000,
+          "council_plant": 9000}
 
 
 def parse_args():

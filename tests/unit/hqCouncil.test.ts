@@ -52,10 +52,14 @@ describe("Floor 27 council agenda", () => {
     expect(COUNCIL_SCHEDULE.find((s) => s.kind === "emergency")?.at).toBeNull();
   });
 
-  it("builds a short, structured report per floor", () => {
+  it("builds a short, structured report per directorate (by name, never «этаж»)", () => {
+    const floor = COUNCIL_FLOORS.find((f) => f.floor === 24)!;
     const state = demoFloorState(24, "daily");
-    const report = chiefReport(COUNCIL_FLOORS.find((f) => f.floor === 24)!, state);
-    expect(report).toContain("этаж 24");
+    const report = chiefReport(floor, state);
+    // Units are referred to by their directorate name + callsign, not «этаж N».
+    expect(report).toContain(floor.name); // "Хакинг"
+    expect(report).toContain(floor.callsign); // "ВЗЛОМ"
+    expect(report.toLowerCase()).not.toContain("этаж");
     expect(report).toContain("находк");
     expect(report.length).toBeLessThan(400); // short, not an essay
   });

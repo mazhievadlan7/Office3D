@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VoiceReplyProvider } from "@/lib/voiceReply/provider";
 import { t } from "@/lib/i18n";
-import { beginForegroundSpeech } from "@/lib/voice/speechDuck";
+import { acquireForegroundSpeech, SPEECH_PRIORITY } from "@/lib/voice/speechDuck";
 import { splitSpeech } from "@/lib/voice/speechChunks";
 
 export type VoiceReplyPlaybackRequest = {
@@ -104,6 +104,20 @@ export const useVoiceReplyPlayback = (params: {
     async (blob: Blob, generation: number) => {
       if (generation !== generationRef.current) return;
       releaseAudio();
+      // Take the single foreground-speech turn before any sound: a reply never
+      // plays over the greeting, a briefing or a council. The lead (briefing /
+      // council) outranks a reply and pre-empts it (lease.signal aborts). The
+      // lease ducks the crew for its lifetime and is dropped on stop/unmount.
+      const lease = await acquireForegroundSpeech({
+        priority: SPEECH_PRIORITY.reply,
+        external: abortRef.current?.signal,
+      });
+      if (!lease || generation !== generationRef.current) {
+        lease?.release();
+        return;
+      }
+      duckRef.current = lease.release;
+      lease.signal.addEventListener("abort", () => releaseAudio(), { once: true });
       const audioContext = getAudioContext();
       if (audioContext) {
         try {
@@ -112,15 +126,15 @@ export const useVoiceReplyPlayback = (params: {
           }
           const buffer = await blob.arrayBuffer();
           const decoded = await audioContext.decodeAudioData(buffer.slice(0));
-          if (generation !== generationRef.current) return;
+          if (generation !== generationRef.current || lease.signal.aborted) {
+            lease.release();
+            return;
+          }
           const source = audioContext.createBufferSource();
           source.buffer = decoded;
           source.connect(audioContext.destination);
           sourceRef.current = source;
           setPlaying(true);
-          // The HQ's background crew talk ducks while a reply is spoken.
-          const endDuck = beginForegroundSpeech();
-          duckRef.current = endDuck;
           await new Promise<void>((resolve, reject) => {
             source.onended = () => {
               resolve();
@@ -131,7 +145,7 @@ export const useVoiceReplyPlayback = (params: {
               reject(error);
             }
           }).finally(() => {
-            endDuck();
+            lease.release();
             if (sourceRef.current === source) {
               source.disconnect();
               sourceRef.current = null;
@@ -149,8 +163,7 @@ export const useVoiceReplyPlayback = (params: {
       const audio = new Audio(nextUrl);
       audioRef.current = audio;
       setPlaying(true);
-      const endDuck = beginForegroundSpeech();
-      duckRef.current = endDuck;
+      duckRef.current = lease.release;
       await new Promise<void>((resolve, reject) => {
         const cleanup = () => {
           audio.removeEventListener("ended", handleDone);
@@ -173,7 +186,7 @@ export const useVoiceReplyPlayback = (params: {
           reject(error);
         });
       }).finally(() => {
-        endDuck();
+        lease.release();
         if (audioRef.current === audio) {
           audioRef.current = null;
         }

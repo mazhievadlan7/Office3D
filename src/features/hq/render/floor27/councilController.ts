@@ -20,10 +20,11 @@
  */
 
 import { prepareBriefingAddress } from "@/lib/voice/briefingAddress";
+import { beginForegroundSession } from "@/lib/voice/speechDuck";
 import { DEFAULT_SYSTEM_VOICE } from "@/lib/voice/voiceCatalog";
 import { COUNCIL_AM7_VOICE, councilChiefVoiceId } from "@/lib/voice/councilVoices";
 import { CouncilMachine, type CouncilCue, type CouncilKind } from "@/features/hq/core/council/machine";
-import type { CouncilScreen } from "@/features/hq/core/council/agenda";
+import { COUNCIL_FLOORS, type CouncilScreen } from "@/features/hq/core/council/agenda";
 import type { CouncilHeader } from "@/features/hq/core/council/machine";
 import type { CouncilSimulation } from "./councilSim";
 
@@ -47,11 +48,16 @@ const voiceForCue = (cue: CouncilCue): string => {
   return cue.floor != null ? councilChiefVoiceId(cue.floor) : COUNCIL_AM7_VOICE;
 };
 
+/** One spoken line's real playback window (dev instrumentation, for overlap checks). */
+export type CouncilUtterance = { index: number; label: string; role: string; startMs: number; endMs: number };
+
 export class CouncilController {
   private readonly machine: CouncilMachine;
   private running = false;
   private stopped = false;
   private current: { stop: () => void } | null = null;
+  /** Actual start/end of every utterance in the current/last run (dev only). */
+  private readonly utterances: CouncilUtterance[] = [];
 
   constructor(private readonly deps: CouncilControllerDeps) {
     this.machine = new CouncilMachine();
@@ -59,6 +65,11 @@ export class CouncilController {
 
   get active(): boolean {
     return this.running;
+  }
+
+  /** Dev instrumentation: the real playback windows of each line this run, in order. */
+  get timeline(): readonly CouncilUtterance[] {
+    return this.utterances;
   }
 
   /** Cancels any running council (voice stopped, sim reset). */
@@ -76,8 +87,14 @@ export class CouncilController {
     this.running = true;
     this.stopped = false;
     const { sim, paint, onStateChange } = this.deps;
+    this.utterances.length = 0;
+    // Hold a foreground-speech session for the whole council: the ambient
+    // «Система штаба» greeting is refused for its entire length, so it can never
+    // slip in between the announcement and the reports or between two lines.
+    const endSession = beginForegroundSession();
     this.machine.start(kind, options);
-    sim.start();
+    // Emergency councils come in fast; daily / evening / one-on-one are orderly.
+    sim.start(kind === "emergency" ? "brisk" : "orderly");
     const emit = () => onStateChange?.(this.machine.phase, this.machine.header.speaking);
     emit();
 
@@ -122,6 +139,7 @@ export class CouncilController {
       // 4. Archive + tasks.
       if (!this.stopped) await this.finish();
     } finally {
+      endSession();
       this.running = false;
       this.deps.sim.setSpeaker(-1);
       this.deps.sim.setAm7Speaking(false);
@@ -143,18 +161,38 @@ export class CouncilController {
     else paint({ kind: "header", header: this.machine.header });
   }
 
-  /** Speaks one cue's line over the PA and resolves when it has finished. */
+  /**
+   * Speaks one cue's line over the PA and resolves when it has finished. The
+   * whole council is a chain of awaited speak() calls, so lines never overlap:
+   * the next line is requested only after this one's audio has truly ended
+   * (handle.done resolves on the real playback-end event, not a timer). The
+   * utterance's actual start/end is recorded for the dev overlap check.
+   */
   private speak(cue: CouncilCue | null): Promise<void> {
     if (!cue || this.stopped) return Promise.resolve();
+    const entry: CouncilUtterance = {
+      index: this.utterances.length,
+      label: cueLabel(cue),
+      role: cue.role,
+      startMs: -1,
+      endMs: -1,
+    };
+    this.utterances.push(entry);
     const address = prepareBriefingAddress([cue.text], {
       voiceId: voiceForCue(cue),
       speed: cue.role === "chief" ? 0.97 : 0.95,
       audible: this.deps.audible(),
       gestureTimeoutMs: 180_000,
     });
-    const handle = address.play();
+    const handle = address.play({
+      onCueStart: () => {
+        if (entry.startMs < 0) entry.startMs = now();
+      },
+    });
     this.current = address;
     return handle.done.then(() => {
+      entry.endMs = now();
+      if (entry.startMs < 0) entry.startMs = entry.endMs;
       this.current = null;
     });
   }
@@ -192,7 +230,7 @@ export class CouncilController {
         description: d.detail,
         status: d.priority ? "in_progress" : "todo",
         source: "office3d_manual",
-        notes: [`Совет штаба (${archive.kind}), этаж ${d.floor} · ${d.callsign}`],
+        notes: [`Совет штаба (${archive.kind}) · ${d.callsign}`],
       }));
       try {
         await fetch("/api/task-store", {
@@ -209,4 +247,16 @@ export class CouncilController {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function now(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+/** A short label for an utterance in the dev timeline (directorate name, never «этаж»). */
+function cueLabel(cue: CouncilCue): string {
+  if (cue.role === "system") return "Система штаба";
+  if (cue.role === "am7") return "AM7";
+  const directorate = COUNCIL_FLOORS.find((f) => f.floor === cue.floor);
+  return directorate ? `${directorate.name} · ${directorate.callsign}` : "Шеф управления";
 }

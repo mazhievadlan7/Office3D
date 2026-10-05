@@ -1,8 +1,8 @@
 "use client";
 
 import { Canvas, useFrame, type GLProps } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import * as THREE from "three";
 import { PCFShadowMap, WebGLRenderer } from "three";
 
@@ -11,10 +11,12 @@ import type { HqAgentInput } from "@/features/hq/core/types";
 import { COUNCIL_FLOORS } from "@/features/hq/core/council/agenda";
 import { HqCrowdRuntime, type HqCharacterSource } from "@/features/hq/render/crowd/crowdRuntime";
 import { SceneAssetBoundary } from "@/components/three/sceneAssets";
+import { clearForegroundSpeechLog, foregroundSpeechLog } from "@/lib/voice/speechDuck";
+import { speakSystem } from "@/lib/voice/systemVoice";
 import { CouncilSimulation } from "./councilSim";
 import { CouncilController, type CouncilScreenPaint } from "./councilController";
 import { buildCouncilFurniture, type CouncilFurniture } from "./councilGlb";
-import { COUNCIL_SCREEN_X, COUNCIL_TABLE_L } from "./councilLayout";
+import { COUNCIL_ROOM, COUNCIL_SCREEN_X } from "./councilLayout";
 import { paintCouncilHeader, paintCouncilScreen } from "./councilScreenPaint";
 import type { CouncilKind } from "@/features/hq/core/council/machine";
 
@@ -25,7 +27,7 @@ function councilAgents(): HqAgentInput[] {
   const chiefs = COUNCIL_FLOORS.map<HqAgentInput>((floor) => ({
     id: `council-chief-${String(floor.floor).padStart(2, "0")}`,
     name: `${floor.name} · ${floor.callsign}`,
-    role: `Этаж ${floor.floor}`,
+    role: "Шеф управления",
     status: "working",
   }));
   return [{ id: "am7", name: "AM7", role: "Верховная сущность", status: "working" }, ...chiefs];
@@ -43,9 +45,9 @@ function Floor27Room() {
     return { floor, wall, trim };
   }, []);
   useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials]);
-  const W = COUNCIL_TABLE_L + 10;
-  const D = 14;
-  const H = 5;
+  const W = COUNCIL_ROOM.width;
+  const D = COUNCIL_ROOM.depth;
+  const H = COUNCIL_ROOM.height;
   const back = COUNCIL_SCREEN_X - 1.2;
   return (
     <group>
@@ -76,16 +78,54 @@ function Floor27Room() {
   );
 }
 
+/**
+ * Floor 27 lighting, brought to the main hall's bar (src/features/hq/render/scene/
+ * HqLighting.tsx): a warm hemisphere, two even fills from both ends, one shadowed
+ * key, red + warm accents, and — the piece the cabinet was missing — a baked
+ * studio Environment so the dark techwear and piano-black furniture actually read
+ * instead of going black. Even light, no glare, dark-premium with a red accent.
+ */
 function Floor27Lighting() {
   return (
     <>
-      <ambientLight intensity={0.35} color="#b9c2cc" />
-      <hemisphereLight intensity={0.4} color="#cdd6e0" groundColor="#15110f" />
-      <directionalLight position={[8, 12, 6]} intensity={1.1} color="#fff2e0" castShadow shadow-mapSize={[2048, 2048]}>
-        <orthographicCamera attach="shadow-camera" args={[-12, 12, 10, -10, 0.1, 40]} />
+      <ambientLight intensity={0.32} color="#ffe6cc" />
+      <hemisphereLight args={["#e8e1d6", "#2a2521", 1.35]} />
+      {/* Even fills from all four upper corners so the table, throne and seated
+          chiefs read the same whatever way the orbit camera faces — no dark side. */}
+      <directionalLight position={[12, 15, 14]} intensity={0.75} color="#fff0e0" />
+      <directionalLight position={[-12, 13, -12]} intensity={0.62} color="#e8e3ec" />
+      <directionalLight position={[-12, 13, 12]} intensity={0.5} color="#f3eee8" />
+      <directionalLight position={[12, 13, -12]} intensity={0.5} color="#eceaf0" />
+      {/* A broad, soft overhead fill centred on the table lifts everyone evenly. */}
+      <pointLight position={[0, 4.6, 0]} intensity={26} distance={30} decay={2} color="#fff1df" />
+      {/* Shadowed key from high east, shadows falling west toward the screen. */}
+      <directionalLight
+        position={[9, 16, 7]}
+        intensity={2.0}
+        color="#fff2e0"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0003}
+        shadow-radius={3}
+      >
+        <orthographicCamera attach="shadow-camera" args={[-13, 13, 10, -10, 0.1, 44]} />
       </directionalLight>
-      <pointLight position={[COUNCIL_SCREEN_X + 1.5, 3.2, 0]} intensity={18} distance={14} color="#ff5a44" />
-      <pointLight position={[4, 4, 3]} intensity={10} distance={18} color="#ffd9b0" />
+      {/* Red wash off the screen wall behind AM7, and a warm key over the table. */}
+      <pointLight position={[COUNCIL_SCREEN_X + 1.6, 3.4, 0]} intensity={14} distance={16} decay={2} color={HQ_THEME.accent} />
+      <pointLight position={[3, 4.2, 4.8]} intensity={10} distance={16} decay={2} color={HQ_THEME.ledWarm} />
+      {/*
+        A dark studio for reflections instead of a daylight HDRI, mirroring the
+        hall: warm ceiling strips, a cool fill and a red glow from the screen
+        side. Baked once into a cube map; the polished stone, piano-black table
+        and android skin pick it up — this is what makes the figures read.
+      */}
+      <Environment frames={1} resolution={256} environmentIntensity={1.25}>
+        <Lightformer form="rect" intensity={4.2} color="#fff4e8" scale={[16, 1.1, 1]} position={[0, 4.6, 0]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={2.8} color={HQ_THEME.statusSelected} scale={[12, 0.8, 1]} position={[2, 4.6, 3]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={2.6} color="#eef1f6" scale={[12, 0.8, 1]} position={[-2, 4.6, -3]} rotation-x={Math.PI / 2} />
+        <Lightformer form="rect" intensity={1.2} color={HQ_THEME.accent} scale={[8, 3, 1]} position={[COUNCIL_SCREEN_X, 2.6, 0]} rotation-y={Math.PI / 2} />
+        <Lightformer form="rect" intensity={1.5} color="#c8d2e6" scale={[10, 4, 1]} position={[11, 3, 6]} rotation-y={-Math.PI / 2} />
+      </Environment>
     </>
   );
 }
@@ -191,6 +231,7 @@ export function Floor27Office({ onLeave, audible = true }: Floor27OfficeProps) {
   const agents = useMemo(() => councilAgents(), []);
   const sim = useMemo(() => new CouncilSimulation(agents.slice(1).map((a) => a.id)), [agents]);
   const furnitureRef = useRef<CouncilFurniture | null>(null);
+  const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null);
   const audibleRef = useRef(audible);
   useEffect(() => {
     audibleRef.current = audible;
@@ -220,6 +261,10 @@ export function Floor27Office({ onLeave, audible = true }: Floor27OfficeProps) {
     const w = window as unknown as {
       __hqCouncil?: (kind?: CouncilKind, floor?: number) => void;
       __hqCouncilCancel?: () => void;
+      __hqCouncilTimeline?: () => readonly unknown[];
+      __hqSpeechLog?: () => readonly unknown[];
+      __hqSpeechLogClear?: () => void;
+      __hqTestGreeting?: (text?: string) => void;
     };
     if (process.env.NODE_ENV !== "production") {
       // Dev hook: window.__hqCouncil('daily'); the schedule is exposed but never auto-fires.
@@ -227,11 +272,55 @@ export function Floor27Office({ onLeave, audible = true }: Floor27OfficeProps) {
         void controller.run(kind, floor != null ? { oneononeFloor: floor } : {});
       };
       w.__hqCouncilCancel = () => controller.cancel();
+      // Dev check: the real playback window of every council line this run, to
+      // confirm one voice at a time (no two intervals overlap).
+      w.__hqCouncilTimeline = () => controller.timeline;
+      // Dev check across ALL foreground speech (greeting + briefing + council):
+      // the single lock's grant→release windows, which cannot overlap.
+      w.__hqSpeechLog = () => foregroundSpeechLog();
+      w.__hqSpeechLogClear = () => clearForegroundSpeechLog();
+      // Dev check: fire the ambient «Система штаба» greeting on demand, to prove
+      // it never plays over a council/briefing (it is refused during a session).
+      w.__hqTestGreeting = (text = "Система штаба на связи. Проверка очереди голосов.") =>
+        void speakSystem(text);
+      // Dev aid: pose the orbit camera for a clean screenshot (azimuth/polar in
+      // radians, distance in metres); autoRotate: false to hold the frame.
+      (w as Record<string, unknown>).__hqCam = (opts: {
+        azimuth?: number;
+        polar?: number;
+        distance?: number;
+        autoRotate?: boolean;
+        target?: [number, number, number];
+      } = {}) => {
+        const c = controlsRef.current as unknown as {
+          autoRotate: boolean;
+          target: THREE.Vector3;
+          object: THREE.Camera;
+          setAzimuthalAngle: (a: number) => void;
+          setPolarAngle: (a: number) => void;
+          update: () => void;
+        } | null;
+        if (!c) return;
+        if (opts.autoRotate !== undefined) c.autoRotate = opts.autoRotate;
+        if (opts.target) c.target.set(opts.target[0], opts.target[1], opts.target[2]);
+        if (opts.azimuth !== undefined) c.setAzimuthalAngle(opts.azimuth);
+        if (opts.polar !== undefined) c.setPolarAngle(opts.polar);
+        if (opts.distance !== undefined) {
+          const dir = c.object.position.clone().sub(c.target).normalize();
+          c.object.position.copy(dir.multiplyScalar(opts.distance).add(c.target));
+        }
+        c.update();
+      };
     }
     return () => {
       controller.cancel();
       delete w.__hqCouncil;
       delete w.__hqCouncilCancel;
+      delete w.__hqCouncilTimeline;
+      delete w.__hqSpeechLog;
+      delete w.__hqSpeechLogClear;
+      delete w.__hqTestGreeting;
+      delete (w as Record<string, unknown>).__hqCam;
     };
   }, [sim, paint, getAudible]);
 
@@ -263,6 +352,7 @@ export function Floor27Office({ onLeave, audible = true }: Floor27OfficeProps) {
         <Floor27Crowd sim={sim} agents={agents} characterUrl={HQ_CHARACTER_URL} />
         <CouncilDriver sim={sim} />
         <OrbitControls
+          ref={controlsRef}
           target={[-1.5, 1.3, 0]}
           enablePan={false}
           minDistance={8}

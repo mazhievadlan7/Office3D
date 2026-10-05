@@ -1,8 +1,14 @@
 import * as THREE from "three";
 
 import { GLOW } from "@/features/hq/render/environment/palette";
-import { councilSeats, COUNCIL_HEAD, COUNCIL_SCREEN_X } from "./councilLayout";
+import {
+  councilSeats,
+  COUNCIL_HEAD,
+  COUNCIL_ROOM_EAST_X,
+  COUNCIL_SCREEN_X,
+} from "./councilLayout";
 import { COUNCIL_SCREEN_H, COUNCIL_SCREEN_W } from "./councilScreenPaint";
+import { buildCouncilWallArt } from "./councilWallArt";
 
 /**
  * Builds the Floor 27 cabinet furniture from council.glb (blender/hq/council.py):
@@ -88,7 +94,11 @@ export function buildCouncilFurniture(scene: THREE.Object3D): CouncilFurniture {
   screenCanvas.height = COUNCIL_SCREEN_H;
   const screenTexture = new THREE.CanvasTexture(screenCanvas);
   screenTexture.colorSpace = THREE.SRGBColorSpace;
-  screenTexture.flipY = true;
+  // GLB-exported UVs (council.py: v=0 at the bottom of the viewer) follow the
+  // same convention as every other CanvasTexture mapped onto hall geometry
+  // (skinBake, floorGlow, mapRig, HqArchive): flipY off, so the painted canvas
+  // reads right-side up on the screen wall instead of upside down.
+  screenTexture.flipY = false;
   const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture, toneMapped: false });
   screenMaterial.name = "council-screen-live";
 
@@ -100,7 +110,9 @@ export function buildCouncilFurniture(scene: THREE.Object3D): CouncilFurniture {
   if (table) group.add(cloneKind(table, screenMaterial, owned));
   if (headChair) {
     const head = cloneKind(headChair, screenMaterial, owned);
-    head.position.set(COUNCIL_HEAD.x + 0.1, 0, COUNCIL_HEAD.z);
+    // Seat contract: the throne's origin is the seated root, so it sits exactly
+    // at COUNCIL_HEAD — where AM7 sits — like every council chair at its seat.
+    head.position.set(COUNCIL_HEAD.x, 0, COUNCIL_HEAD.z);
     head.rotation.y = COUNCIL_HEAD.rotY;
     group.add(head);
   }
@@ -119,11 +131,44 @@ export function buildCouncilFurniture(scene: THREE.Object3D): CouncilFurniture {
     group.add(wall);
   }
 
+  // Premium interior, placed deliberately. The formal back wall reads
+  // [ герб ] [ screen ] [ portrait ], with the motto above; a tidy lounge sits
+  // in the east corner (a sofa + two chairs round a low table facing a wall TV);
+  // plants frame the formal wall and anchor the lounge, clear of the walkways.
+  // Each piece is a named root in the GLB, cloned and placed; the TV's "screen"
+  // surface mirrors the live council feed.
+  const place = (kind: string, x: number, y: number, z: number, rotY: number): void => {
+    const root = findRoot(scene, kind);
+    if (!root) return;
+    const node = cloneKind(root, screenMaterial, owned);
+    node.position.set(x, y, z);
+    node.rotation.y = rotY;
+    group.add(node);
+  };
+  const HALF_PI = Math.PI / 2;
+  // Back wall (behind the screen): the герб, MECHTATEL's portrait and the motto
+  // are textured art panels (councilWallArt), mounted [ герб ][ screen ][ portrait ]
+  // with the motto above — added to the furniture group so they share its lifetime.
+  const wallArt = buildCouncilWallArt();
+  group.add(wallArt.group);
+  // Lounge in the east corner, a conversation group facing the wall TV.
+  place("council_tv", COUNCIL_ROOM_EAST_X - 0.06, 0, 4.8, -HALF_PI); // on the east wall, facing −X
+  place("council_sofa", 7.2, 0, 4.8, HALF_PI); // faces +X, toward the TV
+  place("council_lounge_table", 8.3, 0, 4.8, 0);
+  place("council_lounge_chair", 8.0, 0, 3.2, HALF_PI + 0.22);
+  place("council_lounge_chair", 8.0, 0, 6.4, HALF_PI - 0.22);
+  // Plants: two framing the formal wall in its back corners, one by the lounge.
+  const backCornerX = COUNCIL_SCREEN_X - 0.5;
+  place("council_plant", backCornerX, 0, 6.2, 0);
+  place("council_plant", backCornerX, 0, -6.2, 0);
+  place("council_plant", 6.3, 0, 6.6, 0);
+
   return {
     group,
     screenCanvas,
     screenTexture,
     dispose() {
+      wallArt.dispose();
       screenTexture.dispose();
       screenMaterial.dispose();
       for (const m of owned) m.dispose();

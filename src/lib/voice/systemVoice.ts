@@ -17,7 +17,7 @@
  * plays, the HQ's background crew talk ducks (lib/voice/speechDuck.ts).
  */
 
-import { beginForegroundSpeech } from "@/lib/voice/speechDuck";
+import { acquireForegroundSpeech, SPEECH_PRIORITY, type SpeechPriority } from "@/lib/voice/speechDuck";
 import { splitSpeech } from "@/lib/voice/speechChunks";
 
 /** The pause between two pieces, as the speech gateway puts between sentences. */
@@ -28,9 +28,23 @@ export type SystemVoiceOptions = {
   speed?: number;
   /** Stops waiting for a gesture after this long (ms); the speech is then skipped. */
   gestureTimeoutMs?: number;
+  /**
+   * Where this voice sits in the one-at-a-time order (speechDuck): the ambient
+   * greeting yields to everything; the lead at a briefing takes precedence.
+   */
+  priority?: SpeechPriority;
+  /** Caller's stop/unmount signal: aborting it skips or cuts the speech. */
+  signal?: AbortSignal;
 };
 
 let context: AudioContext | null = null;
+/**
+ * Guards the ambient «Система штаба» greeting against starting twice at once
+ * (React StrictMode / HMR double-mount, a second load): while one ambient
+ * greeting is in flight a second is skipped. Cleared when it ends, so the next
+ * opening of the HQ greets again.
+ */
+let ambientInFlight = false;
 
 /** The one audio context the foreground voices (the system, AM7's briefing) play through. */
 export function speechAudioContext(): AudioContext | null {
@@ -109,10 +123,11 @@ export function speakSystem(text: string, options: SystemVoiceOptions = {}): Pro
 
 /**
  * Speaks `text` in an agent's own voice (AM7 at a briefing when the office's
- * voice replies are off). Same contract as speakSystem.
+ * voice replies are off). Same contract as speakSystem; takes the lead's
+ * (briefing) turn in the one-at-a-time order by default.
  */
 export function speakAgent(text: string, options: SystemVoiceOptions = {}): Promise<boolean> {
-  return prepare(text, options, false).play();
+  return prepare(text, { priority: SPEECH_PRIORITY.briefing, ...options }, false).play();
 }
 
 /** Speech fetched ahead: the audio starts downloading at once and plays on play(). */
@@ -179,11 +194,31 @@ async function fetchSpeech(text: string, options: SystemVoiceOptions, system: bo
 async function playPieces(pieces: Array<Promise<ArrayBuffer | null>>, options: SystemVoiceOptions): Promise<boolean> {
   const ctx = audioContext();
   if (!ctx) return false;
+  const priority = options.priority ?? SPEECH_PRIORITY.ambient;
+  // Only one ambient greeting at a time, even across a double-mount or reload.
+  const ambient = priority < SPEECH_PRIORITY.reply;
+  if (ambient) {
+    if (ambientInFlight) return false;
+    ambientInFlight = true;
+  }
   // Waits for the first click or key press when the browser has not allowed sound yet.
-  if (!(await whenRunning(ctx, options.gestureTimeoutMs ?? 10 * 60_000))) return false;
+  if (!(await whenRunning(ctx, options.gestureTimeoutMs ?? 10 * 60_000))) {
+    if (ambient) ambientInFlight = false;
+    return false;
+  }
+  let lease: { release: () => void; signal: AbortSignal } | null = null;
   let nextStart = 0;
   let lastEnded: Promise<void> | null = null;
-  let endDuck: (() => void) | null = null;
+  const sources = new Set<AudioBufferSourceNode>();
+  const cut = () => {
+    for (const source of sources) {
+      try {
+        source.stop();
+      } catch {
+        /* not started */
+      }
+    }
+  };
   try {
     for (const piece of pieces) {
       const data = await piece;
@@ -194,15 +229,26 @@ async function playPieces(pieces: Array<Promise<ArrayBuffer | null>>, options: S
       } catch {
         continue;
       }
-      endDuck ??= beginForegroundSpeech();
+      if (options.signal?.aborted) break;
+      if (!lease) {
+        // Take the one foreground turn just before the first sound. The greeting
+        // (ambient) is refused while the lead speaks; a lead voice pre-empts the
+        // greeting. The lease's signal aborts on pre-emption or caller stop.
+        lease = await acquireForegroundSpeech({ priority, external: options.signal });
+        if (!lease) return false;
+        lease.signal.addEventListener("abort", cut, { once: true });
+      }
+      if (lease.signal.aborted) break;
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
       const startAt = Math.max(ctx.currentTime + 0.02, nextStart);
       nextStart = startAt + buffer.duration + PIECE_GAP_S;
+      sources.add(source);
       lastEnded = new Promise((resolve) => {
         source.onended = () => {
           source.disconnect();
+          sources.delete(source);
           resolve();
         };
       });
@@ -212,6 +258,7 @@ async function playPieces(pieces: Array<Promise<ArrayBuffer | null>>, options: S
     await lastEnded;
     return true;
   } finally {
-    endDuck?.();
+    lease?.release();
+    if (ambient) ambientInFlight = false;
   }
 }

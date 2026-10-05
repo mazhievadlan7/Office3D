@@ -62,7 +62,7 @@ export function paintCouncilHeader(ctx: CanvasRenderingContext2D, header: Counci
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ff6a50";
   ctx.font = "700 76px 'Segoe UI', sans-serif";
-  ctx.fillText("ШТАБ · ЭТАЖ 27", 70, 150);
+  ctx.fillText("ШТАБ · КАБИНЕТ AM7", 70, 150);
   ctx.fillStyle = "#e8e6e3";
   ctx.font = "600 52px 'Segoe UI', sans-serif";
   ctx.fillText(KIND_LABEL[header.kind] ?? "СОВЕТ", 70, 240);
@@ -87,16 +87,17 @@ export function paintCouncilHeader(ctx: CanvasRenderingContext2D, header: Counci
 export function paintCouncilScreen(ctx: CanvasRenderingContext2D, screen: CouncilScreen): void {
   base(ctx);
   ctx.textBaseline = "alphabetic";
-  // Header: floor number, directorate name, callsign.
+  // Header: the DIRECTORATE name and its callsign — no floor number (units are
+  // referred to by their directorate, never «этаж N»).
   ctx.fillStyle = "#ff6a50";
-  ctx.font = "700 48px 'Segoe UI', sans-serif";
-  ctx.fillText(`ЭТАЖ ${screen.floor}`, 70, 110);
+  ctx.font = "600 34px 'Segoe UI', sans-serif";
+  ctx.fillText("УПРАВЛЕНИЕ ШТАБА", 70, 92);
   ctx.fillStyle = "#e8e6e3";
-  ctx.font = "700 60px 'Segoe UI', sans-serif";
-  ctx.fillText(screen.title.toUpperCase(), 70, 180);
+  ctx.font = "700 66px 'Segoe UI', sans-serif";
+  ctx.fillText(screen.title.toUpperCase(), 70, 164);
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.font = "600 40px 'Segoe UI', sans-serif";
-  ctx.fillText(`· ${screen.callsign}`, 72 + ctx.measureText(" ").width, 180);
+  ctx.fillText(`· ${screen.callsign}`, 90 + ctx.measureText(screen.title.toUpperCase()).width, 164);
 
   // Metric tiles.
   const tileW = 268;

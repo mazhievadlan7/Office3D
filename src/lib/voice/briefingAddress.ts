@@ -30,7 +30,7 @@
  * (onLocked) and plays from the start at the next click or key press.
  */
 
-import { beginForegroundSpeech } from "./speechDuck";
+import { acquireForegroundSpeech, SPEECH_PRIORITY } from "./speechDuck";
 import { speechAudioContext, whenRunning } from "./systemVoice";
 
 /** The breath between two sentences on the PA (seconds). */
@@ -453,8 +453,13 @@ export function prepareBriefingAddress(lines: readonly string[], options: Briefi
         lastState = { ...lastState, waitedMs };
         note("start", undefined, `${lastState.ready}/${items.length} rendered, waited ${waitedMs} ms`);
 
+        // Take the single foreground-speech turn before any audio is scheduled,
+        // so the lead never plays over the greeting or another line. The lease
+        // holds the lock (and ducks the crew) until release(); it is dropped if
+        // this address is stopped (its signal aborts).
+        const lease = await acquireForegroundSpeech({ kind: "pa", priority: SPEECH_PRIORITY.briefing, external: signal });
+        if (!lease || signal.aborted) return false;
         const chain = paChain(ctx);
-        const endDuck = beginForegroundSpeech("pa");
         const sources = new Set<AudioBufferSourceNode>();
         const timers = new Set<number>();
         const cut = () => {
@@ -519,7 +524,7 @@ export function prepareBriefingAddress(lines: readonly string[], options: Briefi
           return heard;
         } finally {
           signal.removeEventListener("abort", cut);
-          endDuck();
+          lease.release();
         }
       };
 

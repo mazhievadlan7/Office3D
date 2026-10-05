@@ -207,7 +207,7 @@ export function chiefReport(floor: CouncilFloor, state: CouncilFloorState): stri
     ? `${state.incidents} ${plural(state.incidents, "инцидент", "инцидента", "инцидентов")} в работе`
     : "инцидентов нет";
   return [
-    `${floor.name}, этаж ${floor.floor}.`,
+    `${floor.name}, ${floor.callsign}.`,
     `Работаем над: ${floor.mandate}.`,
     `По находкам: ${crit}.`,
     `В строю ${state.agentsActive} из ${state.agentsTotal}, ${inc}.`,
@@ -218,7 +218,7 @@ export function chiefReport(floor: CouncilFloor, state: CouncilFloorState): stri
 export function councilAnnouncement(kind: CouncilKind, chiefCount: number): string {
   switch (kind) {
     case "daily":
-      return "Внимание штабу. Созывается ежедневное совещание совета. Шефы управлений — к столу. Докладывает каждый этаж.";
+      return "Внимание штабу. Созывается ежедневное совещание совета. Шефы управлений — к столу. Докладывает каждое управление.";
     case "evening":
       return "Внимание штабу. Вечернее подведение итогов. Шефы управлений занимают места за столом совета.";
     case "emergency":
@@ -246,7 +246,7 @@ export function am7Closing(kind: CouncilKind): string {
   if (kind === "emergency") {
     return "Совет окончен. Протокол «Кулак»: ресурсы — на критическую задачу. Решения в архив, задачи на доску. Работаем.";
   }
-  return "Совет окончен. Решения зафиксированы, задачи уходят на этажи и на доску. Отчёт владельцу — через меня. Работаем.";
+  return "Совет окончен. Решения зафиксированы, задачи уходят в управления и на доску. Отчёт владельцу — через меня. Работаем.";
 }
 
 /** A decision taken at the council, pushed to the task board and the archive. */

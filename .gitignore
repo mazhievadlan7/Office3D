@@ -97,3 +97,8 @@ __pycache__/
 # Platform (Floor 27 Security Core) runtime state: engagements, hash-chained
 # audit ledger, verify secret. Authorization + evidence data — never commit.
 platform/.data/
+
+# Floor 27 cabinet: MECHTATEL's wall portrait uses the owner's real likeness.
+# Personal data — the portrait texture stays local until the repo is private.
+# The committed code uses council-portrait-placeholder.png instead.
+public/office-assets/textures/private/

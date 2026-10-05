@@ -18,18 +18,30 @@ import {
 } from "@/features/hq/core/config";
 import type { HqAgentFrame } from "@/features/hq/core/types";
 import { HQ_PLACE, HQ_STATUS_CODE } from "@/features/hq/core/types";
-import { councilSeats, COUNCIL_DOOR, COUNCIL_HEAD, type CouncilSeat } from "./councilLayout";
+import { councilSeats, COUNCIL_AM7_ENTRANCE, COUNCIL_DOOR, COUNCIL_HEAD, type CouncilSeat } from "./councilLayout";
 
 const WALK_SPEED = 1.35;
 const RUN_SPEED = 2.4;
 /** Within this of the seat the walker slows from Run to Walk and settles. */
 const SETTLE = 1.4;
+/**
+ * Entrance pace, set per council kind. An orderly council (daily / evening /
+ * one-on-one) streams in at a measured walk; an emergency council comes in at a
+ * brisk, urgent stride — faster feet, a shorter gap between arrivals, and they
+ * jog (Run) until they are almost at their chair.
+ */
+export type CouncilPace = "orderly" | "brisk";
+const PACE_SPEED: Record<CouncilPace, number> = { orderly: 1.0, brisk: 1.55 };
+/** Seconds between successive chiefs leaving the door (the arrival wave). */
+const PACE_STAGGER: Record<CouncilPace, number> = { orderly: 0.2, brisk: 0.08 };
+/** How close before a brisk arrival drops from Run to Walk (orderly uses SETTLE). */
+const BRISK_SETTLE = 0.7;
 /** Reached the seat: snap, face the chair, sit. */
 const ARRIVE = 0.1;
 /** Longest the gather waits on a chief who never arrives (seconds). */
 const GATHER_CAP = 30;
 
-type Mode = "idle" | "walk" | "sit" | "seated" | "stand";
+type Mode = "idle" | "walk" | "sit" | "seated";
 
 type Agent = {
   id: string;
@@ -79,6 +91,7 @@ export class CouncilSimulation {
   private startedAt = 0;
   private speaker = -1; // speaking-order index (0-based) or -1
   private am7Speaking = false;
+  private pace: CouncilPace = "orderly";
 
   constructor(chiefIds: readonly string[]) {
     this.seats = councilSeats();
@@ -87,10 +100,10 @@ export class CouncilSimulation {
     this.agents = ids.map((id, i) => {
       const lead = i === 0;
       const seat = lead ? -1 : i - 1;
-      // Start at the head (AM7) or clustered by the door (chiefs waiting).
-      const start = lead
-        ? { x: COUNCIL_HEAD.x, z: COUNCIL_HEAD.z, rotY: COUNCIL_HEAD.rotY }
-        : doorSpot(seat);
+      // Everyone waits off their place before the council is called: AM7 at his
+      // own head-end door, the chiefs clustered by the far door. start() then
+      // walks them in — nobody is pre-seated, so the arrival always plays.
+      const start = lead ? COUNCIL_AM7_ENTRANCE : doorSpot(seat);
       const agent: Agent = {
         id,
         lead,
@@ -98,7 +111,7 @@ export class CouncilSimulation {
         x: start.x,
         z: start.z,
         rotY: start.rotY,
-        mode: lead ? "stand" : "idle",
+        mode: "idle",
         clip: lead ? HqClip.Idle : HqClip.Idle,
         clipTime: 0,
         prevClip: HqClip.Idle,
@@ -155,17 +168,25 @@ export class CouncilSimulation {
     return { active: this.active, gathered, expected, allSeated: gathered >= expected };
   }
 
-  /** Calls the council: the chiefs leave the door and take their seats. */
-  start(): void {
+  /**
+   * Calls the council: AM7 walks in to his throne and the chiefs stream in from
+   * the door to their seats. `pace` sets the mood — "orderly" for a daily or
+   * evening council, "brisk" for an emergency (quicker feet, a tighter arrival
+   * wave). AM7 enters first; the chiefs follow in a staggered wave.
+   */
+  start(pace: CouncilPace = "orderly"): void {
     this.active = true;
     this.startedAt = this.time;
+    this.pace = pace;
+    const step = PACE_STAGGER[pace];
     let stagger = 0;
     for (const a of this.agents) {
       if (a.lead) {
         a.tx = COUNCIL_HEAD.x;
         a.tz = COUNCIL_HEAD.z;
         a.trot = COUNCIL_HEAD.rotY;
-        if (a.mode === "idle") a.mode = "walk";
+        a.holdUntil = this.time; // the lead enters first, no wait
+        a.mode = a.mode === "seated" ? "seated" : "walk"; // already on the throne? stay
         continue;
       }
       const seat = this.seats[a.seat];
@@ -174,7 +195,7 @@ export class CouncilSimulation {
       a.trot = seat.rotY;
       a.holdUntil = this.time + stagger;
       a.mode = a.mode === "seated" ? "seated" : "walk";
-      stagger += 0.18; // the hall rises in a staggered wave, not as one
+      stagger += step; // a staggered wave, not everyone at once
     }
   }
 
@@ -218,19 +239,34 @@ export class CouncilSimulation {
   }
 
   private updateLead(a: Agent, step: number): void {
-    // Walk to the head, then preside: Talk while replying, else Idle, looking
-    // at the chief who is speaking.
-    if (a.mode === "walk") {
-      if (this.stepToward(a, step)) {
-        a.mode = "stand";
-        a.rotY = a.trot;
-      }
-    }
-    if (a.mode === "stand") {
-      this.setClip(a, this.am7Speaking ? HqClip.Talk : HqClip.StandListen);
-      a.rotY = approach(a.rotY, a.trot, step * 6);
-    } else {
-      this.setClip(a, a.mode === "walk" ? walkGait(a) : HqClip.Idle);
+    // AM7 walks in to his throne at the head, sits, then presides seated: he
+    // looks at whichever chief is reporting, like the chiefs look to him. He
+    // sits at the table like everyone else, not standing over it.
+    switch (a.mode) {
+      case "idle":
+        this.setClip(a, HqClip.Idle);
+        break;
+      case "walk":
+        this.setClip(a, this.gait(a));
+        if (this.stepToward(a, step)) {
+          a.x = a.tx;
+          a.z = a.tz;
+          a.rotY = a.trot;
+          a.mode = "sit";
+          a.sitTimer = 0;
+          this.setClip(a, HqClip.SitDown);
+        }
+        break;
+      case "sit":
+        a.sitTimer += step;
+        if (a.sitTimer >= clipDuration(HqClip.SitDown) - 0.05) a.mode = "seated";
+        break;
+      case "seated":
+        // Seated at the head: composed while a chief reports or while he replies.
+        this.setClip(a, HqClip.SitIdle);
+        break;
+      default:
+        break;
     }
     this.lookAtSpeaker(a);
   }
@@ -245,7 +281,7 @@ export class CouncilSimulation {
           this.setClip(a, HqClip.Idle);
           break;
         }
-        this.setClip(a, walkGait(a));
+        this.setClip(a, this.gait(a));
         if (this.stepToward(a, step)) {
           a.x = a.tx;
           a.z = a.tz;
@@ -281,18 +317,26 @@ export class CouncilSimulation {
     this.lookAtHead(a);
   }
 
-  /** Moves the agent toward (tx, tz); returns true on arrival. */
+  /** Moves the agent toward (tx, tz) at the current pace; returns true on arrival. */
   private stepToward(a: Agent, step: number): boolean {
     const dx = a.tx - a.x;
     const dz = a.tz - a.z;
     const dist = Math.hypot(dx, dz);
     if (dist < ARRIVE) return true;
-    const speed = dist > SETTLE ? RUN_SPEED : WALK_SPEED;
+    const settle = this.pace === "brisk" ? BRISK_SETTLE : SETTLE;
+    const speed = (dist > settle ? RUN_SPEED : WALK_SPEED) * PACE_SPEED[this.pace];
     const move = Math.min(dist, speed * step);
     a.x += (dx / dist) * move;
     a.z += (dz / dist) * move;
     a.rotY = approach(a.rotY, Math.atan2(dx, dz), step * 8);
     return false;
+  }
+
+  /** Walk or jog toward the target, by distance left and the council's pace. */
+  private gait(a: Agent): HqClip {
+    const settle = this.pace === "brisk" ? BRISK_SETTLE : SETTLE;
+    const dist = Math.hypot(a.tx - a.x, a.tz - a.z);
+    return dist > settle ? HqClip.Run : HqClip.Walk;
   }
 
   private lookAtSpeaker(a: Agent): void {
@@ -363,11 +407,6 @@ function doorSpot(seat: number): { x: number; z: number; rotY: number } {
   const x = COUNCIL_DOOR.x + rowBack * 1.0;
   const z = (col - 2.5) * 0.9;
   return { x, z, rotY: -Math.PI / 2 }; // facing −X, toward the table
-}
-
-function walkGait(a: Agent): HqClip {
-  const dist = Math.hypot(a.tx - a.x, a.tz - a.z);
-  return dist > SETTLE ? HqClip.Run : HqClip.Walk;
 }
 
 /** Eases `current` toward `target` angle by at most `maxStep` (shortest way). */

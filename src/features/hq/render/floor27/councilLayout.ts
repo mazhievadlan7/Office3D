@@ -13,11 +13,32 @@
 export const COUNCIL_TABLE_L = 11.8;
 export const COUNCIL_TABLE_W = 2.3;
 
+/**
+ * The cabinet shell (metres), shared by the room renderer (Floor27Room) and the
+ * furniture placement (councilGlb) so walls, the emblem and the lounge agree.
+ * The east wall's inner face is at width / 2 − 1 (Floor27Room insets it); the
+ * north wall is at −depth / 2.
+ */
+export const COUNCIL_ROOM = { width: COUNCIL_TABLE_L + 10, depth: 14, height: 5 } as const;
+export const COUNCIL_ROOM_EAST_X = COUNCIL_ROOM.width / 2 - 1;
+
 const ROW = COUNCIL_TABLE_W / 2 + 0.6; // chair centre, clear of the table edge
 const SEAT_PITCH = 0.9;
 const SEATS_PER_SIDE = 13;
-/** AM7's stand point at the head (−X end), facing down the table toward +X. */
-export const COUNCIL_HEAD = { x: -(COUNCIL_TABLE_L / 2 + 1.35), z: 0, rotY: Math.PI / 2 } as const;
+/**
+ * Where AM7 sits at the head (−X end), facing down the table toward +X. He sits
+ * right up at the table like the chiefs sit at theirs (≈0.8 m from the head edge
+ * to his seat centre), not set back from it.
+ */
+export const COUNCIL_HEAD = { x: -(COUNCIL_TABLE_L / 2 + 0.8), z: 0, rotY: Math.PI / 2 } as const;
+/**
+ * Where AM7 enters from before taking his throne: his own door at the head end
+ * (the screen side), clear of the table so he never walks through it. He steps
+ * in and crosses to the throne while the chiefs stream in from the far door.
+ * (When the 27-floor tower + elevator exist this becomes him stepping off the
+ * lift; the chiefs enter from COUNCIL_DOOR, the future lift lobby.)
+ */
+export const COUNCIL_AM7_ENTRANCE = { x: COUNCIL_HEAD.x - 0.7, z: ROW + 2.6, rotY: Math.PI } as const;
 /** Centre of the screen wall (behind AM7); the camera frames the table toward it. */
 export const COUNCIL_SCREEN_X = -(COUNCIL_TABLE_L / 2 + 2.6);
 /** Where agents enter the cabinet from (the +X end), spread across z. */
