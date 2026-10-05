@@ -200,7 +200,7 @@ export const HQ_CLIP_INFO: Record<HqClipName, HqClipInfo> = {
  * Bumped whenever a model under public/office-assets/models is rebuilt, so
  * browsers and proxies holding the old file fetch the new one.
  */
-const HQ_MODELS_VERSION = "2026-10-05d";
+const HQ_MODELS_VERSION = "2026-10-05e";
 export const HQ_CHARACTER_URL = `/office-assets/models/characters/hacker.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_WORKSTATION_URL = `/office-assets/models/hq/workstation.glb?v=${HQ_MODELS_VERSION}`;
 export const HQ_PROPS_URL = `/office-assets/models/hq/props.glb?v=${HQ_MODELS_VERSION}`;

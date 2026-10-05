@@ -191,50 +191,95 @@ def council_chair(p):
     _arms(p, z_top=0.6)
 
 
+# The throne stands on a dais DAIS_H high; the app lifts the seated AM7 by the
+# same amount (COUNCIL_THRONE_LIFT in councilLayout.ts) so his seat pan lands on
+# the throne's and his feet rest on the dais. Everything is built from the dais
+# top, so the seat pan is at DAIS_H + 0.47.
+DAIS_H = 0.12
+
+
 def council_head_chair(p):
-    """AM7's throne at the head of the table — unmistakably grander than the 26
-    council chairs: a high winged back with a crowned crest, a headrest, a
-    heavier five-star base, a low lit dais round its foot and a strong red light
-    signature. The seat pan stays at 0.47 so the seated AM7 still sits true; the
-    presence is all in the back, the crest, the wings and the dais."""
-    H = 1.34
+    """MECHTATEL's grand throne at the head of the long table — unmistakably the
+    largest and most ornate seat in the room, obviously bigger than every council
+    chair: a two-tier lit dais, a solid sculpted pedestal base (not a caster
+    base), a wide red-accented leather seat with heavy sculpted arms, and a tall
+    winged, crowned high back with quilted channels and red light lines. Faces
+    -Y. The seat pan sits at DAIS_H + 0.47."""
+    seat = DAIS_H + SEAT  # 0.59
     _throne_dais(p)
-    _star_base(p, reach=0.42)
-    _seat_pan(p)
-    _back(p, height=H, channels=9, headrest=True)
-    _throne_crest(p, H)
-    _arms(p, z_top=0.66)
-    # a thin red halo on the floor behind the throne
-    p.merge("emissive_red_soft", ribbon_closed(ex.circle2d(0.46, 48, 0, 0.1), 0.006, 0.012, out=0.0008))
+    _throne_pedestal(p, seat)
+    _throne_seat(p, seat)
+    _throne_arms(p, seat)
+    _throne_back(p, seat, top=seat + 1.22)
 
 
 def _throne_dais(p):
-    """A low circular dais the throne stands on: flush enough that AM7's feet
-    rest on it, a black plinth with a red light ring round its edge."""
-    r = 0.92
-    p.lathe("black_satin", [(0.0, 0.0), (r - 0.04, 0.0), (r, 0.03), (r, 0.075),
-                            (r - 0.05, 0.08), (0.0, 0.08)], segs=56, true_poles=True)
-    p.merge("emissive_red_soft", ribbon_closed(ex.circle2d(r - 0.018, 56, 0, 0.0), 0.079, 0.082, out=0.001))
-    p.merge("emissive_red_soft", flat_ring(ex.circle2d(r + 0.005, 56, 0, 0.0), 0.003, 0.0))
+    """A low two-tier plinth the throne stands on, each tier edged with a red
+    light line. Biased back (toward +Y / the screen) so it never meets the table."""
+    p.rbox("black_satin", (2.1, 1.9, 0.07), (0, -0.12, 0.035), r=0.06, steps=2)
+    p.merge("emissive_red_soft", flat_ring(rrect2d(2.0, 1.8, 0.1, 5, 0, -0.12), 0.071, 0.0))
+    p.rbox("black_gloss", (1.62, 1.44, 0.06), (0, -0.06, 0.09), r=0.05, steps=2)
+    p.merge("emissive_red_soft", flat_ring(rrect2d(1.52, 1.34, 0.08, 5, 0, -0.06), 0.121, 0.0))
 
 
-def _throne_crest(p, H):
-    """Winged upper back and a crowned crest above the headrest, in the back's
-    reclined frame (matching _back): two tapered gloss wings and a capping bar
-    with a red light edge, so the head of the table reads as a throne."""
-    with p.frame((0, 0.225, 0.43), (-0.16, 0, 0)):
-        # wings: tapered gloss panels flaring out either side of the upper back
+def _throne_pedestal(p, seat):
+    """A solid sculpted pedestal (not a star base): a wide lit footing on the
+    dais and a tapered gloss column with a brushed band up to the seat."""
+    p.rbox("black_matte", (1.1, 1.0, 0.1), (0, -0.02, DAIS_H + 0.05), r=0.04, steps=2)
+    p.merge("emissive_red_soft", flat_ring(rrect2d(1.0, 0.9, 0.06, 5, 0, -0.02), DAIS_H + 0.101, 0.0))
+    colh = seat - (DAIS_H + 0.1) - 0.04
+    p.rbox("black_gloss", (0.82, 0.74, colh), (0, 0, DAIS_H + 0.1 + colh / 2), r=0.05, steps=2)
+    p.box("metal_brushed", (0.88, 0.8, 0.025), (0, 0, seat - 0.1), bevel=0.01)
+
+
+def _throne_seat(p, seat):
+    """A wide quilted leather seat with a red piping line round the rim."""
+    p.rbox("black_gloss", (0.96, 0.88, 0.06), (0, 0, seat - 0.03), r=0.06, steps=2)
+    p.rbox("leather", (0.86, 0.78, 0.1), (0, 0.0, seat + 0.045), r=0.05, steps=2, splits=(2, 2, 0),
+           bulge=(0, 0, 0.014))
+    p.merge("emissive_red", ribbon_closed(rrect2d(0.92, 0.84, 0.06, 6), seat - 0.002, seat + 0.014))
+
+
+def _throne_arms(p, seat):
+    """Heavy gloss arm blocks with padded leather tops and a red light line."""
+    for sx in (-1, 1):
+        p.rbox("black_gloss", (0.14, 0.82, 0.32), (sx * 0.53, 0.0, seat + 0.16), r=0.04, steps=2)
+        p.rbox("leather", (0.16, 0.66, 0.08), (sx * 0.53, -0.04, seat + 0.33), r=0.03, steps=2,
+               splits=(0, 3, 0), bulge=(0, 0, 0.007))
+        p.box("emissive_red", (0.006, 0.54, 0.004), (sx * 0.6, -0.04, seat + 0.31), bevel=0.0)
+
+
+def _throne_back(p, seat, top):
+    """A tall winged high back: a wide gloss shell with a red light rim, quilted
+    leather channels, a headrest, a brushed rear spine, flaring shoulder wings
+    and a crowned crest with a lit finial."""
+    BH = top - (seat + 0.06)
+    with p.frame((0, 0.4, seat + 0.06), (-0.12, 0, 0)):
+        outline = rrect2d(1.0, BH, 0.18, 7, 0, BH / 2)
+        shell = sweep_closed(outline, [(0.022, 0.0), (0.008, 0.02), (0.0, 0.05), (0.0, 0.07),
+                                       (0.008, 0.086), (0.022, 0.095)], sharp=50)
+        p.merge("black_gloss", to_xz(shell, 0.02))
+        p.merge("emissive_red", to_xz(ribbon_closed(outline, 0.026, 0.03, out=0.0016), 0.02))
+        chh = (BH - 0.22) / 7
+        for i in range(7):
+            zc = 0.1 + (i + 0.5) * chh
+            p.merge("leather", rbox_bm((0.74, 0.088, chh - 0.012), (0, -0.02, zc), r=0.032, steps=2,
+                                       splits=(5, 0, 1), bulge=(0, 0.014, 0)))
+        p.merge("leather", rbox_bm((0.56, 0.1, 0.2), (0, -0.03, 0.1 + 7 * chh + 0.12), r=0.045, steps=2,
+                                   splits=(4, 0, 1), bulge=(0, 0.016, 0)))
+        spine = rrect2d(0.13, BH * 0.86, 0.05, 6, 0, BH * 0.43 + 0.06)
+        p.merge("metal_brushed", to_xz(sweep_closed(spine, [(0.006, 0.0), (0.0, 0.006), (0.0, 0.016),
+                                                            (0.004, 0.02)]), 0.078))
+        p.box("emissive_red", (0.006, 0.004, BH * 0.7), (0, 0.098, BH * 0.46 + 0.06), bevel=0.0)
         for sx in (-1, 1):
-            p.box("black_gloss", (0.12, 0.055, 0.5), (sx * 0.34, 0.03, H * 0.66),
-                  rot=(0, sx * 0.12, sx * 0.14), bevel=0.012)
-            p.box("emissive_red", (0.006, 0.004, 0.42), (sx * 0.40, 0.055, H * 0.66),
-                  rot=(0, sx * 0.12, sx * 0.14), bevel=0.0)
-        # crowned crest: a wide capping bar above the headrest with a red seam
-        p.box("black_gloss", (0.68, 0.085, 0.07), (0, 0.03, H + 0.03), bevel=0.016)
-        p.box("metal_brushed", (0.6, 0.055, 0.02), (0, 0.07, H + 0.03), bevel=0.004)
-        p.box("emissive_red", (0.5, 0.004, 0.004), (0, 0.082, H + 0.03), bevel=0.0)
-        # a short red spine rising into the crest from the headrest
-        p.box("emissive_red", (0.006, 0.004, 0.12), (0, 0.06, H - 0.04), bevel=0.0)
+            p.box("black_gloss", (0.18, 0.09, 0.66), (sx * 0.53, 0.03, BH * 0.72),
+                  rot=(0, sx * 0.17, sx * 0.13), bevel=0.02)
+            p.box("emissive_red", (0.006, 0.004, 0.54), (sx * 0.61, 0.06, BH * 0.72),
+                  rot=(0, sx * 0.17, sx * 0.13), bevel=0.0)
+        p.box("black_gloss", (1.06, 0.12, 0.1), (0, 0.03, BH + 0.05), bevel=0.02)
+        p.box("metal_brushed", (0.9, 0.06, 0.03), (0, 0.078, BH + 0.05), bevel=0.006)
+        p.box("emissive_red", (0.74, 0.004, 0.006), (0, 0.095, BH + 0.05), bevel=0.0)
+        p.box("emissive_red", (0.03, 0.03, 0.15), (0, 0.06, BH + 0.14), rot=(0, 0, 0.785), bevel=0.0)
 
 
 # The back-wall art — the герб (emblem), MECHTATEL's portrait and the motto —
@@ -311,7 +356,7 @@ KINDS = [
     ("council_tv", council_tv),
     ("council_plant", council_plant),
 ]
-BUDGET = {"council_table": 20000, "council_chair": 16000, "council_head_chair": 28000,
+BUDGET = {"council_table": 20000, "council_chair": 16000, "council_head_chair": 46000,
           "council_screen": 4000, "council_sofa": 9000,
           "council_lounge_chair": 6000, "council_lounge_table": 6000, "council_tv": 4000,
           "council_plant": 9000}

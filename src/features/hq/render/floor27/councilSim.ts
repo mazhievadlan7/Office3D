@@ -18,7 +18,14 @@ import {
 } from "@/features/hq/core/config";
 import type { HqAgentFrame } from "@/features/hq/core/types";
 import { HQ_PLACE, HQ_STATUS_CODE } from "@/features/hq/core/types";
-import { councilSeats, COUNCIL_AM7_ENTRANCE, COUNCIL_DOOR, COUNCIL_HEAD, type CouncilSeat } from "./councilLayout";
+import {
+  councilSeats,
+  COUNCIL_AM7_ENTRANCE,
+  COUNCIL_DOOR,
+  COUNCIL_HEAD,
+  COUNCIL_THRONE_LIFT,
+  type CouncilSeat,
+} from "./councilLayout";
 
 const WALK_SPEED = 1.35;
 const RUN_SPEED = 2.4;
@@ -92,6 +99,8 @@ export class CouncilSimulation {
   private speaker = -1; // speaking-order index (0-based) or -1
   private am7Speaking = false;
   private pace: CouncilPace = "orderly";
+  /** AM7's current height off the floor, eased up onto the throne's dais when he sits. */
+  private leadLift = 0;
 
   constructor(chiefIds: readonly string[]) {
     this.seats = councilSeats();
@@ -268,6 +277,9 @@ export class CouncilSimulation {
       default:
         break;
     }
+    // Ease AM7 up onto the dais as he sits (and back down if a council resets).
+    const liftTarget = a.mode === "sit" || a.mode === "seated" ? COUNCIL_THRONE_LIFT : 0;
+    this.leadLift += (liftTarget - this.leadLift) * Math.min(1, step * 4);
     this.lookAtSpeaker(a);
   }
 
@@ -383,7 +395,7 @@ export class CouncilSimulation {
     for (let i = 0; i < this.agents.length; i += 1) {
       const a = this.agents[i];
       f.x[i] = a.x;
-      f.y[i] = 0;
+      f.y[i] = a.lead ? this.leadLift : 0;
       f.z[i] = a.z;
       f.facing[i] = a.rotY;
       f.clip[i] = a.clip;

@@ -27,10 +27,17 @@ const SEAT_PITCH = 0.9;
 const SEATS_PER_SIDE = 13;
 /**
  * Where AM7 sits at the head (−X end), facing down the table toward +X. He sits
- * right up at the table like the chiefs sit at theirs (≈0.8 m from the head edge
- * to his seat centre), not set back from it.
+ * right up at the table like the chiefs sit at theirs (his seat centre ≈0.6 m
+ * from the head edge, so his knees meet the table), never set back from it.
  */
-export const COUNCIL_HEAD = { x: -(COUNCIL_TABLE_L / 2 + 0.8), z: 0, rotY: Math.PI / 2 } as const;
+export const COUNCIL_HEAD = { x: -(COUNCIL_TABLE_L / 2 + 0.6), z: 0, rotY: Math.PI / 2 } as const;
+/**
+ * The throne stands on a low dais, so AM7 is seated a little higher than the
+ * chiefs. This lift (metres) raises his seated root onto the dais top; it mirrors
+ * DAIS_H in blender/hq/council.py so his seat pan lands on the throne's and his
+ * feet rest on the dais.
+ */
+export const COUNCIL_THRONE_LIFT = 0.12;
 /**
  * Where AM7 enters from before taking his throne: his own door at the head end
  * (the screen side), clear of the table so he never walks through it. He steps
