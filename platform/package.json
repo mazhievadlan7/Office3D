@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "control-plane": "node control-plane/index.js",
-    "test": "node --test \"core/__tests__/**/*.test.js\"",
+    "test": "node --test \"core/__tests__/**/*.test.js\" \"orchestrator/__tests__/**/*.test.js\"",
     "emit-prompt": "node core/emit-system-prompt.js",
     "emit-governance-json": "node core/emit-system-prompt.js --rules-json > archive/governance.json"
   }

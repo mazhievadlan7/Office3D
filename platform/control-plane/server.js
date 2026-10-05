@@ -77,10 +77,11 @@ const readBody = (req) =>
 /**
  * @param {object} deps
  * @param {ReturnType<import("../core/index.js").createAegisCore>} deps.core
+ * @param {ReturnType<import("../orchestrator/index.js").createOrchestrator>} [deps.orchestrator]  task-routing control plane
  * @param {string} deps.token  the PLATFORM_TOKEN; required (non-empty)
  * @param {(entry: object) => void} [deps.log]  structured logger (one JSON object per call)
  */
-const createControlPlaneServer = ({ core, token, log = () => {} }) => {
+const createControlPlaneServer = ({ core, orchestrator = null, token, log = () => {} }) => {
   if (!core) throw new Error("control-plane needs a core");
   if (!token) throw new Error("control-plane needs a PLATFORM_TOKEN");
 
@@ -187,6 +188,59 @@ const createControlPlaneServer = ({ core, token, log = () => {} }) => {
       const { RULES, composeSystemPrompt } = require("../core/governance.js");
       const engagement = engagementId ? core.engagements.get(engagementId) : null;
       return send(200, { rules: RULES, prompt: composeSystemPrompt({ engagement, agentName: url.searchParams.get("agent") || "" }) });
+    }
+
+    // --- orchestrator: work items, board, capability registry -----------------
+    // All loopback-only + token-gated like the rest; every transition is audited
+    // inside the orchestrator, and acting transitions pass preflight (fail-closed).
+    if (seg[1] === "work-items" || seg[1] === "board" || seg[1] === "registry") {
+      if (!orchestrator) return send(503, { error: "unavailable", reason: "оркестратор не подключён" });
+
+      // GET /v1/board — board summary + open items
+      if (seg[1] === "board" && seg.length === 2 && method === "GET") {
+        const limit = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : undefined;
+        return send(200, { summary: orchestrator.summary(), items: orchestrator.listItems({ open: true, limit }) });
+      }
+
+      // GET /v1/registry — list; GET /v1/registry/:unit/:role — one capsule
+      if (seg[1] === "registry" && method === "GET") {
+        if (seg.length === 2) return send(200, { source: orchestrator.registry.source, entries: orchestrator.registry.list() });
+        if (seg.length === 4) {
+          const entry = orchestrator.registry.get(seg[2], seg[3]);
+          return entry ? send(200, entry) : send(404, { error: "not_found", reason: `нет записи реестра для ${seg[2]}:${seg[3]}` });
+        }
+      }
+
+      // /v1/work-items ...
+      if (seg[1] === "work-items") {
+        if (seg.length === 2) {
+          if (method === "GET") {
+            const filter = {};
+            if (url.searchParams.has("unit")) filter.unit = Number(url.searchParams.get("unit"));
+            if (url.searchParams.has("status")) filter.status = url.searchParams.get("status");
+            if (url.searchParams.has("kind")) filter.kind = url.searchParams.get("kind");
+            if (url.searchParams.has("engagementId")) filter.engagementId = url.searchParams.get("engagementId");
+            if (url.searchParams.get("open") === "true") filter.open = true;
+            if (url.searchParams.has("limit")) filter.limit = Number(url.searchParams.get("limit"));
+            return send(200, { items: orchestrator.listItems(filter) });
+          }
+          if (method === "POST") return send(201, orchestrator.createItem(body));
+        }
+        const id = seg[2];
+        if (id) {
+          if (seg.length === 3 && method === "GET") {
+            const item = orchestrator.getItem(id);
+            return item ? send(200, item) : send(404, { error: "not_found", reason: `рабочий элемент не найден: ${id}` });
+          }
+          const action = seg[3];
+          if (seg.length === 4 && method === "POST") {
+            // quarantine is a Карцер hook, not a state-machine transition.
+            if (action === "quarantine") return send(200, orchestrator.quarantine(id, body));
+            if (orchestrator.ACTIONS.includes(action)) return send(200, orchestrator.transition(id, action, body));
+            return send(404, { error: "not_found", reason: `неизвестный переход: ${action}` });
+          }
+        }
+      }
     }
 
     // /v1/engagements ...

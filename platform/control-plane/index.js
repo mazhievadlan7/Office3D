@@ -17,6 +17,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const { createAegisCore } = require("../core/index.js");
+const { createOrchestrator } = require("../orchestrator/index.js");
 const { createControlPlaneServer } = require("./server.js");
 
 const log = (entry) => process.stdout.write(`${JSON.stringify({ svc: "aegis-control-plane", ...entry })}\n`);
@@ -64,7 +65,17 @@ const start = (env = process.env) => {
     autoStop: config.autoStop,
   });
 
-  const server = createControlPlaneServer({ core, token: config.token, log });
+  // Task-routing control plane (orchestrator), reusing the core's audit + preflight.
+  // Reclone intents from the Карцер are logged here; the actual container restart
+  // is a runtime concern handled elsewhere.
+  const orchestrator = createOrchestrator({
+    core,
+    dataDir: config.dataDir,
+    logError,
+    onReclone: (intent) => log({ at: new Date().toISOString(), event: "reclone_intent", intent }),
+  });
+
+  const server = createControlPlaneServer({ core, orchestrator, token: config.token, log });
 
   return new Promise((resolve) => {
     server.listen(config.port, config.host, () => {
@@ -80,13 +91,14 @@ const start = (env = process.env) => {
         gate0: config.gate0.enabled,
         autoStop: config.autoStop.threshold > 0,
       });
-      resolve({ server, core, config });
+      resolve({ server, core, orchestrator, config });
     });
   });
 };
 
-const stop = async ({ server, core }) => {
+const stop = async ({ server, core, orchestrator }) => {
   await new Promise((resolve) => server.close(resolve));
+  if (orchestrator) await orchestrator.close();
   await core.close();
 };
 
