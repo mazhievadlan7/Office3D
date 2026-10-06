@@ -26,6 +26,8 @@ type ProxyTarget = {
   contentType: string;
   /** How long we cache this response (seconds) at the edge; also caps our own refetch. */
   maxAge: number;
+  /** Per-source upstream timeout; falls back to FETCH_TIMEOUT_MS when unset. */
+  timeoutMs?: number;
 };
 
 /** Allowlist. Adding here is the only way the «ГЕО» view opens a new egress. */
@@ -60,6 +62,33 @@ const TARGETS: Record<string, ProxyTarget> = {
     contentType: "application/json; charset=utf-8",
     maxAge: 60,
   },
+  // USGS past-day earthquakes (M2.5+), keyless, free. GeoJSON feed, CORS `*`.
+  earthquakes: {
+    id: "earthquakes",
+    url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+    contentType: "application/geo+json; charset=utf-8",
+    maxAge: 120,
+  },
+  // NHC active Atlantic tropical cyclones, keyless. KML of positions + forecast cones.
+  "cyclones-atlantic": {
+    id: "cyclones-atlantic",
+    url: "https://www.nhc.noaa.gov/gis/kml/nhc_active.kml",
+    contentType: "application/vnd.google-earth.kml+xml; charset=utf-8",
+    maxAge: 600,
+  },
+  // Upcoming rocket launches worldwide (The Space Devs Launch Library 2, free tier,
+  // slow public endpoint — the server-side fetch gets a longer timeout than the default).
+  // Carries pad.latitude / pad.longitude on each result; no second lookup needed.
+  "rocket-launches": {
+    id: "rocket-launches",
+    url: "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=20",
+    contentType: "application/json; charset=utf-8",
+    maxAge: 1800,
+    timeoutMs: 20_000,
+  },
+  // Note: datacenters and dams are bundled as static JSON under public/geo/ instead of a
+  // remote feed — they are reference catalogues, not live telemetry, and shipping them with
+  // the app avoids one more egress and one more trust decision.
 };
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -90,7 +119,7 @@ export async function GET(request: Request) {
   }
   const target = TARGETS[name];
   try {
-    const upstream = await fetchWithTimeout(target.url, FETCH_TIMEOUT_MS);
+    const upstream = await fetchWithTimeout(target.url, target.timeoutMs ?? FETCH_TIMEOUT_MS);
     if (!upstream.ok) {
       return NextResponse.json(
         { error: `Источник ответил ${upstream.status}`, source: target.id },

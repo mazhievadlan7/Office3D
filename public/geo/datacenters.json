@@ -1,0 +1,25 @@
+{
+  "_note": "Curated reference set of well-known hyperscale datacenter campuses. Public, approximate locations (campus centroids, not exact buildings). Non-exhaustive — add more as needed.",
+  "items": [
+    { "id": "dc-ashburn", "name": "Ashburn / Loudoun County", "operator": "Multi-tenant (AWS, Equinix, Digital Realty, …)", "lat": 39.0438, "lon": -77.4874, "country": "US" },
+    { "id": "dc-prineville", "name": "Prineville", "operator": "Meta / Facebook", "lat": 44.2994, "lon": -120.8347, "country": "US" },
+    { "id": "dc-the-dalles", "name": "The Dalles", "operator": "Google", "lat": 45.6321, "lon": -121.1787, "country": "US" },
+    { "id": "dc-quincy", "name": "Quincy", "operator": "Microsoft Azure", "lat": 47.2345, "lon": -119.8524, "country": "US" },
+    { "id": "dc-council-bluffs", "name": "Council Bluffs", "operator": "Google", "lat": 41.2619, "lon": -95.8608, "country": "US" },
+    { "id": "dc-san-antonio", "name": "San Antonio Westover Hills", "operator": "Microsoft Azure", "lat": 29.5159, "lon": -98.6872, "country": "US" },
+    { "id": "dc-dublin", "name": "Dublin / Grange Castle", "operator": "Multi-tenant (AWS, Google, Microsoft)", "lat": 53.3148, "lon": -6.4316, "country": "IE" },
+    { "id": "dc-london-slough", "name": "Slough Trading Estate", "operator": "Equinix / Digital Realty / …", "lat": 51.5134, "lon": -0.6007, "country": "GB" },
+    { "id": "dc-amsterdam", "name": "Amsterdam Science Park", "operator": "AMS-IX / Equinix / …", "lat": 52.3561, "lon": 4.9553, "country": "NL" },
+    { "id": "dc-frankfurt", "name": "Frankfurt", "operator": "DE-CIX / Equinix / Digital Realty", "lat": 50.1109, "lon": 8.6821, "country": "DE" },
+    { "id": "dc-stockholm", "name": "Stockholm / Luleå", "operator": "Hydro66 / Meta (Luleå)", "lat": 65.5848, "lon": 22.1547, "country": "SE" },
+    { "id": "dc-paris", "name": "Paris / La Courneuve", "operator": "Interxion / Equinix", "lat": 48.9272, "lon": 2.3987, "country": "FR" },
+    { "id": "dc-singapore", "name": "Singapore / Tanjong Kling", "operator": "Multi-tenant (AWS, Google, Microsoft)", "lat": 1.3193, "lon": 103.7055, "country": "SG" },
+    { "id": "dc-tokyo", "name": "Tokyo / Inzai", "operator": "Multi-tenant (AWS, Equinix, …)", "lat": 35.8306, "lon": 140.1443, "country": "JP" },
+    { "id": "dc-mumbai", "name": "Mumbai / Mahape", "operator": "Multi-tenant (AWS, STT, …)", "lat": 19.1097, "lon": 73.0177, "country": "IN" },
+    { "id": "dc-saopaulo", "name": "São Paulo / Barueri", "operator": "Multi-tenant (AWS, Equinix, Ascenty)", "lat": -23.5106, "lon": -46.8761, "country": "BR" },
+    { "id": "dc-sydney", "name": "Sydney / Macquarie Park", "operator": "Multi-tenant (AWS, Equinix)", "lat": -33.7757, "lon": 151.1143, "country": "AU" },
+    { "id": "dc-hongkong", "name": "Hong Kong / Tseung Kwan O", "operator": "Multi-tenant (Equinix, PCCW)", "lat": 22.3119, "lon": 114.2648, "country": "HK" },
+    { "id": "dc-moscow", "name": "Moscow / IXcellerate", "operator": "IXcellerate / 3data", "lat": 55.6124, "lon": 37.5361, "country": "RU" },
+    { "id": "dc-dubai", "name": "Dubai / Equinix DX1", "operator": "Equinix / Khazna", "lat": 25.0657, "lon": 55.1713, "country": "AE" }
+  ]
+}

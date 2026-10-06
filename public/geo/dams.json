@@ -1,0 +1,25 @@
+{
+  "_note": "Curated reference set of large hydroelectric and water-storage dams. Public, approximate crest coordinates. Non-exhaustive.",
+  "items": [
+    { "id": "dam-three-gorges", "name": "Three Gorges (三峡大坝)", "country": "CN", "lat": 30.8233, "lon": 111.0036, "capacityMW": 22500 },
+    { "id": "dam-itaipu", "name": "Itaipu", "country": "BR/PY", "lat": -25.4080, "lon": -54.5886, "capacityMW": 14000 },
+    { "id": "dam-xiluodu", "name": "Xiluodu (溪洛渡)", "country": "CN", "lat": 28.2572, "lon": 103.6442, "capacityMW": 13860 },
+    { "id": "dam-belo-monte", "name": "Belo Monte", "country": "BR", "lat": -3.1133, "lon": -51.7817, "capacityMW": 11233 },
+    { "id": "dam-guri", "name": "Guri (Simón Bolívar)", "country": "VE", "lat": 7.7667, "lon": -62.9833, "capacityMW": 10235 },
+    { "id": "dam-tucurui", "name": "Tucuruí", "country": "BR", "lat": -3.8306, "lon": -49.6469, "capacityMW": 8370 },
+    { "id": "dam-grand-coulee", "name": "Grand Coulee", "country": "US", "lat": 47.9565, "lon": -118.9826, "capacityMW": 6809 },
+    { "id": "dam-xiangjiaba", "name": "Xiangjiaba (向家坝)", "country": "CN", "lat": 28.6469, "lon": 104.3819, "capacityMW": 6448 },
+    { "id": "dam-longtan", "name": "Longtan (龙滩)", "country": "CN", "lat": 25.0217, "lon": 107.0383, "capacityMW": 6426 },
+    { "id": "dam-krasnoyarsk", "name": "Krasnoyarsk / Красноярская", "country": "RU", "lat": 55.9344, "lon": 92.2956, "capacityMW": 6000 },
+    { "id": "dam-sayano-shushenskaya", "name": "Sayano–Shushenskaya / Саяно-Шушенская", "country": "RU", "lat": 52.8292, "lon": 91.3717, "capacityMW": 6400 },
+    { "id": "dam-churchill-falls", "name": "Churchill Falls", "country": "CA", "lat": 53.5410, "lon": -63.5831, "capacityMW": 5428 },
+    { "id": "dam-gov-mahatma-gandhi", "name": "Robert-Bourassa (La Grande-2)", "country": "CA", "lat": 53.7889, "lon": -77.4411, "capacityMW": 5616 },
+    { "id": "dam-aswan-high", "name": "Aswan High", "country": "EG", "lat": 23.9712, "lon": 32.8775, "capacityMW": 2100 },
+    { "id": "dam-hoover", "name": "Hoover", "country": "US", "lat": 36.0160, "lon": -114.7377, "capacityMW": 2080 },
+    { "id": "dam-ataturk", "name": "Atatürk", "country": "TR", "lat": 37.4833, "lon": 38.3167, "capacityMW": 2400 },
+    { "id": "dam-kariba", "name": "Kariba", "country": "ZM/ZW", "lat": -16.5222, "lon": 28.7619, "capacityMW": 1830 },
+    { "id": "dam-high-aswan", "name": "Merowe", "country": "SD", "lat": 18.6833, "lon": 32.0667, "capacityMW": 1250 },
+    { "id": "dam-nurek", "name": "Nurek / Нурекская", "country": "TJ", "lat": 38.3703, "lon": 69.3486, "capacityMW": 3015 },
+    { "id": "dam-bratsk", "name": "Bratsk / Братская", "country": "RU", "lat": 56.3000, "lon": 101.7667, "capacityMW": 4500 }
+  ]
+}

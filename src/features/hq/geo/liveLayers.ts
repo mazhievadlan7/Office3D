@@ -22,7 +22,18 @@ import * as satellite from "satellite.js";
  * unmounts and destroy() runs).
  */
 
-export type LiveLayerId = "flights" | "satellites" | "weather" | "vessels" | "fires" | "cameras";
+export type LiveLayerId =
+  | "flights"
+  | "satellites"
+  | "weather"
+  | "vessels"
+  | "fires"
+  | "cameras"
+  | "earthquakes"
+  | "cyclones"
+  | "launches"
+  | "datacenters"
+  | "dams";
 
 export type LiveLayerDef = {
   id: LiveLayerId;
@@ -39,6 +50,11 @@ export const LIVE_LAYERS: readonly LiveLayerDef[] = [
   { id: "flights", label: "Рейсы", source: "OpenSky", needsKey: false },
   { id: "satellites", label: "Спутники", source: "CelesTrak", needsKey: false },
   { id: "weather", label: "Погода", source: "RainViewer", needsKey: false },
+  { id: "earthquakes", label: "Землетрясения", source: "USGS", needsKey: false },
+  { id: "cyclones", label: "Циклоны", source: "NHC NOAA", needsKey: false },
+  { id: "launches", label: "Пуски ракет", source: "SpaceX API", needsKey: false },
+  { id: "datacenters", label: "Дата-центры", source: "Bundled", needsKey: false },
+  { id: "dams", label: "Плотины", source: "Bundled", needsKey: false },
   { id: "vessels", label: "Суда", source: "AISStream", needsKey: true, keyEnv: "NEXT_PUBLIC_AISSTREAM_KEY" },
   { id: "fires", label: "Пожары", source: "NASA FIRMS", needsKey: true, keyEnv: "NEXT_PUBLIC_NASA_FIRMS_KEY" },
   { id: "cameras", label: "Камеры", source: "Windy", needsKey: true, keyEnv: "NEXT_PUBLIC_WINDY_WEBCAMS_KEY" },
@@ -567,6 +583,28 @@ export function startLiveLayer(
       return startSatellites(viewer, onError);
     case "weather":
       return startWeather(viewer, onError);
+    case "earthquakes":
+      return startEarthquakes(viewer, onError);
+    case "cyclones":
+      return startCyclones(viewer, onError);
+    case "launches":
+      return startLaunches(viewer, onError);
+    case "datacenters":
+      return startBundledPins(viewer, onError, {
+        url: "/geo/datacenters.json",
+        sourceName: "hq-geo-datacenters",
+        color: Cesium.Color.fromCssColorString("#9b7bff"),
+        pixelSize: 7,
+        label: (it: BundledItem) => `${it.name} · ${it.operator ?? it.country}`,
+      });
+    case "dams":
+      return startBundledPins(viewer, onError, {
+        url: "/geo/dams.json",
+        sourceName: "hq-geo-dams",
+        color: Cesium.Color.fromCssColorString("#4bd1ff"),
+        pixelSize: 6,
+        label: (it: BundledItem) => `${it.name} · ${it.capacityMW ? `${it.capacityMW} МВт` : it.country}`,
+      });
     case "vessels":
       return LIVE_KEYS.vessels ? startVessels(viewer, onError, LIVE_KEYS.vessels) : null;
     case "fires":
@@ -576,4 +614,327 @@ export function startLiveLayer(
     default:
       return null;
   }
+}
+
+// --- Earthquakes (USGS past day, M2.5+, keyless, via proxy) ------------------
+
+const USGS_URL = "/api/geo/live?source=earthquakes";
+const EQ_INTERVAL_MS = 5 * 60 * 1_000;
+const MAX_QUAKES = 400;
+
+type UsgsQuake = {
+  properties: { mag: number; place: string; time: number; title?: string };
+  geometry: { coordinates: [number, number, number] };
+  id: string;
+};
+type UsgsFeed = { features?: UsgsQuake[] };
+
+function quakeColor(mag: number): Cesium.Color {
+  if (mag >= 6) return Cesium.Color.fromCssColorString("#ff3b3b");
+  if (mag >= 5) return Cesium.Color.fromCssColorString("#ff8a3a");
+  if (mag >= 4) return Cesium.Color.fromCssColorString("#ffd24a");
+  return Cesium.Color.fromCssColorString("#8ad6ff");
+}
+
+function startEarthquakes(viewer: Cesium.Viewer, onError: (message: string) => void): LiveLayerHandle {
+  const source = new Cesium.CustomDataSource("hq-geo-earthquakes");
+  void viewer.dataSources.add(source);
+  let alive = true;
+
+  const tick = async (): Promise<void> => {
+    try {
+      const response = await fetch(USGS_URL, { cache: "no-store" });
+      if (!response.ok) throw new Error(`USGS ${response.status}`);
+      const data = (await response.json()) as UsgsFeed;
+      if (!alive) return;
+      source.entities.removeAll();
+      const features = (data.features ?? []).slice(0, MAX_QUAKES);
+      for (const feature of features) {
+        const [lon, lat, depth] = feature.geometry.coordinates;
+        const mag = feature.properties.mag ?? 0;
+        source.entities.add({
+          id: `eq-${feature.id}`,
+          position: Cesium.Cartesian3.fromDegrees(lon, lat, -depth * 1_000),
+          point: {
+            pixelSize: Math.max(4, Math.min(22, 4 + mag * 2.5)),
+            color: quakeColor(mag).withAlpha(0.75),
+            outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+            outlineWidth: 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          properties: {
+            kind: "earthquake",
+            magnitude: mag,
+            place: feature.properties.place,
+            time: feature.properties.time,
+          },
+        });
+      }
+      viewer.scene.requestRender();
+    } catch (error) {
+      if (alive) onError(message(error));
+    }
+  };
+
+  const poller = makePoller(tick, EQ_INTERVAL_MS);
+  poller.start();
+  return {
+    setPaused(paused) {
+      if (paused) poller.stop();
+      else poller.start();
+    },
+    destroy() {
+      alive = false;
+      poller.stop();
+      viewer.dataSources.remove(source, true);
+    },
+  };
+}
+
+// --- Cyclones (NHC active KML, keyless, via proxy) ---------------------------
+
+const NHC_URL = "/api/geo/live?source=cyclones-atlantic";
+const CYCLONE_INTERVAL_MS = 10 * 60 * 1_000;
+
+function startCyclones(viewer: Cesium.Viewer, onError: (message: string) => void): LiveLayerHandle {
+  const source = new Cesium.CustomDataSource("hq-geo-cyclones");
+  void viewer.dataSources.add(source);
+  let alive = true;
+
+  // Match the eye position (longitude, latitude) carried in <coordinates>.
+  const COORD_RE = /<coordinates>\s*([-\d.]+)\s*,\s*([-\d.]+)/gi;
+  // Match the short label on the storm's track.
+  const NAME_RE = /<name>([^<]{1,80})<\/name>/i;
+
+  const tick = async (): Promise<void> => {
+    try {
+      const response = await fetch(NHC_URL, { cache: "no-store" });
+      if (!response.ok) throw new Error(`NHC ${response.status}`);
+      const kml = await response.text();
+      if (!alive) return;
+      source.entities.removeAll();
+      // The NHC "nhc_active.kml" is a NetworkLink wrapper; it still carries the per-storm
+      // names and coordinates for the browser to show as markers until we parse the sub-KMLs.
+      const nameMatch = kml.match(NAME_RE);
+      const storms: Array<{ lon: number; lat: number }> = [];
+      for (const match of kml.matchAll(COORD_RE)) {
+        const lon = Number.parseFloat(match[1]);
+        const lat = Number.parseFloat(match[2]);
+        if (Number.isFinite(lon) && Number.isFinite(lat)) storms.push({ lon, lat });
+      }
+      const label = nameMatch?.[1]?.trim() ?? "Active cyclones";
+      storms.slice(0, 32).forEach((s, i) => {
+        source.entities.add({
+          id: `cy-${i}`,
+          position: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 0),
+          point: {
+            pixelSize: 10,
+            color: Cesium.Color.fromCssColorString("#54f0c8").withAlpha(0.85),
+            outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+            outlineWidth: 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: label,
+            font: "10px monospace",
+            pixelOffset: new Cesium.Cartesian2(10, -10),
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            showBackground: true,
+            backgroundColor: Cesium.Color.BLACK.withAlpha(0.5),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          properties: { kind: "cyclone", name: label },
+        });
+      });
+      viewer.scene.requestRender();
+    } catch (error) {
+      if (alive) onError(message(error));
+    }
+  };
+
+  const poller = makePoller(tick, CYCLONE_INTERVAL_MS);
+  poller.start();
+  return {
+    setPaused(paused) {
+      if (paused) poller.stop();
+      else poller.start();
+    },
+    destroy() {
+      alive = false;
+      poller.stop();
+      viewer.dataSources.remove(source, true);
+    },
+  };
+}
+
+// --- Rocket launches (SpaceX upcoming, keyless, via proxy) -------------------
+
+const LAUNCHES_URL = "/api/geo/live?source=rocket-launches";
+const LAUNCHES_INTERVAL_MS = 15 * 60 * 1_000;
+
+type LlLaunch = {
+  id: string;
+  name: string;
+  net: string;
+  pad?: {
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+    name?: string | null;
+    location?: { name?: string | null; country_code?: string | null };
+  };
+};
+type LlResponse = { results?: LlLaunch[] };
+
+function startLaunches(viewer: Cesium.Viewer, onError: (message: string) => void): LiveLayerHandle {
+  const source = new Cesium.CustomDataSource("hq-geo-launches");
+  void viewer.dataSources.add(source);
+  let alive = true;
+
+  const tick = async (): Promise<void> => {
+    try {
+      const response = await fetch(LAUNCHES_URL, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Launch Library ${response.status}`);
+      const data = (await response.json()) as LlResponse;
+      if (!alive) return;
+      source.entities.removeAll();
+      const now = Date.now();
+      for (const launch of (data.results ?? []).slice(0, 24)) {
+        const lat = Number(launch.pad?.latitude);
+        const lon = Number(launch.pad?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const padName = `${launch.pad?.name ?? ""}${launch.pad?.location?.name ? `, ${launch.pad?.location?.name}` : ""}`.trim();
+        const t = new Date(launch.net).getTime();
+        const whenHours = Number.isFinite(t) ? (t - now) / 3_600_000 : 0;
+        source.entities.add({
+          id: `lx-${launch.id}`,
+          position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+          point: {
+            pixelSize: 9,
+            color: Cesium.Color.fromCssColorString("#ff8a3a").withAlpha(0.9),
+            outlineColor: Cesium.Color.WHITE.withAlpha(0.8),
+            outlineWidth: 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: `${launch.name} · ${padName || "launch pad"}`,
+            font: "10px monospace",
+            pixelOffset: new Cesium.Cartesian2(10, -10),
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            showBackground: true,
+            backgroundColor: Cesium.Color.BLACK.withAlpha(0.55),
+            scaleByDistance: new Cesium.NearFarScalar(2.0e6, 1.0, 2.0e7, 0.0),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          properties: {
+            kind: "launch",
+            name: launch.name,
+            pad: padName,
+            when: launch.net,
+            hoursFromNow: whenHours,
+          },
+        });
+      }
+      viewer.scene.requestRender();
+    } catch (error) {
+      if (alive) onError(message(error));
+    }
+  };
+
+  const poller = makePoller(tick, LAUNCHES_INTERVAL_MS);
+  poller.start();
+  return {
+    setPaused(paused) {
+      if (paused) poller.stop();
+      else poller.start();
+    },
+    destroy() {
+      alive = false;
+      poller.stop();
+      viewer.dataSources.remove(source, true);
+    },
+  };
+}
+
+// --- Bundled static catalogues (datacenters, dams) --------------------------
+
+type BundledItem = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  country?: string;
+  operator?: string;
+  capacityMW?: number;
+};
+type BundledSet = { items?: BundledItem[] };
+
+function startBundledPins(
+  viewer: Cesium.Viewer,
+  onError: (message: string) => void,
+  opts: {
+    url: string;
+    sourceName: string;
+    color: Cesium.Color;
+    pixelSize: number;
+    label: (item: BundledItem) => string;
+  },
+): LiveLayerHandle {
+  const source = new Cesium.CustomDataSource(opts.sourceName);
+  void viewer.dataSources.add(source);
+  let alive = true;
+
+  (async () => {
+    try {
+      const response = await fetch(opts.url, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`${opts.url} ${response.status}`);
+      const data = (await response.json()) as BundledSet;
+      if (!alive) return;
+      for (const item of data.items ?? []) {
+        source.entities.add({
+          id: `bp-${item.id}`,
+          position: Cesium.Cartesian3.fromDegrees(item.lon, item.lat, 0),
+          point: {
+            pixelSize: opts.pixelSize,
+            color: opts.color.withAlpha(0.85),
+            outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+            outlineWidth: 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: opts.label(item),
+            font: "10px monospace",
+            pixelOffset: new Cesium.Cartesian2(8, -8),
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            showBackground: true,
+            backgroundColor: Cesium.Color.BLACK.withAlpha(0.55),
+            scaleByDistance: new Cesium.NearFarScalar(1.5e6, 1.0, 2.0e7, 0.0),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          properties: { kind: opts.sourceName.replace("hq-geo-", ""), ...item },
+        });
+      }
+      viewer.scene.requestRender();
+    } catch (error) {
+      if (alive) onError(message(error));
+    }
+  })();
+
+  return {
+    setPaused() {
+      // Static catalogues have nothing to pause.
+    },
+    destroy() {
+      alive = false;
+      viewer.dataSources.remove(source, true);
+    },
+  };
 }

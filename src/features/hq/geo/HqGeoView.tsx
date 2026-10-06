@@ -13,7 +13,8 @@ import {
   REALISM_MODE,
   applySensorAtmosphere,
   basemapById,
-  createThermalStage,
+  createLabelsImageryLayer,
+  createSensorStage,
   enablePhotoreal,
   skinViewer,
   type GeoBasemapId,
@@ -33,11 +34,15 @@ import {
   type LiveLayerHandle,
   type LiveLayerId,
 } from "./liveLayers";
+import { createTracker, type TrackHandle, type TrackedInfo } from "./tracking";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
   { id: "night", labelKey: "hqGeo.styleNight" },
   { id: "thermal", labelKey: "hqGeo.styleThermal" },
+  { id: "nvg", labelKey: "hqGeo.styleNvg" },
+  { id: "crt", labelKey: "hqGeo.styleCrt" },
+  { id: "noir", labelKey: "hqGeo.styleNoir" },
 ];
 
 // Cesium's CSS (vendored to public/cesium) laid out via a <link>, so we never
@@ -140,7 +145,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const sourceRef = useRef<CesiumNS.CustomDataSource | null>(null);
   const liveHandlesRef = useRef<Partial<Record<LiveLayerId, LiveLayerHandle>>>({});
   const realismHandleRef = useRef<RealismHandle | null>(null);
-  const thermalStageRef = useRef<CesiumNS.PostProcessStage | null>(null);
+  const sensorStageRef = useRef<CesiumNS.PostProcessStage | null>(null);
 
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -151,6 +156,8 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const [realismBusy, setRealismBusy] = useState(false);
   const [sensorStyle, setSensorStyle] = useState<SensorStyle>("clean");
   const [camera, setCamera] = useState<GeoCameraInfo | null>(null);
+  const [tracked, setTracked] = useState<TrackedInfo | null>(null);
+  const trackerRef = useRef<TrackHandle | null>(null);
 
   // Build the viewer once.
   useEffect(() => {
@@ -188,6 +195,14 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     viewerRef.current = viewer;
     skinViewer(viewer);
 
+    // Country / major-city labels overlay — keyless, serves as geographic context
+    // over any imagery basemap. Reads as "real map with place names" at any zoom.
+    createLabelsImageryLayer(viewer);
+
+    // Nicer close-zoom look: dynamic water animation and sharper tile detail.
+    viewer.scene.globe.showWaterEffect = true;
+    viewer.scene.globe.maximumScreenSpaceError = 1.5;
+
     // Seed the demo targets the first time the view opens (the controller is
     // shared, so this also feeds the wall preview).
     if (geoController.getScene().targets.length === 0) seedDemoGeo(geoController);
@@ -213,18 +228,45 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
 
     queueMicrotask(() => setReady(true));
 
-    // Clicking a public-webcam point surfaces its live thumbnail in a DOM panel
-    // (kept out of WebGL so cross-origin camera images never taint the canvas).
+    // All keyless live layers start automatically on mount: the owner (and every
+    // agent) just opens ГЕО and sees everything — no toggles to think about. The
+    // key-gated layers (vessels / fires / cameras) stay silent until their
+    // NEXT_PUBLIC_* key is configured.
+    queueMicrotask(() => {
+      const handles = liveHandlesRef.current;
+      for (const layer of LIVE_LAYERS) {
+        if (layer.needsKey && !layerAvailable(layer.id)) continue;
+        if (handles[layer.id]) continue;
+        const handle = startLiveLayer(layer.id, viewer, (detail) =>
+          setNotice(t("hqGeo.layerError", { detail })),
+        );
+        if (handle) handles[layer.id] = handle;
+      }
+      setActiveLive(
+        LIVE_LAYERS.filter((layer) => !(layer.needsKey && !layerAvailable(layer.id))).map((layer) => layer.id),
+      );
+    });
+
+    // Universal click: a public webcam pin opens its thumbnail (DOM, kept out of
+    // WebGL so cross-origin images never taint the canvas); any other entity
+    // becomes the tracked target — camera-lock, fading trail, metadata popup.
+    const tracker = createTracker(viewer, setTracked);
+    trackerRef.current = tracker;
     const picker = new CesiumNS.ScreenSpaceEventHandler(viewer.scene.canvas);
     picker.setInputAction((movement: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
       const live = viewerRef.current;
       if (!live) return;
       const picked = live.scene.pick(movement.position);
       const entity = picked?.id as CesiumNS.Entity | undefined;
-      const info = entity?.properties?.getValue(CesiumNS.JulianDate.now())?.[GEO_CAMERA_PROPERTY] as
+      if (!entity) return;
+      const info = entity.properties?.getValue(CesiumNS.JulianDate.now())?.[GEO_CAMERA_PROPERTY] as
         | GeoCameraInfo
         | undefined;
-      if (info) setCamera(info);
+      if (info) {
+        setCamera(info);
+        return;
+      }
+      tracker.track(entity);
     }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK);
 
     const unsubscribeScene = geoController.subscribe((scene) => {
@@ -241,11 +283,13 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       unsubscribeScene();
       unsubscribeFly();
       if (!picker.isDestroyed()) picker.destroy();
+      trackerRef.current?.destroy();
+      trackerRef.current = null;
       for (const handle of Object.values(liveHandlesRef.current)) handle?.destroy();
       liveHandlesRef.current = {};
       realismHandleRef.current?.disable();
       realismHandleRef.current = null;
-      thermalStageRef.current = null;
+      sensorStageRef.current = null;
       sourceRef.current = null;
       viewerRef.current = null;
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
@@ -286,28 +330,9 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     viewer.scene.requestRender();
   }, []);
 
-  const toggleLive = useCallback((id: LiveLayerId) => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    const handles = liveHandlesRef.current;
-    if (handles[id]) {
-      handles[id]?.destroy();
-      delete handles[id];
-      setActiveLive((active) => active.filter((layer) => layer !== id));
-      if (id === "cameras") setCamera(null);
-      viewer.scene.requestRender();
-      return;
-    }
-    if (!layerAvailable(id)) {
-      const def = LIVE_LAYERS.find((layer) => layer.id === id);
-      setNotice(t("hqGeo.layerNeedsKey", { name: def?.label ?? id, env: def?.keyEnv ?? "" }));
-      return;
-    }
-    const handle = startLiveLayer(id, viewer, (message) => setNotice(t("hqGeo.layerError", { detail: message })));
-    if (!handle) return;
-    handles[id] = handle;
-    setActiveLive((active) => [...active, id]);
-  }, []);
+  // Live layers start automatically on mount (see the main-mount effect) and
+  // the UI shows only a status strip now — no manual toggles. This keeps the
+  // view "open and everything is there", matching the source project's model.
 
   // «РЕАЛИЗМ»: photoreal 3D tiles / world terrain (keyed) or an Esri imagery
   // overlay (keyless). Off reverts exactly what it added.
@@ -337,16 +362,19 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     if (!viewer) return;
     setSensorStyle(style);
     const stages = viewer.scene.postProcessStages;
-    if (style === "thermal") {
-      if (!thermalStageRef.current) {
-        thermalStageRef.current = createThermalStage();
-        stages.add(thermalStageRef.current);
-      }
-    } else if (thermalStageRef.current) {
-      stages.remove(thermalStageRef.current);
-      thermalStageRef.current = null;
+    // Any existing sensor stage goes first — switching a style swaps the stage,
+    // never stacks another on top.
+    if (sensorStageRef.current) {
+      stages.remove(sensorStageRef.current);
+      sensorStageRef.current = null;
+    }
+    const next = createSensorStage(style);
+    if (next) {
+      sensorStageRef.current = next;
+      stages.add(next);
     }
     applySensorAtmosphere(viewer, style);
+    viewer.scene.requestRender();
   }, []);
 
   return (
@@ -436,28 +464,27 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
             {t("hqGeo.liveLayers")}
           </span>
-          {LIVE_LAYERS.map((layer) => (
-            <button
-              key={layer.id}
-              type="button"
-              onClick={() => toggleLive(layer.id)}
-              title={layer.needsKey ? t("hqGeo.layerNeedsKey", { name: layer.label, env: layer.keyEnv ?? "" }) : t("hqGeo.needsEgress")}
-              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(activeLive.includes(layer.id))} ${
-                layer.needsKey && !layerAvailable(layer.id) ? "opacity-60" : ""
-              }`}
-            >
-              {layer.label}
-              <span className="ml-1 text-[9px] text-white/45">·{layer.source}</span>
-              {layer.needsKey && !layerAvailable(layer.id) ? <span className="ml-1 text-[9px] text-amber-400/70">·ключ</span> : null}
-            </button>
-          ))}
-          <span className="px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/40">
-            {t("hqGeo.liveOffByDefault")}
-          </span>
+          {LIVE_LAYERS.map((layer) => {
+            const on = activeLive.includes(layer.id);
+            const needsKey = layer.needsKey && !layerAvailable(layer.id);
+            return (
+              <span
+                key={layer.id}
+                title={needsKey ? t("hqGeo.layerNeedsKey", { name: layer.label, env: layer.keyEnv ?? "" }) : layer.source}
+                className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] ${
+                  needsKey ? "text-amber-300/60" : on ? "text-emerald-300/90" : "text-white/50"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${needsKey ? "bg-amber-400/60" : on ? "bg-emerald-400 shadow-[0_0_6px_rgba(16,255,160,0.8)]" : "bg-white/30"}`} />
+                {layer.label}
+                {needsKey ? <span className="text-[9px] text-amber-300/60">·ключ</span> : null}
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -519,6 +546,54 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
         </div>
       ) : null}
 
+      {/* Tracked target: camera-locked, trail-drawn, metadata panel. */}
+      {tracked ? (
+        <div className={`absolute left-3 top-16 z-10 w-[280px] overflow-hidden ${HQ_HUD_GLASS}`}>
+          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-2.5 py-1.5">
+            <div className="min-w-0">
+              <div className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200">
+                {kindLabel(tracked.kind)}
+              </div>
+              <div className="truncate font-mono text-[11px] text-white/85">{tracked.title}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => trackerRef.current?.clear()}
+              aria-label={t("hqGeo.close")}
+              className="flex h-5 w-5 shrink-0 items-center justify-center text-white/60 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {tracked.subtitle ? (
+            <div className="px-2.5 pt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-white/55">
+              {tracked.subtitle}
+            </div>
+          ) : null}
+          {typeof tracked.lat === "number" && typeof tracked.lon === "number" ? (
+            <div className="grid grid-cols-2 gap-x-2 px-2.5 py-1 font-mono text-[10px] text-white/70">
+              <span>φ {tracked.lat.toFixed(4)}°</span>
+              <span>λ {tracked.lon.toFixed(4)}°</span>
+              {typeof tracked.height === "number" ? (
+                <span className="col-span-2 text-white/50">h {Math.round(tracked.height)} м</span>
+              ) : null}
+            </div>
+          ) : null}
+          {tracked.extras && Object.keys(tracked.extras).length ? (
+            <div className="border-t border-white/5 px-2.5 py-1.5">
+              <ul className="space-y-0.5 font-mono text-[10px]">
+                {Object.entries(tracked.extras).map(([k, v]) => (
+                  <li key={k} className="flex items-baseline justify-between gap-2">
+                    <span className="text-white/45">{k}</span>
+                    <span className="truncate text-right text-white/85">{v}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Attribution footer: Cesium's credit display lands in creditRef; our own
           notes sit beside it. */}
       <div className="pointer-events-none absolute bottom-1 right-2 z-10 flex items-center gap-3">
@@ -528,6 +603,31 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       </div>
     </div>
   );
+}
+
+function kindLabel(kind: TrackedInfo["kind"]): string {
+  switch (kind) {
+    case "flight":
+      return "Воздушное судно";
+    case "satellite":
+      return "Спутник";
+    case "cyclone":
+      return "Циклон";
+    case "earthquake":
+      return "Землетрясение";
+    case "launch":
+      return "Пуск ракеты";
+    case "camera":
+      return "Публичная камера";
+    case "datacenter":
+      return "Дата-центр";
+    case "dam":
+      return "Плотина";
+    case "pin":
+      return "Отметка";
+    default:
+      return "Объект";
+  }
 }
 
 export default HqGeoView;

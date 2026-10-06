@@ -87,7 +87,28 @@ export const GEO_BASEMAPS: readonly GeoBasemap[] = [
   },
 ];
 
-export const DEFAULT_BASEMAP: GeoBasemapId = "natural-earth";
+// The default basemap is the photoreal Esri World Imagery — the owner (and every
+// agent) opens ГЕО and immediately sees the real Earth, not a flat offline sketch.
+// The offline Natural Earth basemap stays as a one-click fallback for when the
+// network is down (the picker row still carries it).
+export const DEFAULT_BASEMAP: GeoBasemapId = "esri";
+
+/**
+ * A keyless labels overlay (country / major-city names, roads at closer zoom).
+ * Served by Esri's World_Boundaries_and_Places tile set with transparent
+ * backgrounds — layers cleanly on top of any imagery basemap. Pure open-data
+ * display, nothing is transmitted.
+ */
+export function createLabelsImageryLayer(viewer: Cesium.Viewer): Cesium.ImageryLayer {
+  const provider = new Cesium.UrlTemplateImageryProvider({
+    url: "https://services.arcgisonline.com/arcgis/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    maximumLevel: 18,
+    credit: new Cesium.Credit("Esri, DeLorme, Garmin", true),
+  });
+  const layer = viewer.imageryLayers.addImageryProvider(provider);
+  layer.alpha = 0.95;
+  return layer;
+}
 
 export function basemapById(id: GeoBasemapId): GeoBasemap {
   return GEO_BASEMAPS.find((basemap) => basemap.id === id) ?? GEO_BASEMAPS[0];
@@ -186,7 +207,7 @@ export async function enablePhotoreal(viewer: Cesium.Viewer): Promise<RealismHan
 }
 
 /** Cinematic / sensor looks borrowed from the source project's spirit. */
-export type SensorStyle = "clean" | "night" | "thermal";
+export type SensorStyle = "clean" | "night" | "thermal" | "nvg" | "crt" | "noir";
 
 /** A false-colour "iron" thermal look as a single full-screen post-process pass. */
 const THERMAL_FRAGMENT_SHADER = `
@@ -204,8 +225,105 @@ void main(void) {
 }
 `;
 
+/** Night-vision green monochrome with vignette + mild scanline grain. */
+const NVG_FRAGMENT_SHADER = `
+uniform sampler2D colorTexture;
+in vec2 v_textureCoordinates;
+void main(void) {
+  vec2 uv = v_textureCoordinates;
+  vec3 rgb = texture(colorTexture, uv).rgb;
+  float l = clamp(dot(rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+  // Boost mids, slight gain, clamp.
+  float boosted = clamp(pow(l, 0.75) * 1.25, 0.0, 1.0);
+  vec3 green = vec3(0.05, boosted, 0.1);
+  // Vignette: darker toward the edges.
+  vec2 d = uv - 0.5;
+  float v = 1.0 - dot(d, d) * 1.6;
+  green *= clamp(v, 0.4, 1.0);
+  // Scanlines for the sensor-tube look.
+  float scan = 0.92 + 0.08 * sin(uv.y * 1400.0);
+  out_FragColor = vec4(green * scan, 1.0);
+}
+`;
+
+/** Retro CRT: barrel distortion, phosphor scanlines, slight RGB shift. */
+const CRT_FRAGMENT_SHADER = `
+uniform sampler2D colorTexture;
+in vec2 v_textureCoordinates;
+void main(void) {
+  vec2 uv = v_textureCoordinates;
+  // Barrel distortion.
+  vec2 cc = uv - 0.5;
+  float r2 = dot(cc, cc);
+  uv = cc * (1.0 + 0.15 * r2) + 0.5;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+    out_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+  // Chromatic aberration.
+  float sh = 0.0015;
+  float r = texture(colorTexture, uv + vec2(sh, 0.0)).r;
+  float g = texture(colorTexture, uv).g;
+  float b = texture(colorTexture, uv - vec2(sh, 0.0)).b;
+  vec3 rgb = vec3(r, g, b);
+  // Scanlines + phosphor mask.
+  float scan = 0.85 + 0.15 * sin(uv.y * 1600.0);
+  rgb *= scan;
+  float mask = 0.95 + 0.05 * sin(uv.x * 2800.0);
+  rgb *= mask;
+  // Vignette.
+  float v = 1.0 - dot(cc, cc) * 1.2;
+  out_FragColor = vec4(rgb * clamp(v, 0.5, 1.0), 1.0);
+}
+`;
+
+/** Noir: desaturated, lifted blacks, warm highlights. Film-grain not applied here. */
+const NOIR_FRAGMENT_SHADER = `
+uniform sampler2D colorTexture;
+in vec2 v_textureCoordinates;
+void main(void) {
+  vec3 rgb = texture(colorTexture, v_textureCoordinates).rgb;
+  float l = clamp(dot(rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+  // Pure monochrome, slight warm tint in highlights.
+  vec3 mono = vec3(l);
+  vec3 warm = vec3(l * 1.0, l * 0.92, l * 0.78);
+  vec3 col = mix(mono, warm, 0.3);
+  // Lift shadows slightly, crush top end for cinematic contrast.
+  col = pow(col, vec3(0.9));
+  // Vignette.
+  vec2 d = v_textureCoordinates - 0.5;
+  float v = 1.0 - dot(d, d) * 1.8;
+  out_FragColor = vec4(col * clamp(v, 0.3, 1.0), 1.0);
+}
+`;
+
 export function createThermalStage(): Cesium.PostProcessStage {
   return new Cesium.PostProcessStage({ name: "hq-geo-thermal", fragmentShader: THERMAL_FRAGMENT_SHADER });
+}
+export function createNvgStage(): Cesium.PostProcessStage {
+  return new Cesium.PostProcessStage({ name: "hq-geo-nvg", fragmentShader: NVG_FRAGMENT_SHADER });
+}
+export function createCrtStage(): Cesium.PostProcessStage {
+  return new Cesium.PostProcessStage({ name: "hq-geo-crt", fragmentShader: CRT_FRAGMENT_SHADER });
+}
+export function createNoirStage(): Cesium.PostProcessStage {
+  return new Cesium.PostProcessStage({ name: "hq-geo-noir", fragmentShader: NOIR_FRAGMENT_SHADER });
+}
+
+/** Build the matching post-process stage for a sensor style, or null for pass-through. */
+export function createSensorStage(style: SensorStyle): Cesium.PostProcessStage | null {
+  switch (style) {
+    case "thermal":
+      return createThermalStage();
+    case "nvg":
+      return createNvgStage();
+    case "crt":
+      return createCrtStage();
+    case "noir":
+      return createNoirStage();
+    default:
+      return null;
+  }
 }
 
 /** Applies the atmosphere / lighting profile for a sensor style (thermal uses clean). */
