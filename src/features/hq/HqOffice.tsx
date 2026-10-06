@@ -72,6 +72,8 @@ export type HqOfficeProps = {
   onOpenSettings?: () => void;
   /** Opens the combat console from the HUD's camera bar. */
   onOpenCombat?: () => void;
+  /** The combat console («ПУЛЬТ») is up as a full overlay: pause the hall render. */
+  combatOpen?: boolean;
   /** True while the opening fly-through plays, so the screen can hide its own panels. */
   onIntroChange?: (playing: boolean) => void;
   /**
@@ -232,6 +234,7 @@ export function HqOffice({
   settingsOpen = false,
   onOpenSettings,
   onOpenCombat,
+  combatOpen = false,
   onIntroChange,
   briefing = null,
   mission = false,
@@ -682,9 +685,10 @@ export function HqOffice({
           // AgX tone mapping and sRGB output happen in the post chain.
           flat
           // The hall is paused while a full-screen overlay is up — the ГЕО globe
-          // (so CesiumJS owns the frame) or the РАЗВЕДКА view — since the opaque
-          // overlay hides the hall and nothing behind it needs rendering.
-          frameloop={geoOpen || osintOpen ? "never" : "always"}
+          // (so CesiumJS owns the frame), the РАЗВЕДКА view or the ПУЛЬТ combat
+          // console — since the opaque overlay hides the hall and nothing behind
+          // it needs rendering.
+          frameloop={geoOpen || osintOpen || combatOpen ? "never" : "always"}
           // Owned here, not set from inside: R3F re-applies this prop on
           // every Canvas render.
           dpr={dpr}

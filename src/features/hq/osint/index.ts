@@ -17,5 +17,6 @@ export type {
   OsintEntity,
   OsintFinding,
   OsintRelation,
+  OsintSeverity,
 } from "./types";
 export type { HqOsintViewProps } from "./HqOsintView";

@@ -1,38 +1,57 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Globe2, X } from "lucide-react";
 
 import type { AgentState } from "@/features/agents/state/store";
-import type { RunRecord } from "@/features/office/hooks/useRunLog";
 import { hqRoleFamily } from "@/features/hq/core/roles";
 import { HqClock } from "@/features/hq/hud/HqClock";
 import * as aegis from "@/features/aegis/api";
 import type { AegisAsset, AegisEngagement, AegisOverview } from "@/lib/aegis/types";
+import { osintController, DEMO_OSINT, OSINT_TOOL_BY_ID } from "@/features/hq/osint";
+import type { OsintDataset, OsintSeverity } from "@/features/hq/osint";
+import { geoController } from "@/features/hq/geo";
+import type { GeoSceneData, GeoTarget } from "@/features/hq/geo";
+import { chatterController } from "@/features/hq/chatter";
+import type { ChatterKind, ChatterMessage, ChatterSeverity } from "@/features/hq/chatter";
 import { t, type TranslationKey } from "@/lib/i18n";
 
 /**
- * The combat console (§3.5): a dense, dark operations screen beside the 3D
- * office. It shows the platform's live state — an attack map of the authorized
- * targets (from the active AEGIS engagement), a findings feed by severity, the
- * team's plain-language chatter, and the legal contour's scope + kill-switch —
- * from real gateway activity and the AEGIS control plane. Confirmed findings
- * with proof flow in once real engagements run; today it reflects the demo
- * team against the demo scope, and the findings panel is marked accordingly.
+ * The combat console (§3.5): the UNIFIED live operations view beside the 3D
+ * office. It connects the pieces that otherwise live apart into one screen:
+ *
+ *  - ATTACK MAP — the authorized targets of the active scope, read from the SAME
+ *    shared globe controller (geoController) the God's-Eye view uses; clicking a
+ *    target flies the globe to it, so map and globe never disagree.
+ *  - FINDINGS — ONE stream: the OSINT feed (osintController, the same source the
+ *    РАЗВЕДКА view reads) merged with the AEGIS scope's surface findings. A
+ *    finding discovered in recon shows here too, with its severity, confidence
+ *    and source tool.
+ *  - LIVE CHATTER — agents talking and delegating in plain Russian
+ *    (chatterController), authorized-recon flavour, demo-scripted now behind a
+ *    clean seam for the real runtime.
+ *
+ * All three come from framework-free controllers that demo data populates today
+ * and the scope-enforced Execution Plane will drive later. The pult only
+ * DISPLAYS — it never acts on a target and sends nothing externally.
  */
 export function CombatConsole({
   agents,
-  runLog,
   onClose,
+  onFlyToGlobe,
 }: {
   agents: AgentState[];
-  runLog: RunRecord[];
   onClose: () => void;
+  /** Flies the shared God's-Eye globe to a point (and opens it); set by the host. */
+  onFlyToGlobe?: (lat: number, lon: number) => void;
 }) {
   const [overview, setOverview] = useState<AegisOverview | null>(null);
   const [active, setActive] = useState<AegisEngagement | null>(null);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [osint, setOsint] = useState<OsintDataset | null>(() => osintController.getData() ?? DEMO_OSINT);
+  const [scene, setScene] = useState<GeoSceneData>(() => geoController.getScene());
+  const [chatter, setChatter] = useState<readonly ChatterMessage[]>(() => chatterController.getMessages());
 
+  // The legal contour (kill-switch + active engagement name/scope), polled.
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -55,6 +74,43 @@ export function CombatConsole({
     };
   }, []);
 
+  // One source of truth for recon: seed the OSINT controller if nothing has yet
+  // (this also projects the geo entities onto the shared globe), then track it.
+  useEffect(() => {
+    if (!osintController.getData()) osintController.setData(DEMO_OSINT);
+    return osintController.subscribe(setOsint);
+  }, []);
+
+  // The attack map reads the same targets the globe draws. Re-read the scene on
+  // subscribe: the OSINT seed above may have projected its pins before this
+  // listener existed, so the initial snapshot can be stale.
+  useEffect(() => {
+    setScene(geoController.getScene());
+    return geoController.subscribe(setScene);
+  }, []);
+
+  // Live chatter: subscribe first, then start the demo driver (ref-counted, so
+  // it costs nothing once every pult is closed) — so the backfilled lines reach
+  // this listener — and pick up any history already in the channel.
+  useEffect(() => {
+    const unsubscribe = chatterController.subscribe(setChatter);
+    const stop = chatterController.startDemo();
+    setChatter(chatterController.getMessages());
+    return () => {
+      stop();
+      unsubscribe();
+    };
+  }, []);
+
+  // Esc closes.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const counts = useMemo(() => {
     let running = 0;
     let error = 0;
@@ -66,10 +122,19 @@ export function CombatConsole({
   }, [agents]);
 
   const assets = useMemo(() => active?.assets ?? [], [active]);
-  const findings = useMemo(() => deriveFindings(assets, agents), [assets, agents]);
+  const findings = useMemo(() => mergeFindings(osint, assets, agents), [osint, assets, agents]);
   const critical = findings.filter((finding) => finding.severity === "critical" || finding.severity === "high").length;
 
-  const selectedAgent = selectedAgentId ? agents.find((agent) => agent.agentId === selectedAgentId) ?? null : null;
+  // The map's targets: the shared globe's pins, minus the HQ anchor itself.
+  const mapTargets = useMemo(() => scene.targets.filter((target) => target.kind !== "hq"), [scene]);
+
+  const fly = useMemo(
+    () => (geo: { lat: number; lon: number } | undefined) => {
+      if (!geo || !onFlyToGlobe) return;
+      onFlyToGlobe(geo.lat, geo.lon);
+    },
+    [onFlyToGlobe],
+  );
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-[#050303] text-white">
@@ -82,7 +147,7 @@ export function CombatConsole({
             {t("combat.title")}
           </span>
           <KillChip on={overview?.killSwitch.global ?? false} />
-          <ScopeChip name={active?.name ?? null} count={assets.length} />
+          <ScopeChip name={active?.name ?? osint?.engagement.name ?? null} count={assets.length || mapTargets.length} />
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <HqClock className="text-right" />
@@ -107,12 +172,14 @@ export function CombatConsole({
       </div>
 
       <div className="relative grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden p-2 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,0.95fr)]">
-        {assets.length > 0 ? <AttackMap assets={assets} findings={findings} agents={agents} /> : <OpsRadar agents={agents} />}
-        <FindingsPanel findings={findings} hasScope={assets.length > 0} />
-        <ActivityPanel agents={agents} runLog={runLog} onSelect={setSelectedAgentId} />
+        {mapTargets.length > 0 ? (
+          <AttackMap targets={mapTargets} findings={findings} working={counts.running} canFly={Boolean(onFlyToGlobe)} onFly={fly} />
+        ) : (
+          <OpsRadar agents={agents} />
+        )}
+        <FindingsPanel findings={findings} hasScope={findings.length > 0} canFly={Boolean(onFlyToGlobe)} onFly={fly} />
+        <ChatterPanel messages={chatter} canFly={Boolean(onFlyToGlobe)} onFly={fly} />
       </div>
-
-      {selectedAgent ? <AgentDetail agent={selectedAgent} runLog={runLog} onClose={() => setSelectedAgentId(null)} /> : null}
     </div>
   );
 }
@@ -168,7 +235,13 @@ const Panel = ({ title, right, children }: { title: string; right?: React.ReactN
   </section>
 );
 
-// --- findings -----------------------------------------------------------------
+const DemoTag = () => (
+  <span className="rounded border border-red-900/40 bg-black/40 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/40">
+    {t("combat.demo")}
+  </span>
+);
+
+// --- findings (one stream: OSINT feed + AEGIS scope surface) ------------------
 
 type Severity = "critical" | "high" | "medium" | "low" | "info";
 type FindingStatus = "new" | "confirmed" | "poc";
@@ -176,10 +249,18 @@ type Finding = {
   id: string;
   severity: Severity;
   title: string;
+  /** Display target (entity label / asset value). */
   target: string;
   status: FindingStatus;
-  agent: string;
+  /** Where it came from: the OSINT tool name, or «AEGIS». */
+  source: string;
   at: number;
+  /** 0..1, when known (OSINT findings). */
+  confidence?: number;
+  /** Geolocation, when the target has one — enables fly-to. */
+  geo?: { lat: number; lon: number };
+  /** The shared globe target id this maps to (for the attack map's severity). */
+  targetId?: string;
 };
 
 const SEVERITY_ORDER: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
@@ -223,12 +304,43 @@ const hash = (text: string): number => {
   return (h >>> 0) / 4294967295;
 };
 
-// Deterministic, illustrative findings tied to the (own) scope assets and the
-// working agents. Stable frame to frame; a real backend replaces this later.
-function deriveFindings(assets: AegisAsset[], agents: AgentState[]): Finding[] {
+/** OSINT severities map straight onto the pult's (no OSINT finding is critical). */
+const osintSeverity = (severity: OsintSeverity): Severity => severity;
+
+/**
+ * The ONE findings stream: the OSINT feed (the same osintController the РАЗВЕДКА
+ * view reads) first — so a finding discovered in recon shows here with its
+ * severity, confidence, source tool and geolocation — then the AEGIS scope's
+ * illustrative surface findings tied to the active engagement's assets.
+ */
+function mergeFindings(osint: OsintDataset | null, assets: AegisAsset[], agents: AgentState[]): Finding[] {
+  const out: Finding[] = [];
+
+  if (osint) {
+    const entityById = new Map(osint.entities.map((entity) => [entity.id, entity]));
+    osint.findings.forEach((finding, index) => {
+      const entity = finding.entityId ? entityById.get(finding.entityId) : undefined;
+      const tool = OSINT_TOOL_BY_ID[finding.sourceToolId];
+      out.push({
+        id: finding.id,
+        severity: osintSeverity(finding.severity),
+        title: finding.title,
+        target: entity?.label ?? finding.target ?? "—",
+        status: finding.confidence >= 0.85 ? "confirmed" : "new",
+        source: tool?.name ?? finding.sourceToolId,
+        at: 1_000 + index,
+        confidence: finding.confidence,
+        geo: entity?.geo ? { lat: entity.geo.lat, lon: entity.geo.lon } : undefined,
+        targetId: entity ? `osint:${entity.id}` : undefined,
+      });
+    });
+  }
+
+  // The AEGIS scope's surface findings: deterministic, illustrative, tied to the
+  // active engagement's assets and the working agents. A real backend replaces
+  // this with confirmed, proof-carrying findings later.
   const workers = agents.filter((agent) => agent.status !== "idle");
   const pool = workers.length ? workers : agents;
-  const out: Finding[] = [];
   assets.forEach((asset, ai) => {
     const n = Math.floor(hash(`${asset.value}#`) * 3.4);
     for (let i = 0; i < n; i++) {
@@ -242,15 +354,28 @@ function deriveFindings(assets: AegisAsset[], agents: AgentState[]): Finding[] {
         title: kind.title,
         target: asset.value,
         status,
-        agent: agent?.name || agent?.agentId || "AM7",
-        at: 1 + ai * 10 + i,
+        source: agent?.name || agent?.agentId || "AEGIS",
+        at: ai * 10 + i,
       });
     }
   });
-  return out.sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] || b.at - a.at);
+
+  return out.sort(
+    (a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] || (b.confidence ?? 0) - (a.confidence ?? 0) || b.at - a.at,
+  );
 }
 
-function FindingsPanel({ findings, hasScope }: { findings: Finding[]; hasScope: boolean }) {
+function FindingsPanel({
+  findings,
+  hasScope,
+  canFly,
+  onFly,
+}: {
+  findings: Finding[];
+  hasScope: boolean;
+  canFly: boolean;
+  onFly: (geo: { lat: number; lon: number } | undefined) => void;
+}) {
   const summary = useMemo(() => {
     const by: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
     for (const finding of findings) by[finding.severity] += 1;
@@ -258,10 +383,7 @@ function FindingsPanel({ findings, hasScope }: { findings: Finding[]; hasScope: 
   }, [findings]);
 
   return (
-    <Panel
-      title={t("combat.findings")}
-      right={<span className="rounded border border-red-900/40 bg-black/40 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/40">{t("combat.demo")}</span>}
-    >
+    <Panel title={t("combat.findings")} right={<DemoTag />}>
       <div className="flex flex-wrap gap-1 border-b border-red-900/25 px-3 py-1.5">
         {(["critical", "high", "medium", "low"] as Severity[]).map((severity) => (
           <span key={severity} className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] ${SEVERITY_CLASS[severity]}`}>
@@ -273,67 +395,122 @@ function FindingsPanel({ findings, hasScope }: { findings: Finding[]; hasScope: 
         <p className="p-3 font-mono text-[11px] text-white/40">{hasScope ? t("combat.noFindings") : t("combat.noScopeFindings")}</p>
       ) : (
         <ul className="divide-y divide-red-900/25">
-          {findings.map((finding) => (
-            <li key={finding.id} className="px-3 py-1.5">
-              <div className="flex items-center gap-2">
-                <span className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.1em] ${SEVERITY_CLASS[finding.severity]}`}>
-                  {t(SEVERITY_KEY[finding.severity])}
-                </span>
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-white">{finding.title}</span>
-                {finding.status === "poc" ? (
-                  <span className="shrink-0 rounded bg-red-600/30 px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-red-100">{t("combat.fPoc")}</span>
-                ) : (
-                  <span className="shrink-0 font-mono text-[8px] uppercase text-white/40">{t(STATUS_KEY[finding.status])}</span>
-                )}
-              </div>
-              <div className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px] text-white/45">
-                <span className="truncate text-red-300/80">{finding.target}</span>
-                <span className="shrink-0">{finding.agent}</span>
-              </div>
-            </li>
-          ))}
+          {findings.map((finding) => {
+            const flyable = canFly && finding.geo !== undefined;
+            return (
+              <li key={finding.id}>
+                <button
+                  type="button"
+                  disabled={!flyable}
+                  onClick={() => onFly(finding.geo)}
+                  title={flyable ? t("combat.flyTo") : undefined}
+                  className={`group block w-full px-3 py-1.5 text-left transition-colors ${
+                    flyable ? "hover:bg-red-950/30" : "cursor-default"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.1em] ${SEVERITY_CLASS[finding.severity]}`}>
+                      {t(SEVERITY_KEY[finding.severity])}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-white">{finding.title}</span>
+                    {finding.status === "poc" ? (
+                      <span className="shrink-0 rounded bg-red-600/30 px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-red-100">{t("combat.fPoc")}</span>
+                    ) : (
+                      <span className="shrink-0 font-mono text-[8px] uppercase text-white/40">{t(STATUS_KEY[finding.status])}</span>
+                    )}
+                    {flyable ? <Globe2 className="h-3 w-3 shrink-0 text-white/35 group-hover:text-red-300" /> : null}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px] text-white/45">
+                    <span className="truncate text-red-300/80">{finding.target}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {finding.confidence !== undefined ? (
+                        <span className="text-white/40">{t("combat.confidence", { value: Math.round(finding.confidence * 100) })}</span>
+                      ) : null}
+                      <span>{finding.source}</span>
+                    </span>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>
   );
 }
 
-// --- attack map (targets from scope) ------------------------------------------
+// --- attack map (targets from the shared globe) -------------------------------
 
-function AttackMap({ assets, findings, agents }: { assets: AegisAsset[]; findings: Finding[]; agents: AgentState[] }) {
-  const working = agents.filter((agent) => agent.status === "running").length;
+function AttackMap({
+  targets,
+  findings,
+  working,
+  canFly,
+  onFly,
+}: {
+  targets: readonly GeoTarget[];
+  findings: Finding[];
+  working: number;
+  canFly: boolean;
+  onFly: (geo: { lat: number; lon: number } | undefined) => void;
+}) {
+  const worstByTarget = useMemo(() => {
+    const map = new Map<string, { worst: Severity; count: number }>();
+    for (const finding of findings) {
+      if (!finding.targetId) continue;
+      const current = map.get(finding.targetId);
+      const worst = current && SEVERITY_ORDER[current.worst] >= SEVERITY_ORDER[finding.severity] ? current.worst : finding.severity;
+      map.set(finding.targetId, { worst, count: (current?.count ?? 0) + 1 });
+    }
+    return map;
+  }, [findings]);
+
   return (
-    <Panel title={t("combat.attackMap")} right={<span className="font-mono text-[9px] text-white/35">{t("combat.targets", { count: assets.length })}</span>}>
+    <Panel
+      title={t("combat.attackMap")}
+      right={<span className="font-mono text-[9px] text-white/35">{t("combat.targets", { count: targets.length })}</span>}
+    >
       <ul className="space-y-1.5 p-2">
-        {assets.map((asset) => {
-          const targetFindings = findings.filter((finding) => finding.target === asset.value);
-          const worst = targetFindings.reduce<Severity>((acc, finding) => (SEVERITY_ORDER[finding.severity] > SEVERITY_ORDER[acc] ? finding.severity : acc), "info");
-          // A little live activity per target, seeded so it is stable.
-          const busy = Math.max(1, Math.round(hash(`${asset.value}!`) * Math.min(6, Math.max(1, working))));
-          const status = targetFindings.length ? t("combat.tgtFinding") : working ? t("combat.tgtProbe") : t("combat.tgtQueued");
+        {targets.map((target) => {
+          const hit = worstByTarget.get(target.id);
+          const busy = Math.max(1, Math.round(hash(`${target.label}!`) * Math.min(6, Math.max(1, working))));
+          const status = hit ? t("combat.tgtFinding") : working ? t("combat.tgtProbe") : t("combat.tgtQueued");
           return (
-            <li key={asset.id} className="rounded-md border border-red-900/40 bg-[#0b0606]/70 px-2.5 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="shrink-0 font-mono text-[9px] uppercase text-red-300">{asset.kind}</span>
-                  <span className="min-w-0 truncate font-mono text-[11px] text-white">{asset.value}</span>
-                </span>
-                {targetFindings.length ? (
-                  <span className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[8px] uppercase ${SEVERITY_CLASS[worst]}`}>{targetFindings.length}</span>
-                ) : null}
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/45">{status}</span>
-                <span className="flex items-center gap-0.5">
-                  {Array.from({ length: busy }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="h-1.5 w-1.5 rounded-full bg-red-500"
-                      style={{ animation: "combat-dot-pulse 1.6s ease-in-out infinite", animationDelay: `${index * 0.18}s` }}
-                    />
-                  ))}
-                </span>
-              </div>
+            <li key={target.id}>
+              <button
+                type="button"
+                disabled={!canFly}
+                onClick={() => onFly({ lat: target.lat, lon: target.lon })}
+                title={canFly ? t("combat.flyTo") : undefined}
+                className={`group block w-full rounded-md border border-red-900/40 bg-[#0b0606]/70 px-2.5 py-2 text-left transition-colors ${
+                  canFly ? "hover:border-red-500/50 hover:bg-red-950/30" : "cursor-default"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 font-mono text-[9px] uppercase text-red-300">{target.kind}</span>
+                    <span className="min-w-0 truncate font-mono text-[11px] text-white">{target.label}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {hit ? (
+                      <span className={`rounded border px-1.5 py-0.5 font-mono text-[8px] uppercase ${SEVERITY_CLASS[hit.worst]}`}>{hit.count}</span>
+                    ) : null}
+                    {canFly ? <Globe2 className="h-3 w-3 text-white/30 group-hover:text-red-300" /> : null}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/45">{status}</span>
+                  <span className="flex items-center gap-0.5">
+                    {Array.from({ length: busy }).map((_, index) => (
+                      <span
+                        key={index}
+                        className="h-1.5 w-1.5 rounded-full bg-red-500"
+                        style={{ animation: "combat-dot-pulse 1.6s ease-in-out infinite", animationDelay: `${index * 0.18}s` }}
+                      />
+                    ))}
+                  </span>
+                </div>
+              </button>
             </li>
           );
         })}
@@ -343,7 +520,7 @@ function AttackMap({ assets, findings, agents }: { assets: AegisAsset[]; finding
   );
 }
 
-// --- operations radar (fallback when no active scope) -------------------------
+// --- operations radar (fallback when the globe has no targets yet) ------------
 
 function OpsRadar({ agents }: { agents: AgentState[] }) {
   const dots = useMemo(() => {
@@ -395,105 +572,104 @@ function OpsRadar({ agents }: { agents: AgentState[] }) {
 
 const rank = (agent: AgentState): number => (agent.status === "error" ? 3 : agent.status === "running" ? 2 : 1) + (agent.lastActivityAt ?? 0) / 1e13;
 
-// --- activity / chatter -------------------------------------------------------
+// --- live chatter (human-language ops traffic) --------------------------------
 
-const AG_STATUS_KEY: Record<AgentState["status"], TranslationKey> = { running: "combat.stWorking", idle: "combat.stIdle", error: "combat.stError" };
-const AG_STATUS_CLASS: Record<AgentState["status"], string> = { running: "text-red-300", idle: "text-white/45", error: "text-red-400" };
-
-const timeOf = (ms: number | null | undefined): string => {
-  if (!ms) return "--:--";
+const timeOf = (ms: number): string => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
-const previewOf = (agent: AgentState): string => (agent.latestPreview || agent.lastResult || "").replace(/\s+/g, " ").trim();
 
-function ActivityPanel({ agents, runLog, onSelect }: { agents: AgentState[]; runLog: RunRecord[]; onSelect: (id: string) => void }) {
-  const rows = useMemo(
-    () =>
-      agents
-        .filter((agent) => agent.status !== "idle" || previewOf(agent))
-        .sort((a, b) => (b.lastActivityAt ?? 0) - (a.lastActivityAt ?? 0))
-        .slice(0, 40),
-    [agents],
-  );
+const CHATTER_KIND_KEY: Record<ChatterKind, TranslationKey> = {
+  recon: "combat.chatRecon",
+  delegate: "combat.chatDelegate",
+  accept: "combat.chatAccept",
+  finding: "combat.chatFinding",
+  verify: "combat.chatVerify",
+  status: "combat.chatStatus",
+  escalate: "combat.chatEscalate",
+};
+const CHATTER_KIND_CLASS: Record<ChatterKind, string> = {
+  recon: "border-white/20 bg-white/5 text-white/70",
+  delegate: "border-orange-400/40 bg-orange-500/10 text-orange-200",
+  accept: "border-red-500/40 bg-red-600/15 text-red-100",
+  finding: "border-red-500/50 bg-red-600/20 text-red-100",
+  verify: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
+  status: "border-white/15 bg-white/5 text-white/50",
+  escalate: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+};
+const CHATTER_SEVERITY_CLASS: Record<ChatterSeverity, string> = {
+  critical: "text-red-200",
+  high: "text-red-300",
+  medium: "text-orange-300",
+  low: "text-white/60",
+  info: "text-white/45",
+};
+
+function ChatterPanel({
+  messages,
+  canFly,
+  onFly,
+}: {
+  messages: readonly ChatterMessage[];
+  canFly: boolean;
+  onFly: (geo: { lat: number; lon: number } | undefined) => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Follow the tail as new lines arrive.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   return (
-    <Panel title={t("combat.chatter")} right={<span className="font-mono text-[9px] text-white/35">{t("combat.runs", { count: runLog.length })}</span>}>
+    <Panel
+      title={t("combat.chatter")}
+      right={
+        <span className="flex items-center gap-2">
+          <span className="font-mono text-[9px] text-white/35">{t("combat.lines", { count: messages.length })}</span>
+          <DemoTag />
+        </span>
+      }
+    >
       <div ref={scrollRef} className="h-full">
-        {rows.length === 0 ? (
-          <p className="p-3 font-mono text-[11px] text-white/40">{t("combat.quiet")}</p>
+        {messages.length === 0 ? (
+          <p className="p-3 font-mono text-[11px] text-white/40">{t("combat.channelQuiet")}</p>
         ) : (
           <ul className="space-y-1.5 p-2">
-            {rows.map((agent) => (
-              <li key={agent.agentId}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(agent.agentId)}
-                  className="w-full rounded border border-red-900/30 bg-[#0b0606]/80 px-2.5 py-1.5 text-left transition-colors hover:border-red-500/50 hover:bg-red-950/30"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-[10px] font-semibold text-red-200">{agent.name || agent.agentId}</span>
-                    <span className="flex shrink-0 items-center gap-2 font-mono text-[9px]">
-                      <span className={AG_STATUS_CLASS[agent.status]}>{t(AG_STATUS_KEY[agent.status])}</span>
-                      <span className="text-white/30">{timeOf(agent.lastActivityAt)}</span>
-                    </span>
-                  </div>
-                  {previewOf(agent) ? <p className="mt-0.5 truncate font-mono text-[10px] text-white/70">{previewOf(agent)}</p> : null}
-                </button>
-              </li>
-            ))}
+            {messages.map((message) => {
+              const flyable = canFly && message.geo !== undefined;
+              const severityClass = message.severity ? CHATTER_SEVERITY_CLASS[message.severity] : "text-white/80";
+              return (
+                <li key={message.id}>
+                  <button
+                    type="button"
+                    disabled={!flyable}
+                    onClick={() => onFly(message.geo)}
+                    title={flyable ? t("combat.flyTo") : undefined}
+                    className={`block w-full rounded border border-red-900/30 bg-[#0b0606]/80 px-2.5 py-1.5 text-left transition-colors ${
+                      flyable ? "hover:border-red-500/50 hover:bg-red-950/30" : "cursor-default"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-mono text-[10px] font-semibold text-red-200">{message.callsign}</span>
+                        <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[7.5px] uppercase tracking-[0.1em] ${CHATTER_KIND_CLASS[message.kind]}`}>
+                          {t(CHATTER_KIND_KEY[message.kind])}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[9px] text-white/30">
+                        {flyable ? <Globe2 className="h-3 w-3 text-white/35" /> : null}
+                        {timeOf(message.at)}
+                      </span>
+                    </div>
+                    <p className={`mt-0.5 font-mono text-[10px] leading-snug ${severityClass}`}>{message.text}</p>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
     </Panel>
-  );
-}
-
-// --- per-agent detail ---------------------------------------------------------
-
-function AgentDetail({ agent, runLog, onClose }: { agent: AgentState; runLog: RunRecord[]; onClose: () => void }) {
-  const runs = useMemo(() => runLog.filter((run) => run.agentId === agent.agentId).slice(0, 12), [runLog, agent.agentId]);
-  return (
-    <div className="absolute inset-0 z-10 flex justify-end bg-black/50" onClick={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="flex h-full w-full max-w-[380px] flex-col border-l border-red-900/50 bg-[#080404]/98 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-red-900/40 px-4 py-3">
-          <div className="min-w-0">
-            <div className="truncate font-mono text-[13px] font-semibold text-white">{agent.name || agent.agentId}</div>
-            <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em]">
-              <span className={AG_STATUS_CLASS[agent.status]}>{t(AG_STATUS_KEY[agent.status])}</span>
-              {agent.role ? <span className="text-white/50">{agent.role}</span> : null}
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-900/40 text-white/70 transition-colors hover:border-red-500/50 hover:text-white">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-          {previewOf(agent) ? (
-            <div>
-              <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45">{t("combat.latest")}</div>
-              <p className="mt-1 font-mono text-[11px] leading-snug text-white/80">{previewOf(agent)}</p>
-            </div>
-          ) : null}
-          <div>
-            <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45">{t("combat.runsTitle")}</div>
-            {runs.length === 0 ? (
-              <p className="mt-1 font-mono text-[10px] text-white/40">{t("combat.noRuns")}</p>
-            ) : (
-              <ul className="mt-1 space-y-1">
-                {runs.map((run) => (
-                  <li key={run.runId} className="flex items-center justify-between gap-2 rounded bg-black/40 px-2 py-1 font-mono text-[10px]">
-                    <span className="text-white/70">{run.trigger}</span>
-                    <span className={run.outcome === "error" ? "text-red-400" : "text-white/50"}>{run.outcome}</span>
-                    <span className="text-white/30">{timeOf(run.startedAt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }

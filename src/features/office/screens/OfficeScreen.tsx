@@ -3569,6 +3569,7 @@ export function OfficeScreen({
           settingsOpen={settingsOpen}
           onOpenSettings={() => setSettingsOpen((open) => !open)}
           onOpenCombat={() => setCombatOpen(true)}
+          combatOpen={combatOpen}
           onIntroChange={setHqIntroPlaying}
           briefing={hqBriefing}
           mission={hqMission !== null}
@@ -3738,7 +3739,16 @@ export function OfficeScreen({
       ) : null}
 
       {combatOpen ? (
-        <CombatConsole agents={state.agents} runLog={runLog} onClose={() => setCombatOpen(false)} />
+        <CombatConsole
+          agents={state.agents}
+          onClose={() => setCombatOpen(false)}
+          onFlyToGlobe={(lat, lon) => {
+            // Reuse the ГЕО seam: fly the shared globe and open it, then close
+            // the pult so only one heavy renderer (the globe) runs at a time.
+            (window as unknown as { __hqGeo?: (lat?: number, lon?: number) => void }).__hqGeo?.(lat, lon);
+            setCombatOpen(false);
+          }}
+        />
       ) : null}
 
       {settingsOpen ? (
