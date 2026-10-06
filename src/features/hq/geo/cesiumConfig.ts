@@ -34,6 +34,10 @@ if (CESIUM_ION_TOKEN) {
   Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 }
 
+/** The best realism tier available with the configured keys (for the UI label). */
+export type RealismMode = "google" | "ion" | "esri";
+export const REALISM_MODE: RealismMode = GOOGLE_3DTILES_KEY ? "google" : CESIUM_ION_TOKEN ? "ion" : "esri";
+
 /** The licence notes shown in the view's footer and kept with the code. */
 export const GEO_ATTRIBUTION = {
   cesium: "CesiumJS © Cesium GS (Apache-2.0)",
@@ -121,4 +125,98 @@ export function skinViewer(viewer: Cesium.Viewer): void {
   // display (attribution) but tuck it into our own footer container.
   viewer.scene.requestRenderMode = true;
   viewer.scene.maximumRenderTimeChange = Infinity;
+}
+
+/**
+ * «РЕАЛИЗМ» — the maximum-realism surface the configured keys allow, as a clean
+ * on/off unit:
+ *   - google : Google Photorealistic 3D Tiles (needs NEXT_PUBLIC_GOOGLE_3DTILES_KEY)
+ *   - ion    : Cesium World Terrain + World Imagery (needs NEXT_PUBLIC_CESIUM_ION_TOKEN)
+ *   - esri   : keyless fallback — Esri World Imagery overlay (terrain stays flat)
+ * Returns a handle whose disable() reverts exactly what it added.
+ */
+export type RealismHandle = { mode: RealismMode; disable(): void };
+
+export async function enablePhotoreal(viewer: Cesium.Viewer): Promise<RealismHandle> {
+  const scene = viewer.scene;
+  if (GOOGLE_3DTILES_KEY) {
+    const tileset = await Cesium.createGooglePhotorealistic3DTileset({ key: GOOGLE_3DTILES_KEY });
+    scene.primitives.add(tileset);
+    // The photoreal tiles are the surface now; hide the imagery globe under them.
+    scene.globe.show = false;
+    scene.requestRender();
+    return {
+      mode: "google",
+      disable() {
+        scene.primitives.remove(tileset);
+        scene.globe.show = true;
+        scene.requestRender();
+      },
+    };
+  }
+  if (CESIUM_ION_TOKEN) {
+    const previousTerrain = scene.terrainProvider;
+    scene.terrainProvider = await Cesium.createWorldTerrainAsync();
+    const imagery = viewer.imageryLayers.addImageryProvider(await Cesium.createWorldImageryAsync());
+    scene.requestRender();
+    return {
+      mode: "ion",
+      disable() {
+        viewer.imageryLayers.remove(imagery, true);
+        scene.terrainProvider = previousTerrain;
+        scene.requestRender();
+      },
+    };
+  }
+  const esri = viewer.imageryLayers.addImageryProvider(
+    new Cesium.UrlTemplateImageryProvider({
+      url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      maximumLevel: 18,
+      credit: new Cesium.Credit("Esri, Maxar, Earthstar Geographics", true),
+    }),
+  );
+  scene.requestRender();
+  return {
+    mode: "esri",
+    disable() {
+      viewer.imageryLayers.remove(esri, true);
+      scene.requestRender();
+    },
+  };
+}
+
+/** Cinematic / sensor looks borrowed from the source project's spirit. */
+export type SensorStyle = "clean" | "night" | "thermal";
+
+/** A false-colour "iron" thermal look as a single full-screen post-process pass. */
+const THERMAL_FRAGMENT_SHADER = `
+uniform sampler2D colorTexture;
+in vec2 v_textureCoordinates;
+void main(void) {
+  vec3 rgb = texture(colorTexture, v_textureCoordinates).rgb;
+  float l = clamp(dot(rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
+  // iron ramp: black -> purple -> red -> orange -> yellow -> white
+  vec3 cold = mix(vec3(0.0, 0.0, 0.05), vec3(0.55, 0.0, 0.5), smoothstep(0.0, 0.35, l));
+  vec3 warm = mix(vec3(0.9, 0.2, 0.0), vec3(1.0, 0.95, 0.6), smoothstep(0.55, 1.0, l));
+  vec3 mid = mix(cold, vec3(0.9, 0.2, 0.0), smoothstep(0.3, 0.6, l));
+  vec3 iron = mix(mid, warm, smoothstep(0.55, 1.0, l));
+  out_FragColor = vec4(iron, 1.0);
+}
+`;
+
+export function createThermalStage(): Cesium.PostProcessStage {
+  return new Cesium.PostProcessStage({ name: "hq-geo-thermal", fragmentShader: THERMAL_FRAGMENT_SHADER });
+}
+
+/** Applies the atmosphere / lighting profile for a sensor style (thermal uses clean). */
+export function applySensorAtmosphere(viewer: Cesium.Viewer, style: SensorStyle): void {
+  const scene = viewer.scene;
+  const night = style === "night";
+  scene.globe.enableLighting = true;
+  scene.globe.atmosphereBrightnessShift = night ? -0.55 : -0.2;
+  if (scene.skyAtmosphere) {
+    scene.skyAtmosphere.brightnessShift = night ? -0.45 : -0.1;
+    scene.skyAtmosphere.saturationShift = night ? 0.1 : 0.35;
+  }
+  scene.requestRender();
 }

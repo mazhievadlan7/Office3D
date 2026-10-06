@@ -14,6 +14,7 @@ import { geoController } from "@/features/hq/geo";
 import type { GeoSceneData, GeoTarget } from "@/features/hq/geo";
 import { chatterController } from "@/features/hq/chatter";
 import type { ChatterKind, ChatterMessage, ChatterSeverity } from "@/features/hq/chatter";
+import { opsController, OpsReportPanel } from "@/features/hq/ops";
 import { t, type TranslationKey } from "@/lib/i18n";
 
 /**
@@ -85,22 +86,33 @@ export function CombatConsole({
   // subscribe: the OSINT seed above may have projected its pins before this
   // listener existed, so the initial snapshot can be stale.
   useEffect(() => {
-    setScene(geoController.getScene());
-    return geoController.subscribe(setScene);
+    const unsubscribe = geoController.subscribe(setScene);
+    // The OSINT seed above may have fired BEFORE this subscription attached,
+    // so sync once off-render on the next microtask to pick up any stale state.
+    queueMicrotask(() => setScene(geoController.getScene()));
+    return unsubscribe;
   }, []);
 
-  // Live chatter: subscribe first, then start the demo driver (ref-counted, so
-  // it costs nothing once every pult is closed) — so the backfilled lines reach
-  // this listener — and pick up any history already in the channel.
+  // Live chatter + the OPS organism. The ops controller drives the swarm: the
+  // lead announces the task, allocates operatives, they self-delegate across
+  // flat roles and post human-language chatter + findings as they chain toward
+  // full control (in sandbox). It posts into the SAME chatterController and
+  // osintController the pult reads, so one coherent live demo covers the pult.
+  // Ref-counted — closed pults cost nothing.
   useEffect(() => {
     const unsubscribe = chatterController.subscribe(setChatter);
-    const stop = chatterController.startDemo();
-    setChatter(chatterController.getMessages());
+    const release = opsController.ensureDemo();
+    // Any backfilled lines from ensureDemo arrive via the subscription above;
+    // sync once off-render in case ensureDemo emitted before we subscribed.
+    queueMicrotask(() => setChatter(chatterController.getMessages()));
     return () => {
-      stop();
+      release();
       unsubscribe();
     };
   }, []);
+
+  // Report overlay («Отчёт» — owner 2026-10-07, Strix-like, tool-free).
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Esc closes.
   useEffect(() => {
@@ -153,6 +165,14 @@ export function CombatConsole({
           <HqClock className="text-right" />
           <button
             type="button"
+            onClick={() => setReportOpen(true)}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-amber-100 transition-colors hover:border-amber-400/60 hover:bg-amber-500/25"
+            title="Собрать отчёт по текущей операции"
+          >
+            Сформировать отчёт
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className="flex h-8 items-center gap-1.5 rounded-md border border-red-900/50 bg-black/50 px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-white transition-colors hover:border-red-500/50 hover:bg-red-950/40"
           >
@@ -180,6 +200,8 @@ export function CombatConsole({
         <FindingsPanel findings={findings} hasScope={findings.length > 0} canFly={Boolean(onFlyToGlobe)} onFly={fly} />
         <ChatterPanel messages={chatter} canFly={Boolean(onFlyToGlobe)} onFly={fly} />
       </div>
+
+      <OpsReportPanel open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   );
 }

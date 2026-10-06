@@ -3,22 +3,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-import { t } from "@/lib/i18n";
+import { t, type TranslationKey } from "@/lib/i18n";
 import { HQ_HUD_GLASS, hqHudButtonClass } from "@/features/hq/hud/hudStyle";
 import * as CesiumNS from "cesium";
 import {
   DEFAULT_BASEMAP,
   GEO_ATTRIBUTION,
   GEO_BASEMAPS,
+  REALISM_MODE,
+  applySensorAtmosphere,
   basemapById,
+  createThermalStage,
+  enablePhotoreal,
   skinViewer,
   type GeoBasemapId,
+  type RealismHandle,
+  type SensorStyle,
 } from "./cesiumConfig";
 import { geoController } from "./geoController";
 import { seedDemoGeo } from "./geoData";
 import { GEO_ARC_STYLE, GEO_KIND_STYLE } from "./geoStyle";
 import type { GeoArc, GeoSceneData } from "./geoTypes";
-import { LIVE_LAYERS, startFlightsLayer, type LiveLayerHandle, type LiveLayerId } from "./liveLayers";
+import {
+  GEO_CAMERA_PROPERTY,
+  LIVE_LAYERS,
+  layerAvailable,
+  startLiveLayer,
+  type GeoCameraInfo,
+  type LiveLayerHandle,
+  type LiveLayerId,
+} from "./liveLayers";
+
+const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
+  { id: "clean", labelKey: "hqGeo.styleClean" },
+  { id: "night", labelKey: "hqGeo.styleNight" },
+  { id: "thermal", labelKey: "hqGeo.styleThermal" },
+];
 
 // Cesium's CSS (vendored to public/cesium) laid out via a <link>, so we never
 // hit Next's global-CSS import rules from a client component.
@@ -119,12 +139,18 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const viewerRef = useRef<CesiumNS.Viewer | null>(null);
   const sourceRef = useRef<CesiumNS.CustomDataSource | null>(null);
   const liveHandlesRef = useRef<Partial<Record<LiveLayerId, LiveLayerHandle>>>({});
+  const realismHandleRef = useRef<RealismHandle | null>(null);
+  const thermalStageRef = useRef<CesiumNS.PostProcessStage | null>(null);
 
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [basemap, setBasemap] = useState<GeoBasemapId>(DEFAULT_BASEMAP);
   const [activeLive, setActiveLive] = useState<LiveLayerId[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [realismOn, setRealismOn] = useState(false);
+  const [realismBusy, setRealismBusy] = useState(false);
+  const [sensorStyle, setSensorStyle] = useState<SensorStyle>("clean");
+  const [camera, setCamera] = useState<GeoCameraInfo | null>(null);
 
   // Build the viewer once.
   useEffect(() => {
@@ -187,6 +213,20 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
 
     queueMicrotask(() => setReady(true));
 
+    // Clicking a public-webcam point surfaces its live thumbnail in a DOM panel
+    // (kept out of WebGL so cross-origin camera images never taint the canvas).
+    const picker = new CesiumNS.ScreenSpaceEventHandler(viewer.scene.canvas);
+    picker.setInputAction((movement: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
+      const live = viewerRef.current;
+      if (!live) return;
+      const picked = live.scene.pick(movement.position);
+      const entity = picked?.id as CesiumNS.Entity | undefined;
+      const info = entity?.properties?.getValue(CesiumNS.JulianDate.now())?.[GEO_CAMERA_PROPERTY] as
+        | GeoCameraInfo
+        | undefined;
+      if (info) setCamera(info);
+    }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK);
+
     const unsubscribeScene = geoController.subscribe((scene) => {
       const current = sourceRef.current;
       const live = viewerRef.current;
@@ -200,8 +240,12 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     return () => {
       unsubscribeScene();
       unsubscribeFly();
+      if (!picker.isDestroyed()) picker.destroy();
       for (const handle of Object.values(liveHandlesRef.current)) handle?.destroy();
       liveHandlesRef.current = {};
+      realismHandleRef.current?.disable();
+      realismHandleRef.current = null;
+      thermalStageRef.current = null;
       sourceRef.current = null;
       viewerRef.current = null;
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
@@ -218,6 +262,18 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Pause every live fetcher while the tab is hidden; resume on return. The
+  // globe is still (requestRenderMode) meanwhile, so a backgrounded ГЕО costs
+  // nothing — no polling, no sockets, no renders.
+  useEffect(() => {
+    const onVisibility = () => {
+      const paused = document.hidden;
+      for (const handle of Object.values(liveHandlesRef.current)) handle?.setPaused(paused);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
   const switchBasemap = useCallback((id: GeoBasemapId) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -233,23 +289,64 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const toggleLive = useCallback((id: LiveLayerId) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    const def = LIVE_LAYERS.find((layer) => layer.id === id);
-    if (!def?.implemented) {
-      setNotice(t("hqGeo.layerPlanned", { name: def?.label ?? id }));
-      return;
-    }
     const handles = liveHandlesRef.current;
     if (handles[id]) {
       handles[id]?.destroy();
       delete handles[id];
       setActiveLive((active) => active.filter((layer) => layer !== id));
+      if (id === "cameras") setCamera(null);
       viewer.scene.requestRender();
       return;
     }
-    if (id === "flights") {
-      handles[id] = startFlightsLayer(viewer, (message) => setNotice(t("hqGeo.layerError", { detail: message })));
-      setActiveLive((active) => [...active, id]);
+    if (!layerAvailable(id)) {
+      const def = LIVE_LAYERS.find((layer) => layer.id === id);
+      setNotice(t("hqGeo.layerNeedsKey", { name: def?.label ?? id, env: def?.keyEnv ?? "" }));
+      return;
     }
+    const handle = startLiveLayer(id, viewer, (message) => setNotice(t("hqGeo.layerError", { detail: message })));
+    if (!handle) return;
+    handles[id] = handle;
+    setActiveLive((active) => [...active, id]);
+  }, []);
+
+  // «РЕАЛИЗМ»: photoreal 3D tiles / world terrain (keyed) or an Esri imagery
+  // overlay (keyless). Off reverts exactly what it added.
+  const toggleRealism = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || realismBusy) return;
+    if (realismHandleRef.current) {
+      realismHandleRef.current.disable();
+      realismHandleRef.current = null;
+      setRealismOn(false);
+      return;
+    }
+    setRealismBusy(true);
+    enablePhotoreal(viewer)
+      .then((handle) => {
+        realismHandleRef.current = handle;
+        setRealismOn(true);
+      })
+      .catch((error: unknown) =>
+        setNotice(t("hqGeo.layerError", { detail: error instanceof Error ? error.message : String(error) })),
+      )
+      .finally(() => setRealismBusy(false));
+  }, [realismBusy]);
+
+  const switchSensorStyle = useCallback((style: SensorStyle) => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    setSensorStyle(style);
+    const stages = viewer.scene.postProcessStages;
+    if (style === "thermal") {
+      if (!thermalStageRef.current) {
+        thermalStageRef.current = createThermalStage();
+        stages.add(thermalStageRef.current);
+      }
+    } else if (thermalStageRef.current) {
+      stages.remove(thermalStageRef.current);
+      thermalStageRef.current = null;
+    }
+    applySensorAtmosphere(viewer, style);
   }, []);
 
   return (
@@ -313,6 +410,31 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               {option.egress ? <span className="ml-1 text-[9px] text-white/45">·сеть</span> : null}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={toggleRealism}
+            disabled={realismBusy}
+            title={t("hqGeo.realismHint", { mode: REALISM_MODE })}
+            className={`h-8 px-2.5 font-mono text-[11px] disabled:opacity-50 ${hqHudButtonClass(realismOn)}`}
+          >
+            {t("hqGeo.realism")}
+            <span className="ml-1 text-[9px] text-white/45">·{REALISM_MODE}</span>
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
+            {t("hqGeo.style")}
+          </span>
+          {SENSOR_STYLES.map((style) => (
+            <button
+              key={style.id}
+              type="button"
+              onClick={() => switchSensorStyle(style.id)}
+              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(sensorStyle === style.id)}`}
+            >
+              {t(style.labelKey)}
+            </button>
+          ))}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
@@ -323,11 +445,14 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               key={layer.id}
               type="button"
               onClick={() => toggleLive(layer.id)}
-              title={t("hqGeo.needsEgress")}
-              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(activeLive.includes(layer.id))}`}
+              title={layer.needsKey ? t("hqGeo.layerNeedsKey", { name: layer.label, env: layer.keyEnv ?? "" }) : t("hqGeo.needsEgress")}
+              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(activeLive.includes(layer.id))} ${
+                layer.needsKey && !layerAvailable(layer.id) ? "opacity-60" : ""
+              }`}
             >
               {layer.label}
               <span className="ml-1 text-[9px] text-white/45">·{layer.source}</span>
+              {layer.needsKey && !layerAvailable(layer.id) ? <span className="ml-1 text-[9px] text-amber-400/70">·ключ</span> : null}
             </button>
           ))}
           <span className="px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/40">
@@ -358,6 +483,39 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           >
             {notice}
           </button>
+        </div>
+      ) : null}
+
+      {/* Public-webcam thumbnail (DOM, not WebGL) shown when a camera point is
+          clicked. View-only open public feed. */}
+      {camera ? (
+        <div className={`absolute right-3 bottom-16 z-10 w-[260px] overflow-hidden ${HQ_HUD_GLASS}`}>
+          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+            <span className="truncate font-mono text-[11px] text-white/85">{camera.title}</span>
+            <button
+              type="button"
+              onClick={() => setCamera(null)}
+              aria-label={t("hqGeo.close")}
+              className="flex h-5 w-5 shrink-0 items-center justify-center text-white/60 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- live external webcam frame, not a static asset */}
+          <img src={camera.preview} alt={camera.title} className="block h-[146px] w-full object-cover" />
+          <div className="flex items-center justify-between px-2.5 py-1.5">
+            <span className="truncate font-mono text-[9px] uppercase tracking-[0.1em] text-white/50">{camera.place}</span>
+            {camera.detail ? (
+              <a
+                href={camera.detail}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-[9px] uppercase tracking-[0.1em] text-blue-300/80 hover:text-blue-200"
+              >
+                Windy
+              </a>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
