@@ -21,6 +21,7 @@ export type AegisStatus = "draft" | "authorized" | "active" | "stopped" | "compl
 export type AegisAuthorization = {
   letterRef: string;
   signer: string;
+  signature?: string | null;
   verification: unknown | null;
   recordedAt: number;
 };
@@ -33,7 +34,7 @@ export type AegisEngagement = {
   assets: AegisAsset[];
   authorization: AegisAuthorization | null;
   activation: { by: string; at: number } | null;
-  stop: { by: string; reason: string; at: number } | null;
+  stop: { by: string; reason: string; at: number; auto?: boolean; trigger?: string | null; count?: number | null } | null;
   completedBy?: string;
   createdAt: number;
   updatedAt: number;
@@ -69,7 +70,7 @@ export type AegisAuditEntry = {
   hash: string;
 };
 
-export type AegisAuditIntegrity = { ok: boolean; count: number; reason?: string; brokenAt?: number };
+export type AegisAuditIntegrity = { ok: boolean; count: number; signed?: boolean; reason?: string; brokenAt?: number };
 
 export type AegisEgress = {
   engagementId: string | null;
@@ -80,10 +81,19 @@ export type AegisEgress = {
   nftables: string;
 };
 
+/** The always-on security posture: kill-switch plus the Gate-0 and auto-stop
+ *  guards and whether each is armed. Surfaced read-only in the overview. */
+export type AegisSecurityStatus = {
+  killSwitch: AegisKillSwitch;
+  gate0: { enabled: boolean; canaryCount: number };
+  autoStop: { enabled: boolean; threshold: number; windowMs: number };
+};
+
 export type AegisOverview = {
   killSwitch: AegisKillSwitch;
   engagements: AegisEngagementSummary[];
   audit: AegisAuditIntegrity;
+  security: AegisSecurityStatus;
 };
 
 /** A first-order governance rule (RULE_0…RULE_5) carried by every agent. */

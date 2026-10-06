@@ -18,6 +18,7 @@ import type {
   AegisKillSwitch,
   AegisOverview,
   AegisRule,
+  AegisSecurityStatus,
   AegisVerifyInstructions,
   AegisVerifyMethod,
   AegisVerifyResult,
@@ -77,6 +78,9 @@ export const overview = (): AegisOverview => {
     killSwitch: core.engagements.getKillSwitch() as AegisKillSwitch,
     engagements: (core.engagements.list() as AegisEngagement[]).map(summarize),
     audit: core.verifyAudit() as AegisAuditIntegrity,
+    // Gate-0 / auto-stop posture plus the kill-switch, so the panel can show the
+    // always-on guards at a glance.
+    security: core.securityStatus() as AegisSecurityStatus,
   };
 };
 
@@ -93,7 +97,7 @@ export const removeAsset = (id: string, assetId: string): Promise<AegisEngagemen
 
 export const recordAuthorization = (
   id: string,
-  input: { letterRef?: string; signer?: string; verification?: unknown },
+  input: { letterRef?: string; signer?: string; signature?: string; verification?: unknown },
 ): Promise<AegisEngagement> => kernel().engagements.recordAuthorization(id, input) as Promise<AegisEngagement>;
 
 export const activate = (id: string, input: { by?: string; confirm?: boolean }): Promise<AegisEngagement> =>

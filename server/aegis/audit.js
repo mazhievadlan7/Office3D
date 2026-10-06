@@ -4,8 +4,17 @@
 // entry carries the hash of the previous entry, so a single altered or removed
 // line breaks the chain and verify() finds it. This is the tamper-evident
 // journal the platform's whole promise rests on: "we acted strictly inside the
-// authorized scope, and here is the proof." (§13.5 "подписанный аудит-леджер";
-// cryptographic signing is a later layer on top of this chain.)
+// authorized scope, and here is the proof." (§13.5 "подписанный аудит-леджер").
+//
+// Signed ledger (§13.5). The SHA-256 hash-chain alone is tamper-EVIDENT but not
+// tamper-PROOF: an attacker who can rewrite the file can recompute every hash
+// (and the checkpoint) and forge a valid-looking chain. When a signing key is
+// configured (AEGIS_AUDIT_KEY), each entry additionally carries `sig` — an
+// HMAC-SHA256 of that entry's chain-head hash under the secret key — which such
+// an attacker cannot reproduce without the key. verify() then checks every
+// entry's signature. The signature is derived from `hash` and is NOT part of
+// the hashed payload, so with no key configured the file and verify() behave
+// exactly as the pure hash-chain always did (absent key = unchanged).
 //
 // The ledger is append-only: it is never rewritten, only added to. Mutable
 // current state lives in store.js instead.
@@ -39,13 +48,27 @@ const payloadOf = (entry) => {
   return payload;
 };
 
+/** Normalize a signing key (string/Buffer) to a Buffer, or null if none. An
+ *  empty/whitespace string counts as "no key" so a blank env var is off. */
+const normalizeKey = (key) => {
+  if (key == null) return null;
+  if (Buffer.isBuffer(key)) return key.length ? key : null;
+  const text = String(key).trim();
+  return text ? Buffer.from(text, "utf8") : null;
+};
+
+/** The per-entry signature: HMAC-SHA256 of the entry's chain-head hash. */
+const signHash = (signingKey, hash) => crypto.createHmac("sha256", signingKey).update(hash).digest("hex");
+
 /**
  * @param {object} deps
  * @param {string} deps.filePath  JSONL ledger path
  * @param {() => number} [deps.now]
  * @param {(message: string, err?: unknown) => void} [deps.logError]
+ * @param {string|Buffer|null} [deps.signingKey]  when set, entries are HMAC-signed and verify() checks them (§13.5)
  */
-const createAuditLog = ({ filePath, now = () => Date.now(), logError = () => {} }) => {
+const createAuditLog = ({ filePath, now = () => Date.now(), logError = () => {}, signingKey = null } = {}) => {
+  const key = normalizeKey(signingKey);
   let seq = 0;
   let lastHash = GENESIS;
   // A monotonic checkpoint (last seq + hash) kept beside the ledger. It is what
@@ -115,6 +138,9 @@ const createAuditLog = ({ filePath, now = () => Date.now(), logError = () => {} 
     };
     entry.prevHash = lastHash;
     entry.hash = hashEntry(lastHash, payloadOf(entry));
+    // The signature is derived from `hash` and lives outside the hashed payload,
+    // so adding it never perturbs the chain the unsigned ledger produces.
+    if (key) entry.sig = signHash(key, entry.hash);
     lastHash = entry.hash;
     const line = `${JSON.stringify(entry)}\n`;
     const advanceHead = entry.seq > headSeq;
@@ -139,7 +165,8 @@ const createAuditLog = ({ filePath, now = () => Date.now(), logError = () => {} 
    *  break, if any. Catches altered entries, chain gaps, mid-log removal AND
    *  tail truncation (via the checkpoint). */
   const verify = () => {
-    if (integrityAlarm) return { ok: false, count: 0, reason: integrityAlarm };
+    const signed = Boolean(key);
+    if (integrityAlarm) return { ok: false, count: 0, signed, reason: integrityAlarm };
     const head = readHead();
     let prev = GENESIS;
     let count = 0;
@@ -149,19 +176,26 @@ const createAuditLog = ({ filePath, now = () => Date.now(), logError = () => {} 
       try {
         entry = JSON.parse(line);
       } catch {
-        return { ok: false, count, brokenAt: count + 1, reason: "нечитаемая строка" };
+        return { ok: false, count, signed, brokenAt: count + 1, reason: "нечитаемая строка" };
       }
       count += 1;
-      if (entry.prevHash !== prev) return { ok: false, count, brokenAt: count, reason: "разрыв цепочки (prevHash)" };
-      if (hashEntry(prev, payloadOf(entry)) !== entry.hash) return { ok: false, count, brokenAt: count, reason: "хеш не сходится (подделка записи)" };
+      if (entry.prevHash !== prev) return { ok: false, count, signed, brokenAt: count, reason: "разрыв цепочки (prevHash)" };
+      if (hashEntry(prev, payloadOf(entry)) !== entry.hash) return { ok: false, count, signed, brokenAt: count, reason: "хеш не сходится (подделка записи)" };
+      // With a key configured, every entry must carry a signature that matches
+      // its hash. This is what defeats a full-file rewrite: an attacker can
+      // recompute the hashes but not the HMAC without the secret key.
+      if (key) {
+        if (typeof entry.sig !== "string") return { ok: false, count, signed, brokenAt: count, reason: "нет подписи записи (подписанный леджер)" };
+        if (signHash(key, entry.hash) !== entry.sig) return { ok: false, count, signed, brokenAt: count, reason: "подпись не сходится (подделка подписанного леджера)" };
+      }
       prev = entry.hash;
       if (head && entry.seq === head.seq) {
         sawCheckpoint = true;
-        if (entry.hash !== head.hash) return { ok: false, count, brokenAt: count, reason: "хвост изменён (checkpoint hash не сходится)" };
+        if (entry.hash !== head.hash) return { ok: false, count, signed, brokenAt: count, reason: "хвост изменён (checkpoint hash не сходится)" };
       }
     }
-    if (head && !sawCheckpoint) return { ok: false, count, reason: "обрезан хвост леджера (записи до checkpoint отсутствуют)" };
-    return { ok: true, count };
+    if (head && !sawCheckpoint) return { ok: false, count, signed, reason: "обрезан хвост леджера (записи до checkpoint отсутствуют)" };
+    return { ok: true, count, signed };
   };
 
   /**

@@ -110,10 +110,14 @@ const createEngagementManager = ({ store, now = () => Date.now(), onEvent = () =
 
     /**
      * Record the signed authorization for this engagement and move it to
-     * "authorized". Optionally carry an ownership-verification result (from the
-     * authorization gateway). Requires at least one asset.
+     * "authorized" (TZ §4.3: authorization letter + signer signature). Both the
+     * letter reference/hash and the signer identity are required — without them
+     * activate() has nothing to gate on and the engagement cannot go active. An
+     * optional signature (a hash/reference of the signer's signature, no upload
+     * infra) and an ownership-verification result (from the authorization
+     * gateway) are carried alongside. Requires at least one asset.
      */
-    async recordAuthorization(id, { letterRef, signer, verification } = {}) {
+    async recordAuthorization(id, { letterRef, signer, signature, verification } = {}) {
       const engagement = require_(id);
       mustBe(engagement, "draft");
       if (!engagement.assets.length) throw invalid("Нельзя авторизовать engagement без активов.");
@@ -124,11 +128,12 @@ const createEngagementManager = ({ store, now = () => Date.now(), onEvent = () =
       engagement.authorization = {
         letterRef: ref,
         signer: who,
+        signature: cleanText(signature, 500) || null,
         verification: verification && typeof verification === "object" ? verification : null,
         recordedAt: now(),
       };
       engagement.status = "authorized";
-      emit("engagement.authorized", engagement, { letterRef: ref, signer: who });
+      emit("engagement.authorized", engagement, { letterRef: ref, signer: who, signature: engagement.authorization.signature });
       return save(engagement);
     },
 
@@ -155,6 +160,30 @@ const createEngagementManager = ({ store, now = () => Date.now(), onEvent = () =
       engagement.status = "stopped";
       engagement.stop = { by: cleanText(by, 200), reason: cleanText(reason, 500), at: now() };
       emit("engagement.stopped", engagement, { by: engagement.stop.by, reason: engagement.stop.reason });
+      return save(engagement);
+    },
+
+    /**
+     * Automatic deactivation on anomaly (TZ §4.2). Called by preflight when the
+     * per-engagement anomaly counter crosses its threshold. Unlike stop(), this
+     * never throws on a non-active engagement — it is a safety reflex that must
+     * be callable from the (never-throwing) preflight path — and it records that
+     * the stop was automatic plus the triggering signal. Emits `auto_stop`.
+     */
+    async autoStop(id, { reason, trigger, count } = {}) {
+      const engagement = store.getEngagement(id);
+      if (!engagement) return null; // nothing to stop; preflight already denied
+      if (engagement.status !== "active") return snapshot(engagement); // already halted
+      engagement.status = "stopped";
+      engagement.stop = {
+        by: "auto-stop",
+        auto: true,
+        trigger: cleanText(trigger, 100) || null,
+        count: Number.isInteger(count) ? count : null,
+        reason: cleanText(reason, 500),
+        at: now(),
+      };
+      emit("auto_stop", engagement, { trigger: engagement.stop.trigger, count: engagement.stop.count, reason: engagement.stop.reason });
       return save(engagement);
     },
 

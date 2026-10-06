@@ -46,6 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           engagement: await recordAuthorization(id, {
             letterRef: str(body.letterRef),
             signer: str(body.signer),
+            signature: str(body.signature),
             verification: body.verification,
           }),
         });

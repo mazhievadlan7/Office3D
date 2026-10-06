@@ -47,7 +47,7 @@ export const createEngagement = async (input: { name: string; note?: string }): 
 export type EngagementOp =
   | { op: "addAsset"; asset: unknown }
   | { op: "removeAsset"; assetId: string }
-  | { op: "authorize"; letterRef: string; signer: string; verification?: unknown }
+  | { op: "authorize"; letterRef: string; signer: string; signature?: string; verification?: unknown }
   | { op: "activate"; by: string; confirm: boolean }
   | { op: "stop"; by: string; reason: string }
   | { op: "reactivate"; by: string }
