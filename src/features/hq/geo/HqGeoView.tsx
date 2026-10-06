@@ -35,6 +35,9 @@ import {
   type LiveLayerId,
 } from "./liveLayers";
 import { createTracker, type TrackHandle, type TrackedInfo } from "./tracking";
+import { HqGeoPassesPanel } from "./HqGeoPassesPanel";
+import { HqGeoHud } from "./HqGeoHud";
+import { buildShareHref, readShareFromHash, type GeoShareState } from "./shareLink";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -158,6 +161,33 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const [camera, setCamera] = useState<GeoCameraInfo | null>(null);
   const [tracked, setTracked] = useState<TrackedInfo | null>(null);
   const trackerRef = useRef<TrackHandle | null>(null);
+  const [passesObserver, setPassesObserver] = useState<{ lat: number; lon: number } | null>(null);
+  const [hudOn, setHudOn] = useState(true);
+  const [hudCounts, setHudCounts] = useState({ flights: 0, sats: 0, quakes: 0, launches: 0 });
+  // Mirror the viewer ref into state the moment the viewer mounts, so a child
+  // component (the HUD) can read it during render without the ref-during-render
+  // violation. React 19's lint rule flags any ref read inside JSX.
+  const [viewerForHud, setViewerForHud] = useState<CesiumNS.Viewer | null>(null);
+
+  // Read the live entity counts from Cesium's data sources, so the HUD tally
+  // reflects what is actually plotted. Polled, lightweight — just four look-ups.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const live = viewerRef.current;
+      if (!live) return;
+      const grab = (name: string): number => {
+        const ds = live.dataSources.getByName(name)[0];
+        return ds ? ds.entities.values.length : 0;
+      };
+      setHudCounts({
+        flights: grab("hq-geo-flights"),
+        sats: grab("hq-geo-satellites"),
+        quakes: grab("hq-geo-earthquakes"),
+        launches: grab("hq-geo-launches"),
+      });
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Build the viewer once.
   useEffect(() => {
@@ -193,6 +223,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       return;
     }
     viewerRef.current = viewer;
+    queueMicrotask(() => setViewerForHud(viewer));
     skinViewer(viewer);
 
     // Country / major-city labels overlay — keyless, serves as geographic context
@@ -268,6 +299,18 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       }
       tracker.track(entity);
     }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK);
+    // Shift + click on the globe (not on a pin) picks the point as the observer
+    // for the «Пролёты спутников» panel.
+    picker.setInputAction((movement: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
+      const live = viewerRef.current;
+      if (!live) return;
+      const ray = live.camera.getPickRay(movement.position);
+      if (!ray) return;
+      const cart = live.scene.globe.pick(ray, live.scene);
+      if (!cart) return;
+      const carto = CesiumNS.Cartographic.fromCartesian(cart);
+      setPassesObserver({ lat: CesiumNS.Math.toDegrees(carto.latitude), lon: CesiumNS.Math.toDegrees(carto.longitude) });
+    }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK, CesiumNS.KeyboardEventModifier.SHIFT);
 
     const unsubscribeScene = geoController.subscribe((scene) => {
       const current = sourceRef.current;
@@ -292,6 +335,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       sensorStageRef.current = null;
       sourceRef.current = null;
       viewerRef.current = null;
+      setViewerForHud(null);
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
     };
     // Built once; basemap/live changes are handled by their own callbacks.
@@ -356,6 +400,73 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       )
       .finally(() => setRealismBusy(false));
   }, [realismBusy]);
+
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const copyShareLink = useCallback(async () => {
+    const viewer = viewerRef.current;
+    if (!viewer || typeof window === "undefined") return;
+    const camera = viewer.camera;
+    const carto = CesiumNS.Cartographic.fromCartesian(camera.position);
+    const state: GeoShareState = {
+      cam: {
+        lat: CesiumNS.Math.toDegrees(carto.latitude),
+        lon: CesiumNS.Math.toDegrees(carto.longitude),
+        height: carto.height,
+        heading: CesiumNS.Math.toDegrees(camera.heading),
+        pitch: CesiumNS.Math.toDegrees(camera.pitch),
+      },
+      basemap,
+      style: sensorStyle,
+      hud: hudOn,
+      passes: passesObserver ?? undefined,
+      track:
+        tracked && typeof tracked.lat === "number" && typeof tracked.lon === "number"
+          ? { lat: tracked.lat, lon: tracked.lon, title: tracked.title }
+          : undefined,
+    };
+    const href = buildShareHref(window.location.origin, window.location.pathname, state);
+    try {
+      await navigator.clipboard.writeText(href);
+      setShareNotice("Ссылка скопирована");
+    } catch {
+      setShareNotice("Не удалось скопировать — ссылка готова в адресной строке.");
+      window.history.replaceState(null, "", href);
+    }
+    window.setTimeout(() => setShareNotice(null), 2200);
+  }, [basemap, sensorStyle, hudOn, passesObserver, tracked]);
+
+  // On mount, read any share-link in the URL hash and apply what the viewer
+  // supports immediately (basemap + style + HUD; camera flies to the shared
+  // position; passes/track are restored once the viewer is up). The reads sit
+  // in queueMicrotask so React's set-state-in-effect rule stays happy.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const shared = readShareFromHash(window.location.hash);
+    queueMicrotask(() => {
+      if (shared.basemap) setBasemap(shared.basemap as GeoBasemapId);
+      if (shared.style) setSensorStyle(shared.style as SensorStyle);
+      if (shared.hud != null) setHudOn(shared.hud);
+      if (shared.passes) setPassesObserver(shared.passes);
+    });
+    // The camera fly-to needs the viewer; defer to the ready effect below.
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    if (typeof window === "undefined") return;
+    const shared = readShareFromHash(window.location.hash);
+    const viewer = viewerRef.current;
+    if (shared.cam && viewer) {
+      void viewer.camera.flyTo({
+        destination: CesiumNS.Cartesian3.fromDegrees(shared.cam.lon, shared.cam.lat, shared.cam.height),
+        orientation: {
+          heading: CesiumNS.Math.toRadians(shared.cam.heading ?? 0),
+          pitch: CesiumNS.Math.toRadians(shared.cam.pitch ?? -90),
+          roll: 0,
+        },
+        duration: 1.6,
+      });
+    }
+  }, [ready]);
 
   const switchSensorStyle = useCallback((style: SensorStyle) => {
     const viewer = viewerRef.current;
@@ -463,6 +574,22 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               {t(style.labelKey)}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setHudOn((v) => !v)}
+            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(hudOn)}`}
+            title="Военный HUD: прицел, рамки, телеметрия камеры"
+          >
+            HUD
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyShareLink()}
+            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(false)}`}
+            title="Скопировать ссылку на текущий вид: камера, слои, стиль, выделенная точка"
+          >
+            Поделиться
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
@@ -510,6 +637,15 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           >
             {notice}
           </button>
+        </div>
+      ) : null}
+
+      {/* Share-link toast. */}
+      {shareNotice ? (
+        <div className="absolute top-16 left-1/2 z-10 -translate-x-1/2">
+          <span className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-200 ${HQ_HUD_GLASS}`}>
+            {shareNotice}
+          </span>
         </div>
       ) : null}
 
@@ -593,6 +729,14 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           ) : null}
         </div>
       ) : null}
+
+      {/* Shift-click any point on the globe to list the next visible passes of any
+          loaded satellite over that point in the next 24 hours. */}
+      <HqGeoPassesPanel observer={passesObserver} onClose={() => setPassesObserver(null)} />
+
+      {/* Tactical HUD overlay — corner reticles, centre cross-hair, camera
+          telemetry, contact tally, tracked-target lock. */}
+      {hudOn ? <HqGeoHud viewer={viewerForHud} counts={hudCounts} trackedTitle={tracked?.title ?? null} /> : null}
 
       {/* Attribution footer: Cesium's credit display lands in creditRef; our own
           notes sit beside it. */}
