@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "node server/index.js --dev",
     "dev:https": "node server/index.js --dev --https",
+    "vendor:cesium": "node scripts/vendor-cesium.mjs",
+    "predev": "node scripts/vendor-cesium.mjs",
+    "prebuild": "node scripts/vendor-cesium.mjs",
+    "prestart": "node scripts/vendor-cesium.mjs",
     "hermes-local": "bash scripts/hermes-local.sh",
     "hermes-gate": "node server/hermes-gate.js",
     "demo-gateway": "node server/demo-gateway-adapter.js",
@@ -30,6 +34,7 @@
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "@react-three/postprocessing": "^3.1.2",
+    "cesium": "^1.146.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
     "next": "16.3.6",

@@ -32,6 +32,8 @@ const eslintConfig = defineConfig([
 
     // Vendored third-party code (kept as-is; linting it adds noise).
     "src/lib/avatars/vendor/**",
+    // Vendored CesiumJS static assets (minified workers served from public).
+    "public/cesium/**",
   ]),
   prettier,
 ]);

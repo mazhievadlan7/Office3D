@@ -1,10 +1,12 @@
 "use client";
 
 import { Canvas, useFrame, type GLProps } from "@react-three/fiber";
+import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PCFShadowMap, WebGLRenderer } from "three";
 
 import { t } from "@/lib/i18n";
+import { geoController, HqGeoWall } from "./geo";
 import { loadHqAssignments, saveHqAssignments } from "./core/assignments";
 import {
   HQ_DEFAULT_CAPACITY,
@@ -41,6 +43,13 @@ import type { HqQuality } from "./render/scene/quality";
 
 /** Highest pixel ratio the HQ renders at: sharp on HiDPI screens without doubling the work. */
 const HQ_MAX_DPR = 1.5;
+
+// The full-screen «ГЕО» globe pulls in CesiumJS: load it only when opened, and
+// never on the server (it reaches for window at import).
+const HqGeoView = dynamic(() => import("./geo/HqGeoView").then((mod) => mod.HqGeoView), {
+  ssr: false,
+  loading: () => null,
+});
 
 export type HqOfficeProps = {
   agents: HqAgentInput[];
@@ -234,6 +243,13 @@ export function HqOffice({
   const quality: HqQuality = "high";
   const [dpr] = useState(() => Math.min(HQ_MAX_DPR, Math.max(1, window.devicePixelRatio || 1)));
   const [cameraMode, setCameraMode] = useState<HqCameraMode>("overview");
+  // The «ГЕО» geo-view: the full-screen CesiumJS globe (geoOpen) and the cheap
+  // video-wall preview (geoWallOn), summoned independently.
+  const [geoOpen, setGeoOpen] = useState(false);
+  const [geoWallOn, setGeoWallOn] = useState(false);
+  const toggleGeoWall = useCallback(() => setGeoWallOn((on) => !on), []);
+  const openGeo = useCallback(() => setGeoOpen(true), []);
+  const closeGeo = useCallback(() => setGeoOpen(false), []);
   const [deskPoll, setDeskPoll] = useState<{ capacity: HqCapacity; free: number } | null>(null);
   const [ready, setReady] = useState(false);
   // The opening fly-through: the HUD stays off until it lands.
@@ -317,6 +333,27 @@ export function HqOffice({
       delete w.__hqArchiveRun;
     };
   }, []);
+  // The «ГЕО» trigger seam: window.__hqGeo(lat?, lon?) opens the full-screen
+  // globe (and flies to a point when given one); window.__hqGeoWall(on?) toggles
+  // the wall preview. Exposed for the dev console and, later, our local voice
+  // command — so it lives outside the dev-only block above. setState setters are
+  // stable, so this runs once.
+  useEffect(() => {
+    const w = window as unknown as {
+      __hqGeo?: (lat?: number, lon?: number) => void;
+      __hqGeoWall?: (on?: boolean) => void;
+    };
+    w.__hqGeo = (lat, lon) => {
+      if (typeof lat === "number" && typeof lon === "number") geoController.flyTo(lat, lon);
+      setGeoOpen(true);
+    };
+    w.__hqGeoWall = (on) => setGeoWallOn((current) => (on === undefined ? !current : Boolean(on)));
+    return () => {
+      delete w.__hqGeo;
+      delete w.__hqGeoWall;
+    };
+  }, []);
+
   const onHallReadyRef = useRef(onHallReady);
   useEffect(() => {
     onHallReadyRef.current = onHallReady;
@@ -625,6 +662,9 @@ export function HqOffice({
         <Canvas
           // AgX tone mapping and sRGB output happen in the post chain.
           flat
+          // The hall is paused while the full-screen ГЕО globe is up, so the two
+          // heavy renderers never run at once (CesiumJS owns the frame then).
+          frameloop={geoOpen ? "never" : "always"}
           // Owned here, not set from inside: R3F re-applies this prop on
           // every Canvas render.
           dpr={dpr}
@@ -657,6 +697,8 @@ export function HqOffice({
           />
           <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={captionsOn ? subtitleSinkRef : undefined} />
           <HqCreatorWatch simRef={simRef} />
+          {/* The cheap ГЕО preview on the video wall, mounted only while summoned. */}
+          {geoWallOn ? <HqGeoWall wall={layout.mapWall} /> : null}
         </Canvas>
         <div
           aria-hidden={introPlaying}
@@ -676,12 +718,16 @@ export function HqOffice({
           wallAvailable={wallAvailable}
           wallShowsOperation={wallShowsOperation}
           onToggleWall={onToggleWall}
+          onOpenGeo={openGeo}
+          geoWallOn={geoWallOn}
+          onToggleGeoWall={toggleGeoWall}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}
           creatorOnline={creatorOnline}
         />
         </div>
+        {geoOpen ? <HqGeoView onClose={closeGeo} /> : null}
       </HqCanvasBoundary>
       {/* Fades in from black as the intro swoop starts. */}
       <div

@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# Vendored CesiumJS static assets (workers/textures/widget CSS). Reproducible
+# from node_modules via `npm run vendor:cesium` (runs automatically before
+# dev/build/start), so they stay out of the repo.
+/public/cesium/
+
 # production
 /build
 

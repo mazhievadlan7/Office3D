@@ -9,7 +9,9 @@ import {
   ListChecks,
   Maximize2,
   MessageSquare,
+  Orbit,
   Radar,
+  Satellite,
   Settings,
   Volume2,
   VolumeX,
@@ -176,6 +178,9 @@ export function HqHud({
   wallAvailable = false,
   wallShowsOperation = true,
   onToggleWall,
+  onOpenGeo,
+  geoWallOn = false,
+  onToggleGeoWall,
   runtime,
   settingsOpen,
   onOpenSettings,
@@ -184,6 +189,12 @@ export function HqHud({
   counts: HqHudCounts;
   /** The owner is signed in: «СОЗДАТЕЛЬ В СЕТИ» under the counters. */
   creatorOnline?: boolean;
+  /** Opens the full-screen «ГЕО» globe; the button is hidden without it. */
+  onOpenGeo?: () => void;
+  /** Whether the cheap «ГЕО» preview is up on the video wall. */
+  geoWallOn?: boolean;
+  /** Toggles the «ГЕО» preview on the video wall; the button is hidden without it. */
+  onToggleGeoWall?: () => void;
   /** Whether there is an operation («ХОД ЗАДАЧИ») for the wall to show; the switch is disabled without one. */
   wallAvailable?: boolean;
   /** The wall switch: true while the wall shows the operation, false for the usual panels. */
@@ -291,6 +302,23 @@ export function HqHud({
               <span className="hidden xl:inline">
                 {wallAvailable && wallShowsOperation ? t("hqScene.wallOperation") : t("hqScene.wallPanels")}
               </span>
+            </BarButton>
+          ) : null}
+          {onOpenGeo ? (
+            <BarButton label={t("hqGeo.open")} title={t("hqGeo.openTitle")} onClick={onOpenGeo}>
+              <Satellite className="h-4 w-4" />
+              <span className="hidden xl:inline">{t("hqGeo.open")}</span>
+            </BarButton>
+          ) : null}
+          {onToggleGeoWall ? (
+            <BarButton
+              active={geoWallOn}
+              label={t("hqGeo.wall")}
+              title={geoWallOn ? t("hqGeo.wallHide") : t("hqGeo.wallShow")}
+              onClick={onToggleGeoWall}
+            >
+              <Orbit className="h-4 w-4" />
+              <span className="hidden xl:inline">{t("hqGeo.wall")}</span>
             </BarButton>
           ) : null}
 
