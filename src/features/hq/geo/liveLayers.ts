@@ -93,9 +93,12 @@ function makePoller(tick: () => void | Promise<void>, intervalMs: number): Polle
   };
 }
 
-// --- Flights (OpenSky, keyless) ---------------------------------------------
+// --- Flights (OpenSky, keyless, via our own geo proxy) ----------------------
 
-const OPENSKY_URL = "https://opensky-network.org/api/states/all";
+// OpenSky's public endpoint sets `Access-Control-Allow-Origin: https://opensky-network.org`
+// (not `*`), so a browser cannot fetch it directly cross-origin. We route through our own
+// Next route, which also keeps the egress single-point / inspectable (TZ §4.2).
+const OPENSKY_URL = "/api/geo/live?source=flights";
 const FLIGHTS_INTERVAL_MS = 20_000;
 const MAX_FLIGHTS = 500;
 
@@ -166,9 +169,11 @@ function startFlights(viewer: Cesium.Viewer, onError: (message: string) => void)
   };
 }
 
-// --- Satellites (CelesTrak TLE + satellite.js SGP4, keyless) ----------------
+// --- Satellites (CelesTrak TLE + satellite.js SGP4, keyless, via proxy) -----
 
-const TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=tle";
+// CelesTrak serves CORS `*` directly, but we still route through our own geo proxy to keep
+// one egress path and let the server-side allowlist decide which TLE group is loaded.
+const TLE_URL = "/api/geo/live?source=satellites-visual";
 const SAT_PROP_INTERVAL_MS = 1_500;
 const SAT_TLE_INTERVAL_MS = 3 * 60 * 60 * 1_000;
 const MAX_SATS = 220;
@@ -262,7 +267,9 @@ function startSatellites(viewer: Cesium.Viewer, onError: (message: string) => vo
 
 // --- Weather (RainViewer precipitation radar, keyless imagery) --------------
 
-const RAINVIEWER_INDEX = "https://api.rainviewer.com/public/weather-maps.json";
+// RainViewer serves CORS `*`, but the catalog goes through our proxy for a single egress path.
+// The actual tile PNGs are still loaded by Cesium directly from `data.host` (an image CDN).
+const RAINVIEWER_INDEX = "/api/geo/live?source=weather-index";
 const WEATHER_INTERVAL_MS = 4 * 60 * 1_000;
 
 type RainViewerFrame = { path: string };
