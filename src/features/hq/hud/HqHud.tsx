@@ -12,6 +12,7 @@ import {
   Orbit,
   Radar,
   Satellite,
+  ScanSearch,
   Settings,
   Volume2,
   VolumeX,
@@ -181,6 +182,7 @@ export function HqHud({
   onOpenGeo,
   geoWallOn = false,
   onToggleGeoWall,
+  onOpenOsint,
   runtime,
   settingsOpen,
   onOpenSettings,
@@ -195,6 +197,8 @@ export function HqHud({
   geoWallOn?: boolean;
   /** Toggles the «ГЕО» preview on the video wall; the button is hidden without it. */
   onToggleGeoWall?: () => void;
+  /** Opens the full-screen «РАЗВЕДКА / OSINT» view; the button is hidden without it. */
+  onOpenOsint?: () => void;
   /** Whether there is an operation («ХОД ЗАДАЧИ») for the wall to show; the switch is disabled without one. */
   wallAvailable?: boolean;
   /** The wall switch: true while the wall shows the operation, false for the usual panels. */
@@ -319,6 +323,12 @@ export function HqHud({
             >
               <Orbit className="h-4 w-4" />
               <span className="hidden xl:inline">{t("hqGeo.wall")}</span>
+            </BarButton>
+          ) : null}
+          {onOpenOsint ? (
+            <BarButton label={t("hqOsint.open")} title={t("hqOsint.openTitle")} onClick={onOpenOsint}>
+              <ScanSearch className="h-4 w-4" />
+              <span className="hidden xl:inline">{t("hqOsint.open")}</span>
             </BarButton>
           ) : null}
 

@@ -185,25 +185,28 @@ const warn = (text: string): TermLine => ({ text, kind: "warn" });
 const dim = (text: string): TermLine => ({ text, kind: "dim" });
 
 // The Kali root sessions of a hacker on an operation (centre monitor, see
-// screenApps.ts). Authorised work only, against the HQ's own lab range and
-// an agreed scope: the tools are the HQ's own wrappers (scope, recon
-// inventory, findings, range), so nothing here is a usable attack command.
+// screenApps.ts). Authorised work only, against the HQ's own lab and an agreed
+// scope: PASSIVE open-source recon (theHarvester, recon-ng — the same toolkit
+// the РАЗВЕДКА/OSINT view lists) plus the HQ's own wrappers (scope, findings).
+// Nothing here is a usable attack command; the demo targets are fictional
+// (example.com, TEST-NET-3), matching the OSINT demo dataset.
 
-/** Recon of the authorised scope: inventory, not intrusion. */
+/** Passive OSINT recon of the authorised scope: open sources, not intrusion. */
 export const KALI_RECON: TermLine[] = [
   cmd("scope show --op OP-2417"),
   out("operation  OP-2417 · authorised by AM7"),
-  out("targets    lab range 10.77.0.0/24 (own) · web-lab.range.local"),
+  out("targets    example.com + *.example.com (own lab) · 203.0.113.0/24"),
   out("window     09:00–21:00 MSK · rules of engagement v3"),
-  cmd("recon inventory --range range-07 --passive"),
-  dim("[*] reading the range registry…"),
-  out("  10.77.0.12   web-lab      http, https"),
-  out("  10.77.0.21   api-gw       https"),
-  out("  10.77.0.34   files-lab    smb"),
-  warn("  10.77.0.40   legacy-ftp   ftp · outdated banner"),
-  ok("[+] 4 assets in scope · 0 out of scope"),
-  cmd("findings add --sev medium \"legacy FTP banner shows its version\""),
-  ok("[+] F-0192 recorded · severity: medium"),
+  cmd("theHarvester -d example.com -b crtsh,otx -l 500"),
+  dim("[*] passive sources only · domain in scope"),
+  out("  api.example.com    mail.example.com"),
+  out("  vpn.example.com    dev.example.com"),
+  ok("[+] 4 subdomains · 2 emails (admin@, dev@)"),
+  cmd("recon-ng -w op-2417 -m recon/domains-hosts/hackertarget"),
+  out("  [hosts] 3 new · [contacts] 2 new → workspace graph"),
+  warn("  203.0.113.21   outdated OpenSSH banner"),
+  cmd("findings add --sev medium \"outdated OpenSSH banner on 203.0.113.21\""),
+  ok("[+] F-0504 recorded · severity: medium"),
   cmd("notes sync --report OP-2417"),
   ok("[+] notes pushed to the report draft"),
 ];

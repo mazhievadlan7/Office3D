@@ -51,6 +51,13 @@ const HqGeoView = dynamic(() => import("./geo/HqGeoView").then((mod) => mod.HqGe
   loading: () => null,
 });
 
+// The «РАЗВЕДКА / OSINT» view mounts its entity graph only when opened: load it
+// lazily too, so its module and layout work stay out of the hall's bundle/render.
+const HqOsintView = dynamic(() => import("./osint/HqOsintView").then((mod) => mod.HqOsintView), {
+  ssr: false,
+  loading: () => null,
+});
+
 export type HqOfficeProps = {
   agents: HqAgentInput[];
   /** Scopes persisted desk assignments, e.g. the active floor id. */
@@ -250,6 +257,15 @@ export function HqOffice({
   const toggleGeoWall = useCallback(() => setGeoWallOn((on) => !on), []);
   const openGeo = useCallback(() => setGeoOpen(true), []);
   const closeGeo = useCallback(() => setGeoOpen(false), []);
+  // The «РАЗВЕДКА / OSINT» view, summoned like the globe.
+  const [osintOpen, setOsintOpen] = useState(false);
+  const openOsint = useCallback(() => setOsintOpen(true), []);
+  const closeOsint = useCallback(() => setOsintOpen(false), []);
+  // РАЗВЕДКА → globe: fly the shared globe to an OSINT geolocation and open it.
+  const openGeoAt = useCallback((lat: number, lon: number) => {
+    geoController.flyTo(lat, lon);
+    setGeoOpen(true);
+  }, []);
   const [deskPoll, setDeskPoll] = useState<{ capacity: HqCapacity; free: number } | null>(null);
   const [ready, setReady] = useState(false);
   // The opening fly-through: the HUD stays off until it lands.
@@ -342,15 +358,18 @@ export function HqOffice({
     const w = window as unknown as {
       __hqGeo?: (lat?: number, lon?: number) => void;
       __hqGeoWall?: (on?: boolean) => void;
+      __hqOsint?: () => void;
     };
     w.__hqGeo = (lat, lon) => {
       if (typeof lat === "number" && typeof lon === "number") geoController.flyTo(lat, lon);
       setGeoOpen(true);
     };
     w.__hqGeoWall = (on) => setGeoWallOn((current) => (on === undefined ? !current : Boolean(on)));
+    w.__hqOsint = () => setOsintOpen(true);
     return () => {
       delete w.__hqGeo;
       delete w.__hqGeoWall;
+      delete w.__hqOsint;
     };
   }, []);
 
@@ -662,9 +681,10 @@ export function HqOffice({
         <Canvas
           // AgX tone mapping and sRGB output happen in the post chain.
           flat
-          // The hall is paused while the full-screen ГЕО globe is up, so the two
-          // heavy renderers never run at once (CesiumJS owns the frame then).
-          frameloop={geoOpen ? "never" : "always"}
+          // The hall is paused while a full-screen overlay is up — the ГЕО globe
+          // (so CesiumJS owns the frame) or the РАЗВЕДКА view — since the opaque
+          // overlay hides the hall and nothing behind it needs rendering.
+          frameloop={geoOpen || osintOpen ? "never" : "always"}
           // Owned here, not set from inside: R3F re-applies this prop on
           // every Canvas render.
           dpr={dpr}
@@ -721,6 +741,7 @@ export function HqOffice({
           onOpenGeo={openGeo}
           geoWallOn={geoWallOn}
           onToggleGeoWall={toggleGeoWall}
+          onOpenOsint={openOsint}
           runtime={runtimeStatus}
           settingsOpen={settingsOpen}
           onOpenSettings={onOpenSettings}
@@ -728,6 +749,7 @@ export function HqOffice({
         />
         </div>
         {geoOpen ? <HqGeoView onClose={closeGeo} /> : null}
+        {osintOpen ? <HqOsintView onClose={closeOsint} onFlyToGlobe={openGeoAt} /> : null}
       </HqCanvasBoundary>
       {/* Fades in from black as the intro swoop starts. */}
       <div
