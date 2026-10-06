@@ -33,7 +33,8 @@ export type LiveLayerId =
   | "cyclones"
   | "launches"
   | "datacenters"
-  | "dams";
+  | "dams"
+  | "iss";
 
 export type LiveLayerDef = {
   id: LiveLayerId;
@@ -55,6 +56,7 @@ export const LIVE_LAYERS: readonly LiveLayerDef[] = [
   { id: "launches", label: "Пуски ракет", source: "SpaceX API", needsKey: false },
   { id: "datacenters", label: "Дата-центры", source: "Bundled", needsKey: false },
   { id: "dams", label: "Плотины", source: "Bundled", needsKey: false },
+  { id: "iss", label: "МКС", source: "wheretheiss.at", needsKey: false },
   { id: "vessels", label: "Суда", source: "AISStream", needsKey: true, keyEnv: "NEXT_PUBLIC_AISSTREAM_KEY" },
   { id: "fires", label: "Пожары", source: "NASA FIRMS", needsKey: true, keyEnv: "NEXT_PUBLIC_NASA_FIRMS_KEY" },
   { id: "cameras", label: "Камеры", source: "Windy", needsKey: true, keyEnv: "NEXT_PUBLIC_WINDY_WEBCAMS_KEY" },
@@ -605,6 +607,8 @@ export function startLiveLayer(
         pixelSize: 6,
         label: (it: BundledItem) => `${it.name} · ${it.capacityMW ? `${it.capacityMW} МВт` : it.country}`,
       });
+    case "iss":
+      return startIss(viewer, onError);
     case "vessels":
       return LIVE_KEYS.vessels ? startVessels(viewer, onError, LIVE_KEYS.vessels) : null;
     case "fires":
@@ -847,6 +851,89 @@ function startLaunches(viewer: Cesium.Viewer, onError: (message: string) => void
   };
 
   const poller = makePoller(tick, LAUNCHES_INTERVAL_MS);
+  poller.start();
+  return {
+    setPaused(paused) {
+      if (paused) poller.stop();
+      else poller.start();
+    },
+    destroy() {
+      alive = false;
+      poller.stop();
+      viewer.dataSources.remove(source, true);
+    },
+  };
+}
+
+// --- ISS live position (wheretheiss.at, keyless, via proxy) ------------------
+
+const ISS_URL = "/api/geo/live?source=iss";
+const ISS_INTERVAL_MS = 5_000;
+
+type IssPos = { latitude?: number; longitude?: number; altitude?: number; velocity?: number };
+
+function startIss(viewer: Cesium.Viewer, onError: (message: string) => void): LiveLayerHandle {
+  const source = new Cesium.CustomDataSource("hq-geo-iss");
+  void viewer.dataSources.add(source);
+  const pos = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.fromDegrees(0, 0, 0));
+  let alive = true;
+  let entity: Cesium.Entity | null = null;
+
+  const ensureEntity = () => {
+    if (entity) return;
+    entity = source.entities.add({
+      id: "iss",
+      position: pos,
+      point: {
+        pixelSize: 9,
+        color: Cesium.Color.fromCssColorString("#ff4a9c").withAlpha(0.95),
+        outlineColor: Cesium.Color.WHITE.withAlpha(0.9),
+        outlineWidth: 1.5,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      label: {
+        text: "МКС (ISS)",
+        font: "10px monospace",
+        pixelOffset: new Cesium.Cartesian2(10, -10),
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        showBackground: true,
+        backgroundColor: Cesium.Color.BLACK.withAlpha(0.55),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      properties: { kind: "iss", name: "International Space Station" },
+    });
+  };
+
+  const tick = async (): Promise<void> => {
+    try {
+      const response = await fetch(ISS_URL, { cache: "no-store" });
+      if (!response.ok) throw new Error(`ISS ${response.status}`);
+      const data = (await response.json()) as IssPos;
+      if (!alive) return;
+      const { latitude, longitude, altitude, velocity } = data;
+      if (typeof latitude !== "number" || typeof longitude !== "number") return;
+      ensureEntity();
+      pos.setValue(Cesium.Cartesian3.fromDegrees(longitude, latitude, (altitude ?? 420) * 1_000));
+      if (entity) {
+        entity.properties = new Cesium.PropertyBag({
+          kind: "iss",
+          name: "International Space Station",
+          altitudeKm: altitude,
+          velocityKmh: velocity,
+          lat: latitude,
+          lon: longitude,
+        });
+      }
+      viewer.scene.requestRender();
+    } catch (error) {
+      if (alive) onError(message(error));
+    }
+  };
+
+  const poller = makePoller(tick, ISS_INTERVAL_MS);
   poller.start();
   return {
     setPaused(paused) {

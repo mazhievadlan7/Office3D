@@ -86,6 +86,14 @@ const TARGETS: Record<string, ProxyTarget> = {
     maxAge: 1800,
     timeoutMs: 20_000,
   },
+  // International Space Station live position (wheretheiss.at, keyless, no rate limits for
+  // casual use). JSON with latitude / longitude / altitude / velocity, updates per request.
+  iss: {
+    id: "iss",
+    url: "https://api.wheretheiss.at/v1/satellites/25544",
+    contentType: "application/json; charset=utf-8",
+    maxAge: 5,
+  },
   // Note: datacenters and dams are bundled as static JSON under public/geo/ instead of a
   // remote feed — they are reference catalogues, not live telemetry, and shipping them with
   // the app avoids one more egress and one more trust decision.
