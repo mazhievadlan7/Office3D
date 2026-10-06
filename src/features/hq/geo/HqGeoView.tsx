@@ -38,6 +38,8 @@ import { createTracker, type TrackHandle, type TrackedInfo } from "./tracking";
 import { HqGeoPassesPanel } from "./HqGeoPassesPanel";
 import { HqGeoHud } from "./HqGeoHud";
 import { buildShareHref, readShareFromHash, type GeoShareState } from "./shareLink";
+import { HqGeoScenes } from "./HqGeoScenes";
+import type { GeoScene } from "./scenes";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -162,6 +164,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const [tracked, setTracked] = useState<TrackedInfo | null>(null);
   const trackerRef = useRef<TrackHandle | null>(null);
   const [passesObserver, setPassesObserver] = useState<{ lat: number; lon: number } | null>(null);
+  const [cockpitOn, setCockpitOn] = useState(false);
   const [hudOn, setHudOn] = useState(true);
   const [hudCounts, setHudCounts] = useState({ flights: 0, sats: 0, quakes: 0, launches: 0 });
   // Mirror the viewer ref into state the moment the viewer mounts, so a child
@@ -468,6 +471,57 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     }
   }, [ready]);
 
+  const [sceneCaption, setSceneCaption] = useState<string | null>(null);
+
+  const applyScene = useCallback((scene: GeoScene) => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    // 1. Camera flight.
+    void viewer.camera.flyTo({
+      destination: CesiumNS.Cartesian3.fromDegrees(scene.camera.lon, scene.camera.lat, scene.camera.height),
+      orientation: {
+        heading: CesiumNS.Math.toRadians(scene.camera.heading ?? 0),
+        pitch: CesiumNS.Math.toRadians(scene.camera.pitch ?? -90),
+        roll: 0,
+      },
+      duration: 2.2,
+    });
+
+    // 2. Basemap — swap the Cesium imagery layer AND the state.
+    if (scene.basemap) {
+      setBasemap(scene.basemap as GeoBasemapId);
+      const layers = viewer.imageryLayers;
+      const next = CesiumNS.ImageryLayer.fromProviderAsync(
+        Promise.resolve(basemapById(scene.basemap as GeoBasemapId).create()),
+        {},
+      );
+      layers.add(next);
+      while (layers.length > 1) layers.remove(layers.get(0), true);
+    }
+
+    // 3. Sensor style — swap the GLSL post-process stage AND the state.
+    if (scene.style) {
+      setSensorStyle(scene.style as SensorStyle);
+      const stages = viewer.scene.postProcessStages;
+      if (sensorStageRef.current) {
+        stages.remove(sensorStageRef.current);
+        sensorStageRef.current = null;
+      }
+      const nextStage = createSensorStage(scene.style as SensorStyle);
+      if (nextStage) {
+        sensorStageRef.current = nextStage;
+        stages.add(nextStage);
+      }
+      applySensorAtmosphere(viewer, scene.style as SensorStyle);
+    }
+
+    // 4. Observer + caption.
+    if (scene.observer) setPassesObserver(scene.observer);
+    setSceneCaption(scene.caption);
+    window.setTimeout(() => setSceneCaption(null), 6000);
+    viewer.scene.requestRender();
+  }, []);
+
   const switchSensorStyle = useCallback((style: SensorStyle) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -590,6 +644,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           >
             Поделиться
           </button>
+          <HqGeoScenes onPick={applyScene} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
@@ -649,6 +704,16 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
         </div>
       ) : null}
 
+      {/* Scene caption — appears when a preset is picked, fades after 6s. */}
+      {sceneCaption ? (
+        <div className="absolute top-20 left-1/2 z-10 -translate-x-1/2 max-w-[520px]">
+          <div className={`px-4 py-2 text-center ${HQ_HUD_GLASS}`}>
+            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-amber-200">Сюжет</div>
+            <div className="mt-1 font-mono text-[12px] text-white/90">{sceneCaption}</div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Public-webcam thumbnail (DOM, not WebGL) shown when a camera point is
           clicked. View-only open public feed. */}
       {camera ? (
@@ -694,7 +759,10 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
             </div>
             <button
               type="button"
-              onClick={() => trackerRef.current?.clear()}
+              onClick={() => {
+                trackerRef.current?.clear();
+                setCockpitOn(false);
+              }}
               aria-label={t("hqGeo.close")}
               className="flex h-5 w-5 shrink-0 items-center justify-center text-white/60 hover:text-white"
             >
@@ -727,6 +795,21 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               </ul>
             </div>
           ) : null}
+          {tracked.kind === "flight" || tracked.kind === "satellite" || tracked.kind === "iss" ? (
+            <div className="flex items-center gap-1.5 border-t border-white/5 px-2.5 py-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  trackerRef.current?.cockpit(!cockpitOn);
+                  setCockpitOn((v) => !v);
+                }}
+                className={`h-7 flex-1 font-mono text-[10px] uppercase tracking-[0.12em] ${hqHudButtonClass(cockpitOn)}`}
+                title="Камера едет вместе с объектом, смотрит вперёд"
+              >
+                {cockpitOn ? "ВЫЙТИ ИЗ КАБИНЫ" : "В КАБИНУ"}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -755,6 +838,8 @@ function kindLabel(kind: TrackedInfo["kind"]): string {
       return "Воздушное судно";
     case "satellite":
       return "Спутник";
+    case "iss":
+      return "МКС";
     case "cyclone":
       return "Циклон";
     case "earthquake":

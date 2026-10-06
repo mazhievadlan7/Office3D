@@ -20,6 +20,7 @@ import * as Cesium from "cesium";
 export type TrackedKind =
   | "flight"
   | "satellite"
+  | "iss"
   | "cyclone"
   | "earthquake"
   | "launch"
@@ -53,11 +54,13 @@ function inferKind(entity: Cesium.Entity, props: Record<string, unknown>): Track
     if (raw === "earthquake") return "earthquake";
     if (raw === "cyclone") return "cyclone";
     if (raw === "launch") return "launch";
+    if (raw === "iss") return "iss";
     if (raw === "datacenters") return "datacenter";
     if (raw === "dams") return "dam";
     if (raw === "hq" || raw === "scope" || raw === "osint") return "pin";
   }
   const id = entity.id ?? "";
+  if (id === "iss") return "iss";
   if (id.startsWith("eq-")) return "earthquake";
   if (id.startsWith("cy-")) return "cyclone";
   if (id.startsWith("lx-")) return "launch";
@@ -111,6 +114,9 @@ function infoFromEntity(entity: Cesium.Entity): TrackedInfo {
 export type TrackHandle = {
   pick(pos: Cesium.Cartesian2): TrackedInfo | null;
   track(entity: Cesium.Entity): TrackedInfo;
+  /** Cockpit mode: camera rides the entity, low altitude, looks forward along its motion. */
+  cockpit(on: boolean): void;
+  isCockpit(): boolean;
   clear(): void;
   destroy(): void;
 };
@@ -124,6 +130,9 @@ export function createTracker(
   const positions: Cesium.Cartesian3[] = [];
   let entity: Cesium.Entity | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
+
+  let cockpitOn = false;
+  let cockpitLast: Cesium.Cartesian3 | null = null;
 
   const clearTrail = () => {
     positions.length = 0;
@@ -172,7 +181,34 @@ export function createTracker(
         viewer.scene.requestRender();
         onChange(infoFromEntity(entity));
       }
+      if (cockpitOn) applyCockpit(pos);
     }, TRAIL_TICK_MS);
+  };
+
+  /**
+   * Cockpit camera: sits ~150 m behind the entity, points along the motion
+   * vector derived from the trail. If the trail is too short, falls back to a
+   * downward tilt. Called on every tick while cockpit mode is on.
+   */
+  const applyCockpit = (pos: Cesium.Cartesian3) => {
+    const prev = cockpitLast ?? positions[positions.length - 2] ?? pos;
+    cockpitLast = pos.clone();
+    // Heading from the last two positions in local-east-north-up frame.
+    const carto = Cesium.Cartographic.fromCartesian(pos);
+    const prevCarto = Cesium.Cartographic.fromCartesian(prev);
+    const dLon = carto.longitude - prevCarto.longitude;
+    const dLat = carto.latitude - prevCarto.latitude;
+    const heading = Math.atan2(dLon, dLat); // radians, 0 = north
+    const altMetres = Math.max(50, carto.height); // never underground
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, altMetres + 60),
+      orientation: {
+        heading,
+        pitch: Cesium.Math.toRadians(-12),
+        roll: 0,
+      },
+    });
+    viewer.scene.requestRender();
   };
 
   const track = (next: Cesium.Entity): TrackedInfo => {
@@ -195,9 +231,29 @@ export function createTracker(
     entity = null;
     stopTick();
     clearTrail();
+    cockpitOn = false;
+    cockpitLast = null;
     viewer.trackedEntity = undefined;
     onChange(null);
     viewer.scene.requestRender();
+  };
+
+  const cockpit = (on: boolean) => {
+    cockpitOn = on;
+    if (!on) {
+      // Return to the generic trackedEntity view.
+      cockpitLast = null;
+      if (entity) viewer.trackedEntity = entity;
+      return;
+    }
+    // Entering cockpit — Cesium's trackedEntity centres the pin, which fights with
+    // our manual setView; release it so our camera moves win.
+    viewer.trackedEntity = undefined;
+    if (entity) {
+      const now = Cesium.JulianDate.now();
+      const pos = entity.position?.getValue(now);
+      if (pos) applyCockpit(pos);
+    }
   };
 
   const pick = (pos: Cesium.Cartesian2): TrackedInfo | null => {
@@ -212,5 +268,7 @@ export function createTracker(
     viewer.dataSources.remove(trail, true);
   };
 
-  return { pick, track, clear, destroy };
+  const isCockpit = () => cockpitOn;
+
+  return { pick, track, cockpit, isCockpit, clear, destroy };
 }
