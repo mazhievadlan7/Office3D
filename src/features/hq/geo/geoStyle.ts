@@ -21,6 +21,7 @@ export const GEO_KIND_STYLE: Record<GeoTargetKind, GeoKindStyle> = {
   bounty: { color: "#ff8a3a", label: "Bug bounty" },
   client: { color: "#ffd24a", label: "Клиент" },
   osint: { color: "#4ab8ff", label: "OSINT" },
+  whiteboard: { color: "#f0e68c", label: "Доска" },
 };
 
 export const GEO_ARC_STYLE: Record<GeoArcKind, { color: string }> = {

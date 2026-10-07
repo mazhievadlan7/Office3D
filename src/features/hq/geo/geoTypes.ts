@@ -25,7 +25,9 @@ export type GeoTargetKind =
   /** An open-public-data / OSINT point within an engagement. */
   | "osint"
   /** The HQ itself — the operations centre the arcs radiate from. */
-  | "hq";
+  | "hq"
+  /** A voice-whiteboard pin — ephemeral annotations the owner / agent drops onto the globe. */
+  | "whiteboard";
 
 /** A place on the Earth, degrees. Longitude −180..180, latitude −90..90. */
 export type GeoPoint = {
