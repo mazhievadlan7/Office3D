@@ -40,6 +40,7 @@ import { HqGeoHud } from "./HqGeoHud";
 import { buildShareHref, readShareFromHash, type GeoShareState } from "./shareLink";
 import { HqGeoScenes } from "./HqGeoScenes";
 import type { GeoScene } from "./scenes";
+import { HqGeoDetection } from "./HqGeoDetection";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -165,6 +166,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const trackerRef = useRef<TrackHandle | null>(null);
   const [passesObserver, setPassesObserver] = useState<{ lat: number; lon: number } | null>(null);
   const [cockpitOn, setCockpitOn] = useState(false);
+  const [detectionOn, setDetectionOn] = useState(false);
   const [hudOn, setHudOn] = useState(true);
   const [hudCounts, setHudCounts] = useState({ flights: 0, sats: 0, quakes: 0, launches: 0 });
   // Mirror the viewer ref into state the moment the viewer mounts, so a child
@@ -638,6 +640,14 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           </button>
           <button
             type="button"
+            onClick={() => setDetectionOn((v) => !v)}
+            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(detectionOn)}`}
+            title="Детектор: рамки + идентификаторы вокруг каждого контакта в кадре"
+          >
+            Детектор
+          </button>
+          <button
+            type="button"
             onClick={() => void copyShareLink()}
             className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(false)}`}
             title="Скопировать ссылку на текущий вид: камера, слои, стиль, выделенная точка"
@@ -820,6 +830,9 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       {/* Tactical HUD overlay — corner reticles, centre cross-hair, camera
           telemetry, contact tally, tracked-target lock. */}
       {hudOn ? <HqGeoHud viewer={viewerForHud} counts={hudCounts} trackedTitle={tracked?.title ?? null} /> : null}
+
+      {/* Screen-space detection overlay: a bounding box + ID around each visible contact. */}
+      {detectionOn ? <HqGeoDetection viewer={viewerForHud} /> : null}
 
       {/* Attribution footer: Cesium's credit display lands in creditRef; our own
           notes sit beside it. */}

@@ -34,6 +34,7 @@ export type LiveLayerId =
   | "launches"
   | "datacenters"
   | "dams"
+  | "volcanoes"
   | "iss";
 
 export type LiveLayerDef = {
@@ -56,6 +57,7 @@ export const LIVE_LAYERS: readonly LiveLayerDef[] = [
   { id: "launches", label: "Пуски ракет", source: "SpaceX API", needsKey: false },
   { id: "datacenters", label: "Дата-центры", source: "Bundled", needsKey: false },
   { id: "dams", label: "Плотины", source: "Bundled", needsKey: false },
+  { id: "volcanoes", label: "Вулканы", source: "Bundled", needsKey: false },
   { id: "iss", label: "МКС", source: "wheretheiss.at", needsKey: false },
   { id: "vessels", label: "Суда", source: "AISStream", needsKey: true, keyEnv: "NEXT_PUBLIC_AISSTREAM_KEY" },
   { id: "fires", label: "Пожары", source: "NASA FIRMS", needsKey: true, keyEnv: "NEXT_PUBLIC_NASA_FIRMS_KEY" },
@@ -607,6 +609,14 @@ export function startLiveLayer(
         pixelSize: 6,
         label: (it: BundledItem) => `${it.name} · ${it.capacityMW ? `${it.capacityMW} МВт` : it.country}`,
       });
+    case "volcanoes":
+      return startBundledPins(viewer, onError, {
+        url: "/geo/volcanoes.json",
+        sourceName: "hq-geo-volcanoes",
+        color: Cesium.Color.fromCssColorString("#ff5a3a"),
+        pixelSize: 6,
+        label: (it: BundledItem) => `${it.name}${it.capacityMW ? "" : ""}`,
+      });
     case "iss":
       return startIss(viewer, onError);
     case "vessels":
@@ -789,8 +799,49 @@ type LlLaunch = {
     name?: string | null;
     location?: { name?: string | null; country_code?: string | null };
   };
+  mission?: { orbit?: { abbrev?: string | null; name?: string | null } };
 };
 type LlResponse = { results?: LlLaunch[] };
+
+/** Default launch azimuth (deg clockwise from north) for an orbit class. */
+function azimuthForOrbit(abbrev: string | null | undefined, padLat: number): number {
+  const a = (abbrev ?? "").toUpperCase();
+  if (a.includes("SSO") || a.includes("POLAR")) return 196; // south-south-west
+  if (a.includes("GEO") || a.includes("GTO")) return 95; // east, slight south for GTO
+  if (a.includes("ISS")) return padLat >= 0 ? 45 : 135; // Russian/US ISS corridor
+  return 95; // generic prograde east
+}
+
+/** A parabolic trajectory sample set from (lat/lon) along `azDeg` for `rangeKm`,
+ *  peaking at `apogeeKm`. Returns Cesium Cartesian3 positions along the arc. */
+function trajectoryArc(
+  lat: number,
+  lon: number,
+  azDeg: number,
+  rangeKm: number,
+  apogeeKm: number,
+  samples = 48,
+): Cesium.Cartesian3[] {
+  const positions: Cesium.Cartesian3[] = [];
+  const earthRadiusKm = 6378.137;
+  const azRad = (azDeg * Math.PI) / 180;
+  const sinAz = Math.sin(azRad);
+  const cosAz = Math.cos(azRad);
+  const latRad = (lat * Math.PI) / 180;
+  const cosLat = Math.cos(latRad);
+  for (let i = 0; i <= samples; i += 1) {
+    const f = i / samples; // 0..1
+    const distKm = f * rangeKm;
+    // Approximate dlat/dlon from an initial-course great-circle step; good enough
+    // for a visualization arc up to ~2000 km.
+    const dLatDeg = ((distKm / earthRadiusKm) * (180 / Math.PI)) * cosAz;
+    const dLonDeg = ((distKm / earthRadiusKm) * (180 / Math.PI)) * sinAz / Math.max(0.01, cosLat);
+    // Classic parabolic altitude profile, zero at both ends.
+    const h = 4 * apogeeKm * f * (1 - f);
+    positions.push(Cesium.Cartesian3.fromDegrees(lon + dLonDeg, lat + dLatDeg, h * 1000));
+  }
+  return positions;
+}
 
 function startLaunches(viewer: Cesium.Viewer, onError: (message: string) => void): LiveLayerHandle {
   const source = new Cesium.CustomDataSource("hq-geo-launches");
@@ -805,13 +856,37 @@ function startLaunches(viewer: Cesium.Viewer, onError: (message: string) => void
       if (!alive) return;
       source.entities.removeAll();
       const now = Date.now();
-      for (const launch of (data.results ?? []).slice(0, 24)) {
+      const launches = (data.results ?? []).slice(0, 24);
+      // Draw a visual trajectory arc only for the next few launches, so a busy pad
+      // list doesn't clutter the globe. The pad-pin itself still shows for all.
+      const ARC_LIMIT = 6;
+      let arcsDrawn = 0;
+      for (const launch of launches) {
         const lat = Number(launch.pad?.latitude);
         const lon = Number(launch.pad?.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
         const padName = `${launch.pad?.name ?? ""}${launch.pad?.location?.name ? `, ${launch.pad?.location?.name}` : ""}`.trim();
         const t = new Date(launch.net).getTime();
         const whenHours = Number.isFinite(t) ? (t - now) / 3_600_000 : 0;
+        // Trajectory arc (approximate — azimuth from orbit class, 400 km apogee, 1500 km range).
+        if (arcsDrawn < ARC_LIMIT) {
+          const az = azimuthForOrbit(launch.mission?.orbit?.abbrev, lat);
+          const positions = trajectoryArc(lat, lon, az, 1500, 400, 48);
+          source.entities.add({
+            id: `lx-arc-${launch.id}`,
+            polyline: {
+              positions,
+              width: 2,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                color: Cesium.Color.fromCssColorString("#ff8a3a").withAlpha(0.85),
+                glowPower: 0.25,
+                taperPower: 0.4,
+              }),
+              arcType: Cesium.ArcType.NONE,
+            },
+          });
+          arcsDrawn += 1;
+        }
         source.entities.add({
           id: `lx-${launch.id}`,
           position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
