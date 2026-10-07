@@ -41,6 +41,7 @@ import { buildShareHref, readShareFromHash, type GeoShareState } from "./shareLi
 import { HqGeoScenes } from "./HqGeoScenes";
 import type { GeoScene } from "./scenes";
 import { HqGeoDetection } from "./HqGeoDetection";
+import { HqGeoAnalyst } from "./HqGeoAnalyst";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -655,6 +656,18 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
             Поделиться
           </button>
           <HqGeoScenes onPick={applyScene} />
+          <HqGeoAnalyst
+            viewer={viewerForHud}
+            focus={passesObserver}
+            onFly={(lat, lon) => {
+              const live = viewerRef.current;
+              if (!live) return;
+              void live.camera.flyTo({
+                destination: CesiumNS.Cartesian3.fromDegrees(lon, lat, 1_500_000),
+                duration: 1.4,
+              });
+            }}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
