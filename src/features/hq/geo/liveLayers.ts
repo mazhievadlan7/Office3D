@@ -35,6 +35,7 @@ export type LiveLayerId =
   | "datacenters"
   | "dams"
   | "volcanoes"
+  | "cctv"
   | "iss";
 
 export type LiveLayerDef = {
@@ -58,6 +59,7 @@ export const LIVE_LAYERS: readonly LiveLayerDef[] = [
   { id: "datacenters", label: "Дата-центры", source: "Bundled", needsKey: false },
   { id: "dams", label: "Плотины", source: "Bundled", needsKey: false },
   { id: "volcanoes", label: "Вулканы", source: "Bundled", needsKey: false },
+  { id: "cctv", label: "Городские камеры", source: "Bundled", needsKey: false },
   { id: "iss", label: "МКС", source: "wheretheiss.at", needsKey: false },
   { id: "vessels", label: "Суда", source: "AISStream", needsKey: true, keyEnv: "NEXT_PUBLIC_AISSTREAM_KEY" },
   { id: "fires", label: "Пожары", source: "NASA FIRMS", needsKey: true, keyEnv: "NEXT_PUBLIC_NASA_FIRMS_KEY" },
@@ -616,6 +618,14 @@ export function startLiveLayer(
         color: Cesium.Color.fromCssColorString("#ff5a3a"),
         pixelSize: 6,
         label: (it: BundledItem) => `${it.name}${it.capacityMW ? "" : ""}`,
+      });
+    case "cctv":
+      return startBundledPins(viewer, onError, {
+        url: "/geo/cameras-public.json",
+        sourceName: "hq-geo-cctv",
+        color: Cesium.Color.fromCssColorString("#5affe6"),
+        pixelSize: 5,
+        label: (it: BundledItem) => `${it.name}`,
       });
     case "iss":
       return startIss(viewer, onError);

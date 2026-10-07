@@ -1,0 +1,32 @@
+{
+  "_note": "Curated set of public-info camera POINTS (location + a static reference photo URL where available). Coordinates come from well-known public landmarks that routinely carry publicly-streamed webcams. Non-exhaustive, additive. All URLs are to publicly-visible pages or static Wikimedia photos — nothing is streamed from private feeds.",
+  "items": [
+    { "id": "cam-times-sq", "name": "Times Square", "city": "New York", "lat": 40.7580, "lon": -73.9855, "country": "US" },
+    { "id": "cam-eiffel", "name": "Eiffel Tower", "city": "Paris", "lat": 48.8584, "lon": 2.2945, "country": "FR" },
+    { "id": "cam-tower-br", "name": "Tower Bridge", "city": "London", "lat": 51.5055, "lon": -0.0754, "country": "GB" },
+    { "id": "cam-brandenburg", "name": "Brandenburger Tor", "city": "Berlin", "lat": 52.5163, "lon": 13.3777, "country": "DE" },
+    { "id": "cam-red-square", "name": "Красная площадь", "city": "Москва", "lat": 55.7539, "lon": 37.6208, "country": "RU" },
+    { "id": "cam-shibuya", "name": "Shibuya Crossing", "city": "Tokyo", "lat": 35.6595, "lon": 139.7004, "country": "JP" },
+    { "id": "cam-dubai-dt", "name": "Burj Khalifa / Downtown Dubai", "city": "Dubai", "lat": 25.1972, "lon": 55.2744, "country": "AE" },
+    { "id": "cam-marina-bay", "name": "Marina Bay", "city": "Singapore", "lat": 1.2834, "lon": 103.8607, "country": "SG" },
+    { "id": "cam-sydney-opera", "name": "Sydney Opera House", "city": "Sydney", "lat": -33.8568, "lon": 151.2153, "country": "AU" },
+    { "id": "cam-niagara", "name": "Niagara Falls", "city": "Niagara", "lat": 43.0962, "lon": -79.0377, "country": "US" },
+    { "id": "cam-golden-gate", "name": "Golden Gate", "city": "San Francisco", "lat": 37.8199, "lon": -122.4783, "country": "US" },
+    { "id": "cam-rio-christ", "name": "Cristo Redentor", "city": "Rio de Janeiro", "lat": -22.9519, "lon": -43.2105, "country": "BR" },
+    { "id": "cam-colosseo", "name": "Colosseo", "city": "Roma", "lat": 41.8902, "lon": 12.4922, "country": "IT" },
+    { "id": "cam-sagrada", "name": "Sagrada Família", "city": "Barcelona", "lat": 41.4036, "lon": 2.1744, "country": "ES" },
+    { "id": "cam-acropolis", "name": "Acropolis", "city": "Athens", "lat": 37.9715, "lon": 23.7257, "country": "GR" },
+    { "id": "cam-reykjavik", "name": "Reykjavík harbour", "city": "Reykjavík", "lat": 64.1500, "lon": -21.9333, "country": "IS" },
+    { "id": "cam-honolulu", "name": "Waikiki Beach", "city": "Honolulu", "lat": 21.2764, "lon": -157.8259, "country": "US" },
+    { "id": "cam-victoria", "name": "Victoria Harbour", "city": "Hong Kong", "lat": 22.2793, "lon": 114.1628, "country": "HK" },
+    { "id": "cam-mt-fuji", "name": "Mount Fuji live", "city": "Fujinomiya", "lat": 35.3606, "lon": 138.7274, "country": "JP" },
+    { "id": "cam-prague", "name": "Prague Old Town", "city": "Prague", "lat": 50.0875, "lon": 14.4213, "country": "CZ" },
+    { "id": "cam-zurich", "name": "Zürich Bahnhofstrasse", "city": "Zürich", "lat": 47.3771, "lon": 8.5407, "country": "CH" },
+    { "id": "cam-vienna", "name": "Stephansdom", "city": "Wien", "lat": 48.2082, "lon": 16.3738, "country": "AT" },
+    { "id": "cam-stockholm", "name": "Gamla Stan", "city": "Stockholm", "lat": 59.3251, "lon": 18.0710, "country": "SE" },
+    { "id": "cam-helsinki", "name": "Senaatintori", "city": "Helsinki", "lat": 60.1699, "lon": 24.9516, "country": "FI" },
+    { "id": "cam-oslo", "name": "Oslo havn", "city": "Oslo", "lat": 59.9075, "lon": 10.7391, "country": "NO" },
+    { "id": "cam-moscow-manege", "name": "Манежная площадь", "city": "Москва", "lat": 55.7555, "lon": 37.6141, "country": "RU" },
+    { "id": "cam-piter-nevsky", "name": "Невский проспект", "city": "Санкт-Петербург", "lat": 59.9342, "lon": 30.3350, "country": "RU" }
+  ]
+}
