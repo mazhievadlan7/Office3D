@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Square, X, MessageSquare } from "lucide-react";
 import * as CesiumNS from "cesium";
 
 import { HQ_HUD_GLASS, hqHudButtonClass } from "@/features/hq/hud/hudStyle";
+import { useVoiceReplyPlayback } from "@/hooks/useVoiceReplyPlayback";
 import { askAnalyst, type AnalystAnswer } from "./analyst";
+import { useVoiceCapture } from "./useVoiceCapture";
 
 export type HqGeoAnalystProps = {
   viewer: CesiumNS.Viewer | null;
@@ -35,11 +37,26 @@ export function HqGeoAnalyst({ viewer, focus, onFly }: HqGeoAnalystProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState<AnalystAnswer | null>(null);
+  const [spoken, setSpoken] = useState(false);
 
-  const ask = (text: string) => {
+  // Local Silero TTS for the voice reply, through the same pipeline the rest
+  // of the HQ uses (ducks crew chatter, enqueues sentence-by-sentence).
+  const voice = useVoiceReplyPlayback({ enabled: true, provider: "local-speech" });
+
+  const ask = (text: string, speakAnswer = false) => {
     const next = askAnalyst(viewer, text, focus);
     setAnswer(next);
+    setSpoken(speakAnswer);
+    if (speakAnswer && next.text) voice.enqueue({ text: next.text });
   };
+
+  // Push-to-talk via GigaAM STT: hold «Mic», release → transcript → ask + speak.
+  const capture = useVoiceCapture({
+    onTranscript: (text) => {
+      setQuery(text);
+      ask(text, true);
+    },
+  });
 
   return (
     <>
@@ -81,12 +98,42 @@ export function HqGeoAnalyst({ viewer, focus, onFly }: HqGeoAnalystProps) {
               className="h-7 flex-1 bg-transparent px-1.5 font-mono text-[11px] text-white placeholder:text-white/35 focus:outline-none"
             />
             <button
+              type="button"
+              onPointerDown={() => void capture.start()}
+              onPointerUp={() => void capture.stop()}
+              onPointerLeave={() => {
+                if (capture.state === "recording") void capture.stop();
+              }}
+              className={`flex h-7 w-7 items-center justify-center rounded border font-mono text-[10px] ${
+                capture.state === "recording"
+                  ? "border-red-500/60 bg-red-500/20 text-red-100"
+                  : capture.state === "transcribing"
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                    : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+              }`}
+              title="Удерживай для записи голоса (GigaAM → анализатор → голосом Silero)"
+              aria-label="Голосовой вопрос"
+            >
+              {capture.state === "recording" ? (
+                <Square className="h-3 w-3" />
+              ) : capture.state === "error" ? (
+                <MicOff className="h-3.5 w-3.5" />
+              ) : (
+                <Mic className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <button
               type="submit"
               className="h-7 rounded border border-amber-500/50 bg-amber-500/15 px-2 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-200"
             >
               Спросить
             </button>
           </form>
+          {capture.error ? (
+            <div className="border-b border-red-500/20 bg-red-500/5 px-3 py-1 font-mono text-[10px] text-red-200">
+              Голос: {capture.error}
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-1 px-2 py-1.5">
             {SUGGESTIONS.map((s) => (
               <button
@@ -104,7 +151,21 @@ export function HqGeoAnalyst({ viewer, focus, onFly }: HqGeoAnalystProps) {
           </div>
           {answer ? (
             <div className="border-t border-white/5 px-3 py-2">
-              <div className="font-mono text-[11px] text-white/90">{answer.text}</div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 font-mono text-[11px] text-white/90">{answer.text}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    voice.stop();
+                    voice.enqueue({ text: answer.text });
+                    setSpoken(true);
+                  }}
+                  className="shrink-0 rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-white/70 hover:border-white/30 hover:text-white"
+                  title={voice.playing ? "Прервать и повторить озвучку" : "Озвучить ответ"}
+                >
+                  {voice.playing ? "Говорит…" : spoken ? "Повторить" : "Озвучить"}
+                </button>
+              </div>
               {answer.hits.length ? (
                 <ul className="mt-1.5 max-h-[220px] space-y-0.5 overflow-y-auto">
                   {answer.hits.map((h) => (
