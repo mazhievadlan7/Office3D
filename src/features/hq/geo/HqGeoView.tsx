@@ -42,6 +42,7 @@ import { HqGeoScenes } from "./HqGeoScenes";
 import type { GeoScene } from "./scenes";
 import { HqGeoDetection } from "./HqGeoDetection";
 import { HqGeoAnalyst } from "./HqGeoAnalyst";
+import { HqGeoDirector } from "./HqGeoDirector";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -668,6 +669,7 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               });
             }}
           />
+          <HqGeoDirector viewer={viewerForHud} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
