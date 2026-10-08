@@ -1,25 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-import { t, type TranslationKey } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { HQ_HUD_GLASS, hqHudButtonClass } from "@/features/hq/hud/hudStyle";
 import * as CesiumNS from "cesium";
 import {
   DEFAULT_BASEMAP,
   GEO_ATTRIBUTION,
-  GEO_BASEMAPS,
   REALISM_MODE,
-  applySensorAtmosphere,
   basemapById,
   createLabelsImageryLayer,
-  createSensorStage,
   enablePhotoreal,
   skinViewer,
-  type GeoBasemapId,
   type RealismHandle,
-  type SensorStyle,
 } from "./cesiumConfig";
 import { geoController } from "./geoController";
 import { seedDemoGeo } from "./geoData";
@@ -35,26 +30,6 @@ import {
   type LiveLayerId,
 } from "./liveLayers";
 import { createTracker, type TrackHandle, type TrackedInfo } from "./tracking";
-import { HqGeoPassesPanel } from "./HqGeoPassesPanel";
-import { HqGeoHud } from "./HqGeoHud";
-import { buildShareHref, readShareFromHash, type GeoShareState } from "./shareLink";
-import { HqGeoScenes } from "./HqGeoScenes";
-import type { GeoScene } from "./scenes";
-import { HqGeoDetection } from "./HqGeoDetection";
-import { HqGeoAnalyst } from "./HqGeoAnalyst";
-import { HqGeoDirector } from "./HqGeoDirector";
-import { HqGeoWhiteboard } from "./HqGeoWhiteboard";
-import { HqGeoCameraControls } from "./HqGeoCameraControls";
-import { HqGeoMinimap } from "./HqGeoMinimap";
-
-const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
-  { id: "clean", labelKey: "hqGeo.styleClean" },
-  { id: "night", labelKey: "hqGeo.styleNight" },
-  { id: "thermal", labelKey: "hqGeo.styleThermal" },
-  { id: "nvg", labelKey: "hqGeo.styleNvg" },
-  { id: "crt", labelKey: "hqGeo.styleCrt" },
-  { id: "noir", labelKey: "hqGeo.styleNoir" },
-];
 
 // Cesium's CSS (vendored to public/cesium) laid out via a <link>, so we never
 // hit Next's global-CSS import rules from a client component.
@@ -160,46 +135,16 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
 
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [basemap, setBasemap] = useState<GeoBasemapId>(DEFAULT_BASEMAP);
   const [activeLive, setActiveLive] = useState<LiveLayerId[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   // Realism tier is managed by the realismHandleRef; the flags below just track
   // "is anything mounted / are we currently loading" for internal use.
   const [, setRealismOn] = useState(false);
   const [, setRealismBusy] = useState(false);
-  const [sensorStyle, setSensorStyle] = useState<SensorStyle>("clean");
   const [camera, setCamera] = useState<GeoCameraInfo | null>(null);
   const [tracked, setTracked] = useState<TrackedInfo | null>(null);
   const trackerRef = useRef<TrackHandle | null>(null);
-  const [passesObserver, setPassesObserver] = useState<{ lat: number; lon: number } | null>(null);
   const [cockpitOn, setCockpitOn] = useState(false);
-  const [detectionOn, setDetectionOn] = useState(false);
-  const [hudOn, setHudOn] = useState(true);
-  const [hudCounts, setHudCounts] = useState({ flights: 0, sats: 0, quakes: 0, launches: 0 });
-  // Mirror the viewer ref into state the moment the viewer mounts, so a child
-  // component (the HUD) can read it during render without the ref-during-render
-  // violation. React 19's lint rule flags any ref read inside JSX.
-  const [viewerForHud, setViewerForHud] = useState<CesiumNS.Viewer | null>(null);
-
-  // Read the live entity counts from Cesium's data sources, so the HUD tally
-  // reflects what is actually plotted. Polled, lightweight — just four look-ups.
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const live = viewerRef.current;
-      if (!live) return;
-      const grab = (name: string): number => {
-        const ds = live.dataSources.getByName(name)[0];
-        return ds ? ds.entities.values.length : 0;
-      };
-      setHudCounts({
-        flights: grab("hq-geo-flights"),
-        sats: grab("hq-geo-satellites"),
-        quakes: grab("hq-geo-earthquakes"),
-        launches: grab("hq-geo-launches"),
-      });
-    }, 2000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   // Build the viewer once.
   useEffect(() => {
@@ -235,7 +180,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       return;
     }
     viewerRef.current = viewer;
-    queueMicrotask(() => setViewerForHud(viewer));
     skinViewer(viewer);
 
     // Country / major-city labels overlay — keyless, serves as geographic context
@@ -328,18 +272,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       }
       tracker.track(entity);
     }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK);
-    // Shift + click on the globe (not on a pin) picks the point as the observer
-    // for the «Пролёты спутников» panel.
-    picker.setInputAction((movement: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
-      const live = viewerRef.current;
-      if (!live) return;
-      const ray = live.camera.getPickRay(movement.position);
-      if (!ray) return;
-      const cart = live.scene.globe.pick(ray, live.scene);
-      if (!cart) return;
-      const carto = CesiumNS.Cartographic.fromCartesian(cart);
-      setPassesObserver({ lat: CesiumNS.Math.toDegrees(carto.latitude), lon: CesiumNS.Math.toDegrees(carto.longitude) });
-    }, CesiumNS.ScreenSpaceEventType.LEFT_CLICK, CesiumNS.KeyboardEventModifier.SHIFT);
 
     const unsubscribeScene = geoController.subscribe((scene) => {
       const current = sourceRef.current;
@@ -364,7 +296,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       sensorStageRef.current = null;
       sourceRef.current = null;
       viewerRef.current = null;
-      setViewerForHud(null);
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
     };
     // Built once; basemap/live changes are handled by their own callbacks.
@@ -389,164 +320,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
-
-  const switchBasemap = useCallback((id: GeoBasemapId) => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    setBasemap(id);
-    const layers = viewer.imageryLayers;
-    const next = CesiumNS.ImageryLayer.fromProviderAsync(Promise.resolve(basemapById(id).create()), {});
-    layers.add(next);
-    // Drop the previous base layer(s) once the new one is in.
-    while (layers.length > 1) layers.remove(layers.get(0), true);
-    viewer.scene.requestRender();
-  }, []);
-
-  // Live layers start automatically on mount (see the main-mount effect) and
-  // the UI shows only a status strip now — no manual toggles. This keeps the
-  // view "open and everything is there", matching the source project's model.
-
-  // Realism (photoreal 3D tiles / world terrain / esri imagery) is enabled
-  // automatically at mount — no manual toggle. See the auto-start useEffect
-  // block above.
-
-  const [shareNotice, setShareNotice] = useState<string | null>(null);
-  const copyShareLink = useCallback(async () => {
-    const viewer = viewerRef.current;
-    if (!viewer || typeof window === "undefined") return;
-    const camera = viewer.camera;
-    const carto = CesiumNS.Cartographic.fromCartesian(camera.position);
-    const state: GeoShareState = {
-      cam: {
-        lat: CesiumNS.Math.toDegrees(carto.latitude),
-        lon: CesiumNS.Math.toDegrees(carto.longitude),
-        height: carto.height,
-        heading: CesiumNS.Math.toDegrees(camera.heading),
-        pitch: CesiumNS.Math.toDegrees(camera.pitch),
-      },
-      basemap,
-      style: sensorStyle,
-      hud: hudOn,
-      passes: passesObserver ?? undefined,
-      track:
-        tracked && typeof tracked.lat === "number" && typeof tracked.lon === "number"
-          ? { lat: tracked.lat, lon: tracked.lon, title: tracked.title }
-          : undefined,
-    };
-    const href = buildShareHref(window.location.origin, window.location.pathname, state);
-    try {
-      await navigator.clipboard.writeText(href);
-      setShareNotice("Ссылка скопирована");
-    } catch {
-      setShareNotice("Не удалось скопировать — ссылка готова в адресной строке.");
-      window.history.replaceState(null, "", href);
-    }
-    window.setTimeout(() => setShareNotice(null), 2200);
-  }, [basemap, sensorStyle, hudOn, passesObserver, tracked]);
-
-  // On mount, read any share-link in the URL hash and apply what the viewer
-  // supports immediately (basemap + style + HUD; camera flies to the shared
-  // position; passes/track are restored once the viewer is up). The reads sit
-  // in queueMicrotask so React's set-state-in-effect rule stays happy.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const shared = readShareFromHash(window.location.hash);
-    queueMicrotask(() => {
-      if (shared.basemap) setBasemap(shared.basemap as GeoBasemapId);
-      if (shared.style) setSensorStyle(shared.style as SensorStyle);
-      if (shared.hud != null) setHudOn(shared.hud);
-      if (shared.passes) setPassesObserver(shared.passes);
-    });
-    // The camera fly-to needs the viewer; defer to the ready effect below.
-  }, []);
-  useEffect(() => {
-    if (!ready) return;
-    if (typeof window === "undefined") return;
-    const shared = readShareFromHash(window.location.hash);
-    const viewer = viewerRef.current;
-    if (shared.cam && viewer) {
-      void viewer.camera.flyTo({
-        destination: CesiumNS.Cartesian3.fromDegrees(shared.cam.lon, shared.cam.lat, shared.cam.height),
-        orientation: {
-          heading: CesiumNS.Math.toRadians(shared.cam.heading ?? 0),
-          pitch: CesiumNS.Math.toRadians(shared.cam.pitch ?? -90),
-          roll: 0,
-        },
-        duration: 1.6,
-      });
-    }
-  }, [ready]);
-
-  const [sceneCaption, setSceneCaption] = useState<string | null>(null);
-
-  const applyScene = useCallback((scene: GeoScene) => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    // 1. Camera flight.
-    void viewer.camera.flyTo({
-      destination: CesiumNS.Cartesian3.fromDegrees(scene.camera.lon, scene.camera.lat, scene.camera.height),
-      orientation: {
-        heading: CesiumNS.Math.toRadians(scene.camera.heading ?? 0),
-        pitch: CesiumNS.Math.toRadians(scene.camera.pitch ?? -90),
-        roll: 0,
-      },
-      duration: 2.2,
-    });
-
-    // 2. Basemap — swap the Cesium imagery layer AND the state.
-    if (scene.basemap) {
-      setBasemap(scene.basemap as GeoBasemapId);
-      const layers = viewer.imageryLayers;
-      const next = CesiumNS.ImageryLayer.fromProviderAsync(
-        Promise.resolve(basemapById(scene.basemap as GeoBasemapId).create()),
-        {},
-      );
-      layers.add(next);
-      while (layers.length > 1) layers.remove(layers.get(0), true);
-    }
-
-    // 3. Sensor style — swap the GLSL post-process stage AND the state.
-    if (scene.style) {
-      setSensorStyle(scene.style as SensorStyle);
-      const stages = viewer.scene.postProcessStages;
-      if (sensorStageRef.current) {
-        stages.remove(sensorStageRef.current);
-        sensorStageRef.current = null;
-      }
-      const nextStage = createSensorStage(scene.style as SensorStyle);
-      if (nextStage) {
-        sensorStageRef.current = nextStage;
-        stages.add(nextStage);
-      }
-      applySensorAtmosphere(viewer, scene.style as SensorStyle);
-    }
-
-    // 4. Observer + caption.
-    if (scene.observer) setPassesObserver(scene.observer);
-    setSceneCaption(scene.caption);
-    window.setTimeout(() => setSceneCaption(null), 6000);
-    viewer.scene.requestRender();
-  }, []);
-
-  const switchSensorStyle = useCallback((style: SensorStyle) => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    setSensorStyle(style);
-    const stages = viewer.scene.postProcessStages;
-    // Any existing sensor stage goes first — switching a style swaps the stage,
-    // never stacks another on top.
-    if (sensorStageRef.current) {
-      stages.remove(sensorStageRef.current);
-      sensorStageRef.current = null;
-    }
-    const next = createSensorStage(style);
-    if (next) {
-      sensorStageRef.current = next;
-      stages.add(next);
-    }
-    applySensorAtmosphere(viewer, style);
-    viewer.scene.requestRender();
   }, []);
 
   return (
@@ -592,121 +365,35 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
         <X className="h-4 w-4" />
       </button>
 
-      {/* Basemap + live-layer controls (bottom-left). */}
-      <div className={`absolute bottom-3 left-3 z-10 flex max-w-[94vw] flex-col gap-2 p-2 ${HQ_HUD_GLASS}`}>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
-            {t("hqGeo.basemap")}
-          </span>
-          {GEO_BASEMAPS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => switchBasemap(option.id)}
-              title={option.egress ? t("hqGeo.needsEgress") : t("hqGeo.offline")}
-              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(basemap === option.id)}`}
+      {/* Thin live-layer status strip (bottom-left). Not toggles — just dots
+          telling the owner which feeds are live. Everything is auto-on at the
+          highest tier the keys allow. */}
+      <div className={`absolute bottom-3 left-3 z-10 flex max-w-[94vw] flex-wrap items-center gap-x-3 gap-y-1 p-2 ${HQ_HUD_GLASS}`}>
+        <span className="px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/45" title={t("hqGeo.realismHint", { mode: REALISM_MODE })}>
+          реализм · {REALISM_MODE}
+        </span>
+        <span className="px-1 font-mono text-[9px] text-white/20">·</span>
+        {LIVE_LAYERS.map((layer) => {
+          const on = activeLive.includes(layer.id);
+          const needsKey = layer.needsKey && !layerAvailable(layer.id);
+          return (
+            <span
+              key={layer.id}
+              title={needsKey ? t("hqGeo.layerNeedsKey", { name: layer.label, env: layer.keyEnv ?? "" }) : layer.source}
+              className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] ${
+                needsKey ? "text-amber-300/60" : on ? "text-emerald-300/90" : "text-white/50"
+              }`}
             >
-              {option.label}
-              {option.egress ? <span className="ml-1 text-[9px] text-white/45">·сеть</span> : null}
-            </button>
-          ))}
-          {/* Realism is auto-on at mount — no manual button. The small label
-              right of the basemap row tells the owner which tier is live. */}
-          <span className="px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/45" title={t("hqGeo.realismHint", { mode: REALISM_MODE })}>
-            реализм · {REALISM_MODE}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
-            {t("hqGeo.style")}
-          </span>
-          {SENSOR_STYLES.map((style) => (
-            <button
-              key={style.id}
-              type="button"
-              onClick={() => switchSensorStyle(style.id)}
-              className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(sensorStyle === style.id)}`}
-            >
-              {t(style.labelKey)}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setHudOn((v) => !v)}
-            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(hudOn)}`}
-            title="Военный HUD: прицел, рамки, телеметрия камеры"
-          >
-            HUD
-          </button>
-          <button
-            type="button"
-            onClick={() => setDetectionOn((v) => !v)}
-            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(detectionOn)}`}
-            title="Детектор: рамки + идентификаторы вокруг каждого контакта в кадре"
-          >
-            Детектор
-          </button>
-          <button
-            type="button"
-            onClick={() => void copyShareLink()}
-            className={`h-8 px-2.5 font-mono text-[11px] ${hqHudButtonClass(false)}`}
-            title="Скопировать ссылку на текущий вид: камера, слои, стиль, выделенная точка"
-          >
-            Поделиться
-          </button>
-          <HqGeoScenes onPick={applyScene} />
-          <HqGeoAnalyst
-            viewer={viewerForHud}
-            focus={passesObserver}
-            onFly={(lat, lon) => {
-              const live = viewerRef.current;
-              if (!live) return;
-              void live.camera.flyTo({
-                destination: CesiumNS.Cartesian3.fromDegrees(lon, lat, 1_500_000),
-                duration: 1.4,
-              });
-            }}
-          />
-          <HqGeoDirector viewer={viewerForHud} />
-          <HqGeoWhiteboard />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">
-            {t("hqGeo.liveLayers")}
-          </span>
-          {LIVE_LAYERS.map((layer) => {
-            const on = activeLive.includes(layer.id);
-            const needsKey = layer.needsKey && !layerAvailable(layer.id);
-            return (
-              <span
-                key={layer.id}
-                title={needsKey ? t("hqGeo.layerNeedsKey", { name: layer.label, env: layer.keyEnv ?? "" }) : layer.source}
-                className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] ${
-                  needsKey ? "text-amber-300/60" : on ? "text-emerald-300/90" : "text-white/50"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${needsKey ? "bg-amber-400/60" : on ? "bg-emerald-400 shadow-[0_0_6px_rgba(16,255,160,0.8)]" : "bg-white/30"}`} />
-                {layer.label}
-                {needsKey ? <span className="text-[9px] text-amber-300/60">·ключ</span> : null}
-              </span>
-            );
-          })}
-        </div>
+              <span className={`h-1.5 w-1.5 rounded-full ${needsKey ? "bg-amber-400/60" : on ? "bg-emerald-400 shadow-[0_0_6px_rgba(16,255,160,0.8)]" : "bg-white/30"}`} />
+              {layer.label}
+              {needsKey ? <span className="text-[9px] text-amber-300/60">·ключ</span> : null}
+            </span>
+          );
+        })}
       </div>
 
-      {/* Camera controls (top-right, right under the close button). */}
-      <HqGeoCameraControls
-        viewer={viewerForHud}
-        onReset={() => {
-          trackerRef.current?.clear();
-          setCockpitOn(false);
-          setPassesObserver(null);
-          setSceneCaption(null);
-        }}
-      />
-
-      {/* Legend (top-right, under the camera controls). */}
-      <div className={`absolute right-3 top-28 z-10 flex flex-col gap-1 p-2 ${HQ_HUD_GLASS}`}>
+      {/* Legend (top-right, right under the close button). */}
+      <div className={`absolute right-3 top-14 z-10 flex flex-col gap-1 p-2 ${HQ_HUD_GLASS}`}>
         {(Object.keys(GEO_KIND_STYLE) as Array<keyof typeof GEO_KIND_STYLE>).map((kind) => (
           <div key={kind} className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GEO_KIND_STYLE[kind].color }} />
@@ -727,25 +414,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           >
             {notice}
           </button>
-        </div>
-      ) : null}
-
-      {/* Share-link toast. */}
-      {shareNotice ? (
-        <div className="absolute top-16 left-1/2 z-10 -translate-x-1/2">
-          <span className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-200 ${HQ_HUD_GLASS}`}>
-            {shareNotice}
-          </span>
-        </div>
-      ) : null}
-
-      {/* Scene caption — appears when a preset is picked, fades after 6s. */}
-      {sceneCaption ? (
-        <div className="absolute top-20 left-1/2 z-10 -translate-x-1/2 max-w-[520px]">
-          <div className={`px-4 py-2 text-center ${HQ_HUD_GLASS}`}>
-            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-amber-200">Сюжет</div>
-            <div className="mt-1 font-mono text-[12px] text-white/90">{sceneCaption}</div>
-          </div>
         </div>
       ) : null}
 
@@ -847,20 +515,6 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
           ) : null}
         </div>
       ) : null}
-
-      {/* Shift-click any point on the globe to list the next visible passes of any
-          loaded satellite over that point in the next 24 hours. */}
-      <HqGeoPassesPanel observer={passesObserver} onClose={() => setPassesObserver(null)} />
-
-      {/* Tactical HUD overlay — corner reticles, centre cross-hair, camera
-          telemetry, contact tally, tracked-target lock. */}
-      {hudOn ? <HqGeoHud viewer={viewerForHud} counts={hudCounts} trackedTitle={tracked?.title ?? null} /> : null}
-
-      {/* Screen-space detection overlay: a bounding box + ID around each visible contact. */}
-      {detectionOn ? <HqGeoDetection viewer={viewerForHud} /> : null}
-
-      {/* Minimap overview — SVG inset, no second globe. Click to fly. */}
-      <HqGeoMinimap viewer={viewerForHud} />
 
       {/* Attribution footer: Cesium's credit display lands in creditRef; our own
           notes sit beside it. */}

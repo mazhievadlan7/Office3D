@@ -6,7 +6,7 @@ import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { PCFShadowMap, WebGLRenderer } from "three";
 
 import { t } from "@/lib/i18n";
-import { geoController, HqGeoWall } from "./geo";
+import { geoController } from "./geo";
 import { loadHqAssignments, saveHqAssignments } from "./core/assignments";
 import {
   HQ_DEFAULT_CAPACITY,
@@ -253,11 +253,12 @@ export function HqOffice({
   const quality: HqQuality = "high";
   const [dpr] = useState(() => Math.min(HQ_MAX_DPR, Math.max(1, window.devicePixelRatio || 1)));
   const [cameraMode, setCameraMode] = useState<HqCameraMode>("overview");
-  // The «ГЕО» geo-view: the full-screen CesiumJS globe (geoOpen) and the cheap
-  // video-wall preview (geoWallOn), summoned independently.
+  // The «ГЕО» geo-view — one full-screen CesiumJS globe for both actions
+  // («ГЕО» and the former «ГЕО·стена» button). The old 2D wall preview is
+  // gone — the only globe we show is the realistic one.
   const [geoOpen, setGeoOpen] = useState(false);
-  const [geoWallOn, setGeoWallOn] = useState(false);
-  const toggleGeoWall = useCallback(() => setGeoWallOn((on) => !on), []);
+  const geoWallOn = false;
+  const toggleGeoWall = useCallback(() => setGeoOpen((on) => !on), []);
   const openGeo = useCallback(() => setGeoOpen(true), []);
   const closeGeo = useCallback(() => setGeoOpen(false), []);
   // The «РАЗВЕДКА / OSINT» view, summoned like the globe.
@@ -353,25 +354,21 @@ export function HqOffice({
     };
   }, []);
   // The «ГЕО» trigger seam: window.__hqGeo(lat?, lon?) opens the full-screen
-  // globe (and flies to a point when given one); window.__hqGeoWall(on?) toggles
-  // the wall preview. Exposed for the dev console and, later, our local voice
-  // command — so it lives outside the dev-only block above. setState setters are
-  // stable, so this runs once.
+  // globe (and flies to a point when given one). Exposed for the dev console
+  // and, later, our local voice command — so it lives outside the dev-only
+  // block above. setState setters are stable, so this runs once.
   useEffect(() => {
     const w = window as unknown as {
       __hqGeo?: (lat?: number, lon?: number) => void;
-      __hqGeoWall?: (on?: boolean) => void;
       __hqOsint?: () => void;
     };
     w.__hqGeo = (lat, lon) => {
       if (typeof lat === "number" && typeof lon === "number") geoController.flyTo(lat, lon);
       setGeoOpen(true);
     };
-    w.__hqGeoWall = (on) => setGeoWallOn((current) => (on === undefined ? !current : Boolean(on)));
     w.__hqOsint = () => setOsintOpen(true);
     return () => {
       delete w.__hqGeo;
-      delete w.__hqGeoWall;
       delete w.__hqOsint;
     };
   }, []);
@@ -721,8 +718,8 @@ export function HqOffice({
           />
           <HqSoundscape simRef={simRef} enabled={soundOn} subtitleSinkRef={captionsOn ? subtitleSinkRef : undefined} />
           <HqCreatorWatch simRef={simRef} />
-          {/* The cheap ГЕО preview on the video wall, mounted only while summoned. */}
-          {geoWallOn ? <HqGeoWall wall={layout.mapWall} /> : null}
+          {/* The 2D wall-globe preview was removed — the globe is realistic
+              CesiumJS only, opened full-screen via openGeo. */}
         </Canvas>
         <div
           aria-hidden={introPlaying}
