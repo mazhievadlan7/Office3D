@@ -44,6 +44,7 @@ import { HqGeoDetection } from "./HqGeoDetection";
 import { HqGeoAnalyst } from "./HqGeoAnalyst";
 import { HqGeoDirector } from "./HqGeoDirector";
 import { HqGeoWhiteboard } from "./HqGeoWhiteboard";
+import { HqGeoCameraControls } from "./HqGeoCameraControls";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -697,8 +698,19 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
         </div>
       </div>
 
-      {/* Legend (top-right, under close). */}
-      <div className={`absolute right-3 top-14 z-10 flex flex-col gap-1 p-2 ${HQ_HUD_GLASS}`}>
+      {/* Camera controls (top-right, right under the close button). */}
+      <HqGeoCameraControls
+        viewer={viewerForHud}
+        onReset={() => {
+          trackerRef.current?.clear();
+          setCockpitOn(false);
+          setPassesObserver(null);
+          setSceneCaption(null);
+        }}
+      />
+
+      {/* Legend (top-right, under the camera controls). */}
+      <div className={`absolute right-3 top-28 z-10 flex flex-col gap-1 p-2 ${HQ_HUD_GLASS}`}>
         {(Object.keys(GEO_KIND_STYLE) as Array<keyof typeof GEO_KIND_STYLE>).map((kind) => (
           <div key={kind} className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GEO_KIND_STYLE[kind].color }} />
