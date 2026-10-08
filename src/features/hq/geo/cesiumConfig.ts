@@ -161,16 +161,18 @@ export type RealismHandle = { mode: RealismMode; disable(): void };
 export async function enablePhotoreal(viewer: Cesium.Viewer): Promise<RealismHandle> {
   const scene = viewer.scene;
   if (GOOGLE_3DTILES_KEY) {
+    // Google Photorealistic 3D Tiles cover the whole Earth. The imagery globe
+    // stays underneath — Google tiles are opaque, so where they stream in they
+    // naturally mask the imagery; everywhere else the imagery stays visible,
+    // and the view never goes blank. From a whole-globe view the tileset
+    // streams gradually; up close it dominates with real 3D buildings.
     const tileset = await Cesium.createGooglePhotorealistic3DTileset({ key: GOOGLE_3DTILES_KEY });
     scene.primitives.add(tileset);
-    // The photoreal tiles are the surface now; hide the imagery globe under them.
-    scene.globe.show = false;
     scene.requestRender();
     return {
       mode: "google",
       disable() {
         scene.primitives.remove(tileset);
-        scene.globe.show = true;
         scene.requestRender();
       },
     };

@@ -163,8 +163,10 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   const [basemap, setBasemap] = useState<GeoBasemapId>(DEFAULT_BASEMAP);
   const [activeLive, setActiveLive] = useState<LiveLayerId[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const [realismOn, setRealismOn] = useState(false);
-  const [realismBusy, setRealismBusy] = useState(false);
+  // Realism tier is managed by the realismHandleRef; the flags below just track
+  // "is anything mounted / are we currently loading" for internal use.
+  const [, setRealismOn] = useState(false);
+  const [, setRealismBusy] = useState(false);
   const [sensorStyle, setSensorStyle] = useState<SensorStyle>("clean");
   const [camera, setCamera] = useState<GeoCameraInfo | null>(null);
   const [tracked, setTracked] = useState<TrackedInfo | null>(null);
@@ -288,6 +290,23 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
       );
     });
 
+    // Realism tier starts automatically — the owner opens ГЕО and the best tier
+    // the keys allow is live without a toggle. The imagery globe stays visible
+    // under Google tiles until the camera descends (handled inside enablePhotoreal).
+    queueMicrotask(() => {
+      if (realismHandleRef.current) return;
+      setRealismBusy(true);
+      enablePhotoreal(viewer)
+        .then((handle) => {
+          realismHandleRef.current = handle;
+          setRealismOn(true);
+        })
+        .catch((error: unknown) =>
+          setNotice(t("hqGeo.layerError", { detail: error instanceof Error ? error.message : String(error) })),
+        )
+        .finally(() => setRealismBusy(false));
+    });
+
     // Universal click: a public webcam pin opens its thumbnail (DOM, kept out of
     // WebGL so cross-origin images never taint the canvas); any other entity
     // becomes the tracked target — camera-lock, fading trail, metadata popup.
@@ -388,28 +407,9 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
   // the UI shows only a status strip now — no manual toggles. This keeps the
   // view "open and everything is there", matching the source project's model.
 
-  // «РЕАЛИЗМ»: photoreal 3D tiles / world terrain (keyed) or an Esri imagery
-  // overlay (keyless). Off reverts exactly what it added.
-  const toggleRealism = useCallback(() => {
-    const viewer = viewerRef.current;
-    if (!viewer || realismBusy) return;
-    if (realismHandleRef.current) {
-      realismHandleRef.current.disable();
-      realismHandleRef.current = null;
-      setRealismOn(false);
-      return;
-    }
-    setRealismBusy(true);
-    enablePhotoreal(viewer)
-      .then((handle) => {
-        realismHandleRef.current = handle;
-        setRealismOn(true);
-      })
-      .catch((error: unknown) =>
-        setNotice(t("hqGeo.layerError", { detail: error instanceof Error ? error.message : String(error) })),
-      )
-      .finally(() => setRealismBusy(false));
-  }, [realismBusy]);
+  // Realism (photoreal 3D tiles / world terrain / esri imagery) is enabled
+  // automatically at mount — no manual toggle. See the auto-start useEffect
+  // block above.
 
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const copyShareLink = useCallback(async () => {
@@ -610,16 +610,11 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
               {option.egress ? <span className="ml-1 text-[9px] text-white/45">·сеть</span> : null}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={toggleRealism}
-            disabled={realismBusy}
-            title={t("hqGeo.realismHint", { mode: REALISM_MODE })}
-            className={`h-8 px-2.5 font-mono text-[11px] disabled:opacity-50 ${hqHudButtonClass(realismOn)}`}
-          >
-            {t("hqGeo.realism")}
-            <span className="ml-1 text-[9px] text-white/45">·{REALISM_MODE}</span>
-          </button>
+          {/* Realism is auto-on at mount — no manual button. The small label
+              right of the basemap row tells the owner which tier is live. */}
+          <span className="px-1 font-mono text-[9px] uppercase tracking-[0.12em] text-white/45" title={t("hqGeo.realismHint", { mode: REALISM_MODE })}>
+            реализм · {REALISM_MODE}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60">

@@ -51,7 +51,7 @@ export const DEMO_SCENES: readonly GeoScene[] = [
     caption: "Горный коридор, где активная сейсмика и ледниковые паводки.",
     detail:
       "Фокус на Непал и Тибет. Слой землетрясений показывает активные афтершоки на разломе; слой циклонов не задевает регион — он для контекста соседних морей.",
-    camera: { lat: 28.0, lon: 85.5, height: 2_200_000, heading: 0, pitch: -55 },
+    camera: { lat: 27.9881, lon: 86.9250, height: 9_500, heading: 180, pitch: -15 },
     observer: { lat: 27.7172, lon: 85.3240 }, // Kathmandu
     style: "clean",
     basemap: "esri",
@@ -82,7 +82,7 @@ export const DEMO_SCENES: readonly GeoScene[] = [
     caption: "Главный пусковой коридор США — следи за ближайшим стартом.",
     detail:
       "Пуски из Launch Library появляются подписанными точками, в кадре видны CCSFS, KSC и соседние площадки.",
-    camera: { lat: 28.5, lon: -80.6, height: 150_000, heading: 20, pitch: -45 },
+    camera: { lat: 28.56, lon: -80.58, height: 2_500, heading: 20, pitch: -25 },
     observer: { lat: 28.5618, lon: -80.5772 },
     style: "clean",
     basemap: "esri",
@@ -92,7 +92,7 @@ export const DEMO_SCENES: readonly GeoScene[] = [
     name: "Нуар · Лондон",
     caption: "Киноплан: Лондон в чёрно-белом «нуаре» с виньеткой.",
     detail: "Пример одного из кинематографических сенсорных стилей на знакомом городе.",
-    camera: { lat: 51.5074, lon: -0.1278, height: 150_000, heading: 15, pitch: -45 },
+    camera: { lat: 51.5007, lon: -0.1245, height: 1_200, heading: 220, pitch: -22 },
     style: "noir",
     basemap: "esri",
   },
