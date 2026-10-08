@@ -45,6 +45,7 @@ import { HqGeoAnalyst } from "./HqGeoAnalyst";
 import { HqGeoDirector } from "./HqGeoDirector";
 import { HqGeoWhiteboard } from "./HqGeoWhiteboard";
 import { HqGeoCameraControls } from "./HqGeoCameraControls";
+import { HqGeoMinimap } from "./HqGeoMinimap";
 
 const SENSOR_STYLES: ReadonlyArray<{ id: SensorStyle; labelKey: TranslationKey }> = [
   { id: "clean", labelKey: "hqGeo.styleClean" },
@@ -862,6 +863,9 @@ export function HqGeoView({ onClose }: HqGeoViewProps) {
 
       {/* Screen-space detection overlay: a bounding box + ID around each visible contact. */}
       {detectionOn ? <HqGeoDetection viewer={viewerForHud} /> : null}
+
+      {/* Minimap overview — SVG inset, no second globe. Click to fly. */}
+      <HqGeoMinimap viewer={viewerForHud} />
 
       {/* Attribution footer: Cesium's credit display lands in creditRef; our own
           notes sit beside it. */}
